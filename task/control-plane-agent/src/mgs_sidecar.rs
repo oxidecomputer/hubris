@@ -24,10 +24,11 @@ use gateway_messages::{
     EcdsaSha2Nistp256Challenge, IgnitionCommand, IgnitionState, MgsError,
     MgsRequest, MgsResponse, MonorailComponentAction,
     MonorailComponentActionResponse, MonorailError as GwMonorailError,
-    PcieRegisterRead, PowerState, PowerStateTransition, RotBootInfo,
-    RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
-    SpError, SpStateV2, SpUpdatePrepare, UnlockChallenge, UnlockResponse,
-    UpdateChunk, UpdateId, UpdateStatus, ignition,
+    PcieRegisterRead, PmbusStatus, PowerRailName, PowerState,
+    PowerStateTransition, RotBootInfo, RotRequest, RotResponse, SensorRequest,
+    SensorResponse, SpComponent, SpError, SpStateV2, SpUpdatePrepare,
+    UnlockChallenge, UnlockResponse, UpdateChunk, UpdateId, UpdateStatus,
+    ignition,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -1227,6 +1228,13 @@ impl SpHandler for MgsHandler {
             slot: 0
         }));
         Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn get_pmbus_status(
+        &mut self,
+        rail: &PowerRailName,
+    ) -> Result<PmbusStatus, SpError> {
+        self.common.get_pmbus_status(rail)
     }
 }
 

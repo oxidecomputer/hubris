@@ -15,9 +15,10 @@ use gateway_messages::{
     ComponentAction, ComponentActionResponse, ComponentDetails,
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
     IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
-    PowerState, PowerStateTransition, RotBootInfo, RotRequest, RotResponse,
-    SensorRequest, SensorResponse, SpComponent, SpError, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus, ignition,
+    PmbusStatus, PowerRailName, PowerState, PowerStateTransition, RotBootInfo,
+    RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
+    SpError, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ignition,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -701,5 +702,12 @@ impl SpHandler for MgsHandler {
             slot: 0
         }));
         Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn get_pmbus_status(
+        &mut self,
+        rail: &PowerRailName,
+    ) -> Result<PmbusStatus, SpError> {
+        self.common.get_pmbus_status(rail)
     }
 }

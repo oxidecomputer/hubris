@@ -19,11 +19,11 @@ use gateway_messages::{
     ComponentDetails, ComponentUpdatePrepare, DiscoverResponse, DumpSegment,
     DumpTask, GpioToggleCount, Header, IgnitionCommand, IgnitionState,
     LastPostCode, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
-    PmbusStatus, PmbusStatusError, PmbusStatusReadError, PostCode,
-    PowerRailName, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
-    RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT, SensorRequest, SensorResponse,
-    SpComponent, SpError, SpPort as GwSpPort, SpRequest, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus, ignition,
+    PmbusStatus, PostCode, PowerRailName, PowerState, PowerStateTransition,
+    RotBootInfo, RotRequest, RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpPort as GwSpPort,
+    SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ignition,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -1265,56 +1265,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         rail: &PowerRailName,
     ) -> Result<PmbusStatus, SpError> {
-        // Get the name as a binary string, up to the first zero
-        let name = rail.as_bstr();
-
-        // Can we find the given rail in our list of sorted PMBus rails?
-        let idx = crate::PMBUS_RAIL_TO_I2C_DEVICE_MAP
-            .binary_search_by_key(&name, |(mname, _mfn)| mname.as_bytes())
-            .map_err(|_| SpError::PmbusStatus(PmbusStatusError::UnknownRail))?;
-
-        // Yep! Call the i2c-generated function to get back an I2cDevice
-        // and the rail index necessary to call the status function
-        let (_name, func) = &crate::PMBUS_RAIL_TO_I2C_DEVICE_MAP[idx];
-        let (device, rail_idx) = func(crate::I2C.get_task_id());
-
-        // Local version of `impl From<i2c::PmbusStatusError> for mgs::PmbusStatusReadError`
-        fn err_fixer(
-            val: drv_i2c_devices::PmbusStatusError,
-        ) -> PmbusStatusReadError {
-            match val {
-                drv_i2c_devices::PmbusStatusError::BadRead { cmd: _, code } => {
-                    PmbusStatusReadError::DriverReadFailed {
-                        response_code: code as u8,
-                    }
-                }
-                drv_i2c_devices::PmbusStatusError::BadData { cmd: _ } => {
-                    PmbusStatusReadError::InvalidBusData
-                }
-            }
-        }
-
-        // `PmbusStatus::try_read_from` only fails if querying STATUS_WORD
-        // isn't successful. Plumb the errors as necessary if that happens.
-        let status =
-            drv_i2c_devices::PmbusStatus::try_read_from(&device, rail_idx)
-                .map_err(err_fixer)
-                .map_err(PmbusStatusError::FailedStatusWord)
-                .map_err(SpError::PmbusStatus)?;
-
-        // We got *at least* STATUS_WORD! Time to tell everyone about it.
-        Ok(PmbusStatus {
-            status_word: status.status_word,
-            status_vout: status.status_vout.map_err(err_fixer),
-            status_iout: status.status_iout.map_err(err_fixer),
-            status_temperature: status.status_temperature.map_err(err_fixer),
-            status_cml: status.status_cml.map_err(err_fixer),
-            status_other: status.status_other.map_err(err_fixer),
-            status_input: status.status_input.map_err(err_fixer),
-            status_mfr_specific: status.status_mfr_specific.map_err(err_fixer),
-            status_fans_1_2: status.status_fans_1_2.map_err(err_fixer),
-            status_fans_3_4: status.status_fans_3_4.map_err(err_fixer),
-        })
+        self.common.get_pmbus_status(rail)
     }
 }
 
