@@ -129,8 +129,21 @@ impl Inventory {
         if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
         }
+
+        // NOTE: the `from_bstr_unchecked` method expects that:
+        //
+        // 1. The given bytes contain utf-8 data
+        // 2. The given slice is <= SpComponent::MAX_ID_LENGTH
+        //
+        // Since we pass the bytes of a `str` (always good utf-8!), and our
+        // `str`s are built (and length-checked) at compile time, use of this
+        // method is justified. You don't see an unsafe block here, because
+        // SpComponent can be received over the wire, so even if we violated
+        // the rules above, there would be no potential soundness concerns.
+        let component = SpComponent::from_bstr_unchecked(device.id.as_bytes());
+
         DeviceDescription {
-            component: SpComponent::from_bstr_unchecked(device.id.as_bytes()),
+            component,
             device: device.device,
             description: device.description,
             capabilities,
@@ -178,6 +191,9 @@ impl TryFrom<&'_ SpComponent> for Index {
     type Error = SpError;
 
     fn try_from(component: &'_ SpComponent) -> Result<Self, Self::Error> {
+        // TODO(AJM): implement PartialEq/PartialOrd for `SpComponent` et. al,
+        // then make this nicer. We'll want this for some follow-up PMBus
+        // changes as well.
         if let Ok(entry_idx) = task_validate_api::DEVICE_INDICES_BY_SORTED_ID
             .binary_search_by_key(&component.as_bstr(), |&(id, _)| {
                 id.as_bytes()
