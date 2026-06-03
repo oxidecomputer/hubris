@@ -78,16 +78,32 @@ fn do_pmbus() -> Result<(), anyhow::Error> {
     // Create a mapping between rail names and generated accessor functions for obtaining
     // the device handle and rail index
     writeln!(file)?;
+    writeln!(file, "/// Type returned by generated pmbus rail functions")?;
     writeln!(
         file,
-        "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [(&str, fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, u8)); {}] = [",
+        "pub type SummonFn = fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, u8);"
+    )?;
+    writeln!(file)?;
+    writeln!(file, "pub struct PmbusRailBinding {{")?;
+    writeln!(file, "    pub name: &'static str,")?;
+    writeln!(file, "    pub summon_fn: SummonFn,")?;
+    writeln!(file, "}}")?;
+    writeln!(file)?;
+    writeln!(
+        file,
+        "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [PmbusRailBinding; {}] = [",
         pmbus_rail_names.len()
     )?;
     for rail in pmbus_rail_names.iter() {
-        write!(file, "    (\"{rail}\", ")?;
+        write!(file, "    PmbusRailBinding {{ ")?;
+        write!(file, "name: \"{rail}\", ")?;
         // build_i2c *also* only to-lowercases the rail names to make functions
-        write!(file, "crate::i2c_config::pmbus::{}", rail.to_lowercase())?;
-        writeln!(file, "),")?;
+        write!(
+            file,
+            "summon_fn: crate::i2c_config::pmbus::{}",
+            rail.to_lowercase()
+        )?;
+        writeln!(file, "}},")?;
     }
     writeln!(file, "];")?;
 
