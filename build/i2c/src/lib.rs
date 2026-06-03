@@ -1227,7 +1227,7 @@ impl ConfigGenerator {
         let pkg = metadata
             .packages
             .iter()
-            .find(|p| p.name == "drv-i2c-devices")
+            .find(|p| p.name.as_str() == "drv-i2c-devices")
             .context("failed to find drv-i2c-devices")?;
 
         let dir = pkg
@@ -1237,7 +1237,7 @@ impl ConfigGenerator {
 
         let mut drivers = std::collections::HashSet::new();
 
-        println!("cargo::rerun-if-changed={}", dir.join("src").display());
+        println!("cargo::rerun-if-changed={}", dir.join("src"));
 
         for entry in std::fs::read_dir(dir.join("src"))? {
             if let Some(f) = entry?.path().file_name()

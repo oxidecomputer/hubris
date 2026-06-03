@@ -59,7 +59,7 @@ impl PackageGraph {
         let packages = metadata
             .packages
             .into_iter()
-            .map(|p| (p.name.clone(), p))
+            .map(|p| (p.name.as_str().to_string(), p))
             .collect::<BTreeMap<_, _>>();
         Self(packages)
     }
@@ -335,7 +335,7 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
         // TODO: we parse the PackageConfig multiple times here, which may be
         // slow (but probably not slower than `cargo metadata` above)
         let file = root.join(&c.toml);
-        let app_cfg = PackageConfig::new(&file, false, false)
+        let app_cfg = PackageConfig::new(file.as_std_path(), false, false)
             .context(format!("could not open {file:?}"))?;
         if let Some(out) =
             check_task(&package_name, &c.task, &c.toml, &app_cfg, &packages)
@@ -356,7 +356,7 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
     let preferred_task = std::env::var("HUBRIS_TASK").ok();
     for app_name in &preferred_apps {
         let file = root.join(app_name);
-        let app_cfg = PackageConfig::new(&file, false, false)
+        let app_cfg = PackageConfig::new(file.as_std_path(), false, false)
             .context(format!("could not open {file:?}"))?;
 
         // See if we can find a valid task within this app_cfg

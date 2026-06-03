@@ -1002,24 +1002,23 @@ fn build_archive(
                         let pkg = metadata
                             .packages
                             .iter()
-                            .find(|p| p.name == task.name)
+                            .find(|p| p.name.as_str() == task.name)
                             .unwrap();
 
                         let dir = pkg.manifest_path.parent().unwrap();
 
                         let f = dir.join(s);
                         let task_dir = PathBuf::from("task").join(name);
-                        for f in glob::glob(f.to_str().unwrap())? {
+                        for f in glob::glob(f.as_str())? {
                             let f = f?;
                             let task_file = f.strip_prefix(dir)?;
                             archive
                                 .copy(&f, task_dir.join(task_file))
                                 .with_context(|| {
                                     format!(
-                                    "task {name}: failed to copy \"{s}\" in {} \
-                                    into the archive",
-                                    dir.display()
-                                )
+                                        "task {name}: failed to copy \"{s}\"
+                                        in {dir} into the archive",
+                                    )
                                 })?;
                         }
                     }
@@ -3044,7 +3043,7 @@ struct Archive {
     /// ZIP output to the temporary file.
     inner: zip::ZipWriter<File>,
     /// Options used for every file.
-    opts: zip::write::FileOptions,
+    opts: zip::write::FileOptions<'static, ()>,
 }
 
 impl Archive {
@@ -3060,13 +3059,13 @@ impl Archive {
         let mut inner = zip::ZipWriter::new(archive);
         inner.set_comment(format!(
             "hubris build archive v{HUBRIS_ARCHIVE_VERSION}"
-        ));
+        ))?;
         Ok(Self {
             final_path,
             tmp_path,
             inner,
             opts: zip::write::FileOptions::default()
-                .compression_method(zip::CompressionMethod::Deflated),
+                .compression_method(zip::CompressionMethod::Bzip2),
         })
     }
 
@@ -3115,11 +3114,10 @@ impl Archive {
         let Self {
             tmp_path,
             final_path,
-            mut inner,
+            inner,
             ..
         } = self;
         inner.finish()?;
-        drop(inner);
         std::fs::rename(tmp_path, final_path)?;
         Ok(())
     }
