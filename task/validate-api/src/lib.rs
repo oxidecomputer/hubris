@@ -74,7 +74,7 @@ pub struct DeviceDescription {
     pub device: &'static str,
     pub description: &'static str,
     pub sensors: &'static [SensorDescription],
-    pub id: [u8; MAX_ID_LENGTH],
+    pub id: &'static str,
     pub is_pmbus: bool,
 }
 
