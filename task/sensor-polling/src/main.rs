@@ -7,8 +7,10 @@
 #![no_std]
 #![no_main]
 
+use drv_i2c_devices::TempSensor;
 use drv_i2c_devices::mwocp67::{Error as Mwocp67Error, Mwocp67};
 use drv_i2c_devices::mwocp68::{Error as Mwocp68Error, Mwocp68};
+use drv_i2c_devices::tmp117::{Error as Tmp117Error, Tmp117};
 use ringbuf::*;
 use task_sensor_api::{Sensor, SensorId};
 use userlib::*;
@@ -22,12 +24,14 @@ task_slot!(SENSOR, sensor);
 pub enum Device {
     Mwocp67,
     Mwocp68,
+    Tmp117,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
     Mwocp67Error(Mwocp67Error),
     Mwocp68Error(Mwocp68Error),
+    Tmp117Error(Tmp117Error),
 }
 
 impl From<Error> for task_sensor_api::NoData {
@@ -48,6 +52,9 @@ impl From<Error> for task_sensor_api::NoData {
                 Mwocp68Error::BadData { .. }
                 | Mwocp68Error::InvalidData { .. } => Self::DeviceError,
                 _ => Self::DeviceError,
+            },
+            Error::Tmp117Error(e) => match e {
+                Tmp117Error::BadRegisterRead { code, .. } => code.into(),
             },
         }
     }
@@ -131,6 +138,21 @@ impl TemperatureSensor {
                     }
                 }
             }
+            Device::Tmp117 => {
+                for &s in self.temperature_sensors.iter() {
+                    let m = Tmp117::new(&dev);
+                    match m.read_temperature() {
+                        Ok(v) => sensor_api.post_now(s, v.0),
+                        Err(e) => {
+                            let e = Error::Tmp117Error(e);
+                            ringbuf_entry!(Trace::TemperatureReadFailed(s, e));
+                            sensor_api.nodata_now(s, e.into())
+                        }
+                    }
+                }
+                // The tmp117 is just a temperature sensor, not a speed sensor.
+                assert_eq!(self.speed_sensors.len(), 0);
+            }
         };
     }
 }
@@ -210,7 +232,7 @@ static SENSORS: [TemperatureSensor; 6] = [
 ];
 
 #[cfg(target_board = "observer-a")]
-static SENSORS: [TemperatureSensor; 6] = [
+static SENSORS: [TemperatureSensor; 7] = [
     TemperatureSensor::new(
         Device::Mwocp67,
         devices::mwocp67_psu0mcu,
@@ -246,6 +268,12 @@ static SENSORS: [TemperatureSensor; 6] = [
         devices::mwocp67_psu5mcu,
         &sensors::MWOCP67_PSU5MCU_TEMPERATURE_SENSORS,
         &[sensors::MWOCP67_PSU5MCU_SPEED_SENSOR],
+    ),
+    TemperatureSensor::new(
+        Device::Tmp117,
+        devices::tmp117_onboard,
+        &[sensors::TMP117_ONBOARD_TEMPERATURE_SENSOR],
+        &[],
     ),
 ];
 

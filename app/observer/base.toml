@@ -408,8 +408,10 @@ af = 4
 bus = "temp"
 address = 0b1001_000
 device = "tmp117"
-description = "Temperature sensor"
+description = "Onboard temperature sensor"
 refdes = "U29"
+name = "onboard"
+sensors = { temperature = 1 }
 
 [[config.i2c.devices]]
 bus = "local"
