@@ -2,10 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::Context;
+use anyhow::{Context, bail};
 use serde::Deserialize;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -36,37 +36,29 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         write_keys(cfg)?;
     }
 
+    // Generate the necessary rail names
+    build_i2c::codegen(build_i2c::Disposition::Devices).inspect_err(|e| {
+        println!("cargo::error=failed to generate I2C devices: {e}");
+    })?;
+
     do_pmbus()?;
 
     Ok(())
 }
 
-fn do_pmbus() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn do_pmbus() -> Result<(), anyhow::Error> {
     let out_dir = std::env::var("OUT_DIR")?;
-    let dest_path =
-        std::path::Path::new(&out_dir).join("pmbus_mapping.rs");
+    let dest_path = Path::new(&out_dir).join("pmbus_mapping.rs");
     let file = std::fs::File::create(&dest_path)?;
     let mut file = std::io::BufWriter::new(file);
 
-    // Generate the necessary rail names
-    if let Err(e) = build_i2c::codegen(build_i2c::Disposition::Devices) {
-        println!("cargo::error=failed to generate I2C devices: {e}");
-        std::process::exit(1);
-    }
-
-    let devices = build_i2c::device_descriptions()
-        .collect::<Vec<_>>();
-
     let mut pmbus_rail_names = std::collections::BTreeSet::new();
     let mut pmbus_rail_dupes = 0;
-    for dev in devices {
+    for dev in build_i2c::device_descriptions() {
         // We only need to map PMBus devices
         let Some(ref pmbus) = dev.pmbus else {
             continue;
         };
-
-        // pmbus devices must have a refdes
-        assert!(dev.device_id.is_some());
 
         // Aggregate a list of all PMBus-visible rails
         for rail in pmbus.rails.iter() {
@@ -74,7 +66,11 @@ fn do_pmbus() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             // `BTreeMap::insert().is_some()`!
             if !pmbus_rail_names.insert(rail.name.clone()) {
                 pmbus_rail_dupes += 1;
-                println!("cargo::error=Duplicate Rail name: {:?}", rail.name);
+                println!(
+                    "cargo::error=PMBus device {} defines a power rail {:?} which already exists in the manifest",
+                    dev.device_id.as_deref().unwrap_or("(no ID)"),
+                    rail.name
+                );
             }
         }
     }
@@ -82,7 +78,11 @@ fn do_pmbus() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Create a mapping between rail names and generated accessor functions for obtaining
     // the device handle and rail index
     writeln!(file)?;
-    writeln!(file, "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [(&str, fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, u8)); {}] = [", pmbus_rail_names.len())?;
+    writeln!(
+        file,
+        "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [(&str, fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, u8)); {}] = [",
+        pmbus_rail_names.len()
+    )?;
     for rail in pmbus_rail_names.iter() {
         write!(file, "    (\"{rail}\", ")?;
         // build_i2c *also* only to-lowercases the rail names to make functions
@@ -91,7 +91,12 @@ fn do_pmbus() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     writeln!(file, "];")?;
 
-    assert_eq!(pmbus_rail_dupes, 0);
+    // This is supposed to be caught during I2C generation
+    if pmbus_rail_dupes != 0 {
+        bail!(
+            "duplicate PMBus rails: invalid application toml. This is a bug in build_i2c."
+        );
+    }
 
     Ok(())
 }

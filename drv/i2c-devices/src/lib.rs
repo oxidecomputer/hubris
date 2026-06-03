@@ -297,7 +297,7 @@ pub struct PmbusStatus {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PmbusStatusError {
     BadRead { cmd: u8, code: ResponseCode },
-    BadData { cmd: u8, },
+    BadData { cmd: u8 },
 }
 
 impl PmbusStatus {
@@ -307,23 +307,38 @@ impl PmbusStatus {
     /// device fails, otherwise returnining successfully even if "leaf" status bytes were unable
     /// to be read, either due to ephemeral hiccups, or that status byte being unsupported by
     /// the device queried.
-    pub fn try_read_from(dev: &I2cDevice, rail_idx: u8) -> Result<Self, PmbusStatusError> {
-        use pmbus::commands::*;
+    pub fn try_read_from(
+        dev: &I2cDevice,
+        rail_idx: u8,
+    ) -> Result<Self, PmbusStatusError> {
         use PmbusStatusError as Error;
+        use pmbus::commands::*;
 
         Ok(PmbusStatus {
             // Status word *must* succeed, otherwise we don't have reasonable data to return.
             // We may want to consider making some/all of these retryable, but for now you either
             // get them or you don't.
             status_word: pmbus_rail_read!(dev, rail_idx, STATUS_WORD)?.0,
-            status_vout: pmbus_rail_read!(dev, rail_idx, STATUS_VOUT).map(|v| v.0),
-            status_iout: pmbus_rail_read!(dev, rail_idx, STATUS_IOUT).map(|v| v.0),
-            status_temperature: pmbus_rail_read!(dev, rail_idx, STATUS_TEMPERATURE).map(|v| v.0),
-            status_cml: pmbus_rail_read!(dev, rail_idx, STATUS_CML).map(|v| v.0),
-            status_other: pmbus_rail_read!(dev, rail_idx, STATUS_OTHER).map(|v| v.0),
-            status_input: pmbus_rail_read!(dev, rail_idx, STATUS_INPUT).map(|v| v.0),
-            status_fans_1_2: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_1_2).map(|v| v.0),
-            status_fans_3_4: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_3_4).map(|v| v.0),
+            status_vout: pmbus_rail_read!(dev, rail_idx, STATUS_VOUT)
+                .map(|v| v.0),
+            status_iout: pmbus_rail_read!(dev, rail_idx, STATUS_IOUT)
+                .map(|v| v.0),
+            status_temperature: pmbus_rail_read!(
+                dev,
+                rail_idx,
+                STATUS_TEMPERATURE
+            )
+            .map(|v| v.0),
+            status_cml: pmbus_rail_read!(dev, rail_idx, STATUS_CML)
+                .map(|v| v.0),
+            status_other: pmbus_rail_read!(dev, rail_idx, STATUS_OTHER)
+                .map(|v| v.0),
+            status_input: pmbus_rail_read!(dev, rail_idx, STATUS_INPUT)
+                .map(|v| v.0),
+            status_fans_1_2: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_1_2)
+                .map(|v| v.0),
+            status_fans_3_4: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_3_4)
+                .map(|v| v.0),
 
             // Unfortunately, STATUS_MFR_SPECIFIC *is* defined in the pmbus crate, but doesn't have a
             // "structured" representation, so instead use a raw accessor. It *could* be argued
@@ -336,7 +351,8 @@ impl PmbusStatus {
                 rail_idx,
                 CommandCode::STATUS_MFR_SPECIFIC as u8,
                 1,
-            ).map(|v| v[0]),
+            )
+            .map(|v| v[0]),
         })
     }
 }

@@ -19,10 +19,11 @@ use gateway_messages::{
     ComponentDetails, ComponentUpdatePrepare, DiscoverResponse, DumpSegment,
     DumpTask, GpioToggleCount, Header, IgnitionCommand, IgnitionState,
     LastPostCode, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
-    PostCode, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
-    RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT, SensorRequest, SensorResponse,
-    SpComponent, SpError, SpPort as GwSpPort, SpRequest, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus, ignition, PowerRailName, PmbusStatus, PmbusStatusError
+    PmbusStatus, PmbusStatusError, PostCode, PowerRailName, PowerState,
+    PowerStateTransition, RotBootInfo, RotRequest, RotResponse,
+    SERIAL_CONSOLE_IDLE_TIMEOUT, SensorRequest, SensorResponse, SpComponent,
+    SpError, SpPort as GwSpPort, SpRequest, SpStateV2, SpUpdatePrepare,
+    UpdateChunk, UpdateId, UpdateStatus, ignition,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -1260,15 +1261,18 @@ impl SpHandler for MgsHandler {
         self.host_flash_update.get_hash(slot)
     }
 
-    fn get_pmbus_status(&mut self, rail: &PowerRailName)
-        -> Result<Result<PmbusStatus, PmbusStatusError>, SpError>
-    {
+    fn get_pmbus_status(
+        &mut self,
+        rail: &PowerRailName,
+    ) -> Result<Result<PmbusStatus, PmbusStatusError>, SpError> {
         let Some(name) = rail.as_str() else {
             panic!();
         };
 
         // TODO: Define error for "unknown rail"
-        let idx = crate::PMBUS_RAIL_TO_I2C_DEVICE_MAP.binary_search_by_key(&name, |row| row.0).unwrap();
+        let idx = crate::PMBUS_RAIL_TO_I2C_DEVICE_MAP
+            .binary_search_by_key(&name, |row| row.0)
+            .unwrap();
         let (_name, func) = &crate::PMBUS_RAIL_TO_I2C_DEVICE_MAP[idx];
         let (device, rail) = func(crate::I2C.get_task_id());
 
@@ -1276,7 +1280,9 @@ impl SpHandler for MgsHandler {
         let res = drv_i2c_devices::PmbusStatus::try_read_from(&device, rail);
 
         // TODO: Define mgs::PmbusStatusError variants for errors found in drv_i2c_devices::PmbusStatusError
-        fn err_fixer(_val: drv_i2c_devices::PmbusStatusError) -> PmbusStatusError {
+        fn err_fixer(
+            _val: drv_i2c_devices::PmbusStatusError,
+        ) -> PmbusStatusError {
             todo!()
         }
 
@@ -1285,11 +1291,15 @@ impl SpHandler for MgsHandler {
                 status_word: status.status_word,
                 status_vout: status.status_vout.map_err(err_fixer),
                 status_iout: status.status_iout.map_err(err_fixer),
-                status_temperature: status.status_temperature.map_err(err_fixer),
+                status_temperature: status
+                    .status_temperature
+                    .map_err(err_fixer),
                 status_cml: status.status_cml.map_err(err_fixer),
                 status_other: status.status_other.map_err(err_fixer),
                 status_input: status.status_input.map_err(err_fixer),
-                status_mfr_specific: status.status_mfr_specific.map_err(err_fixer),
+                status_mfr_specific: status
+                    .status_mfr_specific
+                    .map_err(err_fixer),
                 status_fans_1_2: status.status_fans_1_2.map_err(err_fixer),
                 status_fans_3_4: status.status_fans_3_4.map_err(err_fixer),
             })),
