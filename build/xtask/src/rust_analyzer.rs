@@ -142,12 +142,9 @@ pub fn run(
             .tasks
             .get(task_name)
             .ok_or_else(|| anyhow!("could not find task `{task_name}`"))?;
-        let build_cfg = app_cfg
-            .toml
-            .task_build_config(task_name, false, None)
-            .map_err(|_| {
-                anyhow!("could not get build config for {task_name}")
-            })?;
+        let build_cfg = app_cfg.task_build_config(task_name).map_err(|_| {
+            anyhow!("could not get build config for {task_name}")
+        })?;
 
         // Find the `--target` argument
         let mut iter = build_cfg.args.iter();
@@ -229,7 +226,7 @@ pub fn run(
         packages.sort_by_key(|p| std::cmp::Reverse(p.dir.components().count()));
 
         Some(LspConfig {
-            app_name: app_cfg.toml.name,
+            app_name: app_cfg.toml.name.clone(),
             task_name: task_name.to_owned(),
             extra_env: build_cfg.env,
             extra_args: build_cfg.args,

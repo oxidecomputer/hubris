@@ -8,6 +8,3 @@ xtask = "run --package xtask --"
 # overridden within xtask for Hubris programs, so this only affects host tools like
 # xtask.
 rustflags = ["-Zallow-features=proc_macro_diagnostic,used_with_arg,proc_macro_span"]
-
-[unstable]
-bindeps = true

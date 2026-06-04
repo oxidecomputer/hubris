@@ -107,7 +107,7 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
 }
 
 fn prepare_endoscope() -> Result<(), anyhow::Error> {
-    let key = "CARGO_BIN_FILE_ENDOSCOPE";
+    let key = "XTASK_BIN_FILE_ENDOSCOPE"; // populated by the build system
     println!("cargo::rerun-if-env-changed={key}");
     let elf_path = PathBuf::from(
         std::env::var(key)
