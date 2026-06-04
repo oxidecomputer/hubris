@@ -851,7 +851,7 @@ impl Mwocp68 {
         // This is a little silly, but it stops us from having to 6 separate
         // instances of the string "V54_PSU" in the binary...
         let mut name = *b"V54_PSUx";
-        name[7] = psu_label as u8;
+        name[name.len() - 1] = psu_label as u8;
         FixedString::try_from_utf8(&name[..]).unwrap_lite()
     }
 }
