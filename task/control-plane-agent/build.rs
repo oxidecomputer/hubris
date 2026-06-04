@@ -54,7 +54,7 @@ fn do_pmbus() -> Result<()> {
     let out = context_create_file(&dest_path)?;
     let mut file = std::io::BufWriter::new(out);
 
-    let mut pmbus_rail_names = std::collections::BTreeSet::new();
+    let mut pmbus_rails = std::collections::BTreeMap::new();
     let mut pmbus_rail_dupes = 0;
     for dev in build_i2c::device_descriptions() {
         // We only need to map PMBus devices
@@ -63,10 +63,11 @@ fn do_pmbus() -> Result<()> {
         };
 
         // Aggregate a list of all PMBus-visible rails
+        let multi_rail = pmbus.rails.len() != 1;
         for rail in pmbus.rails.iter() {
             // `BTreeSet::insert` return value means "is unique", which is the
             // inverse of `BTreeMap::insert().is_some()`!
-            if !pmbus_rail_names.insert(rail.name.clone()) {
+            if pmbus_rails.insert(rail.name.clone(), multi_rail).is_some() {
                 pmbus_rail_dupes += 1;
                 print!("cargo::error=PMBus device ");
                 print!(
@@ -87,17 +88,18 @@ fn do_pmbus() -> Result<()> {
     writeln!(
         file,
         "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [PmbusRailBinding; {}] = [",
-        pmbus_rail_names.len()
+        pmbus_rails.len()
     )?;
-    for rail in pmbus_rail_names.iter() {
+    for (rail, is_multi) in pmbus_rails.iter() {
         write!(file, "    PmbusRailBinding {{ ")?;
         write!(file, "name: \"{rail}\", ")?;
         // build_i2c *also* only to-lowercases the rail names to make functions
         write!(
             file,
-            "summon_fn: crate::i2c_config::pmbus::{}",
+            "summon_fn: crate::i2c_config::pmbus::{}, ",
             rail.to_lowercase()
         )?;
+        write!(file, "multi_rail: {is_multi} ")?;
         writeln!(file, "}},")?;
     }
     writeln!(file, "];")?;

@@ -766,6 +766,11 @@ impl MgsCommon {
         // and the rail index necessary to call the status function
         let info = &crate::PMBUS_RAIL_TO_I2C_DEVICE_MAP[idx];
         let (device, rail_idx) = (info.summon_fn)(crate::I2C.get_task_id());
+        let rail_idx = if info.multi_rail {
+            Some(rail_idx)
+        } else {
+            None
+        };
 
         // Local version of:
         // `impl From<i2c::PmbusStatusError> for mgs::PmbusStatusReadError`

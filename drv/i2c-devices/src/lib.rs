@@ -43,21 +43,27 @@ use drv_i2c_api::{I2cDevice, ResponseCode};
 use pmbus::commands::CommandCode;
 
 macro_rules! pmbus_read {
-    ($device:expr, $cmd:ident) => {
+    (@raw => $device:expr, $cmd_code:expr, $len:expr $(,)?) => {
         $device
-            .read_reg::<u8, [u8; $cmd::CommandData::len()]>(
-                $cmd::CommandData::code(),
+            .read_reg::<u8, [u8; $len]>(
+                $cmd_code,
             )
             .map_err(|code| Error::BadRead {
-                cmd: $cmd::CommandData::code(),
+                cmd: $cmd_code,
                 code,
             })
+    };
+    ($device:expr, $cmd:ident) => {{
+        let cmd_code = $cmd::CommandData::code();
+        const CMD_LEN: usize = $cmd::CommandData::len();
+
+        pmbus_read!(@raw => $device, cmd_code, CMD_LEN)
             .and_then(|rval| {
                 $cmd::CommandData::from_slice(&rval).ok_or(Error::BadData {
                     cmd: $cmd::CommandData::code(),
                 })
             })
-    };
+    }};
 
     ($device:expr, $dev:ident::$cmd:ident) => {{
         use $dev::$cmd;
@@ -309,7 +315,7 @@ impl PmbusStatus {
     /// queried.
     pub fn try_read_from(
         dev: &I2cDevice,
-        rail_idx: u8,
+        rail_idx: Option<u8>,
     ) -> Result<Self, PmbusStatusError> {
         // Keep the lines short
         use CommandCode as Cc;
@@ -324,19 +330,28 @@ impl PmbusStatus {
         // to obtain this information.
         fn get_byte(
             dev: &I2cDevice,
-            rail_idx: u8,
+            rail_idx: Option<u8>,
             cmd: CommandCode,
         ) -> Result<u8, PmbusStatusError> {
-            pmbus_rail_read!(@raw => dev, rail_idx, cmd as u8, 1).map(|v| v[0])
+            if let Some(rail_idx) = rail_idx {
+                pmbus_rail_read!(@raw => dev, rail_idx, cmd as u8, 1)
+            } else {
+                pmbus_read!(@raw => dev, cmd as u8, 1)
+            }
+            .map(|v| v[0])
         }
 
         fn get_u16(
             dev: &I2cDevice,
-            rail_idx: u8,
+            rail_idx: Option<u8>,
             cmd: CommandCode,
         ) -> Result<u16, PmbusStatusError> {
-            pmbus_rail_read!(@raw => dev, rail_idx, cmd as u8, 2)
-                .map(u16::from_le_bytes)
+            if let Some(rail_idx) = rail_idx {
+                pmbus_rail_read!(@raw => dev, rail_idx, cmd as u8, 2)
+            } else {
+                pmbus_read!(@raw => dev, cmd as u8, 2)
+            }
+            .map(u16::from_le_bytes)
         }
 
         Ok(PmbusStatus {

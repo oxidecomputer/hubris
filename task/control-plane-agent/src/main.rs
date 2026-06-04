@@ -637,6 +637,8 @@ pub type SummonFn = fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, u8);
 pub struct PmbusRailBinding {
     pub name: &'static str,
     pub summon_fn: SummonFn,
+    // todo: should the rail functions just return an option?
+    pub multi_rail: bool,
 }
 
 include!(concat!(env!("OUT_DIR"), "/pmbus_mapping.rs"));
