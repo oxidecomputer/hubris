@@ -62,32 +62,25 @@ fn do_pmbus() -> Result<(), anyhow::Error> {
 
         // Aggregate a list of all PMBus-visible rails
         for rail in pmbus.rails.iter() {
-            // `BTreeSet::insert` return value means "is unique", which is the inverse of
-            // `BTreeMap::insert().is_some()`!
+            // `BTreeSet::insert` return value means "is unique", which is the
+            // inverse of `BTreeMap::insert().is_some()`!
             if !pmbus_rail_names.insert(rail.name.clone()) {
                 pmbus_rail_dupes += 1;
+                print!("cargo::error=PMBus device ");
+                print!(
+                    "{} defines a power rail ",
+                    dev.device_id.as_deref().unwrap_or("(no ID)")
+                );
                 println!(
-                    "cargo::error=PMBus device {} defines a power rail {:?} which already exists in the manifest",
-                    dev.device_id.as_deref().unwrap_or("(no ID)"),
+                    "{:?} which already exists in the manifest",
                     rail.name
                 );
             }
         }
     }
 
-    // Create a mapping between rail names and generated accessor functions for obtaining
-    // the device handle and rail index
-    writeln!(file)?;
-    writeln!(file, "/// Type returned by generated pmbus rail functions")?;
-    writeln!(
-        file,
-        "pub type SummonFn = fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, u8);"
-    )?;
-    writeln!(file)?;
-    writeln!(file, "pub struct PmbusRailBinding {{")?;
-    writeln!(file, "    pub name: &'static str,")?;
-    writeln!(file, "    pub summon_fn: SummonFn,")?;
-    writeln!(file, "}}")?;
+    // Create a mapping between rail names and generated accessor functions for
+    // obtaining the device handle and rail index
     writeln!(file)?;
     writeln!(
         file,
@@ -109,9 +102,7 @@ fn do_pmbus() -> Result<(), anyhow::Error> {
 
     // This is supposed to be caught during I2C generation
     if pmbus_rail_dupes != 0 {
-        bail!(
-            "duplicate PMBus rails: invalid application toml. This is a bug in build_i2c."
-        );
+        bail!("duplicate PMBus rails: invalid application toml.");
     }
 
     Ok(())
