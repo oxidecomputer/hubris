@@ -15,7 +15,6 @@ use pmbus::commands::CommandCode;
 use pmbus::commands::mwocp67::*;
 use pmbus::units::{Celsius, Rpm};
 use pmbus::*;
-use ringbuf::*;
 use task_power_api::PmbusValue;
 use userlib::UnwrapLite;
 use userlib::units::{Amperes, Volts};
@@ -63,6 +62,7 @@ pub enum Error {
     BadFirmwareRevLength,
     BadModelNumberRead { code: ResponseCode },
     BadMfrIdRead { code: ResponseCode },
+    BadSerialNumberRead { code: ResponseCode },
     UnsupportedCommand { cmd: u8 },
 }
 
@@ -439,7 +439,7 @@ impl Mwocp67 {
         let _ = self
             .device
             .read_block(CommandCode::MFR_SERIAL as u8, &mut serial.0)
-            .map_err(|code| Error::BadFirmwareRevRead { code })?;
+            .map_err(|code| Error::BadSerialNumberRead { code })?;
 
         Ok(serial)
     }

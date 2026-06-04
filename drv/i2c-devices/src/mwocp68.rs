@@ -94,6 +94,9 @@ pub enum Error {
         index: u8,
     },
     BadFirmwareRevLength,
+    BadSerialNumberRead {
+        code: ResponseCode,
+    },
     UpdateInBootLoader,
     UpdateNotInBootLoader,
     UpdateAlreadySuccessful,
@@ -558,7 +561,7 @@ impl Mwocp68 {
         let _ = self
             .device
             .read_block(CommandCode::MFR_SERIAL as u8, &mut serial.0)
-            .map_err(|code| Error::BadFirmwareRevRead { code })?;
+            .map_err(|code| Error::BadSerialNumberRead { code })?;
 
         Ok(serial)
     }
