@@ -1350,12 +1350,15 @@ impl ConfigGenerator {
                 }
 
                 if let Some(rails) = &power.rails {
+                    let single = rails.len() == 1;
                     for (index, rail) in rails.iter().enumerate() {
                         if rail.is_empty() {
                             continue;
                         }
 
-                        if byrail.insert(rail, (d, index)).is_some() {
+                        let idx = if single { None } else { Some(index) };
+
+                        if byrail.insert(rail, (d, idx)).is_some() {
                             bail!("duplicate rail {rail}");
                         }
                     }
@@ -1381,6 +1384,11 @@ impl ConfigGenerator {
             all.sort();
 
             for (rail, (device, index)) in &all {
+                let raw_bank = index.unwrap_or(0);
+
+                // ----
+                //
+
                 // if we update this code to be more clever than just
                 // to-lowercase'ing the rail names, you might need to go update
                 // the mapping in `control-plane-agent`!
@@ -1393,12 +1401,33 @@ impl ConfigGenerator {
                 )?;
 
                 let out = self.generate_device(device, 16);
-                writeln!(&mut self.output, "({out}, {index})\n        }}")?;
+                writeln!(&mut self.output, "({out}, {raw_bank})\n        }}")?;
+
+                // ---
+                //
+
+                write!(
+                    &mut self.output,
+                    r##"
+        #[allow(dead_code)]
+        pub fn {}_banked(task: TaskId) -> (I2cDevice, Option<u8>) {{"##,
+                    rail.to_lowercase(),
+                )?;
+
+                let out = self.generate_device(device, 16);
+                if let Some(idx) = index {
+                    writeln!(
+                        &mut self.output,
+                        "({out}, Some({idx}))\n        }}"
+                    )?;
+                } else {
+                    writeln!(&mut self.output, "({out}, None)\n        }}")?;
+                }
 
                 if which == PowerDevices::PMBus {
                     let phases = if let Some(power) = &device.power {
                         if let Some(phases) = &power.phases {
-                            let p = phases[*index]
+                            let p = phases[raw_bank]
                                 .iter()
                                 .map(|p| p.to_string())
                                 .collect::<Vec<_>>()
