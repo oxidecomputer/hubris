@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{Context, bail};
+use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::Write;
@@ -18,7 +18,7 @@ struct Config {
     authorized_keys: Option<PathBuf>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn main() -> Result<()> {
     build_util::build_notifications()?;
     idol::Generator::new()
         .with_counters(
@@ -28,7 +28,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "../../idl/control-plane-agent.idol",
             "server_stub.rs",
             idol::server::ServerStyle::InOrder,
-        )?;
+        )
+        .map_err(anyhow::Error::from_boxed)?;
 
     let cfg = build_util::task_maybe_config::<Config>()
         .context("could not parse config.control_plane_agent")?;
@@ -47,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     Ok(())
 }
 
-fn do_pmbus() -> Result<(), anyhow::Error> {
+fn do_pmbus() -> Result<()> {
     let out_dir = std::env::var("OUT_DIR")?;
     let dest_path = Path::new(&out_dir).join("pmbus_mapping.rs");
     let out = context_create_file(&dest_path)?;
@@ -109,9 +110,7 @@ fn do_pmbus() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn write_keys(
-    cfg: Config,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn write_keys(cfg: Config) -> Result<()> {
     if cfg.trusted_keys.is_empty() && cfg.authorized_keys.is_none() {
         panic!("must provide trusted-keys or authorized-keys");
     }
@@ -161,7 +160,7 @@ fn write_keys(
 }
 
 /// Create a file with anyhow context
-fn context_create_file(path: &Path) -> anyhow::Result<File> {
+fn context_create_file(path: &Path) -> Result<File> {
     File::create(path)
         .with_context(|| format!("failed to create file '{}'", path.display()))
 }
