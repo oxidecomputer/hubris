@@ -32,16 +32,6 @@ pub struct Mwocp67 {
 }
 
 #[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    None,
-    SetRail(u8, Option<u8>),
-    ReadVoutOp,
-    ReadVoutSensor,
-}
-
-ringbuf!(Trace, 32, Trace::None);
-
-#[derive(Copy, Clone, PartialEq)]
 pub struct FirmwareRev(pub [u8; 4]);
 
 #[derive(Copy, Clone, PartialEq, Eq, Default)]
@@ -113,14 +103,7 @@ impl Mwocp67 {
 
     fn set_rail(&self) -> Result<(), Error> {
         let page = PAGE::CommandData(self.index);
-        let write_result = pmbus_write!(self.device, PAGE, page);
-
-        let new_page = pmbus_read!(self.device, PAGE)
-            .ok()
-            .map(|page_data| page_data.0);
-        ringbuf_entry!(Trace::SetRail(self.index, new_page));
-
-        write_result
+        pmbus_write!(self.device, PAGE, page)
     }
 
     pub fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, Error> {
@@ -286,7 +269,6 @@ impl Mwocp67 {
             }
             Operation::ReadVout => {
                 let vout = pmbus_read!(self.device, READ_VOUT)?;
-                ringbuf_entry!(Trace::ReadVoutOp);
                 PmbusValue::from(vout.get(self.read_mode()?)?)
             }
             Operation::ReadIout => {
@@ -549,7 +531,6 @@ impl VoltageSensor<Error> for Mwocp67 {
     fn read_vout(&self) -> Result<Volts, Error> {
         self.set_rail()?;
         let vout = pmbus_read!(self.device, READ_VOUT)?;
-        ringbuf_entry!(Trace::ReadVoutSensor);
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
 }
