@@ -4,6 +4,7 @@
 
 use anyhow::{Context, bail};
 use serde::Deserialize;
+use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -49,8 +50,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 fn do_pmbus() -> Result<(), anyhow::Error> {
     let out_dir = std::env::var("OUT_DIR")?;
     let dest_path = Path::new(&out_dir).join("pmbus_mapping.rs");
-    let file = std::fs::File::create(&dest_path)?;
-    let mut file = std::io::BufWriter::new(file);
+    let out = context_create_file(&dest_path)?;
+    let mut file = std::io::BufWriter::new(out);
 
     let mut pmbus_rail_names = std::collections::BTreeSet::new();
     let mut pmbus_rail_dupes = 0;
@@ -117,9 +118,7 @@ fn write_keys(
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("trusted_keys.rs");
-    let mut out = std::fs::File::create(&dest_path).with_context(|| {
-        format!("failed to create file '{}'", dest_path.display())
-    })?;
+    let mut out = context_create_file(&dest_path)?;
 
     let mut keys = vec![];
     for k in cfg.trusted_keys {
@@ -159,4 +158,10 @@ fn write_keys(
     }
     writeln!(&mut out, "];")?;
     Ok(())
+}
+
+/// Create a file with anyhow context
+fn context_create_file(path: &Path) -> anyhow::Result<File> {
+    File::create(path)
+        .with_context(|| format!("failed to create file '{}'", path.display()))
 }
