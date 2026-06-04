@@ -771,15 +771,10 @@ impl MgsCommon {
         fn err_fixer(
             val: drv_i2c_devices::PmbusStatusError,
         ) -> PmbusStatusReadError {
-            match val {
-                drv_i2c_devices::PmbusStatusError::BadRead { cmd: _, code } => {
-                    PmbusStatusReadError::DriverReadFailed {
-                        response_code: code as u8,
-                    }
-                }
-                drv_i2c_devices::PmbusStatusError::BadData { cmd: _ } => {
-                    PmbusStatusReadError::InvalidBusData
-                }
+            let drv_i2c_devices::PmbusStatusError::BadRead { cmd: _, code } =
+                val;
+            PmbusStatusReadError::DriverReadFailed {
+                response_code: code as u8,
             }
         }
 
