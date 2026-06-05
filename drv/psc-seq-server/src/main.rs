@@ -101,10 +101,12 @@
 
 use drv_i2c_api::I2cDevice;
 
+use drv_i2c_devices::mwocp6x;
+
 #[cfg(target_board = "observer-a")]
-use drv_i2c_devices::mwocp67::{self as mwocp6x, Mwocp67 as Mwocp6x};
+use drv_i2c_devices::mwocp6x::Mwocp67 as Mwocp6x;
 #[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
-use drv_i2c_devices::mwocp68::{self as mwocp6x, Mwocp68 as Mwocp6x};
+use drv_i2c_devices::mwocp6x::Mwocp68 as Mwocp6x;
 
 use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_psc_seq_api::PowerState;

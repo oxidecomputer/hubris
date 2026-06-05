@@ -4,9 +4,11 @@
 
 //! MWOCP67-5500 Murata power shelf
 
+use super::{FIRMWARE_REVISION_LEN, parse_firmware_revision};
+use crate::mwocp6x::{Error, FirmwareRev, MfrId, ModelNumber, SerialNumber};
 use crate::{
-    BadValidation, CurrentSensor, InputCurrentSensor, InputVoltageSensor,
-    Validate, VoltageSensor, pmbus_validate,
+    CurrentSensor, InputCurrentSensor, InputVoltageSensor, Validate,
+    VoltageSensor, pmbus_validate,
 };
 use core::cell::Cell;
 use drv_i2c_api::*;
@@ -26,68 +28,6 @@ pub struct Mwocp67 {
     index: u8,
 
     mode: Cell<Option<pmbus::VOutModeCommandData>>,
-}
-
-#[derive(Copy, Clone, PartialEq)]
-pub struct FirmwareRev(pub [u8; 4]);
-
-#[derive(Copy, Clone, PartialEq, Eq, Default)]
-pub struct SerialNumber(pub [u8; 12]);
-
-/// Manufacturer model number.
-///
-/// Per Murata Application Note ACAN-157 "PMBus Communication Protocol",
-/// this is always a 17-byte ASCII string. It should be "MWOCP67-5500-B-RM".
-#[derive(Copy, Clone, PartialEq, Eq, Default)]
-pub struct ModelNumber(pub [u8; 17]);
-
-/// Manufacturer ID.
-///
-/// Per Murata Application Note ACAN-157 "PMBus Communication Protocol",
-/// this is always a 9-byte ASCII string. It should be "Murata-PS".
-#[derive(Copy, Clone, PartialEq, Eq, Default)]
-pub struct MfrId(pub [u8; 9]);
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Error {
-    BadRead { cmd: u8, code: ResponseCode },
-    BadWrite { cmd: u8, code: ResponseCode },
-    BadData { cmd: u8 },
-    BadValidation { cmd: u8, code: ResponseCode },
-    InvalidData { err: pmbus::Error },
-    BadFirmwareRevRead { code: ResponseCode },
-    BadFirmwareRev { index: u8 },
-    BadFirmwareRevLength,
-    BadModelNumberRead { code: ResponseCode },
-    BadMfrIdRead { code: ResponseCode },
-    BadSerialNumberRead { code: ResponseCode },
-    UnsupportedCommand { cmd: u8 },
-}
-
-impl From<BadValidation> for Error {
-    fn from(value: BadValidation) -> Self {
-        Self::BadValidation {
-            cmd: value.cmd,
-            code: value.code,
-        }
-    }
-}
-
-impl From<Error> for ResponseCode {
-    fn from(err: Error) -> Self {
-        match err {
-            Error::BadRead { code, .. } => code,
-            Error::BadWrite { code, .. } => code,
-            Error::BadValidation { code, .. } => code,
-            _ => ResponseCode::BadDeviceState,
-        }
-    }
-}
-
-impl From<pmbus::Error> for Error {
-    fn from(err: pmbus::Error) -> Self {
-        Error::InvalidData { err }
-    }
 }
 
 impl Mwocp67 {
@@ -388,44 +328,19 @@ impl Mwocp67 {
     /// Returns the firmware revision of the primary MCU (AC input side).
     ///
     pub fn firmware_revision(&self) -> Result<FirmwareRev, Error> {
-        const REVISION_LEN: usize = 14;
-
-        let mut data = [0u8; REVISION_LEN];
-        let expected = b"XXXX-YYYY-0000";
+        let mut data = [0u8; FIRMWARE_REVISION_LEN];
 
         let len = self
             .device
             .read_block(CommandCode::MFR_REVISION as u8, &mut data)
             .map_err(|code| Error::BadFirmwareRevRead { code })?;
 
-        //
-        // Per ACAN-157, we are expecting this to be of the format:
-        //
-        //    XXXX-YYYY-0000
-        //
-        // Where XXXX is the firmware revision on the primary MCU (AC input
-        // side) and YYYY is the firmware revision on the secondary MCU (DC
-        // output side).  We aren't going to be rigid about the format of
-        // either revision, but we will be rigid about the rest of the format.
-        //
-        if len != REVISION_LEN {
+        if len != FIRMWARE_REVISION_LEN {
             return Err(Error::BadFirmwareRevLength);
         }
 
-        for index in 0..len {
-            if expected[index] == b'X' || expected[index] == b'Y' {
-                continue;
-            }
-
-            if data[index] != expected[index] {
-                return Err(Error::BadFirmwareRev { index: index as u8 });
-            }
-        }
-
-        //
-        // Return the primary MCU version
-        //
-        Ok(FirmwareRev([data[0], data[1], data[2], data[3]]))
+        parse_firmware_revision(&data)
+            .map_err(|index| Error::BadFirmwareRev { index })
     }
 
     ///

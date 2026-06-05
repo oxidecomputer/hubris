@@ -8,8 +8,7 @@
 #![no_main]
 
 use drv_i2c_devices::TempSensor;
-use drv_i2c_devices::mwocp67::{Error as Mwocp67Error, Mwocp67};
-use drv_i2c_devices::mwocp68::{Error as Mwocp68Error, Mwocp68};
+use drv_i2c_devices::mwocp6x::{Error as Mwocp6xError, Mwocp67, Mwocp68};
 use drv_i2c_devices::tmp117::{Error as Tmp117Error, Tmp117};
 use ringbuf::*;
 use task_sensor_api::{Sensor, SensorId};
@@ -29,8 +28,8 @@ pub enum Device {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
-    Mwocp67Error(Mwocp67Error),
-    Mwocp68Error(Mwocp68Error),
+    Mwocp67Error(Mwocp6xError),
+    Mwocp68Error(Mwocp6xError),
     Tmp117Error(Tmp117Error),
 }
 
@@ -38,19 +37,19 @@ impl From<Error> for task_sensor_api::NoData {
     fn from(e: Error) -> Self {
         match e {
             Error::Mwocp67Error(e) => match e {
-                Mwocp67Error::BadRead { code, .. }
-                | Mwocp67Error::BadWrite { code, .. }
-                | Mwocp67Error::BadValidation { code, .. } => code.into(),
-                Mwocp67Error::BadData { .. }
-                | Mwocp67Error::InvalidData { .. } => Self::DeviceError,
+                Mwocp6xError::BadRead { code, .. }
+                | Mwocp6xError::BadWrite { code, .. }
+                | Mwocp6xError::BadValidation { code, .. } => code.into(),
+                Mwocp6xError::BadData { .. }
+                | Mwocp6xError::InvalidData { .. } => Self::DeviceError,
                 _ => Self::DeviceError,
             },
             Error::Mwocp68Error(e) => match e {
-                Mwocp68Error::BadRead { code, .. }
-                | Mwocp68Error::BadWrite { code, .. }
-                | Mwocp68Error::BadValidation { code, .. } => code.into(),
-                Mwocp68Error::BadData { .. }
-                | Mwocp68Error::InvalidData { .. } => Self::DeviceError,
+                Mwocp6xError::BadRead { code, .. }
+                | Mwocp6xError::BadWrite { code, .. }
+                | Mwocp6xError::BadValidation { code, .. } => code.into(),
+                Mwocp6xError::BadData { .. }
+                | Mwocp6xError::InvalidData { .. } => Self::DeviceError,
                 _ => Self::DeviceError,
             },
             Error::Tmp117Error(e) => match e {
