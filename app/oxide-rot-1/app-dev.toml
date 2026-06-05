@@ -112,6 +112,11 @@ notifications = ["spi-irq", "timer", "sp_reset-irq", "jtag_detect-irq"]
 interrupts = {"flexcomm5.irq" = "spi-irq", "pint.irq0" = "sp_reset-irq", "pint.irq1" = "jtag_detect-irq" }
 features = ["enable_ext_sp_reset"]
 
+[[tasks.swd.bindeps]]
+name = "endoscope"
+target = "thumbv7em-none-eabihf"
+features = ["soc_stm32h753"]
+
 [tasks.swd.config]
 # MOSI = PIO0_8
 # MISO = PIO0_9

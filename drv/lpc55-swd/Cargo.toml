@@ -30,7 +30,6 @@ build-lpc55pins = { path = "../../build/lpc55pins" }
 build-util = { path = "../../build/util" }
 call_rustfmt = { path = "../../build/call_rustfmt" }
 endoscope-abi = { path = "../../lib/endoscope-abi" }
-endoscope = { path = "../../lib/endoscope", artifact="bin:endoscope", target = "thumbv7em-none-eabihf", features = ["soc_stm32h753"]}
 goblin = { workspace = true }
 idol = { workspace = true }
 quote = { workspace = true }
