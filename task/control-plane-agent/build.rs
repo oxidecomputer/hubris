@@ -222,10 +222,14 @@ macro_rules! generator {
     };
 }
 
-const PMBUS_GENERATOR: &[(&str, fn() -> u32)] = &[
-    generator!("bmr491", bmr491),
-    generator!("tps546b24a", tps546b24a),
-    generator!("raa229618", raa229618),
-    generator!("isl68224", isl68224),
+type StatusRow = (&'static str, fn() -> u32);
+const PMBUS_GENERATOR: &[StatusRow] = &[
     generator!("adm127x", adm127x),
+    generator!("bmr491", bmr491),
+    generator!("isl68224", isl68224),
+    generator!("lm5066i", lm5066i),
+    generator!("mwocp68", mwocp68),
+    generator!("raa229618", raa229618),
+    generator!("raa229620a", raa229620a),
+    generator!("tps546b24a", tps546b24a),
 ];
