@@ -6,7 +6,8 @@
 
 use super::{FIRMWARE_REVISION_LEN, parse_firmware_revision};
 use crate::mwocp6x::{
-    BootLoaderCommand, Error, FirmwareRev, MfrId, ModelNumber, SerialNumber, UpdateState
+    BootLoaderCommand, Error, FirmwareRev, MfrId, ModelNumber, SerialNumber,
+    UpdateState,
 };
 use crate::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, Validate,
