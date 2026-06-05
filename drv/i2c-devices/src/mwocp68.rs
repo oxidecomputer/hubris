@@ -10,13 +10,11 @@ use crate::{
 };
 use core::cell::Cell;
 use drv_i2c_api::*;
-use fixedstr::FixedString;
 use pmbus::commands::CommandCode;
 use pmbus::commands::mwocp68::*;
 use pmbus::units::{Celsius, Rpm};
 use pmbus::*;
 use task_power_api::PmbusValue;
-use userlib::UnwrapLite;
 use userlib::units::{Amperes, Volts};
 
 pub struct Mwocp68 {
@@ -848,14 +846,6 @@ impl Mwocp68 {
 
     pub fn i2c_device(&self) -> &I2cDevice {
         &self.device
-    }
-
-    pub fn rail_name(psu_label: char) -> FixedString<8> {
-        // This is a little silly, but it stops us from having to 6 separate
-        // instances of the string "V54_PSU" in the binary...
-        let mut name = *b"V54_PSUx";
-        name[name.len() - 1] = psu_label as u8;
-        FixedString::try_from_utf8(&name[..]).unwrap_lite()
     }
 }
 

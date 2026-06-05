@@ -1030,15 +1030,23 @@ impl Psu {
 
     fn ereport_fields(&self) -> EreportFields {
         let rail = {
-            let psu_label = match self.slot {
-                Slot::Psu0 => '0',
-                Slot::Psu1 => '1',
-                Slot::Psu2 => '2',
-                Slot::Psu3 => '3',
-                Slot::Psu4 => '4',
-                Slot::Psu5 => '5',
+            // This is a little silly, but it stops us from having to 6 separate
+            // instances of the string "V54_PSU" in the binary...
+            // If you add a new name, make sure it still fits in the FixedString.
+            #[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
+            let mut rail_name = *b"V54_PSUx";
+            #[cfg(target_board = "observer-a")]
+            let mut rail_name = *b"V50_MAIN_PSUx";
+
+            rail_name[rail_name.len() - 1] = match self.slot {
+                Slot::Psu0 => b'0',
+                Slot::Psu1 => b'1',
+                Slot::Psu2 => b'2',
+                Slot::Psu3 => b'3',
+                Slot::Psu4 => b'4',
+                Slot::Psu5 => b'5',
             };
-            Mwocp6x::rail_name(psu_label)
+            FixedString::try_from_utf8(&rail_name[..]).unwrap_lite()
         };
         EreportFields {
             refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
@@ -1154,7 +1162,7 @@ struct PowerUngoodEreport {
 #[derive(microcbor::EncodeFields)]
 struct EreportFields {
     refdes: FixedStr<'static, 20>, // Component ID max length
-    rail: FixedString<8>,          // Example: "V54_PSU0"
+    rail: FixedString<13>,         // Example: "V54_PSU0"
     slot: u8,
     fruid: PsuFruid,
 }
