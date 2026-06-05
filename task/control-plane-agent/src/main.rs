@@ -5,6 +5,7 @@
 #![no_std]
 #![no_main]
 
+use drv_i2c_api::pmbus_status::Capabilities;
 use drv_sprot_api::SprotError;
 use gateway_messages::{
     IgnitionCommand, MgsError, PowerState, SpComponent, UpdateId,
@@ -637,7 +638,7 @@ pub type SummonFn = fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
 pub struct PmbusRailBinding {
     pub name: &'static str,
     pub summon_fn: SummonFn,
-    pub status_bits: u32,
+    pub status_bits: Capabilities,
 }
 
 include!(concat!(env!("OUT_DIR"), "/pmbus_mapping.rs"));

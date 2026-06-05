@@ -55,13 +55,14 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static-cell = { path = "../../lib/static-cell" }
 
 [build-dependencies]
+anyhow = { workspace = true }
 build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
-anyhow = { workspace = true }
+drv-i2c-types = { path = "../../drv/i2c-types" }
 idol = { workspace = true }
+pmbus = { workspace = true }
 serde = { workspace = true }
 ssh-key = { workspace = true }
-pmbus = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]

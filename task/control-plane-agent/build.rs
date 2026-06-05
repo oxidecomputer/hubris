@@ -113,7 +113,7 @@ fn do_pmbus() -> Result<()> {
             "summon_fn: crate::i2c_config::pmbus::{}_banked, ",
             rail.to_lowercase()
         )?;
-        write!(file, "status_bits: 0x{caps:08x} ")?;
+        write!(file, "status_bits: Capabilities(0x{:08x}) ", caps.0)?;
         writeln!(file, "}},")?;
     }
     writeln!(file, "];")?;
@@ -181,24 +181,14 @@ fn context_create_file(path: &Path) -> Result<File> {
         .with_context(|| format!("failed to create file '{}'", path.display()))
 }
 
-const STATUS_WORD: u32 = 1 << 0;
-const STATUS_VOUT: u32 = 1 << 1;
-const STATUS_IOUT: u32 = 1 << 2;
-const STATUS_TEMPERATURE: u32 = 1 << 3;
-const STATUS_CML: u32 = 1 << 4;
-const STATUS_OTHER: u32 = 1 << 5;
-const STATUS_INPUT: u32 = 1 << 6;
-const STATUS_MFR_SPECIFIC: u32 = 1 << 7;
-const STATUS_FANS_1_2: u32 = 1 << 8;
-const STATUS_FANS_3_4: u32 = 1 << 9;
-
 macro_rules! bitmaker {
     ($out:ident, $module:ident, $cmd:ident) => {{
+        use drv_i2c_types::pmbus_status::Capabilities;
         use pmbus::{Command, Operation};
         if pmbus::commands::$module::CommandCode::$cmd.read_op()
             != Operation::Illegal
         {
-            $out |= $cmd;
+            $out |= Capabilities::$cmd.0;
         }
     }};
 }
@@ -217,16 +207,18 @@ macro_rules! generator {
             bitmaker!(out, $module, STATUS_MFR_SPECIFIC);
             bitmaker!(out, $module, STATUS_FANS_1_2);
             bitmaker!(out, $module, STATUS_FANS_3_4);
-            out
+            Capabilities(out)
         })
     };
 }
 
-type StatusRow = (&'static str, fn() -> u32);
+use drv_i2c_types::pmbus_status::Capabilities;
+type StatusRow = (&'static str, fn() -> Capabilities);
 const PMBUS_GENERATOR: &[StatusRow] = &[
     generator!("adm127x", adm127x),
     generator!("bmr491", bmr491),
     generator!("isl68224", isl68224),
+    generator!("lm5066", lm5066),
     generator!("lm5066i", lm5066i),
     generator!("mwocp68", mwocp68),
     generator!("raa229618", raa229618),

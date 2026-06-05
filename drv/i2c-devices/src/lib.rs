@@ -39,7 +39,7 @@
 
 #![no_std]
 
-use drv_i2c_api::{I2cDevice, ResponseCode};
+use drv_i2c_api::{I2cDevice, ResponseCode, pmbus_status::Capabilities};
 use pmbus::commands::CommandCode;
 
 macro_rules! pmbus_read {
@@ -317,25 +317,14 @@ impl PmbusStatus {
     pub fn try_read_from(
         dev: &I2cDevice,
         rail_idx: Option<u8>,
-        caps: u32,
+        device_caps: Capabilities,
     ) -> Result<Self, PmbusStatusError> {
+        use drv_i2c_types::pmbus_status::Capabilities;
         // Keep the lines short
         use CommandCode as Cc;
         // These need to be like this to humor the macro invocations
         use PmbusStatusError as Error;
         use pmbus::commands::PAGE;
-
-        // TODO: Make this not copy-and-paste
-        const STATUS_WORD: u32 = 1 << 0;
-        const STATUS_VOUT: u32 = 1 << 1;
-        const STATUS_IOUT: u32 = 1 << 2;
-        const STATUS_TEMPERATURE: u32 = 1 << 3;
-        const STATUS_CML: u32 = 1 << 4;
-        const STATUS_OTHER: u32 = 1 << 5;
-        const STATUS_INPUT: u32 = 1 << 6;
-        const STATUS_MFR_SPECIFIC: u32 = 1 << 7;
-        const STATUS_FANS_1_2: u32 = 1 << 8;
-        const STATUS_FANS_3_4: u32 = 1 << 9;
 
         // We don't actually try to understand the u8/u16 returned from the
         // status information, therefore we bypass the typical machinery that
@@ -343,7 +332,7 @@ impl PmbusStatus {
         // info. These helpers get 1/2 bytes with the proper paging helpers
         // to obtain this information.
         let get_u16 = |cmd, cap| {
-            if (caps & cap) == 0 {
+            if !device_caps.supports(&cap) {
                 return Err(PmbusStatusError::Unsupported);
             }
             if let Some(rail_idx) = rail_idx {
@@ -355,7 +344,7 @@ impl PmbusStatus {
         };
 
         let get_byte = |cmd, cap| {
-            if (caps & cap) == 0 {
+            if !device_caps.supports(&cap) {
                 return Err(PmbusStatusError::Unsupported);
             }
             if let Some(rail_idx) = rail_idx {
@@ -370,21 +359,33 @@ impl PmbusStatus {
             // Status word *must* succeed, otherwise we don't have reasonable
             // data to return. We may want to consider making some/all of these
             // retryable, but for now you either get them or you don't.
-            status_word: get_u16(Cc::STATUS_WORD, STATUS_WORD)?,
-            status_vout: get_byte(Cc::STATUS_VOUT, STATUS_VOUT),
-            status_iout: get_byte(Cc::STATUS_IOUT, STATUS_IOUT),
+            status_word: get_u16(Cc::STATUS_WORD, Capabilities::STATUS_WORD)?,
+            status_vout: get_byte(Cc::STATUS_VOUT, Capabilities::STATUS_VOUT),
+            status_iout: get_byte(Cc::STATUS_IOUT, Capabilities::STATUS_IOUT),
             status_temperature: get_byte(
                 Cc::STATUS_TEMPERATURE,
-                STATUS_TEMPERATURE,
+                Capabilities::STATUS_TEMPERATURE,
             ),
-            status_cml: get_byte(Cc::STATUS_CML, STATUS_CML),
-            status_other: get_byte(Cc::STATUS_OTHER, STATUS_OTHER),
-            status_input: get_byte(Cc::STATUS_INPUT, STATUS_INPUT),
-            status_fans_1_2: get_byte(Cc::STATUS_FANS_1_2, STATUS_FANS_1_2),
-            status_fans_3_4: get_byte(Cc::STATUS_FANS_3_4, STATUS_FANS_3_4),
+            status_cml: get_byte(Cc::STATUS_CML, Capabilities::STATUS_CML),
+            status_other: get_byte(
+                Cc::STATUS_OTHER,
+                Capabilities::STATUS_OTHER,
+            ),
+            status_input: get_byte(
+                Cc::STATUS_INPUT,
+                Capabilities::STATUS_INPUT,
+            ),
+            status_fans_1_2: get_byte(
+                Cc::STATUS_FANS_1_2,
+                Capabilities::STATUS_FANS_1_2,
+            ),
+            status_fans_3_4: get_byte(
+                Cc::STATUS_FANS_3_4,
+                Capabilities::STATUS_FANS_3_4,
+            ),
             status_mfr_specific: get_byte(
                 Cc::STATUS_MFR_SPECIFIC,
-                STATUS_MFR_SPECIFIC,
+                Capabilities::STATUS_MFR_SPECIFIC,
             ),
         })
     }
