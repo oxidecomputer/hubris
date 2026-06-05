@@ -303,6 +303,7 @@ pub struct PmbusStatus {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PmbusStatusError {
     BadRead { cmd: u8, code: ResponseCode },
+    Unsupported,
 }
 
 impl PmbusStatus {
@@ -316,6 +317,7 @@ impl PmbusStatus {
     pub fn try_read_from(
         dev: &I2cDevice,
         rail_idx: Option<u8>,
+        caps: u32,
     ) -> Result<Self, PmbusStatusError> {
         // Keep the lines short
         use CommandCode as Cc;
@@ -323,54 +325,66 @@ impl PmbusStatus {
         use PmbusStatusError as Error;
         use pmbus::commands::PAGE;
 
+        // TODO: Make this not copy-and-paste
+        const STATUS_WORD: u32 = 1 << 0;
+        const STATUS_VOUT: u32 = 1 << 1;
+        const STATUS_IOUT: u32 = 1 << 2;
+        const STATUS_TEMPERATURE: u32 = 1 << 3;
+        const STATUS_CML: u32 = 1 << 4;
+        const STATUS_OTHER: u32 = 1 << 5;
+        const STATUS_INPUT: u32 = 1 << 6;
+        const STATUS_MFR_SPECIFIC: u32 = 1 << 7;
+        const STATUS_FANS_1_2: u32 = 1 << 8;
+        const STATUS_FANS_3_4: u32 = 1 << 9;
+
         // We don't actually try to understand the u8/u16 returned from the
         // status information, therefore we bypass the typical machinery that
         // transits through `pmbus` generated types, and only get the raw
         // info. These helpers get 1/2 bytes with the proper paging helpers
         // to obtain this information.
-        fn get_byte(
-            dev: &I2cDevice,
-            rail_idx: Option<u8>,
-            cmd: CommandCode,
-        ) -> Result<u8, PmbusStatusError> {
-            if let Some(rail_idx) = rail_idx {
-                pmbus_rail_read!(@raw => dev, rail_idx, cmd as u8, 1)
-            } else {
-                pmbus_read!(@raw => dev, cmd as u8, 1)
+        let get_u16 = |cmd, cap| {
+            if (caps & cap) == 0 {
+                return Err(PmbusStatusError::Unsupported);
             }
-            .map(|v| v[0])
-        }
-
-        fn get_u16(
-            dev: &I2cDevice,
-            rail_idx: Option<u8>,
-            cmd: CommandCode,
-        ) -> Result<u16, PmbusStatusError> {
             if let Some(rail_idx) = rail_idx {
                 pmbus_rail_read!(@raw => dev, rail_idx, cmd as u8, 2)
             } else {
                 pmbus_read!(@raw => dev, cmd as u8, 2)
             }
             .map(u16::from_le_bytes)
-        }
+        };
+
+        let get_byte = |cmd, cap| {
+            if (caps & cap) == 0 {
+                return Err(PmbusStatusError::Unsupported);
+            }
+            if let Some(rail_idx) = rail_idx {
+                pmbus_rail_read!(@raw => dev, rail_idx, cmd as u8, 1)
+            } else {
+                pmbus_read!(@raw => dev, cmd as u8, 1)
+            }
+            .map(|v| v[0])
+        };
 
         Ok(PmbusStatus {
             // Status word *must* succeed, otherwise we don't have reasonable
             // data to return. We may want to consider making some/all of these
             // retryable, but for now you either get them or you don't.
-            status_word: get_u16(dev, rail_idx, Cc::STATUS_WORD)?,
-            status_vout: get_byte(dev, rail_idx, Cc::STATUS_VOUT),
-            status_iout: get_byte(dev, rail_idx, Cc::STATUS_IOUT),
-            status_temperature: get_byte(dev, rail_idx, Cc::STATUS_TEMPERATURE),
-            status_cml: get_byte(dev, rail_idx, Cc::STATUS_CML),
-            status_other: get_byte(dev, rail_idx, Cc::STATUS_OTHER),
-            status_input: get_byte(dev, rail_idx, Cc::STATUS_INPUT),
-            status_fans_1_2: get_byte(dev, rail_idx, Cc::STATUS_FANS_1_2),
-            status_fans_3_4: get_byte(dev, rail_idx, Cc::STATUS_FANS_3_4),
+            status_word: get_u16(Cc::STATUS_WORD, STATUS_WORD)?,
+            status_vout: get_byte(Cc::STATUS_VOUT, STATUS_VOUT),
+            status_iout: get_byte(Cc::STATUS_IOUT, STATUS_IOUT),
+            status_temperature: get_byte(
+                Cc::STATUS_TEMPERATURE,
+                STATUS_TEMPERATURE,
+            ),
+            status_cml: get_byte(Cc::STATUS_CML, STATUS_CML),
+            status_other: get_byte(Cc::STATUS_OTHER, STATUS_OTHER),
+            status_input: get_byte(Cc::STATUS_INPUT, STATUS_INPUT),
+            status_fans_1_2: get_byte(Cc::STATUS_FANS_1_2, STATUS_FANS_1_2),
+            status_fans_3_4: get_byte(Cc::STATUS_FANS_3_4, STATUS_FANS_3_4),
             status_mfr_specific: get_byte(
-                dev,
-                rail_idx,
                 Cc::STATUS_MFR_SPECIFIC,
+                STATUS_MFR_SPECIFIC,
             ),
         })
     }

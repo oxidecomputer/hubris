@@ -3266,7 +3266,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=james%2Fpmbus-please#69257b2e7d85b8c26daffaa90616db665d9773c3"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=james%2Fpmbus-please#d7ab744c99a81fe7bd6af5ba84c11a0ceea277f6"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
@@ -5998,6 +5998,7 @@ dependencies = [
  "lpc55-rom-data",
  "num-traits",
  "p256",
+ "pmbus",
  "ringbuf",
  "serde",
  "sha2",

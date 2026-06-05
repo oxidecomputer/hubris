@@ -772,20 +772,29 @@ impl MgsCommon {
         fn err_fixer(
             val: drv_i2c_devices::PmbusStatusError,
         ) -> PmbusStatusReadError {
-            let drv_i2c_devices::PmbusStatusError::BadRead { cmd: _, code } =
-                val;
-            PmbusStatusReadError::DriverReadFailed {
-                response_code: code as u8,
+            match val {
+                drv_i2c_devices::PmbusStatusError::BadRead { cmd: _, code } => {
+                    PmbusStatusReadError::DriverReadFailed {
+                        retry_hint: retry_hint(code),
+                        raw_response_code: code as u8,
+                    }
+                }
+                drv_i2c_devices::PmbusStatusError::Unsupported => {
+                    PmbusStatusReadError::Unsupported
+                }
             }
         }
 
         // `PmbusStatus::try_read_from` only fails if querying STATUS_WORD
         // isn't successful. Plumb the errors as necessary if that happens.
-        let status =
-            drv_i2c_devices::PmbusStatus::try_read_from(&device, rail_idx)
-                .map_err(err_fixer)
-                .map_err(PmbusStatusError::FailedStatusWord)
-                .map_err(GwSpError::PmbusStatus)?;
+        let status = drv_i2c_devices::PmbusStatus::try_read_from(
+            &device,
+            rail_idx,
+            info.status_bits,
+        )
+        .map_err(err_fixer)
+        .map_err(PmbusStatusError::FailedStatusWord)
+        .map_err(GwSpError::PmbusStatus)?;
 
         // We got *at least* STATUS_WORD! Time to tell everyone about it.
         Ok(PmbusStatus {
@@ -989,5 +998,37 @@ impl From<SpImageError> for MgsImageError {
             SpImageError::ResetVector => GwImageError::ResetVector,
             SpImageError::Signature => GwImageError::Signature,
         })
+    }
+}
+
+fn retry_hint(code: drv_i2c_api::ResponseCode) -> bool {
+    use drv_i2c_api::ResponseCode;
+    // TODO: This needs opinions
+    match code {
+        ResponseCode::BadResponse => false,
+        ResponseCode::BadArg => false,
+        ResponseCode::NoDevice => false,
+        ResponseCode::BadController => false,
+        ResponseCode::ReservedAddress => false,
+        ResponseCode::BadPort => false,
+        ResponseCode::NoRegister => false,
+        ResponseCode::BadMux => false,
+        ResponseCode::BadSegment => false,
+        ResponseCode::MuxNotFound => false,
+        ResponseCode::SegmentNotFound => false,
+        ResponseCode::SegmentDisconnected => false,
+        ResponseCode::MuxDisconnected => false,
+        ResponseCode::MuxMissing => false,
+        ResponseCode::BadMuxRegister => false,
+        ResponseCode::BusReset => true,
+        ResponseCode::BusResetMux => true,
+        ResponseCode::BusLocked => true,
+        ResponseCode::BusLockedMux => true,
+        ResponseCode::ControllerBusy => true,
+        ResponseCode::BusError => false,
+        ResponseCode::BadDeviceState => false,
+        ResponseCode::OperationNotSupported => false,
+        ResponseCode::IllegalLeaseCount => false,
+        ResponseCode::TooMuchData => false,
     }
 }

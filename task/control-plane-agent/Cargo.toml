@@ -61,6 +61,7 @@ anyhow = { workspace = true }
 idol = { workspace = true }
 serde = { workspace = true }
 ssh-key = { workspace = true }
+pmbus = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]

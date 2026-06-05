@@ -4,6 +4,7 @@
 
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -54,7 +55,15 @@ fn do_pmbus() -> Result<()> {
     let out = context_create_file(&dest_path)?;
     let mut file = std::io::BufWriter::new(out);
 
-    let mut pmbus_rail_names = std::collections::BTreeSet::new();
+    let pmbus_status_caps = {
+        let mut map = HashMap::new();
+        for (name, func) in PMBUS_GENERATOR {
+            map.insert(*name, *func);
+        }
+        map
+    };
+
+    let mut pmbus_rail_names = std::collections::BTreeMap::new();
     let mut pmbus_rail_dupes = 0;
     for dev in build_i2c::device_descriptions() {
         // We only need to map PMBus devices
@@ -62,11 +71,17 @@ fn do_pmbus() -> Result<()> {
             continue;
         };
 
+        // If it's a pmbus device, we need to get it's status capabilities
+        let Some(func) = pmbus_status_caps.get(dev.device.as_str()) else {
+            panic!("Unknown device: {}", dev.device);
+        };
+        let caps = (func)();
+
         // Aggregate a list of all PMBus-visible rails
         for rail in pmbus.rails.iter() {
             // `BTreeSet::insert` return value means "is unique", which is the
             // inverse of `BTreeMap::insert().is_some()`!
-            if !pmbus_rail_names.insert(rail.name.clone()) {
+            if pmbus_rail_names.insert(rail.name.clone(), caps).is_some() {
                 pmbus_rail_dupes += 1;
                 print!("cargo::error=PMBus device ");
                 print!(
@@ -89,7 +104,7 @@ fn do_pmbus() -> Result<()> {
         "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [PmbusRailBinding; {}] = [",
         pmbus_rail_names.len()
     )?;
-    for rail in pmbus_rail_names.iter() {
+    for (rail, caps) in pmbus_rail_names.iter() {
         write!(file, "    PmbusRailBinding {{ ")?;
         write!(file, "name: \"{rail}\", ")?;
         // build_i2c *also* only to-lowercases the rail names to make functions
@@ -98,6 +113,7 @@ fn do_pmbus() -> Result<()> {
             "summon_fn: crate::i2c_config::pmbus::{}_banked, ",
             rail.to_lowercase()
         )?;
+        write!(file, "status_bits: 0x{caps:08x} ")?;
         writeln!(file, "}},")?;
     }
     writeln!(file, "];")?;
@@ -164,3 +180,52 @@ fn context_create_file(path: &Path) -> Result<File> {
     File::create(path)
         .with_context(|| format!("failed to create file '{}'", path.display()))
 }
+
+const STATUS_WORD: u32 = 1 << 0;
+const STATUS_VOUT: u32 = 1 << 1;
+const STATUS_IOUT: u32 = 1 << 2;
+const STATUS_TEMPERATURE: u32 = 1 << 3;
+const STATUS_CML: u32 = 1 << 4;
+const STATUS_OTHER: u32 = 1 << 5;
+const STATUS_INPUT: u32 = 1 << 6;
+const STATUS_MFR_SPECIFIC: u32 = 1 << 7;
+const STATUS_FANS_1_2: u32 = 1 << 8;
+const STATUS_FANS_3_4: u32 = 1 << 9;
+
+macro_rules! bitmaker {
+    ($out:ident, $module:ident, $cmd:ident) => {{
+        use pmbus::{Command, Operation};
+        if pmbus::commands::$module::CommandCode::$cmd.read_op()
+            != Operation::Illegal
+        {
+            $out |= $cmd;
+        }
+    }};
+}
+
+macro_rules! generator {
+    ($name:literal, $module:ident) => {
+        ($name, || {
+            let mut out = 0u32;
+            bitmaker!(out, $module, STATUS_WORD);
+            bitmaker!(out, $module, STATUS_VOUT);
+            bitmaker!(out, $module, STATUS_IOUT);
+            bitmaker!(out, $module, STATUS_TEMPERATURE);
+            bitmaker!(out, $module, STATUS_CML);
+            bitmaker!(out, $module, STATUS_OTHER);
+            bitmaker!(out, $module, STATUS_INPUT);
+            bitmaker!(out, $module, STATUS_MFR_SPECIFIC);
+            bitmaker!(out, $module, STATUS_FANS_1_2);
+            bitmaker!(out, $module, STATUS_FANS_3_4);
+            out
+        })
+    };
+}
+
+const PMBUS_GENERATOR: &[(&str, fn() -> u32)] = &[
+    generator!("bmr491", bmr491),
+    generator!("tps546b24a", tps546b24a),
+    generator!("raa229618", raa229618),
+    generator!("isl68224", isl68224),
+    generator!("adm127x", adm127x),
+];
