@@ -632,7 +632,7 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-/// Type returned by generated pmbus rail functions")?;
+/// Type returned by generated pmbus rail functions
 pub type SummonFn = fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
 
 pub struct PmbusRailBinding {

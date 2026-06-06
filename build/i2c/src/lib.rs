@@ -1387,7 +1387,7 @@ impl ConfigGenerator {
                 let raw_bank = index.unwrap_or(0);
 
                 // ----
-                //
+                // First accessor, returns `(I2cDevice, u8)`
 
                 // if we update this code to be more clever than just
                 // to-lowercase'ing the rail names, you might need to go update
@@ -1404,7 +1404,7 @@ impl ConfigGenerator {
                 writeln!(&mut self.output, "({out}, {raw_bank})\n        }}")?;
 
                 // ---
-                //
+                // Second accessor, returns `(I2cDevice, Option<u8>)`
 
                 write!(
                     &mut self.output,

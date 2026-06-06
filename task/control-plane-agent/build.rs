@@ -55,6 +55,7 @@ fn do_pmbus() -> Result<()> {
     let out = context_create_file(&dest_path)?;
     let mut file = std::io::BufWriter::new(out);
 
+    // Build a mapping from "pmbus device name" to "supported status regs"
     let pmbus_status_caps = {
         let mut map = HashMap::new();
         for (name, func) in PMBUS_GENERATOR {
@@ -71,7 +72,7 @@ fn do_pmbus() -> Result<()> {
             continue;
         };
 
-        // If it's a pmbus device, we need to get it's status capabilities
+        // If it is a pmbus device, we need to get its status capabilities
         let Some(func) = pmbus_status_caps.get(dev.device.as_str()) else {
             panic!("Unknown device: {}", dev.device);
         };
@@ -181,6 +182,8 @@ fn context_create_file(path: &Path) -> Result<File> {
         .with_context(|| format!("failed to create file '{}'", path.display()))
 }
 
+/// Look at the `pmbus` crate metadata to see if a specific command is "Illegal"
+/// and set the capability bit if not.
 macro_rules! bitmaker {
     ($out:ident, $module:ident, $cmd:ident) => {{
         use drv_i2c_types::pmbus_status::Capabilities;
@@ -193,6 +196,10 @@ macro_rules! bitmaker {
     }};
 }
 
+/// For a given device, calculate the `Capabilities` for each of the
+/// status registers.
+///
+/// The pmbus functions are not const, so generate a closure instead.
 macro_rules! generator {
     ($name:literal, $module:ident) => {
         ($name, || {
