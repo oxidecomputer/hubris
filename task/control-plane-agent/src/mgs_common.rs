@@ -775,7 +775,7 @@ impl MgsCommon {
             match val {
                 drv_i2c_devices::PmbusStatusError::BadRead { cmd: _, code } => {
                     PmbusStatusReadError::DriverReadFailed {
-                        retry_hint: retry_hint(code),
+                        retry_hint: code.retry_hint(),
                         raw_response_code: code as u8,
                     }
                 }
@@ -998,37 +998,5 @@ impl From<SpImageError> for MgsImageError {
             SpImageError::ResetVector => GwImageError::ResetVector,
             SpImageError::Signature => GwImageError::Signature,
         })
-    }
-}
-
-fn retry_hint(code: drv_i2c_api::ResponseCode) -> bool {
-    use drv_i2c_api::ResponseCode;
-    // TODO: This needs opinions
-    match code {
-        ResponseCode::BadResponse => false,
-        ResponseCode::BadArg => false,
-        ResponseCode::NoDevice => false,
-        ResponseCode::BadController => false,
-        ResponseCode::ReservedAddress => false,
-        ResponseCode::BadPort => false,
-        ResponseCode::NoRegister => false,
-        ResponseCode::BadMux => false,
-        ResponseCode::BadSegment => false,
-        ResponseCode::MuxNotFound => false,
-        ResponseCode::SegmentNotFound => false,
-        ResponseCode::SegmentDisconnected => false,
-        ResponseCode::MuxDisconnected => false,
-        ResponseCode::MuxMissing => false,
-        ResponseCode::BadMuxRegister => false,
-        ResponseCode::BusReset => true,
-        ResponseCode::BusResetMux => true,
-        ResponseCode::BusLocked => true,
-        ResponseCode::BusLockedMux => true,
-        ResponseCode::ControllerBusy => true,
-        ResponseCode::BusError => false,
-        ResponseCode::BadDeviceState => false,
-        ResponseCode::OperationNotSupported => false,
-        ResponseCode::IllegalLeaseCount => false,
-        ResponseCode::TooMuchData => false,
     }
 }

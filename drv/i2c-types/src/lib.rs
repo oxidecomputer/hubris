@@ -111,6 +111,48 @@ pub enum ResponseCode {
     TooMuchData,
 }
 
+impl ResponseCode {
+    /// A hint whether this response code is indicative of an error that may
+    /// succeed on retry
+    ///
+    /// The semantics of this are best-effort, and are generally geared towards
+    /// "immediate" retries. For example, a device missing may work again in
+    /// the future if it is re-attached, but is unlikely to work immediately.
+    pub fn retry_hint(&self) -> bool {
+        // TODO: This needs opinions
+        match self {
+            // No, a retry will probably not help here
+            ResponseCode::BadResponse
+            | ResponseCode::BadArg
+            | ResponseCode::NoDevice
+            | ResponseCode::BadController
+            | ResponseCode::ReservedAddress
+            | ResponseCode::BadPort
+            | ResponseCode::NoRegister
+            | ResponseCode::BadMux
+            | ResponseCode::BadSegment
+            | ResponseCode::MuxNotFound
+            | ResponseCode::SegmentNotFound
+            | ResponseCode::SegmentDisconnected
+            | ResponseCode::MuxDisconnected
+            | ResponseCode::MuxMissing
+            | ResponseCode::BadMuxRegister
+            | ResponseCode::BadDeviceState
+            | ResponseCode::OperationNotSupported
+            | ResponseCode::IllegalLeaseCount
+            | ResponseCode::TooMuchData => false,
+
+            // Yes, a retry may help here
+            ResponseCode::BusReset
+            | ResponseCode::BusError
+            | ResponseCode::BusResetMux
+            | ResponseCode::BusLocked
+            | ResponseCode::BusLockedMux
+            | ResponseCode::ControllerBusy => true,
+        }
+    }
+}
+
 ///
 /// The controller for a given I2C device. The numbering here should be
 /// assumed to follow the numbering for the peripheral as described by the
