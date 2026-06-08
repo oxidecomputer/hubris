@@ -346,10 +346,8 @@ impl ServerImpl {
     fn invalidate_write(&mut self) {
         match self.hash.state {
             // Only stop the hash for our current device
-            HashState::Hashing { dev, .. } => {
-                if dev == self.dev {
-                    self.hash.state = HashState::NotRunning;
-                }
+            HashState::Hashing { dev, .. } if dev == self.dev => {
+                self.hash.state = HashState::NotRunning;
             }
             _ => (),
         }

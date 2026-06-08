@@ -1370,6 +1370,7 @@ pub fn build_task_bindep(
         "RUSTFLAGS",
         format!("{COMMON_RUSTFLAGS} {}", cfg.remap_path_flags(),),
     );
+    cmd.env("RUSTC_BOOTSTRAP", "1");
     let mut handle = cmd.spawn().context("failed to spawn bindep command")?;
     let out = handle.wait()?;
     if !out.success() {
@@ -2283,6 +2284,7 @@ const COMMON_RUSTFLAGS: &str = "\
     -C link-arg=-z -C link-arg=common-page-size=0x20 \
     -C link-arg=-z -C link-arg=max-page-size=0x20 \
     -C llvm-args=--enable-machine-outliner=never \
+    -Z allow-features= \
     -Z emit-stack-sizes \
     -Z macro-backtrace \
     -C overflow-checks=y";
@@ -2317,6 +2319,7 @@ fn build(
             cfg.remap_path_flags(),
         ),
     );
+    cmd.env("RUSTC_BOOTSTRAP", "1");
     cmd.arg("--");
 
     // We use attributes to conditionally import based on feature flags;
