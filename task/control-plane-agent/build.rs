@@ -232,15 +232,13 @@ type StatusRow = (&'static str, fn() -> Capabilities);
 // likely make the compilation succeed, but should not be done for production
 // devices where this may trigger runtime CML errors.
 const PMBUS_GENERATOR: &[StatusRow] = &[
-    // Validated
     generator!("adm127x", adm127x),
     generator!("bmr491", bmr491),
     generator!("isl68224", isl68224),
-    generator!("raa229618", raa229618),
-    generator!("tps546b24a", tps546b24a),
-    // Unvalidated (TODO!)
     generator!("lm5066", lm5066),
     generator!("lm5066i", lm5066i),
     generator!("mwocp68", mwocp68),
+    generator!("raa229618", raa229618),
     generator!("raa229620a", raa229620a),
+    generator!("tps546b24a", tps546b24a),
 ];

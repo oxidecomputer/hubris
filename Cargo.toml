@@ -139,7 +139,7 @@ apob = { git = "https://github.com/oxidecomputer/apob", default-features = false
 # for the migration.
 attest-data = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.4.0", rev = "a0811d06c75c757a6e12c91ed6ea81fde137ba43" }
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.2.1", rev = "a0811d06c75c757a6e12c91ed6ea81fde137ba43" }
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", branch = "james/pmbus-please", default-features = false, features = ["smoltcp"] }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 gateway-ereport-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false }
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
@@ -150,7 +150,7 @@ idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 measurement-token = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
-pmbus = { git = "https://github.com/oxidecomputer/pmbus", branch = "james/pmbus-please", default-features = false }
+pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
 salty = { version = "0.3", default-features = false }
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.4.0" }

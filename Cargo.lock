@@ -3243,7 +3243,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=james%2Fpmbus-please#d7ab744c99a81fe7bd6af5ba84c11a0ceea277f6"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#9dd63c0d7533e333c2ebf522f1929443041fd726"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
@@ -4790,7 +4790,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.7"
-source = "git+https://github.com/oxidecomputer/pmbus?branch=james%2Fpmbus-please#4a5863d40b004996cff8b65a377f7ced1cf99d93"
+source = "git+https://github.com/oxidecomputer/pmbus#a28e6603ccf2c42f9541107ee4c9fcf78f222266"
 dependencies = [
  "anyhow",
  "convert_case 0.11.0",
