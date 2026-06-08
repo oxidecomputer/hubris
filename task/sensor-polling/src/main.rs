@@ -103,7 +103,7 @@ impl TemperatureSensor {
                 }
                 for (i, &s) in self.speed_sensors.iter().enumerate() {
                     let m = Mwocp67::new(&dev, i.try_into().unwrap());
-                    match m.read_speed() {
+                    match m.read_fan_speed() {
                         Ok(v) => sensor_api.post_now(s, v.0),
                         Err(e) => {
                             let e = Error::Mwocp67Error(e);
@@ -127,7 +127,7 @@ impl TemperatureSensor {
                 }
                 for (i, &s) in self.speed_sensors.iter().enumerate() {
                     let m = Mwocp68::new(&dev, i.try_into().unwrap());
-                    match m.read_speed() {
+                    match m.read_fan_speed() {
                         Ok(v) => sensor_api.post_now(s, v.0),
                         Err(e) => {
                             let e = Error::Mwocp68Error(e);

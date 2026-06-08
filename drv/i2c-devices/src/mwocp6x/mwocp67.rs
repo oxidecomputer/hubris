@@ -72,7 +72,7 @@ impl Mwocp67 {
         Ok(r)
     }
 
-    pub fn read_speed(&self) -> Result<Rpm, Error> {
+    pub fn read_fan_speed(&self) -> Result<Rpm, Error> {
         Ok(pmbus_read!(self.device, READ_FAN_SPEED_1)?.get()?)
     }
 

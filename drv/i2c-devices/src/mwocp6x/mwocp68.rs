@@ -72,7 +72,7 @@ impl Mwocp68 {
         Ok(r)
     }
 
-    pub fn read_speed(&self) -> Result<Rpm, Error> {
+    pub fn read_fan_speed(&self) -> Result<Rpm, Error> {
         let r = match self.index {
             0 => pmbus_read!(self.device, READ_FAN_SPEED_1)?.get()?,
             1 => pmbus_read!(self.device, READ_FAN_SPEED_2)?.get()?,
