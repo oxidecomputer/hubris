@@ -373,31 +373,31 @@ impl PmbusStatus {
             // Status word *must* succeed, otherwise we don't have reasonable
             // data to return. We may want to consider making some/all of these
             // retryable, but for now you either get them or you don't.
-            status_word: get_u16(Cc::STATUS_WORD, Capabilities::STATUS_WORD)?,
-            status_vout: get_byte(Cc::STATUS_VOUT, Capabilities::STATUS_VOUT),
-            status_iout: get_byte(Cc::STATUS_IOUT, Capabilities::STATUS_IOUT),
-            status_temperature: get_byte(
+            status_word: read_u16(Cc::STATUS_WORD, Capabilities::STATUS_WORD)?,
+            status_vout: read_byte(Cc::STATUS_VOUT, Capabilities::STATUS_VOUT),
+            status_iout: read_byte(Cc::STATUS_IOUT, Capabilities::STATUS_IOUT),
+            status_temperature: read_byte(
                 Cc::STATUS_TEMPERATURE,
                 Capabilities::STATUS_TEMPERATURE,
             ),
-            status_cml: get_byte(Cc::STATUS_CML, Capabilities::STATUS_CML),
-            status_other: get_byte(
+            status_cml: read_byte(Cc::STATUS_CML, Capabilities::STATUS_CML),
+            status_other: read_byte(
                 Cc::STATUS_OTHER,
                 Capabilities::STATUS_OTHER,
             ),
-            status_input: get_byte(
+            status_input: read_byte(
                 Cc::STATUS_INPUT,
                 Capabilities::STATUS_INPUT,
             ),
-            status_fans_1_2: get_byte(
+            status_fans_1_2: read_byte(
                 Cc::STATUS_FANS_1_2,
                 Capabilities::STATUS_FANS_1_2,
             ),
-            status_fans_3_4: get_byte(
+            status_fans_3_4: read_byte(
                 Cc::STATUS_FANS_3_4,
                 Capabilities::STATUS_FANS_3_4,
             ),
-            status_mfr_specific: get_byte(
+            status_mfr_specific: read_byte(
                 Cc::STATUS_MFR_SPECIFIC,
                 Capabilities::STATUS_MFR_SPECIFIC,
             ),

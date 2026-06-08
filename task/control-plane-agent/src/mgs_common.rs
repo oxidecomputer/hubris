@@ -756,7 +756,7 @@ impl MgsCommon {
         let name = rail.as_bstr();
 
         // Can we find the given rail in our list of sorted PMBus rails?
-        let idx = crate::PMBUS_RAIL_TO_I2C_DEVICE_MAP
+        let idx = crate::pmbus::PMBUS_RAIL_TO_I2C_DEVICE_MAP
             .binary_search_by_key(&name, |info| info.name.as_bytes())
             .map_err(|_| {
                 GwSpError::PmbusStatus(PmbusStatusError::UnknownRail)
@@ -764,7 +764,7 @@ impl MgsCommon {
 
         // Yep! Call the i2c-generated function to get back an I2cDevice
         // and the rail index necessary to call the status function
-        let info = &crate::PMBUS_RAIL_TO_I2C_DEVICE_MAP[idx];
+        let info = &crate::pmbus::PMBUS_RAIL_TO_I2C_DEVICE_MAP[idx];
         let (device, rail_idx) = (info.summon_fn)(crate::I2C.get_task_id());
 
         // Local version of:

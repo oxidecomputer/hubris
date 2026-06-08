@@ -111,7 +111,7 @@ fn do_pmbus() -> Result<()> {
         // build_i2c *also* only to-lowercases the rail names to make functions
         write!(
             file,
-            "summon_fn: crate::i2c_config::pmbus::{}_banked, ",
+            "summon_fn: crate::i2c_config::pmbus::{}_with_opt_page_idx, ",
             rail.to_lowercase()
         )?;
         write!(file, "status_bits: Capabilities(0x{:08x}) ", caps.0)?;
@@ -184,7 +184,7 @@ fn context_create_file(path: &Path) -> Result<File> {
 
 /// Look at the `pmbus` crate metadata to see if a specific command is "Illegal"
 /// and set the capability bit if not.
-macro_rules! bitmaker {
+macro_rules! check_if_marked_as_illegal_by_pmbus_metadata {
     ($out:ident, $module:ident, $cmd:ident) => {{
         use drv_i2c_types::pmbus_status::Capabilities;
         use pmbus::{Command, Operation};
@@ -204,16 +204,54 @@ macro_rules! generator {
     ($name:literal, $module:ident) => {
         ($name, || {
             let mut out = 0u32;
-            bitmaker!(out, $module, STATUS_WORD);
-            bitmaker!(out, $module, STATUS_VOUT);
-            bitmaker!(out, $module, STATUS_IOUT);
-            bitmaker!(out, $module, STATUS_TEMPERATURE);
-            bitmaker!(out, $module, STATUS_CML);
-            bitmaker!(out, $module, STATUS_OTHER);
-            bitmaker!(out, $module, STATUS_INPUT);
-            bitmaker!(out, $module, STATUS_MFR_SPECIFIC);
-            bitmaker!(out, $module, STATUS_FANS_1_2);
-            bitmaker!(out, $module, STATUS_FANS_3_4);
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out,
+                $module,
+                STATUS_WORD
+            );
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out,
+                $module,
+                STATUS_VOUT
+            );
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out,
+                $module,
+                STATUS_IOUT
+            );
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out,
+                $module,
+                STATUS_TEMPERATURE
+            );
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out, $module, STATUS_CML
+            );
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out,
+                $module,
+                STATUS_OTHER
+            );
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out,
+                $module,
+                STATUS_INPUT
+            );
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out,
+                $module,
+                STATUS_MFR_SPECIFIC
+            );
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out,
+                $module,
+                STATUS_FANS_1_2
+            );
+            check_if_marked_as_illegal_by_pmbus_metadata!(
+                out,
+                $module,
+                STATUS_FANS_3_4
+            );
             Capabilities(out)
         })
     };

@@ -1410,9 +1410,10 @@ impl ConfigGenerator {
                     &mut self.output,
                     r##"
         #[allow(dead_code)]
-        pub fn {}_banked(task: TaskId) -> (I2cDevice, Option<u8>) {{"##,
+        pub fn {}_with_opt_page_idx(task: TaskId)"##,
                     rail.to_lowercase(),
                 )?;
+                write!(&mut self.output, " -> (I2cDevice, Option<u8>) {{")?;
 
                 let out = self.generate_device(device, 16);
                 if let Some(idx) = index {
