@@ -59,13 +59,14 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     let mut id2idx = std::collections::BTreeMap::new();
 
     for (idx, dev) in devices.into_iter().enumerate() {
+        let is_pmbus = dev.is_pmbus();
         writeln!(file, "    DeviceDescription {{")?;
         writeln!(file, "        device: {:?},", dev.device)?;
         writeln!(file, "        description: {:?},", dev.description)?;
-        if let Some(id) = dev.device_id {
-            if let Ok(component) = SpComponent::try_from(id.as_ref()) {
-                write!(file, "        id: {:?},", component.id)?;
-                if id2idx.insert(component.id, idx).is_some() {
+        if let Some(id) = dev.device_id.as_ref() {
+            if id.len() <= SpComponent::MAX_ID_LENGTH {
+                writeln!(file, "        id: \"{id}\",")?;
+                if id2idx.insert(id.to_string(), idx).is_some() {
                     println!("cargo::error=duplicate device id {id:?}",);
                     duplicate_ids += 1;
                 }
@@ -83,6 +84,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             );
             missing_ids += 1;
         };
+        writeln!(file, "        is_pmbus: {is_pmbus:?},")?;
         writeln!(file, "        sensors: &[")?;
         for s in dev.sensors {
             writeln!(file, "            SensorDescription {{")?;
@@ -104,11 +106,11 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
 
     writeln!(
         file,
-        "pub static DEVICE_INDICES_BY_SORTED_ID: [([u8; MAX_ID_LENGTH], usize); {}] = [",
+        "pub static DEVICE_INDICES_BY_SORTED_ID: [(&str, usize); {}] = [",
         id2idx.len()
     )?;
     for (id, idx) in id2idx {
-        writeln!(file, "    ({id:?}, {idx}),")?;
+        writeln!(file, "    (\"{id}\", {idx}),")?;
     }
     writeln!(file, "];")?;
 

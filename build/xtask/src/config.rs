@@ -340,179 +340,6 @@ impl Config {
         out
     }
 
-    fn common_build_config<'a>(
-        &self,
-        verbose: bool,
-        crate_name: &str,
-        no_default_features: bool,
-        features: &[String],
-        sysroot: Option<&'a Path>,
-    ) -> BuildConfig<'a> {
-        let mut args = vec!["--target".to_string(), self.target.to_string()];
-        if no_default_features {
-            args.push("--no-default-features".to_string());
-        }
-        if verbose {
-            args.push("-v".to_string());
-        }
-
-        if !features.is_empty() {
-            args.push("--features".to_string());
-            args.push(features.join(","));
-        }
-
-        let mut env = BTreeMap::new();
-
-        // We include the path to the configuration TOML file so that proc macros
-        // that use it can easily force a rebuild (using include_bytes!)
-        //
-        // This doesn't matter now, because we rebuild _everything_ on app.toml
-        // changes, but once #240 is closed, this will be important.
-        let app_toml_path = self
-            .app_toml_path
-            .canonicalize()
-            .expect("Could not canonicalize path to app TOML file");
-
-        let task_names =
-            self.tasks.keys().cloned().collect::<Vec<_>>().join(",");
-        env.insert("HUBRIS_TASKS".to_string(), task_names);
-        env.insert(
-            "HUBRIS_BUILD_VERSION".to_string(),
-            format!("{}", self.version),
-        );
-        env.insert("HUBRIS_BUILD_EPOCH".to_string(), format!("{}", self.epoch));
-        env.insert("HUBRIS_BOARD".to_string(), self.board.to_string());
-        env.insert(
-            "HUBRIS_APP_TOML".to_string(),
-            app_toml_path.to_str().unwrap().to_string(),
-        );
-        if let Some(aux) = &self.auxflash {
-            env.insert(
-                "HUBRIS_AUXFLASH_CHECKSUM".to_string(),
-                format!("{:?}", aux.chck),
-            );
-            for (name, checksum) in aux.checksums.iter() {
-                env.insert(
-                    format!("HUBRIS_AUXFLASH_CHECKSUM_{name}"),
-                    format!("{checksum:?}"),
-                );
-            }
-        }
-
-        if let Some(mmio) = &self.mmio {
-            env.insert(
-                "HUBRIS_MMIO_BASE_ADDRESS".to_string(),
-                mmio.base_address.to_string(),
-            );
-            env.insert(
-                "HUBRIS_MMIO_REGISTER_MAP".to_string(),
-                mmio.register_map.to_str().unwrap().to_owned(),
-            );
-        }
-
-        if let Some(app_config) = &self.config {
-            let app_config = toml::to_string(&app_config).unwrap();
-            env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
-        }
-
-        let out_path = Path::new("")
-            .join(&self.target)
-            .join("release")
-            .join(crate_name);
-
-        BuildConfig {
-            args,
-            env,
-            crate_name: crate_name.to_string(),
-            sysroot,
-            out_path,
-        }
-    }
-
-    pub fn kernel_build_config<'a>(
-        &self,
-        verbose: bool,
-        extra_env: &[(&str, &str)],
-        sysroot: Option<&'a Path>,
-    ) -> BuildConfig<'a> {
-        let mut out = self.common_build_config(
-            verbose,
-            &self.kernel.name,
-            self.kernel.no_default_features,
-            &self.kernel.features,
-            sysroot,
-        );
-        for (var, value) in extra_env {
-            out.env.insert(var.to_string(), value.to_string());
-        }
-        out
-    }
-
-    pub fn task_build_config<'a>(
-        &self,
-        task_name: &str,
-        verbose: bool,
-        sysroot: Option<&'a Path>,
-    ) -> Result<BuildConfig<'a>, String> {
-        let task_toml = self
-            .tasks
-            .get(task_name)
-            .ok_or_else(|| self.task_name_suggestion(task_name))?;
-        let mut out = self.common_build_config(
-            verbose,
-            &task_toml.name,
-            task_toml.no_default_features,
-            &task_toml.features,
-            sysroot,
-        );
-
-        //
-        // We allow for task- and app-specific configuration to be passed
-        // via environment variables to build.rs scripts that may choose to
-        // incorporate configuration into compilation.
-        //
-        let task_config = toml::to_string(&task_toml).unwrap();
-        out.env
-            .insert("HUBRIS_TASK_CONFIG".to_string(), task_config);
-
-        let all_task_config = toml::to_string(&self.tasks).unwrap();
-        out.env
-            .insert("HUBRIS_ALL_TASK_CONFIGS".to_string(), all_task_config);
-
-        // Expose the current task's name to allow for better error messages if
-        // a required configuration section is missing
-        out.env
-            .insert("HUBRIS_TASK_NAME".to_string(), task_name.to_string());
-
-        //
-        // Expose any external memories that a task is using should the
-        // task wish to generate code around them.
-        //
-        let mut extern_regions = IndexMap::new();
-
-        for name in &task_toml.extern_regions {
-            if let Some(r) = self.outputs.get(name) {
-                let region = (r[0].address, r[0].size);
-
-                if !r.iter().all(|r| (r.address, r.size) == region) {
-                    return Err(format!(
-                        "extern region {name} has inconsistent \
-                        address/size across images: {r:?}"
-                    ));
-                }
-
-                extern_regions.insert(name, region);
-            }
-        }
-
-        out.env.insert(
-            "HUBRIS_TASK_EXTERN_REGIONS".to_string(),
-            toml::to_string(&extern_regions).unwrap(),
-        );
-
-        Ok(out)
-    }
-
     /// Returns a map of memory name -> range for a specific image name
     ///
     /// This is useful when allocating memory for tasks
@@ -853,11 +680,12 @@ pub struct BuildConfig<'a> {
     pub args: Vec<String>,
     pub env: BTreeMap<String, String>,
 
-    /// Optional sysroot to a specific Rust installation.  If this is
-    /// specified, then `cargo` is called from the sysroot instead of using
-    /// the system façade (which may go through `rustup`).  This saves a few
-    /// hundred milliseconds per `cargo` invocation.
-    sysroot: Option<&'a Path>,
+    /// Sysroot to a specific Rust installation
+    ///
+    /// `cargo` is called from the sysroot instead of using the system façade
+    /// (which may go through `rustup`).  This saves a few hundred milliseconds
+    /// per `cargo` invocation.
+    pub sysroot: &'a Path,
 }
 
 impl BuildConfig<'_> {
@@ -872,24 +700,8 @@ impl BuildConfig<'_> {
         // We are not including a path in the binary name, so everything is
         // peachy. If you change this line below, make sure to canonicalize
         // path.
-        let mut cmd = std::process::Command::new(match self.sysroot.as_ref() {
-            Some(sysroot) => sysroot.join("bin").join("cargo"),
-            None => PathBuf::from("cargo"),
-        });
-
-        let mut nightly_features = vec![];
-        // nightly features that we use:
-        nightly_features.extend(["emit_stack_sizes", "used_with_arg"]);
-        // nightly features that our dependencies use:
-        nightly_features.extend([
-            "backtrace",
-            "error_generic_member_access",
-            "proc_macro_span",
-            "proc_macro_span_shrink",
-            "provide_any",
-        ]);
-
-        cmd.arg(format!("-Zallow-features={}", nightly_features.join(",")));
+        let mut cmd =
+            std::process::Command::new(self.sysroot.join("bin").join("cargo"));
 
         cmd.arg(subcommand);
         cmd.arg("-p").arg(&self.crate_name);

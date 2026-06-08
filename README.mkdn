@@ -171,8 +171,52 @@ $ cargo xtask clippy app/gimletlet/app.toml ping pong
 ## Integrating with `rust-analyzer`
 The Hubris build system will not work with `rust-analyzer` out of the box.
 
-However, `cargo xtask lsp` is here to help: it takes as its argument a Rust
-file, and returns JSON-encoded configuration for how to set up `rust-analyzer`.
+There are two strategies:
+
+- `cargo xtask rust-analyzer` is a shim that pretends to be `rust-analyzer` but
+  intercepts setup messages to apply configuration specific to a
+  `(manifest,task)` tuple.  This is easy to use but somewhat limited.
+- `cargo xtask lsp` accepts a file path and emits config information that can be
+  used when setting up `rust-analyzer`.  It can be tightly integrated (if you
+  write a bunch of editor-specific code) to automatically find a manifest and
+  task when a file is edited, then launch an appropriate `rust-analyzer`
+  instance.
+
+Right now, you should probably use `cargo xtask rust-analyzer`; the instructions
+below for `cargo xtask lsp` have rotted as Neovim's configuration has changed.
+
+### Using `cargo xtask rust-analyzer`
+Configure your editor to use a custom `rust-analyzer`:
+```
+cargo run -pxtask -- rust-analyzer PATH/TO/APP.TOML:TASK_NAME
+```
+
+#### Example Neovim integration
+If you're using Neovim, you can enable project-specific `.nvim.lua` files in
+your global configuration:
+```lua
+-- Enable project-specific `.nvim.lua` files
+vim.o.exrc = true
+```
+
+Then add `.nvim.lua` to this repo which reads from a `HUBRIS_TASK` variable:
+```lua
+local project_root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h")
+
+vim.lsp.config("rust_analyzer", {
+  cmd = { "cargo", "run", "-pxtask", "--", "rust-analyzer", vim.env.HUBRIS_TASK },
+  cmd_cwd = project_root,
+})
+```
+
+Finally, launch your editor with an appropriate `HUBRIS_TASK`:
+```console
+$ HUBRIS_TASK=app/cosmo/rev-a.toml:control_plane_agent nvim
+```
+
+### Using `cargo xtask lsp`
+`cargo xtask lsp` takes as its argument a Rust file, and returns JSON-encoded
+configuration for how to set up `rust-analyzer`.
 
 To use this data, some editor configuration is required!
 
@@ -297,7 +341,7 @@ require'rust-tools'.setup{
 end
 ```
 
-### What's going on here?
+#### What's going on here?
 When a new LSP configuration is created (`on_new_config`), we run `cargo
 xtask lsp` on the target file.  The JSON configuration includes a hash of
 the configuration; we use that hash to modify the name of the client from

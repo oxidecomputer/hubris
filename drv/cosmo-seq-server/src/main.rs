@@ -549,24 +549,24 @@ impl ServerImpl {
                         Ok(A0Sm::Faulted) | Err(_) => {
                             break;
                         }
-                        Ok(A0Sm::EnableGrpA) => {
-                            // hardware-cosmo#658 prevents us from checking `CPU_PRESENT`
-                            // at `A0Sm::ENABLE_GRP_A` time on rev-a boards
-                            if !cfg!(target_board = "cosmo-a") {
-                                let present =
-                                    self.sys.gpio_read(SP5_TO_SP_PRESENT_L)
-                                        == 0;
+                        // hardware-cosmo#658 prevents us from checking
+                        // `CPU_PRESENT` at `A0Sm::ENABLE_GRP_A` time on rev-a
+                        // boards
+                        Ok(A0Sm::EnableGrpA)
+                            if !cfg!(target_board = "cosmo-a") =>
+                        {
+                            let present =
+                                self.sys.gpio_read(SP5_TO_SP_PRESENT_L) == 0;
 
-                                if !present {
-                                    ringbuf_entry!(Trace::CPUNotPresent);
-                                    let _ = self.ereporter.deliver_ereport(
-                                        &ereports::cpu::CpuMissing {
-                                            cpu: &HOST_CPU_REFDES,
-                                        },
-                                    );
-                                    err = CpuSeqError::CPUNotPresent;
-                                    break;
-                                }
+                            if !present {
+                                ringbuf_entry!(Trace::CPUNotPresent);
+                                let _ = self.ereporter.deliver_ereport(
+                                    &ereports::cpu::CpuMissing {
+                                        cpu: &HOST_CPU_REFDES,
+                                    },
+                                );
+                                err = CpuSeqError::CPUNotPresent;
+                                break;
                             }
                         }
                         _ => (),

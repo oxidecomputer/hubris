@@ -1227,7 +1227,7 @@ impl ConfigGenerator {
         let pkg = metadata
             .packages
             .iter()
-            .find(|p| p.name == "drv-i2c-devices")
+            .find(|p| p.name.as_str() == "drv-i2c-devices")
             .context("failed to find drv-i2c-devices")?;
 
         let dir = pkg
@@ -1237,7 +1237,7 @@ impl ConfigGenerator {
 
         let mut drivers = std::collections::HashSet::new();
 
-        println!("cargo::rerun-if-changed={}", dir.join("src").display());
+        println!("cargo::rerun-if-changed={}", dir.join("src"));
 
         for entry in std::fs::read_dir(dir.join("src"))? {
             if let Some(f) = entry?.path().file_name()
@@ -1782,6 +1782,27 @@ pub struct I2cDeviceDescription {
     pub sensors: Vec<DeviceSensor>,
     pub device_id: Option<String>,
     pub name: Option<String>,
+    /// If this is a PMBus device, this field contains additional data about the
+    /// PMBus device to be used for generating PMBus-y code.
+    pub pmbus: Option<PmbusDeviceDescription>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PmbusDeviceDescription {
+    pub rails: Vec<PmbusRailDescription>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PmbusRailDescription {
+    pub name: String,
+    pub phases: Vec<u8>,
+}
+
+impl I2cDeviceDescription {
+    /// Returns `true` if this device is a PMBus device.
+    pub fn is_pmbus(&self) -> bool {
+        self.pmbus.is_some()
+    }
 }
 
 ///
@@ -1801,12 +1822,59 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     g.devices.into_iter().zip(sensors.device_sensors).map(
         |(device, sensors)| {
             let device_id = device.refdes.as_ref().map(Refdes::to_component_id);
+            let pmbus = device.power.as_ref().and_then(|power| {
+                if !power.pmbus {
+                    return None;
+                }
+
+                let rails = match (power.rails.as_ref(), power.phases.as_ref())
+                {
+                    (Some(rails), Some(phases)) => {
+                        assert_eq!(
+                            rails.len(),
+                            phases.len(),
+                            "invalid config: PMBus device {device_id:?}'s \
+                             `power.rails` and  `power.phases` lists are not \
+                             the same length"
+                        );
+                        rails
+                            .iter()
+                            .cloned()
+                            .zip(phases.iter().cloned())
+                            .map(|(name, phases)| PmbusRailDescription {
+                                name,
+                                phases,
+                            })
+                            .collect()
+                    }
+                    (Some(rails), None) => rails
+                        .iter()
+                        .cloned()
+                        .map(|name| PmbusRailDescription {
+                            name,
+                            phases: Vec::new(),
+                        })
+                        .collect(),
+                    (None, Some(_)) => {
+                        panic!(
+                            "invalid config: PMBus device {device_id:?} \
+                            defines a `power.phases` list, but not a \
+                            `power.rails` list"
+                        );
+                    }
+                    (None, None) => Vec::new(),
+                };
+
+                Some(PmbusDeviceDescription { rails })
+            });
+
             I2cDeviceDescription {
                 device: device.device,
                 description: device.description,
                 sensors,
                 device_id,
                 name: device.name,
+                pmbus,
             }
         },
     )
