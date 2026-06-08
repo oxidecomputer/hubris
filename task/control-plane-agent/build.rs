@@ -59,7 +59,7 @@ fn do_pmbus() -> Result<()> {
     let pmbus_status_caps = {
         let mut map = HashMap::new();
         for (name, func) in PMBUS_GENERATOR {
-            map.insert(*name, *func);
+            map.insert(*name, (func)());
         }
         map
     };
@@ -73,15 +73,16 @@ fn do_pmbus() -> Result<()> {
         };
 
         // If it is a pmbus device, we need to get its status capabilities
-        let Some(func) = pmbus_status_caps.get(dev.device.as_str()) else {
-            panic!("Unknown device: {}", dev.device);
+        let Some(caps) = pmbus_status_caps.get(dev.device.as_str()) else {
+            print!("cargo::error=unknown pmbus device: {}, ", dev.device);
+            println!(
+                "add entry to PMBUS_GENERATOR for status register support."
+            );
+            panic!("Unsupported pmbus device: {}", dev.device);
         };
-        let caps = (func)();
 
         // Aggregate a list of all PMBus-visible rails
         for rail in pmbus.rails.iter() {
-            // `BTreeSet::insert` return value means "is unique", which is the
-            // inverse of `BTreeMap::insert().is_some()`!
             if pmbus_rail_names.insert(rail.name.clone(), caps).is_some() {
                 pmbus_rail_dupes += 1;
                 print!("cargo::error=PMBus device ");
@@ -221,14 +222,25 @@ macro_rules! generator {
 
 use drv_i2c_types::pmbus_status::Capabilities;
 type StatusRow = (&'static str, fn() -> Capabilities);
+
+// Before you add a pmbus device to this list, you should make sure that you
+// have reviewed the pmbus crate to make sure that any unsupported status
+// registers are marked as illegal, similar to oxidecomputer/pmbus#35.
+//
+// Failure to do so could cause CML or OTHER error bits to be set. Just adding
+// the device to this list (without accurate `pmbus` crate information) will
+// likely make the compilation succeed, but should not be done for production
+// devices where this may trigger runtime CML errors.
 const PMBUS_GENERATOR: &[StatusRow] = &[
+    // Validated
     generator!("adm127x", adm127x),
     generator!("bmr491", bmr491),
     generator!("isl68224", isl68224),
+    generator!("raa229618", raa229618),
+    generator!("tps546b24a", tps546b24a),
+    // Unvalidated (TODO!)
     generator!("lm5066", lm5066),
     generator!("lm5066i", lm5066i),
     generator!("mwocp68", mwocp68),
-    generator!("raa229618", raa229618),
     generator!("raa229620a", raa229620a),
-    generator!("tps546b24a", tps546b24a),
 ];
