@@ -236,13 +236,10 @@ impl ServerImpl {
             let bus = index / 6; // FPGA bus (0 or 1)
             let dev = index % 6; // device index (SDI, 0-6)
 
-            for pos in 0..2 {
+            for (pos, sensor) in DIMM_SENSORS[index].iter().enumerate() {
                 // Mark sensors as absent if they're missing
                 if !present {
-                    self.sensor.nodata_now(
-                        DIMM_SENSORS[index][pos],
-                        NoData::DeviceNotPresent,
-                    );
+                    self.sensor.nodata_now(*sensor, NoData::DeviceNotPresent);
                     continue;
                 }
 
@@ -269,10 +266,7 @@ impl ServerImpl {
                         index,
                         pos,
                     });
-                    self.sensor.nodata_now(
-                        DIMM_SENSORS[index][pos],
-                        NoData::DeviceTimeout,
-                    );
+                    self.sensor.nodata_now(*sensor, NoData::DeviceTimeout);
                     continue;
                 };
 
@@ -286,7 +280,7 @@ impl ServerImpl {
                 let temp_c = f32::from(t) * 0.0078125f32;
 
                 // Send the value to the sensors task
-                self.sensor.post_now(DIMM_SENSORS[index][pos], temp_c);
+                self.sensor.post_now(*sensor, temp_c);
             }
         }
     }
