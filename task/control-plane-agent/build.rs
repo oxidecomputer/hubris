@@ -74,9 +74,11 @@ fn do_pmbus() -> Result<()> {
 
         // If it is a pmbus device, we need to get its status capabilities
         let Some(caps) = pmbus_status_caps.get(dev.device.as_str()) else {
-            print!("cargo::error=unknown pmbus device: {}, ", dev.device);
             println!(
-                "add entry to PMBUS_GENERATOR for status register support."
+                "cargo::error=unknown pmbus device: {}, add entry to \
+                 PMBUS_GENERATOR in {} for status register support.",
+                dev.device,
+                file!(),
             );
             panic!("Unsupported pmbus device: {}", dev.device);
         };
@@ -85,13 +87,10 @@ fn do_pmbus() -> Result<()> {
         for rail in pmbus.rails.iter() {
             if pmbus_rail_names.insert(rail.name.clone(), caps).is_some() {
                 pmbus_rail_dupes += 1;
-                print!("cargo::error=PMBus device ");
-                print!(
-                    "{} defines a power rail ",
-                    dev.device_id.as_deref().unwrap_or("(no ID)")
-                );
                 println!(
-                    "{:?} which already exists in the manifest",
+                    "cargo::error=PMBus device {} defines a power rail {:?} \
+                     which already exists in the manifest",
+                    dev.device_id.as_deref().unwrap_or("(no ID)"),
                     rail.name
                 );
             }

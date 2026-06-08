@@ -752,7 +752,7 @@ impl MgsCommon {
         &mut self,
         rail: &PowerRailName,
     ) -> Result<PmbusStatus, GwSpError> {
-        // Get the name as a binary string, up to the first zero
+        // Get the name as a binary string, up to the first null byte
         let name = rail.as_bstr();
 
         // Can we find the given rail in our list of sorted PMBus rails?

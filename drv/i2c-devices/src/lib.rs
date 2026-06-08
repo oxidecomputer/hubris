@@ -345,7 +345,7 @@ impl PmbusStatus {
         // transits through `pmbus` generated types, and only get the raw
         // info. These helpers get 1/2 bytes with the proper paging helpers
         // to obtain this information.
-        let get_u16 = |cmd, cap| {
+        let read_u16 = |cmd, cap| {
             if !device_caps.supports(&cap) {
                 return Err(PmbusStatusError::Unsupported);
             }
@@ -357,7 +357,7 @@ impl PmbusStatus {
             .map(u16::from_le_bytes)
         };
 
-        let get_byte = |cmd, cap| {
+        let read_byte = |cmd, cap| {
             if !device_caps.supports(&cap) {
                 return Err(PmbusStatusError::Unsupported);
             }
