@@ -69,6 +69,7 @@ task-slots = [
     "validate",
     "update_server",
     "dump_agent",
+    "i2c_driver",
 ]
 features = ["minibar", "vlan"]
 notifications = ["socket", "timer"]
@@ -105,4 +106,3 @@ owner = {name = "control_plane_agent", notification = "socket"}
 port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
-

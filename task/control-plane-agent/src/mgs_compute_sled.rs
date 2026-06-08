@@ -19,10 +19,11 @@ use gateway_messages::{
     ComponentDetails, ComponentUpdatePrepare, DiscoverResponse, DumpSegment,
     DumpTask, GpioToggleCount, Header, IgnitionCommand, IgnitionState,
     LastPostCode, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
-    PostCode, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
-    RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT, SensorRequest, SensorResponse,
-    SpComponent, SpError, SpPort as GwSpPort, SpRequest, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus, ignition,
+    PmbusStatus, PostCode, PowerRailName, PowerState, PowerStateTransition,
+    RotBootInfo, RotRequest, RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpPort as GwSpPort,
+    SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ignition,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -1258,6 +1259,13 @@ impl SpHandler for MgsHandler {
             slot
         }));
         self.host_flash_update.get_hash(slot)
+    }
+
+    fn get_pmbus_status(
+        &mut self,
+        rail: &PowerRailName,
+    ) -> Result<PmbusStatus, SpError> {
+        self.common.get_pmbus_status(rail)
     }
 }
 

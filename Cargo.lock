@@ -230,7 +230,7 @@ dependencies = [
  "hubpack",
  "salty",
  "serde",
- "serde_with 3.6.1",
+ "serde_with",
  "sha3",
  "static_assertions",
 ]
@@ -349,6 +349,9 @@ name = "bitflags"
 version = "2.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2261d10cca569e4643e526d8dc2e62e433cc8aba21ab764233731f8d369bf394"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bitvec"
@@ -383,13 +386,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
- "convert_case",
+ "convert_case 0.4.0",
  "heck 0.5.0",
  "prettyplease",
  "quote",
  "serde",
  "serde_json",
- "serde_with 3.6.1",
+ "serde_with",
  "syn 2.0.106",
 ]
 
@@ -401,7 +404,7 @@ dependencies = [
  "build-util",
  "cargo_metadata",
  "cfg-if",
- "convert_case",
+ "convert_case 0.4.0",
  "indexmap 1.9.1",
  "multimap",
  "rangemap",
@@ -424,7 +427,7 @@ dependencies = [
  "build-util",
  "call_rustfmt",
  "cfg-if",
- "convert_case",
+ "convert_case 0.4.0",
  "indexmap 1.9.1",
  "multimap",
  "proc-macro2",
@@ -439,7 +442,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
- "convert_case",
+ "convert_case 0.4.0",
  "indexmap 1.9.1",
  "proc-macro2",
  "quote",
@@ -464,7 +467,7 @@ dependencies = [
  "anyhow",
  "build-util",
  "cfg-if",
- "convert_case",
+ "convert_case 0.4.0",
  "proc-macro2",
  "quote",
  "serde",
@@ -486,9 +489,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.20.2"
+version = "3.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
+checksum = "8ea184aa71bb362a1157c896979544cc23974e08fd265f29ea96b59f0b4a555b"
 
 [[package]]
 name = "byteorder"
@@ -599,9 +602,9 @@ checksum = "02f341c093d19155a6e41631ce5971aac4e9a868262212153124c15fa22d1cdc"
 
 [[package]]
 name = "cfg-expr"
-version = "0.20.7"
+version = "0.20.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c6b04e07d8080154ed4ac03546d9a2b303cc2fe1901ba0b35b301516e289368"
+checksum = "fb693542bcafa528e198be0ebd9d3632ca5b7c93dbe7237460e199910835997c"
 dependencies = [
  "smallvec 1.15.1",
  "target-lexicon",
@@ -741,6 +744,15 @@ name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
+name = "convert_case"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "affbf0190ed2caf063e3def54ff444b449371d55c58e513a95ab98eca50adb49"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "core-foundation-sys"
@@ -912,36 +924,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "757c0ded2af11d8e739c4daea1ac623dd1624b06c844cf3f5a39f1bdbd99bb12"
-dependencies = [
- "darling_core 0.13.0",
- "darling_macro 0.13.0",
-]
-
-[[package]]
-name = "darling"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0209d94da627ab5605dcccf08bb18afa5009cfbef48d8a8b7d7bdbc79be25c5e"
 dependencies = [
- "darling_core 0.20.3",
- "darling_macro 0.20.3",
-]
-
-[[package]]
-name = "darling_core"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c34d8efb62d0c2d7f60ece80f75e5c63c1588ba68032740494b0b9a996466e3"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote",
- "strsim",
- "syn 1.0.94",
+ "darling_core",
+ "darling_macro",
 ]
 
 [[package]]
@@ -960,22 +948,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ade7bff147130fe5e6d39f089c6bd49ec0250f35d70b2eebf72afdfc919f15cc"
-dependencies = [
- "darling_core 0.13.0",
- "quote",
- "syn 1.0.94",
-]
-
-[[package]]
-name = "darling_macro"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "836a9bbc7ad63342d6d6e7b815ccab164bc77a2d95d84bc3117a8c0d5c98e2d5"
 dependencies = [
- "darling_core 0.20.3",
+ "darling_core",
  "quote",
  "syn 2.0.106",
 ]
@@ -1072,7 +1049,7 @@ version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
 dependencies = [
- "convert_case",
+ "convert_case 0.4.0",
  "proc-macro2",
  "quote",
  "rustc_version 0.4.0",
@@ -1135,9 +1112,9 @@ dependencies = [
 
 [[package]]
 name = "displaydoc"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
+checksum = "1ac70aa55017e108007fbaf5aa0f54b021c98f92ff8af59d42eda9da96e3dd4f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1399,7 +1376,7 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "ringbuf",
  "serde",
@@ -1479,7 +1456,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "microcbor",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "pmbus",
  "ringbuf",
@@ -1572,9 +1549,10 @@ dependencies = [
  "bitfield 0.13.2",
  "derive-idol-err",
  "drv-i2c-api",
+ "drv-i2c-types",
  "drv-onewire",
  "microcbor",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "pmbus",
  "ringbuf",
@@ -1593,7 +1571,7 @@ dependencies = [
  "derive-idol-err",
  "enum-kinds",
  "hubpack",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "serde",
 ]
@@ -1622,7 +1600,7 @@ dependencies = [
  "drv-fpga-api",
  "idol",
  "idol-runtime",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "serde",
  "static_assertions",
@@ -2296,7 +2274,7 @@ dependencies = [
  "drv-ignition-api",
  "gnarle",
  "idol",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "serde",
  "serde_json",
@@ -3257,7 +3235,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-ereport-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#745a508cb97b7ca9b4c10ec9592c980eb769b10d"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#da0ac17b9d465db5b1f7a2597d068ae091a89b22"
 dependencies = [
  "zerocopy 0.8.27",
 ]
@@ -3265,7 +3243,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#9dd63c0d7533e333c2ebf522f1929443041fd726"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#da0ac17b9d465db5b1f7a2597d068ae091a89b22"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
@@ -3563,7 +3541,7 @@ dependencies = [
  "fletcher",
  "gateway-messages",
  "hubpack",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "oxide-barcode",
  "serde",
@@ -3796,9 +3774,9 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
- "ron",
+ "ron 0.8.0",
  "serde",
- "serde_with 3.6.1",
+ "serde_with",
  "syn 2.0.106",
 ]
 
@@ -3925,7 +3903,7 @@ dependencies = [
  "phash-gen",
  "proc-macro2",
  "quote",
- "ron",
+ "ron 0.8.0",
  "serde",
  "ssmarshal",
  "syn 2.0.106",
@@ -4075,7 +4053,7 @@ name = "lpc55-puf"
 version = "0.1.0"
 dependencies = [
  "lpc55-pac",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "unwrap-lite",
 ]
@@ -4104,7 +4082,7 @@ dependencies = [
  "lpc55-puf",
  "lpc55_romapi",
  "nb 1.0.0",
- "ron",
+ "ron 0.8.0",
  "salty",
  "serde",
  "sha3",
@@ -4166,7 +4144,7 @@ dependencies = [
  "cfg-if",
  "lpc55-pac",
  "lpc55-rom-data",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
 ]
 
@@ -4238,7 +4216,7 @@ dependencies = [
  "build-kconfig",
  "build-util",
  "measurement-token",
- "ron",
+ "ron 0.8.0",
 ]
 
 [[package]]
@@ -4472,17 +4450,6 @@ name = "num-conv"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
-
-[[package]]
-name = "num-derive"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.94",
-]
 
 [[package]]
 name = "num-derive"
@@ -4822,16 +4789,16 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.7"
-source = "git+https://github.com/oxidecomputer/pmbus#a35f62a3176ad8ee5ae5297bf1d984d606042446"
+source = "git+https://github.com/oxidecomputer/pmbus#a28e6603ccf2c42f9541107ee4c9fcf78f222266"
 dependencies = [
  "anyhow",
- "convert_case",
+ "convert_case 0.11.0",
  "libm",
- "num-derive 0.3.3",
+ "num-derive",
  "num-traits",
- "ron",
+ "ron 0.12.1",
  "serde",
- "serde_with 1.11.0",
+ "serde_with",
 ]
 
 [[package]]
@@ -5188,6 +5155,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ron"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4147b952f3f819eca0e99527022f7d6a8d05f111aeb0a62960c74eb283bec8fc"
+dependencies = [
+ "bitflags 2.9.4",
+ "once_cell",
+ "serde",
+ "serde_derive",
+ "typeid",
+ "unicode-ident",
+]
+
+[[package]]
 name = "rot-carrier"
 version = "0.1.0"
 dependencies = [
@@ -5274,12 +5255,6 @@ dependencies = [
  "linux-raw-sys 0.4.15",
  "windows-sys 0.52.0",
 ]
-
-[[package]]
-name = "rustversion"
-version = "1.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61b3909d758bb75c79f23d4736fac9433868679d3ad2ea7a61e3c25cfda9a088"
 
 [[package]]
 name = "rusty-fork"
@@ -5502,17 +5477,6 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "1.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad6056b4cb69b6e43e3a0f055def223380baecc99da683884f205bf347f7c4b3"
-dependencies = [
- "rustversion",
- "serde",
- "serde_with_macros 1.5.1",
-]
-
-[[package]]
-name = "serde_with"
 version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15d167997bd841ec232f5b2b8e0e26606df2e7caa4c31b95ea9ca52b200bd270"
@@ -5525,20 +5489,8 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_with_macros 3.6.1",
+ "serde_with_macros",
  "time",
-]
-
-[[package]]
-name = "serde_with_macros"
-version = "1.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12e47be9471c72889ebafb5e14d5ff930d89ae7a67bbdb5f8abb564f845a927e"
-dependencies = [
- "darling 0.13.0",
- "proc-macro2",
- "quote",
- "syn 1.0.94",
 ]
 
 [[package]]
@@ -5547,7 +5499,7 @@ version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "865f9743393e638991566a8b7a479043c2c8da94a33e0a31f18214c9cae0a64d"
 dependencies = [
- "darling 0.20.3",
+ "darling",
  "proc-macro2",
  "quote",
  "syn 2.0.106",
@@ -5904,9 +5856,9 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "target-lexicon"
-version = "0.13.3"
+version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df7f62577c25e07834649fc3b39fafdc597c0a3527dc1c60129201ccfcbaa50c"
+checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
 name = "target-spec"
@@ -5936,7 +5888,7 @@ dependencies = [
  "ringbuf",
  "salty",
  "serde",
- "serde_with 3.6.1",
+ "serde_with",
  "sha3",
  "stage0-handoff",
  "static-cell",
@@ -5963,6 +5915,7 @@ name = "task-control-plane-agent"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-i2c",
  "build-util",
  "cfg-if",
  "counters",
@@ -5971,6 +5924,9 @@ dependencies = [
  "drv-caboose-pos",
  "drv-cpu-seq-api",
  "drv-hf-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-i2c-types",
  "drv-ignition-api",
  "drv-lpc55-update-api",
  "drv-monorail-api",
@@ -5993,6 +5949,7 @@ dependencies = [
  "lpc55-rom-data",
  "num-traits",
  "p256",
+ "pmbus",
  "ringbuf",
  "serde",
  "sha2",
@@ -6599,7 +6556,7 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "serde",
  "userlib",
@@ -7154,7 +7111,7 @@ name = "tlvc-text"
 version = "0.4.0"
 source = "git+https://github.com/oxidecomputer/tlvc#2f69360ddcb07ad6072cb720bb1fac9f58a2ddec"
 dependencies = [
- "ron",
+ "ron 0.8.0",
  "serde",
  "tlvc",
  "zerocopy 0.8.27",
@@ -7305,9 +7262,9 @@ checksum = "bc7d623258602320d5c55d1bc22793b57daff0ec7efc270ea7d55ce1d5f5471c"
 
 [[package]]
 name = "typenum"
-version = "1.20.0"
+version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
+checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "unarray"
@@ -7320,6 +7277,12 @@ name = "unicode-ident"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5464a87b239f13a63a501f2701565754bae92d243d4bb7eb12f6d57d2269bf4"
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 
 [[package]]
 name = "unicode-xid"
@@ -7361,7 +7324,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "critical-section",
- "num-derive 0.4.2",
+ "num-derive",
  "num-traits",
  "paste",
  "serde",
@@ -7903,7 +7866,7 @@ dependencies = [
  "path-slash 0.1.4",
  "rangemap",
  "regex",
- "ron",
+ "ron 0.8.0",
  "rustc-demangle",
  "scroll",
  "serde",

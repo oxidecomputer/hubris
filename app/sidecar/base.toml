@@ -114,6 +114,7 @@ uses = []
 task-slots = [
     "auxflash",
     "dump_agent",
+    "i2c_driver",
     "ignition",
     "jefe",
     "monorail",

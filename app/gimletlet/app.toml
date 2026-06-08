@@ -63,6 +63,7 @@ stacksize = 6256
 start = true
 uses = ["usart1"]
 task-slots = [
+    "i2c_driver",
     "jefe",
     "net",
     "dump_agent",
