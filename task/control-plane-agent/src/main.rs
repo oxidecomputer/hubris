@@ -636,7 +636,8 @@ pub(crate) mod pmbus {
     use super::*;
 
     /// Type returned by generated pmbus rail functions
-    pub type SummonFn = fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
+    pub type SummonFn =
+        fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
 
     pub struct PmbusRailBinding {
         pub name: &'static str,
