@@ -279,6 +279,9 @@ pub enum Segment {
 pub mod pmbus_status {
     /// Type that denotes the STATUS registers supported for a given PMBus
     /// device
+    ///
+    /// This is typically code-generated at build time using information
+    /// from the `pmbus` crate.
     #[derive(Debug, PartialEq, Clone, Copy)]
     pub struct Capabilities(pub u32);
 
@@ -294,9 +297,13 @@ pub mod pmbus_status {
         pub const STATUS_FANS_1_2: Self = Self(1 << 8);
         pub const STATUS_FANS_3_4: Self = Self(1 << 9);
 
+        /// Does this capability support all capabilities of `other`?
+        ///
+        /// `self` may support *more* capabilities than `other`, but
+        /// not the other way around.
         #[inline]
         pub const fn supports(&self, other: &Self) -> bool {
-            (self.0 & other.0) != 0
+            (self.0 & other.0) == other.0
         }
     }
 }

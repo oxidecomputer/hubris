@@ -43,6 +43,8 @@ use drv_i2c_api::{I2cDevice, ResponseCode, pmbus_status::Capabilities};
 use pmbus::commands::CommandCode;
 
 macro_rules! pmbus_read {
+    // "Raw" variant: Doesn't feed output through the pmbus crate, and
+    // expects the caller to pass in length and the raw command code
     (@raw => $device:expr, $cmd_code:expr, $len:expr $(,)?) => {
         $device
             .read_reg::<u8, [u8; $len]>(
@@ -53,6 +55,9 @@ macro_rules! pmbus_read {
                 code,
             })
     };
+
+    // Non-raw, expects cmd to be a CommandCode, and obtains the raw
+    // command and length from that
     ($device:expr, $cmd:ident) => {{
         let cmd_code = $cmd::CommandData::code();
         const CMD_LEN: usize = $cmd::CommandData::len();
@@ -72,6 +77,8 @@ macro_rules! pmbus_read {
 }
 
 macro_rules! pmbus_rail_read {
+    // "Raw" variant: Doesn't feed output through the pmbus crate, and
+    // expects the caller to pass in length and the raw command code
     (@raw => $device:expr, $rail:expr, $cmd_code:expr, $len:expr $(,)?) => {
         $device
             .write_read_reg::<u8, [u8; $len]>(
@@ -84,6 +91,8 @@ macro_rules! pmbus_rail_read {
             })
     };
 
+    // Non-raw, expects cmd to be a CommandCode, and obtains the raw
+    // command and length from that
     ($device:expr, $rail:expr, $cmd:ident $(,)?) => {{
         let cmd_code = $cmd::CommandData::code();
         const CMD_LEN: usize = $cmd::CommandData::len();
@@ -284,6 +293,9 @@ pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     }
 }
 
+/// A report of obtained status registers from a pmbus device
+///
+/// Typically obtained via [`PmbusStatus::try_read_from()`].
 // grumble grumble, copied from `gateway_messages::sp_to_mgs::PmbusStatus`
 // grumble grumble, also basically the same as `ereports/src/pwr`
 pub struct PmbusStatus {
@@ -302,7 +314,9 @@ pub struct PmbusStatus {
 /// An error for querying PMBus `STATUS_*` registers.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PmbusStatusError {
+    /// Reading failed when querying the i2c driver
     BadRead { cmd: u8, code: ResponseCode },
+    /// The given status register is unsupported by the device
     Unsupported,
 }
 
