@@ -224,6 +224,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         spi: S,
         hf: hf_api::HostFlash,
     ) -> Result<Self, i2c::ResponseCode> {
+        let init_time = sys_get_timer().now;
+
         // Ensure the SP fault pin is configured as an open-drain output, and pull
         // it low to make the sequencer restart externally visible.
         sys.gpio_configure_output(
@@ -539,7 +541,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         let mut server = Self {
             state: PowerState::A2,
             reason: StateChangeReason::InitialPowerOn,
-            since: 0, // we have been in A2 since we booted :)
+            since: init_time,
             sys: sys.clone(),
             seq,
             jefe,
