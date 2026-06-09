@@ -211,6 +211,7 @@ stacksize = 7000
 start = true
 uses = []
 task-slots = [
+    "i2c_driver",
     "jefe",
     "dump_agent",
     "net",
