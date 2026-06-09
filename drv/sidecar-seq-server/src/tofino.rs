@@ -41,8 +41,11 @@ impl Tofino {
         policy: TofinoSequencerPolicy,
         reason: PolicyChangeReason,
     ) {
-        self.policy = policy;
-        self.reason = reason;
+        if self.policy != policy {
+            ringbuf_entry!(Trace::TofinoSequencerPolicyUpdate(policy, reason));
+            self.policy = policy;
+            self.reason = reason;
+        }
     }
 
     pub fn apply_vid(&mut self, vid: Tofino2Vid) -> Result<(), SeqError> {

@@ -709,7 +709,8 @@ impl ServerImpl {
         Ok(Transition::Changed)
     }
 
-    /// Updates our internal `state` and the global state in `jefe`
+    /// Updates our internal `state` and the global state in `jefe`.
+    /// This should only be called if the state has actually changed.
     fn set_state_internal(
         &mut self,
         state: PowerState,

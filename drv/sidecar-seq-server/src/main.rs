@@ -437,10 +437,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         policy: TofinoSequencerPolicy,
     ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::TofinoSequencerPolicyUpdate(
-            policy,
-            PolicyChangeReason::Other
-        ));
         self.tofino.set_policy(policy, PolicyChangeReason::Other);
         Ok(())
     }
@@ -451,7 +447,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         policy: TofinoSequencerPolicy,
         reason: PolicyChangeReason,
     ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::TofinoSequencerPolicyUpdate(policy, reason));
         self.tofino.set_policy(policy, reason);
         Ok(())
     }

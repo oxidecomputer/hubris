@@ -747,11 +747,13 @@ impl<S: SpiServer> ServerImpl<S> {
         reason: StateChangeReason,
         now: u64,
     ) {
-        ringbuf_entry!(Trace::UpdateState(state));
-        self.since = now;
-        self.state = state;
-        self.reason = reason;
-        self.jefe.set_state(state as u32);
+        if self.state != state {
+            ringbuf_entry!(Trace::UpdateState(state));
+            self.state = state;
+            self.reason = reason;
+            self.since = now;
+            self.jefe.set_state(state as u32);
+        }
     }
 
     fn set_state_internal(
