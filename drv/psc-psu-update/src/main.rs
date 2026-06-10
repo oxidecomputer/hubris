@@ -32,7 +32,7 @@
 #![no_main]
 
 use drv_i2c_api::*;
-use drv_i2c_devices::mwocp68::{
+use drv_i2c_devices::mwocp6x::{
     Error as Mwocp68Error, FirmwareRev, Mwocp68, SerialNumber, UpdateState,
 };
 use ringbuf::*;
@@ -76,8 +76,8 @@ static PSU: ClaimOnceCell<[Psu; 6]> = ClaimOnceCell::new(
 enum Trace {
     #[count(skip)]
     None,
-    PowerGoodFailed(u8, drv_i2c_devices::mwocp68::Error),
-    FirmwareRevFailed(u8, drv_i2c_devices::mwocp68::Error),
+    PowerGoodFailed(u8, Mwocp68Error),
+    FirmwareRevFailed(u8, Mwocp68Error),
     AttemptingUpdate(u8),
     BackingOff(u8),
     UpdateFailed,
@@ -88,8 +88,8 @@ enum Trace {
     UpdateSucceeded(u8),
     UpdateDelay(u64),
     PSUReplaced(u8),
-    SerialNumberError(u8, drv_i2c_devices::mwocp68::Error),
-    PGError(u8, drv_i2c_devices::mwocp68::Error),
+    SerialNumberError(u8, Mwocp68Error),
+    PGError(u8, Mwocp68Error),
     PowerNotGood(u8),
 }
 

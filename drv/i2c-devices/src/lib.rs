@@ -23,7 +23,7 @@
 //! - [`max6634`]: MAX6634 temperature sensor
 //! - [`max31790`]: MAX31790 fan controller
 //! - [`mcp9808`]: MCP9808 temperature sensor
-//! - [`mwocp68`]: Murata power shelf
+//! - [`mwocp6x`]: Murata power supply units
 //! - [`nvme_bmc`]: NVMe basic management control
 //! - [`pca9538`]: PCA9538 GPIO expander
 //! - [`pca9956b`]: PCA9956B LED driver
@@ -421,7 +421,7 @@ pub mod max31790;
 pub mod max5970;
 pub mod max6634;
 pub mod mcp9808;
-pub mod mwocp68;
+pub mod mwocp6x;
 pub mod nvme_bmc;
 pub mod pca9538;
 pub mod pca9956b;

@@ -127,7 +127,7 @@ features = ["ereport"]
 notifications = ["task-faulted"]
 
 [tasks.sequencer]
-name = "drv-observer-seq-server"
+name = "drv-psc-seq-server"
 priority = 4
 stacksize = 4096
 start = true
@@ -301,7 +301,7 @@ notifications = ["timer"]
 [tasks.power]
 name = "task-power"
 priority = 4
-max-sizes = {flash = 32768, ram = 4096}
+max-sizes = {flash = 32768, ram = 4200}
 stacksize = 2504
 start = true
 task-slots = ["i2c_driver", "sensor", "sys"]
@@ -389,7 +389,7 @@ sda.pin = 8
 af = 4
 
 #
-# I2C4: Backplane bus
+# I2C4: Temperature sensor bus
 #
 [[config.i2c.controllers]]
 controller = 4
@@ -409,19 +409,142 @@ af = 4
 bus = "temp"
 address = 0b1001_000
 device = "tmp117"
-description = "Temperature sensor"
+description = "Onboard temperature sensor"
 refdes = "U29"
+name = "onboard"
+sensors = { temperature = 1 }
 
 [[config.i2c.devices]]
 bus = "local"
+# This one device actually appears at 8 different i2c addresses. 0b1010_000 -
+# 0b1010_011 let you access the main memory registers, where the 2 LSBs of the
+# device address are the 2 MSBs of the memory address. 0b1011_000 - 0b1011_011
+# let you access the security registers and write protection registers.
 address = 0b1010_000
 device = "at24csw080"
 name = "local_vpd"
 description = "FRU ID EEPROM"
 refdes = "U27"
 
-# TODO add rectifiers (once we have their PMBus spec) and uncomment PMBus usage
-# in observer-seq-server.
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu0eeprom"
+address = 0b1010_000
+device = "m24c02"
+description = "PSU 0 EEPROM"
+refdes = ["PSU0", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu0mcu"
+address = 0b1011_000
+device = "mwocp67"
+description = "PSU 0 MCU"
+# TODO it's not clear what rails the mwocp67 has or how they are paged.
+# https://github.com/oxidecomputer/hubris/issues/2410
+power = { rails = [ "V50_MAIN_PSU0", "V50_AUX_PSU0" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+refdes = "PSU0"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu1eeprom"
+address = 0b1010_001
+device = "m24c02"
+description = "PSU 1 EEPROM"
+refdes = ["PSU1", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu1mcu"
+address = 0b1011_001
+device = "mwocp67"
+description = "PSU 1 MCU"
+# TODO it's not clear what rails the mwocp67 has or how they are paged.
+# https://github.com/oxidecomputer/hubris/issues/2410
+power = { rails = [ "V50_MAIN_PSU1", "V50_AUX_PSU1" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+refdes = "PSU1"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu2eeprom"
+address = 0b1010_010
+device = "m24c02"
+description = "PSU 2 EEPROM"
+refdes = ["PSU2", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu2mcu"
+address = 0b1011_010
+device = "mwocp67"
+description = "PSU 2 MCU"
+# TODO it's not clear what rails the mwocp67 has or how they are paged.
+# https://github.com/oxidecomputer/hubris/issues/2410
+power = { rails = [ "V50_MAIN_PSU2", "V50_AUX_PSU2" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+refdes = "PSU2"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu3eeprom"
+address = 0b1010_011
+device = "m24c02"
+description = "PSU 3 EEPROM"
+refdes = ["PSU3", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu3mcu"
+address = 0b1011_011
+device = "mwocp67"
+description = "PSU 3 MCU"
+# TODO it's not clear what rails the mwocp67 has or how they are paged.
+# https://github.com/oxidecomputer/hubris/issues/2410
+power = { rails = [ "V50_MAIN_PSU3", "V50_AUX_PSU3" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+refdes = "PSU3"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu4eeprom"
+address = 0b1010_100
+device = "m24c02"
+description = "PSU 4 EEPROM"
+refdes = ["PSU4", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu4mcu"
+address = 0b1011_100
+device = "mwocp67"
+description = "PSU 4 MCU"
+# TODO it's not clear what rails the mwocp67 has or how they are paged.
+# https://github.com/oxidecomputer/hubris/issues/2410
+power = { rails = [ "V50_MAIN_PSU4", "V50_AUX_PSU4" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+refdes = "PSU4"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu5eeprom"
+address = 0b1010_101
+device = "m24c02"
+description = "PSU 5 EEPROM"
+refdes = ["PSU5", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu5mcu"
+address = 0b1011_101
+device = "mwocp67"
+description = "PSU 5 MCU"
+# TODO it's not clear what rails the mwocp67 has or how they are paged.
+# https://github.com/oxidecomputer/hubris/issues/2410
+power = { rails = [ "V50_MAIN_PSU5", "V50_AUX_PSU5" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+refdes = "PSU5"
 
 [config.spi.spi1]
 controller = 1
