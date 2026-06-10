@@ -2,16 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::PSU_COUNT;
+use super::{PSU_COUNT, i2c_config, notifications};
 use drv_i2c_api::I2cDevice;
 use drv_stm32xx_sys_api as sys_api;
 use userlib::*;
 
 pub use drv_i2c_devices::mwocp6x::Mwocp68 as Mwocp6x;
-
-include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
-
-include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 pub const STATUS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
 

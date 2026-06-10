@@ -551,9 +551,8 @@ fn main() -> ! {
     // where it happens.
 
     // Poll things.
-    sys_set_timer(Some(start_time), bsp::notifications::TIMER_MASK);
-    let sleep_notifications =
-        all_pin_notifications | bsp::notifications::TIMER_MASK;
+    sys_set_timer(Some(start_time), notifications::TIMER_MASK);
+    let sleep_notifications = all_pin_notifications | notifications::TIMER_MASK;
     loop {
         sys.gpio_irq_control(all_pin_notifications, IrqControl::Enable)
             .unwrap_lite();
@@ -615,11 +614,11 @@ fn main() -> ! {
         // Wait for a pin change or timer.
         let n = sys_recv_notification(sleep_notifications);
         // If the timer bit is set _and the timer has actually fired_...
-        if n.has_timer_fired(bsp::notifications::TIMER_MASK) {
+        if n.has_timer_fired(notifications::TIMER_MASK) {
             // Reset our timer forward.
             sys_set_timer(
                 Some(now.saturating_add(POLL_MS)),
-                bsp::notifications::TIMER_MASK,
+                notifications::TIMER_MASK,
             );
         }
         // Ignore pin change notification bits, we just handle all the pins
@@ -1046,6 +1045,10 @@ fn retry_i2c_txn<T>(
         }
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 ereports::declare_ereporter! {
     struct Ereporter<Ereport> {
