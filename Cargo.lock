@@ -231,7 +231,7 @@ dependencies = [
  "salty",
  "serde",
  "serde_with",
- "sha3",
+ "sha3 0.10.2",
  "static_assertions",
 ]
 
@@ -372,6 +372,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf7fe51849ea569fd452f37822f606a5cabb684dc918707a0193fd4664ff324"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "block-buffer"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdd35008169921d80bc60d3d0ab416eecb028c4cd653352907921d95084790be"
+dependencies = [
+ "hybrid-array",
 ]
 
 [[package]]
@@ -717,6 +726,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd7cc57abe963c6d3b9d8be5b06ba7c8957a930305ca90304f24ef040aa6f961"
 
 [[package]]
+name = "cmov"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
+
+[[package]]
 name = "colorchoice"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -840,6 +855,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cpufeatures"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b2a41393f66f16b0823bb79094d54ac5fbd34ab292ddafb9a0456ac9f87d201"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "crc"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -920,6 +944,15 @@ checksum = "a19c6cedffdc8c03a3346d723eb20bd85a13362bb96dc2ac000842c6381ec7bf"
 dependencies = [
  "nix",
  "winapi",
+]
+
+[[package]]
+name = "ctutils"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d5515a3834141de9eafb9717ad39eea8247b5674e6066c404e8c4b365d2a29e"
+dependencies = [
+ "cmov",
 ]
 
 [[package]]
@@ -1074,7 +1107,7 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
- "block-buffer",
+ "block-buffer 0.10.2",
  "const-oid",
  "crypto-common 0.1.6",
  "subtle",
@@ -1086,7 +1119,18 @@ version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
+ "block-buffer 0.12.0",
  "crypto-common 0.2.2",
+ "ctutils",
+]
+
+[[package]]
+name = "digest-io"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2de63d600bc7fab91180bc17385f29b342468dc8ef2af09dceba450a293de3da"
+dependencies = [
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -1134,7 +1178,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "serde",
- "sha3",
+ "sha3 0.11.0",
  "tlvc",
  "userlib",
  "zerocopy 0.8.27",
@@ -1199,7 +1243,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "serde",
- "sha2",
+ "sha2 0.11.0",
  "static-cell",
  "static_assertions",
  "stm32h7",
@@ -1299,7 +1343,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "sha3",
+ "sha3 0.11.0",
  "tlvc",
  "userlib",
  "zerocopy 0.8.27",
@@ -1462,7 +1506,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "spd",
  "static-cell",
  "static_assertions",
@@ -3034,7 +3078,7 @@ dependencies = [
  "drv-stm32h7-startup",
  "endoscope-abi",
  "panic-halt",
- "sha3",
+ "sha3 0.11.0",
  "stm32h7",
 ]
 
@@ -3042,7 +3086,7 @@ dependencies = [
 name = "endoscope-abi"
 version = "0.1.0"
 dependencies = [
- "sha3",
+ "sha3 0.11.0",
  "zerocopy 0.8.27",
 ]
 
@@ -3515,11 +3559,11 @@ dependencies = [
 
 [[package]]
 name = "hkdf"
-version = "0.12.3"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "791a029f6b9fc27657f6f188ec6e5e43f6911f6f878e0dc5501396e09809d437"
+checksum = "4aaa26c720c68b866f2c96ef5c1264b3e6f473fe5d4ce61cd44bbe913e553018"
 dependencies = [
- "hmac",
+ "hmac 0.13.0",
 ]
 
 [[package]]
@@ -3529,6 +3573,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
  "digest 0.10.7",
+]
+
+[[package]]
+name = "hmac"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6303bc9732ae41b04cb554b844a762b4115a61bfaa81e3e83050991eeb56863f"
+dependencies = [
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -3884,6 +3937,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9b7d56ba4a8344d6be9729995e6b06f928af29998cdf79fe390cbf6b1fee838"
 
 [[package]]
+name = "keccak"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e24a010dd405bd7ed803e5253182815b41bf2e6a80cc3bfc066658e03a198aa"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
+]
+
+[[package]]
 name = "kern"
 version = "0.1.0"
 dependencies = [
@@ -3949,7 +4012,7 @@ version = "0.1.0"
 dependencies = [
  "dice-mfg-msgs",
  "hkdf",
- "hmac",
+ "hmac 0.13.0",
  "hubpack",
  "lib-lpc55-usart",
  "lpc55-pac",
@@ -3957,7 +4020,7 @@ dependencies = [
  "salty",
  "serde",
  "serde-big-array 0.4.1",
- "sha3",
+ "sha3 0.11.0",
  "stage0-handoff",
  "static_assertions",
  "unwrap-lite",
@@ -4072,7 +4135,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "cortex-m-rt",
- "digest 0.10.7",
+ "digest 0.11.3",
  "drv-lpc55-flash",
  "hubpack",
  "kern",
@@ -4085,7 +4148,7 @@ dependencies = [
  "ron 0.8.0",
  "salty",
  "serde",
- "sha3",
+ "sha3 0.11.0",
  "stage0-handoff",
  "static_assertions",
  "toml 1.1.2+spec-1.1.0",
@@ -4116,7 +4179,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "serde",
- "sha3",
+ "sha3 0.11.0",
  "stage0-handoff",
  "static_assertions",
  "task-jefe-api",
@@ -4167,7 +4230,7 @@ dependencies = [
  "rsa",
  "serde",
  "serde-hex",
- "sha2",
+ "sha2 0.10.8",
  "thiserror",
  "x509-cert",
  "zerocopy 0.8.27",
@@ -4616,7 +4679,7 @@ dependencies = [
  "ecdsa",
  "elliptic-curve",
  "primeorder",
- "sha2",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -4628,7 +4691,7 @@ dependencies = [
  "ecdsa",
  "elliptic-curve",
  "primeorder",
- "sha2",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -4642,7 +4705,7 @@ dependencies = [
  "elliptic-curve",
  "primeorder",
  "rand_core 0.6.4",
- "sha2",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -5131,7 +5194,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
 dependencies = [
- "hmac",
+ "hmac 0.12.1",
  "subtle",
 ]
 
@@ -5199,7 +5262,7 @@ dependencies = [
  "pkcs8",
  "rand_core 0.6.4",
  "serde",
- "sha2",
+ "sha2 0.10.8",
  "signature",
  "subtle",
  "zeroize",
@@ -5512,8 +5575,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if",
- "cpufeatures",
+ "cpufeatures 0.2.1",
  "digest 0.10.7",
+]
+
+[[package]]
+name = "sha2"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -5523,7 +5597,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a31480366ec990f395a61b7c08122d99bd40544fdb5abcfc1b06bb29994312c"
 dependencies = [
  "digest 0.10.7",
- "keccak",
+ "keccak 0.1.2",
+]
+
+[[package]]
+name = "sha3"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be176f1a57ce4e3d31c1a166222d9768de5954f811601fb7ca06fc8203905ce1"
+dependencies = [
+ "digest 0.11.3",
+ "keccak 0.2.0",
 ]
 
 [[package]]
@@ -5656,7 +5740,7 @@ checksum = "eb9242b9ef4108a78e8cd1a2c98e193ef372437f8c22be363075233321dd4a15"
 dependencies = [
  "base64ct",
  "pem-rfc7468",
- "sha2",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -5670,7 +5754,7 @@ dependencies = [
  "p521",
  "rsa",
  "sec1",
- "sha2",
+ "sha2 0.10.8",
  "signature",
  "ssh-cipher",
  "ssh-encoding",
@@ -5889,7 +5973,7 @@ dependencies = [
  "salty",
  "serde",
  "serde_with",
- "sha3",
+ "sha3 0.11.0",
  "stage0-handoff",
  "static-cell",
  "unwrap-lite",
@@ -5952,7 +6036,7 @@ dependencies = [
  "pmbus",
  "ringbuf",
  "serde",
- "sha2",
+ "sha2 0.11.0",
  "ssh-key",
  "ssmarshal",
  "static-cell",
@@ -6610,7 +6694,7 @@ dependencies = [
  "quote",
  "ringbuf",
  "serde",
- "sha3",
+ "sha3 0.11.0",
  "userlib",
 ]
 
@@ -7846,6 +7930,7 @@ dependencies = [
  "clap 3.2.23",
  "colored",
  "ctrlc",
+ "digest-io",
  "directories",
  "dunce",
  "filetime",
@@ -7871,8 +7956,8 @@ dependencies = [
  "scroll",
  "serde",
  "serde_json",
- "sha2",
- "sha3",
+ "sha2 0.11.0",
+ "sha3 0.11.0",
  "strsim",
  "tlvc",
  "tlvc-text",

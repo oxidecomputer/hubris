@@ -6,7 +6,7 @@
 
 use core::mem;
 use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use hubpack::SerializedSize;
 use salty::constants::SECRETKEY_SEED_LENGTH;
 use serde::{Deserialize, Serialize};
