@@ -1034,7 +1034,9 @@ impl Psu {
         let rail = {
             // This is a little silly, but it stops us from having to 6 separate
             // instances of the string "V54_PSU" in the binary...
-            // If you add a new name, make sure it still fits in the FixedString.
+            //
+            // If you add a new name, make sure it still fits in EreportFields'
+            // `rail` FixedString.
             #[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
             let mut rail_name = *b"V54_PSUx";
             #[cfg(target_board = "observer-a")]
