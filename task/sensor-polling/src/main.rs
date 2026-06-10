@@ -36,15 +36,7 @@ pub enum Error {
 impl From<Error> for task_sensor_api::NoData {
     fn from(e: Error) -> Self {
         match e {
-            Error::Mwocp67Error(e) => match e {
-                Mwocp6xError::BadRead { code, .. }
-                | Mwocp6xError::BadWrite { code, .. }
-                | Mwocp6xError::BadValidation { code, .. } => code.into(),
-                Mwocp6xError::BadData { .. }
-                | Mwocp6xError::InvalidData { .. } => Self::DeviceError,
-                _ => Self::DeviceError,
-            },
-            Error::Mwocp68Error(e) => match e {
+            Error::Mwocp67Error(e) | Error::Mwocp68Error(e) => match e {
                 Mwocp6xError::BadRead { code, .. }
                 | Mwocp6xError::BadWrite { code, .. }
                 | Mwocp6xError::BadValidation { code, .. } => code.into(),
