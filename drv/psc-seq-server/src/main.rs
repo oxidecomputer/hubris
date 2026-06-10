@@ -272,6 +272,11 @@ enum Slot {
     Psu5 = 5,
 }
 
+// The per-PSU signal definitions in the bsp modules all refer to this constant
+// for the number of PSUs. It's not intended to be easily configurable, since
+// that'd require hardware changes.
+pub const PSU_COUNT: usize = 6;
+
 // Board-specific behavior is isolated into a `bsp` module, which is picked
 // based on the target_board name.
 #[cfg_attr(
@@ -281,10 +286,7 @@ enum Slot {
 #[cfg_attr(target_board = "observer-a", path = "bsp/observer_a.rs")]
 mod bsp;
 
-// Currently the psc-seq-server only supports boards with 6 PSU slots.
-const _: () = assert!(bsp::PSU_COUNT == 6);
-
-const PSU_SLOTS: [Slot; bsp::PSU_COUNT] = [
+const PSU_SLOTS: [Slot; PSU_COUNT] = [
     Slot::Psu0,
     Slot::Psu1,
     Slot::Psu2,
@@ -432,7 +434,7 @@ fn main() -> ! {
     // pins as "PSU is ON" and switch the pin to input below. It is only if this
     // task has _restarted_ that we'll find pins set to input seeing 0, or
     // output seeing 1.
-    let initial_psu_enabled: [bool; bsp::PSU_COUNT] = {
+    let initial_psu_enabled: [bool; PSU_COUNT] = {
         let bits = sys.gpio_read(bsp::ALL_PSU_ENABLE_L_PINS);
         // ON signals are active-low, so we check for the _absence_ of the bit:
         core::array::from_fn(|i| bits & (1 << bsp::PSU_ENABLE_L_PINS[i]) == 0)
@@ -500,7 +502,7 @@ fn main() -> ! {
     let present_l_bits = sys.gpio_read(bsp::ALL_PSU_PRESENT_L_PINS);
     let start_time = sys_get_timer().now;
 
-    let mut psus: [Psu; bsp::PSU_COUNT] = core::array::from_fn(|i| {
+    let mut psus: [Psu; PSU_COUNT] = core::array::from_fn(|i| {
         let dev = {
             let i2c = I2C.get_task_id();
             let make_dev = bsp::PSU_PMBUS_DEVS[i];
@@ -560,7 +562,7 @@ fn main() -> ! {
         let ok_bits = sys.gpio_read(bsp::ALL_PSU_PWR_OK_PINS);
 
         let now = sys_get_timer().now;
-        for i in 0..bsp::PSU_COUNT {
+        for i in 0..PSU_COUNT {
             // Presence signals are active LOW.
             let present =
                 if present_l_bits & (1 << bsp::PSU_PRESENT_L_PINS[i]) == 0 {

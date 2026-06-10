@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use super::PSU_COUNT;
 use drv_i2c_api::I2cDevice;
 use drv_stm32xx_sys_api as sys_api;
 use userlib::*;
@@ -13,12 +14,6 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 pub const STATUS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
-
-// The per-PSU signal definitions below all refer to this constant for the
-// number of PSUs. It's not intended to be easily configurable, since that'd
-// require hardware changes, and the psc-seq-server currently requires it to be
-// 6.
-pub const PSU_COUNT: usize = 6;
 
 // The ON signals are conveniently all routed to a single port:
 pub const PSU_ENABLE_L_PORT: sys_api::Port = sys_api::Port::K;
