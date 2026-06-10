@@ -99,14 +99,7 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::I2cDevice;
-
 use drv_i2c_devices::mwocp6x;
-
-#[cfg(target_board = "observer-a")]
-use drv_i2c_devices::mwocp6x::Mwocp67 as Mwocp6x;
-#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
-use drv_i2c_devices::mwocp6x::Mwocp68 as Mwocp6x;
 
 use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_psc_seq_api::PowerState;
@@ -279,88 +272,19 @@ enum Slot {
     Psu5 = 5,
 }
 
-const STATUS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
+// Board-specific behavior is isolated into a `bsp` module, which is picked
+// based on the target_board name.
+#[cfg_attr(
+    any(target_board = "psc-b", target_board = "psc-c"),
+    path = "bsp/psc_bc.rs"
+)]
+#[cfg_attr(target_board = "observer-a", path = "bsp/observer_a.rs")]
+mod bsp;
 
-// The per-PSU signal definitions below all refer to this constant for the
-// number of PSUs. It's not intended to be easily configurable, since that'd
-// require hardware changes.
-const PSU_COUNT: usize = 6;
+// Currently the psc-seq-server only supports boards with 6 PSU slots.
+const _: () = assert!(bsp::PSU_COUNT == 6);
 
-// The ON signals are conveniently all routed to a single port:
-#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
-const PSU_ENABLE_L_PORT: sys_api::Port = sys_api::Port::K;
-#[cfg(target_board = "observer-a")]
-const PSU_ENABLE_L_PORT: sys_api::Port = sys_api::Port::I;
-// The ON signals are routed to the following pins on their port:
-#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
-const PSU_ENABLE_L_PINS: [usize; PSU_COUNT] = [0, 1, 2, 3, 4, 5];
-#[cfg(target_board = "observer-a")]
-const PSU_ENABLE_L_PINS: [usize; PSU_COUNT] = [8, 9, 10, 11, 12, 13];
-// Convenient mask for referring to all the ON pins simultaneously, since we can
-// do that, since they're all on one port.
-const ALL_PSU_ENABLE_L_PINS: sys_api::PinSet =
-    PSU_ENABLE_L_PORT.pins(PSU_ENABLE_L_PINS);
-
-// The PRESENT signals are conveniently all routed to a single port:
-const PSU_PRESENT_L_PORT: sys_api::Port = sys_api::Port::J;
-// The PRESENT signals are routed to the following pins on their port:
-const PSU_PRESENT_L_PINS: [usize; PSU_COUNT] = [0, 1, 2, 3, 4, 5];
-// Convenient mask for referring to all the PRESENT pins simultaneously, since
-// we can do that, since they're all on one port.
-const ALL_PSU_PRESENT_L_PINS: sys_api::PinSet =
-    PSU_PRESENT_L_PORT.pins(PSU_PRESENT_L_PINS);
-
-// The `PWR_OK` signals are conveniently all routed to a single port:
-const PSU_PWR_OK_PORT: sys_api::Port = sys_api::Port::J;
-// The `PWR_OK` signals are routed to the following pins on their port:
-const PSU_PWR_OK_PINS: [usize; PSU_COUNT] = [6, 7, 8, 9, 10, 11];
-// Convenient mask for referring to all the `PWR_OK` pins simultaneously, since
-// we can do that, since they're all on one port.
-const ALL_PSU_PWR_OK_PINS: sys_api::PinSet =
-    PSU_PWR_OK_PORT.pins(PSU_PWR_OK_PINS);
-
-// Our notification configuration system doesn't have any concept of arrays, so,
-// collect its predefined masks into convenient arrays.
-#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
-const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
-    notifications::PSU_PWR_OK_1_MASK,
-    notifications::PSU_PWR_OK_2_MASK,
-    notifications::PSU_PWR_OK_3_MASK,
-    notifications::PSU_PWR_OK_4_MASK,
-    notifications::PSU_PWR_OK_5_MASK,
-    notifications::PSU_PWR_OK_6_MASK,
-];
-#[cfg(target_board = "observer-a")]
-const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
-    notifications::PSU_PWR_OK_0_MASK,
-    notifications::PSU_PWR_OK_1_MASK,
-    notifications::PSU_PWR_OK_2_MASK,
-    notifications::PSU_PWR_OK_3_MASK,
-    notifications::PSU_PWR_OK_4_MASK,
-    notifications::PSU_PWR_OK_5_MASK,
-];
-
-/// In order to get the PMBus devices by PSU index, we need a little lookup table guy.
-#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
-const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
-    i2c_config::pmbus::v54_psu0,
-    i2c_config::pmbus::v54_psu1,
-    i2c_config::pmbus::v54_psu2,
-    i2c_config::pmbus::v54_psu3,
-    i2c_config::pmbus::v54_psu4,
-    i2c_config::pmbus::v54_psu5,
-];
-#[cfg(target_board = "observer-a")]
-const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
-    i2c_config::pmbus::v50_main_psu0,
-    i2c_config::pmbus::v50_main_psu1,
-    i2c_config::pmbus::v50_main_psu2,
-    i2c_config::pmbus::v50_main_psu3,
-    i2c_config::pmbus::v50_main_psu4,
-    i2c_config::pmbus::v50_main_psu5,
-];
-
-const PSU_SLOTS: [Slot; PSU_COUNT] = [
+const PSU_SLOTS: [Slot; bsp::PSU_COUNT] = [
     Slot::Psu0,
     Slot::Psu1,
     Slot::Psu2,
@@ -476,9 +400,9 @@ fn main() -> ! {
     //
     // This sequence should not glitch in practice (though it also doesn't much
     // matter if we glitch an LED).
-    sys.gpio_reset(STATUS_LED);
+    sys.gpio_reset(bsp::STATUS_LED);
     sys.gpio_configure_output(
-        STATUS_LED,
+        bsp::STATUS_LED,
         sys_api::OutputType::PushPull,
         sys_api::Speed::Low,
         sys_api::Pull::None,
@@ -508,10 +432,10 @@ fn main() -> ! {
     // pins as "PSU is ON" and switch the pin to input below. It is only if this
     // task has _restarted_ that we'll find pins set to input seeing 0, or
     // output seeing 1.
-    let initial_psu_enabled: [bool; PSU_COUNT] = {
-        let bits = sys.gpio_read(ALL_PSU_ENABLE_L_PINS);
+    let initial_psu_enabled: [bool; bsp::PSU_COUNT] = {
+        let bits = sys.gpio_read(bsp::ALL_PSU_ENABLE_L_PINS);
         // ON signals are active-low, so we check for the _absence_ of the bit:
-        core::array::from_fn(|i| bits & (1 << PSU_ENABLE_L_PINS[i]) == 0)
+        core::array::from_fn(|i| bits & (1 << bsp::PSU_ENABLE_L_PINS[i]) == 0)
     };
 
     // Since we mostly just toggle the PSU ON nets between input and output, we
@@ -527,11 +451,11 @@ fn main() -> ! {
     sys.gpio_configure_input(
         {
             let mut inpins = PinSet {
-                port: PSU_ENABLE_L_PORT,
+                port: bsp::PSU_ENABLE_L_PORT,
                 pin_mask: 0,
             };
             for (on, pinno) in
-                initial_psu_enabled.into_iter().zip(PSU_ENABLE_L_PINS)
+                initial_psu_enabled.into_iter().zip(bsp::PSU_ENABLE_L_PINS)
             {
                 if on {
                     inpins = inpins.and_pin(pinno);
@@ -549,19 +473,19 @@ fn main() -> ! {
     // set to output. We do that here. If the pin is input, this has no effect;
     // if it's output, this should be a no-op because our previous incarnation
     // will have done this before setting it to output.
-    sys.gpio_set_to(ALL_PSU_ENABLE_L_PINS, true);
+    sys.gpio_set_to(bsp::ALL_PSU_ENABLE_L_PINS, true);
 
     // Now, configure the presence/OK detect nets. We want these to be inputs;
     // at power-on reset they're analog. Switching pins between those two modes
     // cannot glitch, and nobody would be listening if it did.
-    sys.gpio_configure_input(ALL_PSU_PWR_OK_PINS, Pull::None);
-    sys.gpio_configure_input(ALL_PSU_PRESENT_L_PINS, Pull::None);
+    sys.gpio_configure_input(bsp::ALL_PSU_PWR_OK_PINS, Pull::None);
+    sys.gpio_configure_input(bsp::ALL_PSU_PRESENT_L_PINS, Pull::None);
 
     // Collect all of the pin-change notifications we want into a mask word.
     // We'll use this each time we want to listen for pins.
     let all_pin_notifications = {
         let mut bits = 0;
-        for mask in PSU_PWR_OK_NOTIF {
+        for mask in bsp::PSU_PWR_OK_NOTIF {
             bits |= mask;
         }
         bits
@@ -573,19 +497,19 @@ fn main() -> ! {
     // Set up our state machines for each PSU. We'll need to read the presence
     // pins to determine whether a PSU is present and if we should ask it for
     // its serial number.
-    let present_l_bits = sys.gpio_read(ALL_PSU_PRESENT_L_PINS);
+    let present_l_bits = sys.gpio_read(bsp::ALL_PSU_PRESENT_L_PINS);
     let start_time = sys_get_timer().now;
 
-    let mut psus: [Psu; PSU_COUNT] = core::array::from_fn(|i| {
+    let mut psus: [Psu; bsp::PSU_COUNT] = core::array::from_fn(|i| {
         let dev = {
             let i2c = I2C.get_task_id();
-            let make_dev = PSU_PMBUS_DEVS[i];
+            let make_dev = bsp::PSU_PMBUS_DEVS[i];
             let (dev, rail) = make_dev(i2c);
-            Mwocp6x::new(&dev, rail)
+            bsp::Mwocp6x::new(&dev, rail)
         };
         let slot = PSU_SLOTS[i];
         let mut fruid = PsuFruid::default();
-        let state = if present_l_bits & (1 << PSU_PRESENT_L_PINS[i]) == 0 {
+        let state = if present_l_bits & (1 << bsp::PSU_PRESENT_L_PINS[i]) == 0 {
             // Hello, who are you?
             fruid.refresh(&dev, slot, start_time);
             // ...and how are you doing?
@@ -620,31 +544,32 @@ fn main() -> ! {
     });
 
     // Turn the chassis LED on to indicate that we're alive.
-    sys.gpio_set(STATUS_LED);
+    sys.gpio_set(bsp::STATUS_LED);
     // TODO: if we wanted to kick jefe into a greater-than-A2 state, this'd be
     // where it happens.
 
     // Poll things.
-    sys_set_timer(Some(start_time), notifications::TIMER_MASK);
-    let sleep_notifications = all_pin_notifications | notifications::TIMER_MASK;
+    sys_set_timer(Some(start_time), bsp::notifications::TIMER_MASK);
+    let sleep_notifications =
+        all_pin_notifications | bsp::notifications::TIMER_MASK;
     loop {
         sys.gpio_irq_control(all_pin_notifications, IrqControl::Enable)
             .unwrap_lite();
 
-        let present_l_bits = sys.gpio_read(ALL_PSU_PRESENT_L_PINS);
-        let ok_bits = sys.gpio_read(ALL_PSU_PWR_OK_PINS);
+        let present_l_bits = sys.gpio_read(bsp::ALL_PSU_PRESENT_L_PINS);
+        let ok_bits = sys.gpio_read(bsp::ALL_PSU_PWR_OK_PINS);
 
         let now = sys_get_timer().now;
-        for i in 0..PSU_COUNT {
+        for i in 0..bsp::PSU_COUNT {
             // Presence signals are active LOW.
-            let present = if present_l_bits & (1 << PSU_PRESENT_L_PINS[i]) == 0
-            {
-                Present::Yes
-            } else {
-                Present::No
-            };
+            let present =
+                if present_l_bits & (1 << bsp::PSU_PRESENT_L_PINS[i]) == 0 {
+                    Present::Yes
+                } else {
+                    Present::No
+                };
             // PWR_OK signals are active HIGH.
-            let ok = if ok_bits & (1 << PSU_PWR_OK_PINS[i]) != 0 {
+            let ok = if ok_bits & (1 << bsp::PSU_PWR_OK_PINS[i]) != 0 {
                 Status::Good
             } else {
                 Status::NotGood
@@ -660,7 +585,7 @@ fn main() -> ! {
                     // Enable the PSU by allowing `ENABLE_L` to float low, by no
                     // longer asserting high.
                     sys.gpio_configure_input(
-                        PSU_ENABLE_L_PORT.pin(PSU_ENABLE_L_PINS[i]),
+                        bsp::PSU_ENABLE_L_PORT.pin(bsp::PSU_ENABLE_L_PINS[i]),
                         Pull::None,
                     );
                 }
@@ -676,7 +601,7 @@ fn main() -> ! {
 
                     // Pull `ENABLE_L` high to disable the PSU.
                     sys.gpio_configure_output(
-                        PSU_ENABLE_L_PORT.pin(PSU_ENABLE_L_PINS[i]),
+                        bsp::PSU_ENABLE_L_PORT.pin(bsp::PSU_ENABLE_L_PINS[i]),
                         OutputType::PushPull,
                         Speed::Low,
                         Pull::None,
@@ -688,11 +613,11 @@ fn main() -> ! {
         // Wait for a pin change or timer.
         let n = sys_recv_notification(sleep_notifications);
         // If the timer bit is set _and the timer has actually fired_...
-        if n.has_timer_fired(notifications::TIMER_MASK) {
+        if n.has_timer_fired(bsp::notifications::TIMER_MASK) {
             // Reset our timer forward.
             sys_set_timer(
                 Some(now.saturating_add(POLL_MS)),
-                notifications::TIMER_MASK,
+                bsp::notifications::TIMER_MASK,
             );
         }
         // Ignore pin change notification bits, we just handle all the pins
@@ -718,7 +643,7 @@ enum Status {
 struct Psu {
     slot: Slot,
     state: PsuState,
-    dev: Mwocp6x,
+    dev: bsp::Mwocp6x,
     /// Because we would like to include the PSU's FRU ID information in the
     /// ereports generated when a PSU is *removed*, we must cache it here rather
     /// than reading it from the device when we generate an ereport for it.
@@ -1070,7 +995,7 @@ struct PsuFruid {
 }
 
 impl PsuFruid {
-    fn refresh(&mut self, dev: &Mwocp6x, psu: Slot, now: u64) {
+    fn refresh(&mut self, dev: &bsp::Mwocp6x, psu: Slot, now: u64) {
         if self.mfr.is_none() {
             self.mfr = retry_i2c_txn(now, psu, || dev.mfr_id())
                 .ok()
@@ -1119,10 +1044,6 @@ fn retry_i2c_txn<T>(
         }
     }
 }
-
-include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
-
-include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 ereports::declare_ereporter! {
     struct Ereporter<Ereport> {
