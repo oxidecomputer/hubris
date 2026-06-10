@@ -695,6 +695,18 @@ pub fn package(
     let allocated =
         allocate_all(&cfg.toml, &task_reqs, cfg.toml.caboose.as_ref())?;
 
+    // Generate a CoRIM for our measurements for testing
+    let mut corim_builder = rats_corim::CorimBuilder::new();
+    corim_builder.vendor("Hubris Engineering Build".to_string());
+    corim_builder.tag_id(format!("ENGINEERING {}", cfg.toml.name));
+    corim_builder.id("ENGINEERING-BUILD-NOT-TRUSTED".to_string());
+    corim_builder.version(
+        caboose_args
+            .version_override
+            .clone()
+            .unwrap_or("0.0.0-testing".to_string()),
+    );
+
     for image_name in &cfg.toml.image_names {
         // Build each task.
         let mut all_output_sections = BTreeMap::default();
@@ -1031,7 +1043,18 @@ pub fn package(
                 .context("extracting signed file from archive")?;
             std::fs::write(cfg.img_file(&name, image_name), file_data)?;
         }
+
+        let fwid = hubtools::FwidGen::<sha3::Sha3_256>::fwid(&archive)?;
+        corim_builder.add_hash(
+            format!("image-{image_name}"),
+            10,
+            fwid.to_vec(),
+        );
     }
+    let final_corim = corim_builder.build()?.to_vec()?;
+
+    std::fs::write(cfg.dist_file("hubris.corim"), &final_corim)?;
+
     Ok(allocated)
 }
 
