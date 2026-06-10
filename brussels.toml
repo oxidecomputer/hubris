@@ -19,6 +19,7 @@ hubris-app-dirs = [
     "app/gimlet/",
     "app/psc/",
     "app/cosmo/",
+    "app/observer/",
 ]
 
 release-title = "SP release {version}"
@@ -54,6 +55,7 @@ cosmo-a = {}
 cosmo-a-lab = {}
 cosmo-b = {}
 cosmo-b-lab = {}
+observer-a = {}
 
 [groups.rot]
 tag-bump = "patch"
