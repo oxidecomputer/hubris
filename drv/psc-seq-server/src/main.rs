@@ -550,6 +550,23 @@ fn main() -> ! {
     // TODO: if we wanted to kick jefe into a greater-than-A2 state, this'd be
     // where it happens.
 
+    /////////////////////// HACK //////////////////////////
+    // Pull `ENABLE_L` high to disable the PSU.
+    for i in [1, 2] {
+        sys.gpio_configure_output(
+            bsp::PSU_ENABLE_L_PORT.pin(bsp::PSU_ENABLE_L_PINS[i]),
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        );
+        ringbuf_entry!(Event::Disabling {
+            now: sys_get_timer().now,
+            psu: PSU_SLOTS[i],
+            present: false,
+        });
+    }
+    /////////////////////////////////////////////////////////
+
     // Poll things.
     sys_set_timer(Some(start_time), notifications::TIMER_MASK);
     let sleep_notifications = all_pin_notifications | notifications::TIMER_MASK;
@@ -561,55 +578,6 @@ fn main() -> ! {
         let ok_bits = sys.gpio_read(bsp::ALL_PSU_PWR_OK_PINS);
 
         let now = sys_get_timer().now;
-        for i in 0..PSU_COUNT {
-            // Presence signals are active LOW.
-            let present =
-                if present_l_bits & (1 << bsp::PSU_PRESENT_L_PINS[i]) == 0 {
-                    Present::Yes
-                } else {
-                    Present::No
-                };
-            // PWR_OK signals are active HIGH.
-            let ok = if ok_bits & (1 << bsp::PSU_PWR_OK_PINS[i]) != 0 {
-                Status::Good
-            } else {
-                Status::NotGood
-            };
-            match psus[i].step(now, present, ok, &mut ereporter) {
-                None => (),
-
-                Some(ActionRequired::EnableMe) => {
-                    ringbuf_entry!(Event::Enabling {
-                        now,
-                        psu: PSU_SLOTS[i]
-                    });
-                    // Enable the PSU by allowing `ENABLE_L` to float low, by no
-                    // longer asserting high.
-                    sys.gpio_configure_input(
-                        bsp::PSU_ENABLE_L_PORT.pin(bsp::PSU_ENABLE_L_PINS[i]),
-                        Pull::None,
-                    );
-                }
-                Some(ActionRequired::DisableMe { attempt_snapshot }) => {
-                    if attempt_snapshot {
-                        // TODO snapshot goes here
-                    }
-                    ringbuf_entry!(Event::Disabling {
-                        now,
-                        psu: PSU_SLOTS[i],
-                        present: attempt_snapshot,
-                    });
-
-                    // Pull `ENABLE_L` high to disable the PSU.
-                    sys.gpio_configure_output(
-                        bsp::PSU_ENABLE_L_PORT.pin(bsp::PSU_ENABLE_L_PINS[i]),
-                        OutputType::PushPull,
-                        Speed::Low,
-                        Pull::None,
-                    );
-                }
-            }
-        }
 
         // Wait for a pin change or timer.
         let n = sys_recv_notification(sleep_notifications);
