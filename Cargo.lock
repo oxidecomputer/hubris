@@ -2091,6 +2091,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-observer-ignition-flash"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "counters",
+ "derive-idol-err",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "mutable-statics",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
 name = "drv-onewire"
 version = "0.1.0"
 dependencies = [

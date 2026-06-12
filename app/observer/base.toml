@@ -5,7 +5,7 @@ stacksize = 896
 
 [kernel]
 name = "observer"
-requires = {flash = 32868, ram = 6000}
+requires = {flash = 32868, ram = 6128}
 features = ["dump", "measurement-handoff"]
 extern-regions = [{ region = "dtcm", shared = true }]
 
@@ -215,7 +215,24 @@ stacksize = 872
 task-slots = ["sys"]
 notifications = ["spi-irq"]
 
-# TODO add SPI3 driver for ignition flash reprogramming
+# TODO is the config right? just copied from the others
+[tasks.spi3_driver]
+name = "drv-stm32h7-spi-server"
+priority = 3
+features = ["spi3", "h753"]
+uses = ["spi3"]
+start = true
+interrupts = {"spi3.irq" = "spi-irq"}
+stacksize = 872
+task-slots = ["sys"]
+notifications = ["spi-irq"]
+
+[tasks.observer_ignition_flash]
+name = "drv-observer-ignition-flash"
+priority = 6
+stacksize = 1200
+start = true
+task-slots = ["sys", {spi_front = "spi3_driver"}]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
@@ -573,7 +590,18 @@ input = {port = "B", pin = 14, af = 5}
 mux = "port_b"
 cs = [{port = "B", pin = 12}]
 
-# TODO SPI3 is the ignition flash reprogramming port
+[config.spi.spi3]
+controller = 3
+
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    {port = "C", pins = [10, 12], af = 6},
+]
+input = {port = "C", pin = 11, af = 6}
+
+[config.spi.spi3.devices.ignition_flash]
+mux = "port_c"
+cs = [{port = "A", pin = 15}]
 
 [config.spi.spi4]
 controller = 4
