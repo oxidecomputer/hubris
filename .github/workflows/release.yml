@@ -62,10 +62,16 @@ jobs:
           if [[ "${override_version}" != "" ]]; then
             flags+=("--override-version=${override_version}")
           fi
-          brussels init "$group" HEAD "${flags[@]}" >brussels-manifest.json
+          brussels init "$group" "$ref" "${flags[@]}" >brussels-manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           group: ${{ github.event.inputs.group }}
+          # We choose to release the commit in which the workflow is defined.
+          # Most of the times this will be the "main" branch. If the developer
+          # chooses a different branch to run the workflow on though (in the
+          # GitHub "Run Workflow" UI), this will correctly release the branch
+          # they requested (as that will be the executed workflow).
+          ref: ${{ github.workflow_sha }}
           override_version: ${{ github.event.inputs.override-version }}
 
       - name: Upload the release manifest
