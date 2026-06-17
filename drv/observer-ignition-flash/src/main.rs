@@ -85,6 +85,12 @@ fn main() -> ! {
     // it as an input instead of driving it low? Does anything else need to
     // control it?
     sys.gpio_reset(MUX_SELECT);
+    sys.gpio_configure_output(
+        MUX_SELECT,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
 
     let mut server = ServerImpl {
         dev: &dev,
