@@ -12,6 +12,9 @@ on:
       brussels-run-id:
         description: Download Brussels from a Run ID
         type: string
+      override-version:
+        description: Custom version number
+        type: string
 
 # Prevent multiple releases for the same group from happening concurrently.
 concurrency:
@@ -42,7 +45,7 @@ jobs:
         name: Download Brussels
         run: |
           if [[ "${BRUSSELS_RUN_ID}" == "" ]]; then
-            gh release download -R oxidecomputer/brussels -p brussels v0.4.0
+            gh release download -R oxidecomputer/brussels -p brussels v0.5.0
           else
             gh run download "${BRUSSELS_RUN_ID}" -R oxidecomputer/brussels -n prebuilt-binary
           fi
@@ -54,10 +57,16 @@ jobs:
 
       - id: init
         name: Initialize the release
-        run: brussels init "$group" HEAD >brussels-manifest.json
+        run: |
+          flags=()
+          if [[ "${override_version}" != "" ]]; then
+            flags+=("--override-version=${override_version}")
+          fi
+          brussels init "$group" HEAD "${flags[@]}" >brussels-manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           group: ${{ github.event.inputs.group }}
+          override_version: ${{ github.event.inputs.override-version }}
 
       - name: Upload the release manifest
         uses: actions/upload-artifact@v4
