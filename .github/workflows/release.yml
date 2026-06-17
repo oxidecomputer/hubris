@@ -31,6 +31,7 @@ jobs:
       version: ${{ steps.init.outputs.version }}
       tag_name: ${{ steps.init.outputs.tag_name }}
       hubris_app_dirs: ${{ steps.init.outputs.hubris_app_dirs }}
+      commit_sha1: ${{ steps.init.outputs.commit_sha1 }}
     steps:
       - &brussels-token
         name: Get a token to fetch Brussels
