@@ -462,7 +462,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             };
 
             let dev = i2c_config::devices::bmr491_u431(I2C.get_task_id());
-            let driver = Bmr491::new(&dev, 0);
+            let driver = Bmr491::new(&dev);
 
             // Gimlet provides external undervoltage protection that is better
             // than what we'd get from the 491, so we rely on that.
@@ -528,7 +528,9 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // Turn on the chassis LED once we reach A2
         sys.gpio_set(CHASSIS_LED);
 
-        let (device, rail) = i2c_config::pmbus::vdd_vcore(I2C.get_task_id());
+        let (device, opt_rail) =
+            i2c_config::pmbus::vdd_vcore(I2C.get_task_id());
+        let rail = opt_rail.unwrap_or(0);
 
         let mut server = Self {
             state: PowerState::A2,
@@ -1578,10 +1580,12 @@ cfg_if::cfg_if! {
             use drv_i2c_devices::raa229618::Raa229618;
             let i2c = I2C.get_task_id();
 
-            let (device, rail) = i2c_config::pmbus::vdd_vcore(i2c);
+            let (device, opt_rail) = i2c_config::pmbus::vdd_vcore(i2c);
+            let rail = opt_rail.unwrap_or(0);
             let mut vdd_vcore = Raa229618::new(&device, rail);
 
-            let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
+            let (device, opt_rail) = i2c_config::pmbus::vddcr_soc(i2c);
+            let rail = opt_rail.unwrap_or(0);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
             retry_i2c_txn(I2cTxn::VCoreOff, || vdd_vcore.turn_off())?;
@@ -1593,10 +1597,12 @@ cfg_if::cfg_if! {
             use drv_i2c_devices::raa229618::Raa229618;
             let i2c = I2C.get_task_id();
 
-            let (device, rail) = i2c_config::pmbus::vdd_vcore(i2c);
+            let (device, opt_rail) = i2c_config::pmbus::vdd_vcore(i2c);
+            let rail = opt_rail.unwrap_or(0);
             let mut vdd_vcore = Raa229618::new(&device, rail);
 
-            let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
+            let (device, opt_rail) = i2c_config::pmbus::vddcr_soc(i2c);
+            let rail = opt_rail.unwrap_or(0);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
             retry_i2c_txn(I2cTxn::VCoreOn, || vdd_vcore.turn_on())?;
@@ -1620,8 +1626,8 @@ cfg_if::cfg_if! {
 
             let i2c = I2C.get_task_id();
 
-            let (device, rail) = i2c_config::pmbus::v3p3_sys_a0(i2c);
-            let v3p3_sys_a0 = Tps546B24A::new(&device, rail);
+            let (device, _rail) = i2c_config::pmbus::v3p3_sys_a0(i2c);
+            let v3p3_sys_a0 = Tps546B24A::new(&device);
 
             ringbuf_entry!(
                 Trace::V3P3SysA0VOut(v3p3_sys_a0.read_vout().unwrap_lite())

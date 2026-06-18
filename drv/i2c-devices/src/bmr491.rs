@@ -133,7 +133,7 @@ pub struct MitigationFailure {
 }
 
 impl Bmr491 {
-    pub fn new(device: &I2cDevice, _rail: u8) -> Self {
+    pub fn new(device: &I2cDevice) -> Self {
         Bmr491 {
             device: *device,
             mode: Cell::new(None),

@@ -111,7 +111,7 @@ fn do_pmbus() -> Result<()> {
         // build_i2c *also* only to-lowercases the rail names to make functions
         write!(
             file,
-            "summon_fn: crate::i2c_config::pmbus::{}_with_opt_page_idx, ",
+            "summon_fn: crate::i2c_config::pmbus::{}, ",
             rail.to_lowercase()
         )?;
         write!(file, "status_bits: Capabilities(0x{:08x}) ", caps.0)?;

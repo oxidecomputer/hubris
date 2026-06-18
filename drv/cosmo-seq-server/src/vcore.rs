@@ -190,10 +190,12 @@ const VCORE_NSAMPLES: usize = 25;
 
 impl VCore {
     pub fn new(i2c: TaskId) -> Self {
-        let (device, rail) = i2c_config::pmbus::vddcr_cpu0_a0(i2c);
+        let (device, opt_rail) = i2c_config::pmbus::vddcr_cpu0_a0(i2c);
+        let rail = opt_rail.unwrap_or(0);
         let vddcr_cpu0 = Raa229620A::new(&device, rail);
 
-        let (device, rail) = i2c_config::pmbus::vddcr_cpu1_a0(i2c);
+        let (device, opt_rail) = i2c_config::pmbus::vddcr_cpu1_a0(i2c);
+        let rail = opt_rail.unwrap_or(0);
         let vddcr_cpu1 = Raa229620A::new(&device, rail);
 
         Self {
