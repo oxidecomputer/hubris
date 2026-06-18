@@ -10,18 +10,10 @@ use crate::{
 };
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{
-    CabooseOrSprotError,
-    Fwid as SpFwid,
-    ImageError as SpImageError,
-    RotBootInfo as SpRotBootInfo,
-    RotBootInfoV2 as SpRotBootInfoV2,
-    RotComponent as SpRotComponent,
-    // RotImageDetails as SpRotImageDetails,
-    SlotId as SpSlotId,
-    SpRot,
-    SprotError,
-    SprotProtocolError,
-    SwitchDuration,
+    CabooseOrSprotError, Fwid as SpFwid, ImageError as SpImageError,
+    RotBootInfo as SpRotBootInfo, RotBootInfoV2 as SpRotBootInfoV2,
+    RotComponent as SpRotComponent, SlotId as SpSlotId, SpRot, SprotError,
+    SprotProtocolError, SwitchDuration,
     VersionedRotBootInfo as SpVersionedRotBootInfo,
 };
 use drv_stm32h7_update_api::Update;
