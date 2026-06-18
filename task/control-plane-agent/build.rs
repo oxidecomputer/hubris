@@ -184,7 +184,7 @@ fn context_create_file(path: &Path) -> Result<File> {
 
 /// Look at the `pmbus` crate metadata to see if a specific command is "Illegal"
 /// and set the capability bit if not.
-macro_rules! check_if_marked_as_illegal_by_pmbus_metadata {
+macro_rules! set_if_pmbus_read_illegal {
     ($out:ident, $module:ident, $cmd:ident) => {{
         use drv_i2c_types::pmbus_status::Capabilities;
         use pmbus::{Command, Operation};
@@ -204,54 +204,16 @@ macro_rules! generator {
     ($name:literal, $module:ident) => {
         ($name, || {
             let mut out = 0u32;
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out,
-                $module,
-                STATUS_WORD
-            );
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out,
-                $module,
-                STATUS_VOUT
-            );
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out,
-                $module,
-                STATUS_IOUT
-            );
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out,
-                $module,
-                STATUS_TEMPERATURE
-            );
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out, $module, STATUS_CML
-            );
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out,
-                $module,
-                STATUS_OTHER
-            );
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out,
-                $module,
-                STATUS_INPUT
-            );
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out,
-                $module,
-                STATUS_MFR_SPECIFIC
-            );
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out,
-                $module,
-                STATUS_FANS_1_2
-            );
-            check_if_marked_as_illegal_by_pmbus_metadata!(
-                out,
-                $module,
-                STATUS_FANS_3_4
-            );
+            set_if_pmbus_read_illegal!(out, $module, STATUS_WORD);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_VOUT);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_IOUT);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_TEMPERATURE);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_CML);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_OTHER);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_INPUT);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_MFR_SPECIFIC);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_1_2);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_3_4);
             Capabilities(out)
         })
     };
