@@ -15,6 +15,19 @@ use stm32h7::stm32h753 as device;
 #[cfg(any(feature = "h743", feature = "h753"))]
 #[pre_init]
 unsafe fn system_pre_init() {
+    // /!\ EXTREME DANGER WARNING /!\
+    //
+    // We are running this function *before* the startup routine has completed,
+    // meaning that `static`s have NOT been initialized. This is extremely
+    // likely to be unsound in the general case, and should probably be
+    // rewritten in `global_asm!` some day, as the `pre_init` macro is now
+    // deprecated.
+    //
+    // Until that day, you MUST NOT read or write any `static` variables, as
+    // that would be IMMEDIATE Undefined Behavior. Tread carefully!
+    //
+    // /!\ EXTREME DANGER WARNING /!\
+    //
     // Configure the power supply to latch the LDO on and prevent further
     // reconfiguration.
     //
@@ -111,22 +124,49 @@ pub fn system_init_custom(
     cp.SCB.enable_icache();
     cp.SCB.enable_dcache(&mut cp.CPUID);
 
+    // Hand-build TIM5 as a 32-bit rolling timer at 1 MHz. Start by enabling
+    // TIM5 is on APB1, which at boot is undivided from the default 64MHz
+    // HSI clock source. This *will* change when we reconfigure clocks later!
+    //
+    // Start by enabling the peripheral in RCC and toggling reset
+    p.RCC.apb1lenr.modify(|_r, w| w.tim5en().enabled());
+    p.RCC.apb1lrstr.modify(|_r, w| w.tim5rst().set_bit());
+    p.RCC.apb1lrstr.modify(|_r, w| w.tim5rst().clear_bit());
+
+    // Now, configure it for an upcounting rolling mode
+    //
+    // Disable counter
+    p.TIM5.cr1.modify(|_r, w| w.cen().disabled());
+    // Set counter to zero
+    p.TIM5.cnt.modify(|_r, w| w.cnt().bits(0));
+    // Set prescaler to (FREQ / 1M) - 1, (64M / 1M) - 1 = 63, as the counter
+    // resets to 0 AFTER counting this number.
+    p.TIM5.psc.write(|w| w.psc().bits(63));
+    // Set auto-reload to u32::MAX
+    p.TIM5.arr.write(|w| w.arr().bits(u32::MAX));
+    // Generate update (latch the PSC and ARR values)
+    p.TIM5.egr.write(|w| w.ug().set_bit());
+
     // Before doing anything else, check for a measurement handoff token
     #[cfg(feature = "measurement-handoff")]
     unsafe {
-        // After each delay, we'll wait roughly 200 ms.  We double the naive
-        // cycle count because the STM32H7 may (under some circumstances)
-        // dual-issue instructions in the delay loop, which would make the loop
-        // run twice as fast as expected.  We'd rather the loop sometimes run
-        // twice as *slow*, because that just slows down SP boot in cases where
-        // the RoT is not present; if the loop is twice as fast, the SP can time
-        // out before RoT comes up at all, which is a much worse failure mode.
-        const DELAY_CYCLES: u32 = 12860000 * 2;
+        // Start counting!
+        p.TIM5.cr1.modify(|_r, w| w.cen().enabled());
+
+        // After each delay, we'll wait roughly 200 ms.
+        //
+        // You might ask yourself, "how do we have a RETRY_COUNT if the closure
+        // diverges"? Well! `measurement_handoff::check` stores the iteration
+        // counter in a linker location that persists across soft-reboots.
+        const DELAY_MICROS: u32 = 200 * 1_000;
         const RETRY_COUNT: u32 = 20;
-        measurement_handoff::check(RETRY_COUNT, || {
-            cortex_m::asm::delay(DELAY_CYCLES);
+        measurement_handoff::check(RETRY_COUNT, &p, |p| {
+            while p.TIM5.cnt.read().bits() < DELAY_MICROS {}
             cortex_m::peripheral::SCB::sys_reset()
         });
+
+        // Disable timer, we will need to reconfigure it after setting up PLL
+        p.TIM5.cr1.modify(|_r, w| w.cen().disabled());
     }
 
     // The H7 -- and perhaps the Cortex-M7 -- has the somewhat annoying

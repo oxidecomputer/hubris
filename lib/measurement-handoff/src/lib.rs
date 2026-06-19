@@ -75,7 +75,11 @@ pub static mut HUBRIS_MEASUREMENT_RESULT: Option<MeasurementResult> = None;
 /// measurement is valid, or `false` if we exceeded `retry_count`.
 ///
 /// `delay_and_reset` should include a delay, to give the RoT time to boot.
-pub unsafe fn check(retry_count: u32, delay_and_reset: fn() -> !) -> bool {
+pub unsafe fn check<T>(
+    retry_count: u32,
+    arg: T,
+    delay_and_reset: fn(T) -> !,
+) -> bool {
     let ptr: *mut u32 = &raw mut __REGION_DTCM_BASE as *mut _;
     let end: *mut u32 = &raw mut __REGION_DTCM_END as *mut _;
     assert!(ptr == measurement_token::SP_ADDR);
@@ -133,7 +137,7 @@ pub unsafe fn check(retry_count: u32, delay_and_reset: fn() -> !) -> bool {
                     next ^ COUNTER_TAG,
                 );
             }
-            delay_and_reset();
+            delay_and_reset(arg);
         }
     }
 }
