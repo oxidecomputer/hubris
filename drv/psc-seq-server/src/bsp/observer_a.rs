@@ -3,9 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use super::{PSU_COUNT, i2c_config, notifications};
-use drv_i2c_api::I2cDevice;
 use drv_stm32xx_sys_api as sys_api;
-use userlib::*;
 
 pub use drv_i2c_devices::mwocp6x::Mwocp67 as Mwocp6x;
 
