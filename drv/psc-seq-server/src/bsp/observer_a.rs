@@ -50,7 +50,7 @@ pub const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
 ];
 
 /// In order to get the PMBus devices by PSU index, we need a little lookup table.
-pub const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
+pub const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, Option<u8>); PSU_COUNT] = [
     i2c_config::pmbus::v50_main_psu0,
     i2c_config::pmbus::v50_main_psu1,
     i2c_config::pmbus::v50_main_psu2,
