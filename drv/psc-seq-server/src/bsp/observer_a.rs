@@ -49,8 +49,11 @@ pub const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_5_MASK,
 ];
 
+/// Type returned by generated pmbus rail functions
+pub type SummonFn = fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
+
 /// In order to get the PMBus devices by PSU index, we need a little lookup table.
-pub const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, Option<u8>); PSU_COUNT] = [
+pub const PSU_PMBUS_DEVS: [SummonFn; PSU_COUNT] = [
     i2c_config::pmbus::v50_main_psu0,
     i2c_config::pmbus::v50_main_psu1,
     i2c_config::pmbus::v50_main_psu2,
