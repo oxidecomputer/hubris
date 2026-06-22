@@ -112,7 +112,7 @@ pub fn system_init(config: ClockConfig) -> device::Peripherals {
     // SAFETY: We do not carry any "instant" values across this point (as they
     // would be invalidated here!), and we do not re-use TIM5 for anything.
     unsafe {
-        drv_stm32h7_startup::rolling_timer::configure_tim5(&p, 64);
+        rolling_timer::configure_tim5(&p, 64);
     }
 
     system_init_custom(cp, p, config)
