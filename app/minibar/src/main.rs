@@ -11,7 +11,7 @@ extern crate stm32h7;
 
 use stm32h7::stm32h753 as device;
 
-use drv_stm32h7_startup::ClockConfig;
+use drv_stm32h7_startup::{ClockConfig, rolling_timer::blocking_delay_micros};
 
 use cortex_m_rt::entry;
 
@@ -27,6 +27,15 @@ fn main() -> ! {
 fn system_init() {
     let cp = cortex_m::Peripherals::take().unwrap();
     let p = device::Peripherals::take().unwrap();
+
+    // Start the higher resolution timer with the default APB1 clock rate of
+    // 64MHz
+    //
+    // SAFETY: We do not carry any "instant" values across this point (as they
+    // would be invalidated here!), and we do not re-use TIM5 for anything.
+    unsafe {
+        rolling_timer::configure_tim5(&p, 64);
+    }
 
     // Check the package we've been flashed on. Minibar boards use BGA240.
     // Gimletlet boards are very similar but use QFPs. This is designed to fail
@@ -81,7 +90,9 @@ fn system_init() {
         .pupdr7().pull_up());
 
     // TODO: fill in timing justification here based on Sidecar's schematic.
-    cortex_m::asm::delay(2000);
+    // The previous code here waited 2000 cycles at 64MHz, or an ideal time of
+    // 31.25µs. We'll conservatively wait 100µs.
+    blocking_delay_micros(100);
 
     // Build the full ID
     let rev = p.GPIOK.idr.read().bits();

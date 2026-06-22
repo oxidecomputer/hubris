@@ -28,6 +28,15 @@ fn system_init() {
     let cp = cortex_m::Peripherals::take().unwrap();
     let p = device::Peripherals::take().unwrap();
 
+    // Start the higher resolution timer with the default APB1 clock rate of
+    // 64MHz
+    //
+    // SAFETY: We do not carry any "instant" values across this point (as they
+    // would be invalidated here!), and we do not re-use TIM5 for anything.
+    unsafe {
+        rolling_timer::configure_tim5(&p, 64);
+    }
+
     // Un-gate the clock to GPIO bank G.
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
     cortex_m::asm::dsb();

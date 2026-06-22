@@ -11,7 +11,7 @@ extern crate stm32h7;
 
 use stm32h7::stm32h753 as device;
 
-use drv_stm32h7_startup::ClockConfig;
+use drv_stm32h7_startup::{ClockConfig, rolling_timer::blocking_delay_micros};
 
 use cortex_m_rt::entry;
 
@@ -33,6 +33,15 @@ fn main() -> ! {
 fn system_init() {
     let cp = cortex_m::Peripherals::take().unwrap();
     let p = device::Peripherals::take().unwrap();
+
+    // Start the higher resolution timer with the default APB1 clock rate of
+    // 64MHz
+    //
+    // SAFETY: We do not carry any "instant" values across this point (as they
+    // would be invalidated here!), and we do not re-use TIM5 for anything.
+    unsafe {
+        drv_stm32h7_startup::rolling_timer::configure_tim5(&p, 64);
+    }
 
     // Check the package we've been flashed on. Gimlet boards use BGA240.
     // Gimletlet boards are very similar but use QFPs. This is designed to fail
@@ -91,20 +100,19 @@ fn system_init() {
     cortex_m::asm::dsb();
 
     // Make PC6 (SEQ_REG_TO_SP_V3P3_PG) and PC7 (SEQ_REG_TO_SP_V1P2_PG) inputs,
-    // then wait for both of them to go high.  We time out after 1M iterations
-    // (with 100 cycles each), which is roughly 1.5s.
+    // then wait for both of them to go high.  We time out after roughly 1.5s.
     p.GPIOC.moder.modify(|_, w| {
         w.moder6().input();
         w.moder7().input()
     });
     const SEQ_PG: u32 = 0b11 << 6;
     let mut seq_pg_okay = false;
-    for _ in 0..1_000_000 {
+    for _ in 0..1_500_000 {
         if p.GPIOC.idr.read().bits() & SEQ_PG == SEQ_PG {
             seq_pg_okay = true;
             break;
         } else {
-            cortex_m::asm::delay(100);
+            blocking_delay_micros(1);
         }
     }
     if !seq_pg_okay {
@@ -115,11 +123,11 @@ fn system_init() {
     // the FPGA bitstream.  The minimum CRESET pulse is 200 ns, or 13 cycles,
     // but there's a 1µF capacitor on that line.  Let's assume we're discharging
     // the capacitor at 5 mA from 3V3; in that case, it will take 0.66 ms, or
-    // 42K cycles.  We'll be conservative and pad it to 100K cycles.
+    // 42K cycles.  We'll be conservative and pad it to 2ms.
     p.GPIOD.bsrr.write(|w| w.bs5().set());
     p.GPIOD.moder.modify(|_, w| w.moder5().output());
     p.GPIOD.bsrr.write(|w| w.br5().reset());
-    cortex_m::asm::delay(100_000);
+    blocking_delay_micros(2_000);
 
     p.GPIOG.moder.modify(|_, w| {
         w.moder0().input();
@@ -140,15 +148,8 @@ fn system_init() {
     // V(t) = 1 / 50 pF * 10 µA * t
     // Time to reach Vil of 2.31 V (0.7 VDD) = 11.55 µs
     //
-    // Maximum speed of 64MHz oscillator after ST manufacturing calibration, per
-    // the datasheet, is 64.3 MHz.
-    //
-    // 11.55 µs @ 64.3MHz ~= 743 cycles
-    //
-    // The cortex_m delay routine is written for single-issue simple cores and
-    // is simply wrong on the M7 (they know this). So, let's conservatively pad
-    // it by a factor of 10.
-    cortex_m::asm::delay(743 * 10);
+    // Conservatively, we will wait 100 µs.
+    blocking_delay_micros(100);
 
     // Okay! What does the fox^Wpins say?
     let rev = p.GPIOG.idr.read().bits() & 0b111;
