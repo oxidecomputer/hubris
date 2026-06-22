@@ -11,6 +11,7 @@ extern crate userlib;
 
 #[unsafe(export_name = "main")]
 fn main() -> ! {
+    #[allow(clippy::empty_loop)]
     loop {
         // In insomniac-mode, we just spinloop to absorb idle cycles. This
         // is useful on certain processors where entering a low-power state
