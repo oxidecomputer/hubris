@@ -11,6 +11,7 @@ use stm32h7::stm32h743 as device;
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
+use stm32h7::stm32h753::TIM5;
 
 #[cfg(any(feature = "h743", feature = "h753"))]
 #[pre_init]
@@ -137,19 +138,19 @@ pub fn system_init_custom(
     //
     // Disable counter
     p.TIM5.cr1.modify(|_r, w| w.cen().disabled());
-    // Set counter to zero
-    p.TIM5.cnt.modify(|_r, w| w.cnt().bits(0));
-    // Set prescaler to (FREQ / 1M) - 1, (64M / 1M) - 1 = 63, as the counter
-    // resets to 0 AFTER counting this number.
-    p.TIM5.psc.write(|w| w.psc().bits(63));
     // Set auto-reload to u32::MAX
     p.TIM5.arr.write(|w| w.arr().bits(u32::MAX));
-    // Generate update (latch the PSC and ARR values)
-    p.TIM5.egr.write(|w| w.ug().set_bit());
 
     // Before doing anything else, check for a measurement handoff token
     #[cfg(feature = "measurement-handoff")]
     unsafe {
+        // Set counter to zero
+        p.TIM5.cnt.modify(|_r, w| w.cnt().bits(0));
+        // Set prescaler to (FREQ / 1M) - 1, (64M / 1M) - 1 = 63, as the counter
+        // resets to 0 AFTER counting this number.
+        p.TIM5.psc.write(|w| w.psc().bits(63));
+        // Generate update (latch the PSC and ARR values)
+        p.TIM5.egr.write(|w| w.ug().set_bit());
         // Start counting!
         p.TIM5.cr1.modify(|_r, w| w.cen().enabled());
 
@@ -160,8 +161,8 @@ pub fn system_init_custom(
         // counter in a linker location that persists across soft-reboots.
         const DELAY_MICROS: u32 = 200 * 1_000;
         const RETRY_COUNT: u32 = 20;
-        measurement_handoff::check(RETRY_COUNT, &p, |p| {
-            while p.TIM5.cnt.read().bits() < DELAY_MICROS {}
+        measurement_handoff::check(RETRY_COUNT, || {
+            blocking_delay_micros(DELAY_MICROS);
             cortex_m::peripheral::SCB::sys_reset()
         });
 
@@ -387,8 +388,50 @@ pub fn system_init_custom(
     p.RCC.d2ccip2r.modify(|_, w| w.rngsel().pll1_q());
 
     // Hello from target speed!
+    //
+    // Set up the clock for the new nominal APB1 frequency of 100MHz
+    //
+    // Set counter to zero
+    p.TIM5.cnt.modify(|_r, w| w.cnt().bits(0));
+    // Set prescaler to (FREQ / 1M) - 1, (100M / 1M) - 1 = 99, as the counter
+    // resets to 0 AFTER counting this number.
+    p.TIM5.psc.write(|w| w.psc().bits(99));
+    // Generate update (latch the PSC and ARR values)
+    p.TIM5.egr.write(|w| w.ug().set_bit());
+    // Start counting!
+    p.TIM5.cr1.modify(|_r, w| w.cen().enabled());
 
     // Hand the peripherals back in case the board-specific setup code needs to
     // do anything.
     p
+}
+
+/// Obtain the current count value of TIM5, which is a 32-bit timer that ticks
+/// at a rate of 1MHz.
+#[inline(always)]
+pub fn get_rolling_micros_since_boot() -> u32 {
+    let tim5 = unsafe { &*TIM5::ptr() };
+    tim5.cnt.read().bits()
+}
+
+/// Perform a blocking delay for the given number of microseconds.
+#[inline]
+pub fn blocking_delay_micros(micros: u32) {
+    let start = get_rolling_micros_since_boot();
+    loop {
+        let now = get_rolling_micros_since_boot();
+
+        // Since this is a rolling timer, we can perform a wrapping sub to
+        // obtain the elapsed amount of time, even if we have crossed the roll-
+        // over point, e.g.:
+        //
+        // start  = 0xFFFF_FFFE
+        // now    = 0x0000_0080
+        //
+        // now.wrapping_sub(start) => 0x82
+        let elapsed = now.wrapping_sub(start);
+        if elapsed >= micros {
+            break;
+        }
+    }
 }
