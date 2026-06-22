@@ -29,12 +29,12 @@ fn system_init() {
     let p = device::Peripherals::take().unwrap();
 
     // Start the higher resolution timer with the default APB1 clock rate of
-    // 64MHz
+    // 64MHz.
     //
     // SAFETY: We do not carry any "instant" values across this point (as they
     // would be invalidated here!), and we do not re-use TIM5 for anything.
     unsafe {
-        rolling_timer::configure_tim5(&p, 64);
+        drv_stm32h7_startup::rolling_timer::configure_tim5(&p, 64);
     }
 
     // Check the package we've been flashed on. Sidecar boards use BGA240.
