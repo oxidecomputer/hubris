@@ -11,7 +11,10 @@ extern crate stm32h7;
 
 use stm32h7::stm32h753 as device;
 
-use drv_stm32h7_startup::{ClockConfig, rolling_timer::blocking_delay_micros};
+use drv_stm32h7_startup::{
+    ClockConfig,
+    rolling_timer::{blocking_delay_micros, configure_tim5},
+};
 
 use cortex_m_rt::entry;
 
@@ -34,7 +37,7 @@ fn system_init() {
     // SAFETY: We do not carry any "instant" values across this point (as they
     // would be invalidated here!), and we do not re-use TIM5 for anything.
     unsafe {
-        drv_stm32h7_startup::rolling_timer::configure_tim5(&p, 64);
+        configure_tim5(&p, 64);
     }
 
     // Check the package we've been flashed on. Minibar boards use BGA240.
