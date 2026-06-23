@@ -18,6 +18,7 @@ idol-runtime = { workspace = true }
 num-traits = { workspace = true }
 stm32g0 = { workspace = true, optional = true }
 stm32h7 = { workspace = true, optional = true }
+stm32f4 = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
@@ -36,6 +37,10 @@ g030 = ["family-stm32g0", "stm32g0/stm32g030", "drv-stm32xx-sys-api/g030", "drv-
 g031 = ["family-stm32g0", "stm32g0/stm32g031", "drv-stm32xx-sys-api/g031", "drv-stm32xx-gpio-common/model-stm32g031"]
 g070 = ["family-stm32g0", "stm32g0/stm32g070", "drv-stm32xx-sys-api/g070", "drv-stm32xx-gpio-common/model-stm32g070"]
 g0b1 = ["family-stm32g0", "stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1", "drv-stm32xx-gpio-common/model-stm32g0b1"]
+
+family-stm32f4 = ["stm32f4", "drv-stm32xx-uid/family-stm32f4"]
+f407 = ["family-stm32f4", "stm32f4/stm32f407", "drv-stm32xx-sys-api/f407", "drv-stm32xx-gpio-common/model-stm32f407"]
+f429 = ["family-stm32f4", "stm32f4/stm32f429", "drv-stm32xx-sys-api/f429", "drv-stm32xx-gpio-common/model-stm32f429"]
 
 no-ipc-counters = ["idol/no-counters"]
 no-panic = ["userlib/no-panic"]
