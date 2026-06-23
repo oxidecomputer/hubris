@@ -66,15 +66,24 @@ fn system_init() {
     // Un-gate the clock to GPIO bank G.
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
     cortex_m::asm::dsb();
-    // PG2:0 are already inputs after reset, and they have external pull-up /
-    // down resistors, so we can assume that they are ready to read here.
+
+    // PG2:0 are configured as AF by default, so switch them to inputs.  We're
+    // able to read the pins right away, because they have pull-up/down
+    // resistors populated on the board.
+    p.GPIOG.moder.modify(|_, w| {
+        w.moder0().input();
+        w.moder1().input();
+        w.moder2().input()
+    });
 
     // Okay! What does the fox^Wpins say?
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
     cfg_if::cfg_if! {
-        if #[cfg(target_board = "grapefruit")] {
+        if #[cfg(target_board = "grapefruit-a")] {
             let expected_rev = 0b000;
+        } else if #[cfg(target_board = "grapefruit-b")] {
+            let expected_rev = 0b001;
         } else {
             compile_error!("not a recognized grapefruit board")
         }
@@ -372,10 +381,14 @@ fn system_init() {
         // still).
         w.mbken().set_bit();
 
+        unsafe {
+            // Swap the device map so that the default memory map uses device
+            // memory to avoid speculation
+            w.bmap().bits(0b01);
+        }
         // The following fields are being deliberately left in their reset
         // states:
         // - FMCEN is being left off
-        // - BMAP default (no remapping) is retained
         // - Write FIFO is being left on (TODO is this correct?)
         // - CPSIZE is being left with no special behavior on page-crossing
         // - ASYNCWAIT is being left off since we're synchronous

@@ -2,20 +2,21 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_front_io_api::{FrontIO, phy_smi::PhySmi};
 use drv_monorail_api::MonorailError;
-use drv_sidecar_front_io::phy_smi::PhySmi;
 use drv_sidecar_seq_api::Sequencer;
 use idol_runtime::RequestError;
 use ringbuf::*;
-use userlib::{hl::sleep_for, task_slot, UnwrapLite};
+use userlib::{UnwrapLite, hl::sleep_for, task_slot};
+use vsc85xx::{PhyRw, vsc8504::Vsc8504, vsc8562::Vsc8562Phy};
 use vsc7448::{
-    config::Speed, miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError,
+    Vsc7448, Vsc7448Rw, VscError, config::Speed, miim_phy::Vsc7448MiimPhy,
 };
-use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
-use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
+use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1, phy};
 
+task_slot!(FRONT_IO, front_io);
+task_slot!(FRONT_IO_FPGA, ecp5_front_io);
 task_slot!(SEQ, seq);
-task_slot!(FRONT_IO, ecp5_front_io);
 
 /// Interval at which `Bsp::wake()` is called by the main loop
 pub const WAKE_INTERVAL: Option<u32> = Some(500);
@@ -39,6 +40,11 @@ enum Trace {
     AutomaticLock,
     LockError(#[count(children)] VscError),
     UnlockError(#[count(children)] VscError),
+    Vsc8504SuspiciousMacStatus {
+        mac_serdes_pcs_status: u16,
+        mac_serdes_status: u16,
+    },
+    Vsc8504ReadError(VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -48,6 +54,12 @@ enum VLanMode {
     UnlockedUntil(u64),
 }
 
+const VLAN_UNLOCK_TARGETS: vsc7448::VlanTargets = if cfg!(feature = "reverso") {
+    vsc7448::VlanTargets::ScrimletOnly
+} else {
+    vsc7448::VlanTargets::EverySp
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 
 pub struct Bsp<'a, R> {
@@ -55,6 +67,9 @@ pub struct Bsp<'a, R> {
 
     /// Handle for the sequencer task
     seq: Sequencer,
+
+    /// Handle for the front IO task
+    front_io: FrontIO,
 
     /// PHY for the on-board PHY ("PHY4")
     vsc8504: Vsc8504,
@@ -99,38 +114,38 @@ mod map {
 
     // See RFD144 for a detailed look at the design
     pub const PORT_MAP: PortMap = PortMap::new([
-        SGMII,       // 0  | DEV1G_0   | SERDES1G_1  | Cubby 0
-        SGMII,       // 1  | DEV1G_1   | SERDES1G_2  | Cubby 1
-        SGMII,       // 2  | DEV1G_2   | SERDES1G_3  | Cubby 2
-        SGMII,       // 3  | DEV1G_3   | SERDES1G_4  | Cubby 3
-        SGMII,       // 4  | DEV1G_4   | SERDES1G_5  | Cubby 4
-        SGMII,       // 5  | DEV1G_5   | SERDES1G_6  | Cubby 5
-        SGMII,       // 6  | DEV1G_6   | SERDES1G_7  | Cubby 6
-        SGMII,       // 7  | DEV1G_7   | SERDES1G_8  | Cubby 7
-        SGMII,       // 8  | DEV2G5_0  | SERDES6G_0  | Cubby 8
-        SGMII,       // 9  | DEV2G5_1  | SERDES6G_1  | Cubby 9
-        SGMII,       // 10 | DEV2G5_2  | SERDES6G_2  | Cubby 10
-        SGMII,       // 11 | DEV2G5_3  | SERDES6G_3  | Cubby 11
-        SGMII,       // 12 | DEV2G5_4  | SERDES6G_4  | Cubby 12
-        SGMII,       // 13 | DEV2G5_5  | SERDES6G_5  | Cubby 13
-        SGMII,       // 14 | DEV2G5_6  | SERDES6G_6  | Cubby 14
-        SGMII,       // 15 | DEV2G5_7  | SERDES6G_7  | Cubby 15
-        SGMII,       // 16 | DEV2G5_8  | SERDES6G_8  | Cubby 16
-        SGMII,       // 17 | DEV2G5_9  | SERDES6G_9  | Cubby 17
-        SGMII,       // 18 | DEV2G5_10 | SERDES6G_10 | Cubby 18
-        SGMII,       // 19 | DEV2G5_11 | SERDES6G_11 | Cubby 19
-        SGMII,       // 20 | DEV2G5_12 | SERDES6G_12 | Cubby 20
-        SGMII,       // 21 | DEV2G5_13 | SERDES6G_13 | Cubby 21
+        SGMII,       // 0  | DEV1G_0   | SERDES1G_1  | Cubby 24
+        SGMII,       // 1  | DEV1G_1   | SERDES1G_2  | Cubby 26
+        SGMII,       // 2  | DEV1G_2   | SERDES1G_3  | Cubby 30
+        SGMII,       // 3  | DEV1G_3   | SERDES1G_4  | Cubby 28
+        SGMII,       // 4  | DEV1G_4   | SERDES1G_5  | Cubby 16
+        SGMII,       // 5  | DEV1G_5   | SERDES1G_6  | Cubby 18
+        SGMII,       // 6  | DEV1G_6   | SERDES1G_7  | Cubby 22
+        SGMII,       // 7  | DEV1G_7   | SERDES1G_8  | Cubby 20
+        SGMII,       // 8  | DEV2G5_0  | SERDES6G_0  | Cubby 14
+        SGMII,       // 9  | DEV2G5_1  | SERDES6G_1  | Cubby 12
+        SGMII,       // 10 | DEV2G5_2  | SERDES6G_2  | Cubby 8
+        SGMII,       // 11 | DEV2G5_3  | SERDES6G_3  | Cubby 10
+        SGMII,       // 12 | DEV2G5_4  | SERDES6G_4  | Cubby 6
+        SGMII,       // 13 | DEV2G5_5  | SERDES6G_5  | Cubby 4
+        SGMII,       // 14 | DEV2G5_6  | SERDES6G_6  | Cubby 0
+        SGMII,       // 15 | DEV2G5_7  | SERDES6G_7  | Cubby 2
+        SGMII,       // 16 | DEV2G5_8  | SERDES6G_8  | Cubby 25
+        SGMII,       // 17 | DEV2G5_9  | SERDES6G_9  | Cubby 27
+        SGMII,       // 18 | DEV2G5_10 | SERDES6G_10 | Cubby 31
+        SGMII,       // 19 | DEV2G5_11 | SERDES6G_11 | Cubby 29
+        SGMII,       // 20 | DEV2G5_12 | SERDES6G_12 | Cubby 17
+        SGMII,       // 21 | DEV2G5_13 | SERDES6G_13 | Cubby 19
         None,        // 22
         None,        // 23
-        SGMII,       // 24 | DEV2G5_16 | SERDES6G_16 | Cubby 22
-        SGMII,       // 25 | DEV2G5_17 | SERDES6G_17 | Cubby 23
-        SGMII,       // 26 | DEV2G5_18 | SERDES6G_18 | Cubby 24
-        SGMII,       // 27 | DEV2G5_19 | SERDES6G_19 | Cubby 25
-        SGMII,       // 28 | DEV2G5_20 | SERDES6G_20 | Cubby 26
-        SGMII,       // 29 | DEV2G5_21 | SERDES6G_21 | Cubby 27
-        SGMII,       // 30 | DEV2G5_22 | SERDES6G_22 | Cubby 28
-        SGMII,       // 31 | DEV2G5_23 | SERDES6G_23 | Cubby 29
+        SGMII,       // 24 | DEV2G5_16 | SERDES6G_16 | Cubby 15
+        SGMII,       // 25 | DEV2G5_17 | SERDES6G_17 | Cubby 13
+        SGMII,       // 26 | DEV2G5_18 | SERDES6G_18 | Cubby 9
+        SGMII,       // 27 | DEV2G5_19 | SERDES6G_19 | Cubby 11
+        SGMII,       // 28 | DEV2G5_20 | SERDES6G_20 | Cubby 7
+        SGMII,       // 29 | DEV2G5_21 | SERDES6G_21 | Cubby 5
+        SGMII,       // 30 | DEV2G5_22 | SERDES6G_22 | Cubby 1
+        SGMII,       // 31 | DEV2G5_23 | SERDES6G_23 | Cubby 3
         None,        // 32
         None,        // 33
         None,        // 34
@@ -139,19 +154,19 @@ mod map {
         None,        // 37
         None,        // 38
         None,        // 39
-        QSGMII_100M, // 40 | DEV1G_16  | SERDES6G_14 | Peer SP
-        QSGMII_100M, // 41 | DEV1G_17  | SERDES6G_14 | PSC0
-        QSGMII_100M, // 42 | DEV1G_18  | SERDES6G_14 | PSC1
+        QSGMII_100M, // 40 | DEV1G_16  | SERDES6G_14 | PSC0
+        QSGMII_100M, // 41 | DEV1G_17  | SERDES6G_14 | PSC1
+        QSGMII_100M, // 42 | DEV1G_18  | SERDES6G_14 | Peer SP
         QSGMII_100M, // 43 | Unused
-        QSGMII_1G,   // 44 | DEV1G_20  | SERDES6G_15 | Technician 1
-        QSGMII_1G,   // 45 | DEV1G_21  | SERDES6G_15 | Technician 2
+        QSGMII_1G,   // 44 | DEV1G_20  | SERDES6G_15 | Technician 0
+        QSGMII_1G,   // 45 | DEV1G_21  | SERDES6G_15 | Technician 1
         None,        // 46 | Unused (configured in QSGMII mode by port 44)
         None,        // 47 | Unused (configured in QSGMII mode by port 44)
-        SGMII,       // 48 | DEV2G5_24 | SERDES1G_0 | Local SP
+        SGMII,       // 48 | DEV2G5_24 | SERDES1G_0  | Local SP
         BASE_KR,     // 49 | DEV10G_0  | SERDES10G_0 | Tofino 2
         None,        // 50 | Unused
-        SGMII, // 51 | DEV2G5_27 | SERDES10G_2 | Cubby 30 (shadows DEV10G_2)
-        SGMII, // 52 | DEV2G5_28 | SERDES10G_3 | Cubby 31 (shadows DEV10G_3)
+        SGMII, // 51 | DEV2G5_27 | SERDES10G_2 | Cubby 23 (shadows DEV10G_2)
+        SGMII, // 52 | DEV2G5_28 | SERDES10G_3 | Cubby 21 (shadows DEV10G_3)
     ]);
 }
 pub use map::PORT_MAP;
@@ -167,20 +182,21 @@ pub fn preinit() {
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
-        let seq = Sequencer::from(SEQ.get_task_id());
-        let has_front_io = seq.front_io_board_present();
+        let front_io = FrontIO::from(FRONT_IO.get_task_id());
+        let has_front_io = front_io.board_present();
         let mut out = Bsp {
             vsc7448,
             vsc8504: Vsc8504::empty(),
             vsc8562: if has_front_io {
-                Some(PhySmi::new(FRONT_IO.get_task_id()))
+                Some(PhySmi::new(FRONT_IO_FPGA.get_task_id()))
             } else {
                 None
             },
             front_io_speed: [Speed::Speed1G; 2],
             link_down_at: None,
             vlan_mode: VLanMode::Locked,
-            seq,
+            seq: Sequencer::from(SEQ.get_task_id()),
+            front_io,
         };
 
         out.reinit()?;
@@ -240,7 +256,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             VLanMode::UnlockedUntil(t) => {
                 let now = userlib::sys_get_timer().now;
                 if now < t {
-                    self.vsc7448.configure_vlan_sidecar_unlocked()?;
+                    self.vsc7448
+                        .configure_vlan_sidecar_unlocked(VLAN_UNLOCK_TARGETS)?;
                 } else {
                     ringbuf_entry!(Trace::AutomaticLock);
                     self.vsc7448.configure_vlan_sidecar_locked()?;
@@ -264,8 +281,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             // Notify the sequencer about the state of the oscillator. If the
             // oscillator is good any future resets of the PHY do not require a
             // full power cycle of the front IO board.
-            self.seq
-                .set_front_io_phy_osc_state(osc_good)
+            self.front_io
+                .phy_set_osc_state(osc_good)
                 .map_err(|e| VscError::ProxyError(e.into()))?;
 
             if !osc_good {
@@ -419,8 +436,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             // Request a reset of the PHY. If we had previously marked the PHY
             // oscillator as bad, then this power-cycles the entire front IO
             // board; otherwise, it only power-cycles the PHY.
-            self.seq
-                .reset_front_io_phy()
+            self.front_io
+                .phy_reset()
                 .map_err(|e| VscError::ProxyError(e.into()))?;
 
             for p in 0..2 {
@@ -554,6 +571,37 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             self.link_down_at = None;
         }
 
+        // Do some logging of the VSC8504 state for debug
+        if let Err(e) = self.check_vsc8504() {
+            ringbuf_entry!(Trace::Vsc8504ReadError(e));
+        }
+
+        Ok(())
+    }
+
+    /// Check VSC8504 state, logging anything unusual
+    ///
+    /// Specifically, we log if the VSC8504 isn't reporting *both* MAC comma
+    /// detect and MAC interface link up.  In practice, we still see packets
+    /// transiting the system (in both directions) with either of these bits
+    /// cleared, but it's a weird edge case that we might want to see in a
+    /// system dump.  See `facade#386` for additional context.
+    fn check_vsc8504(&self) -> Result<(), VscError> {
+        let mut phy_rw = Vsc7448MiimPhy::new(self.vsc7448.rw, 0);
+        let phy_port = 4; // The VSC8504 uses ports 4-7
+        let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
+        let mac_serdes_pcs_status =
+            phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
+        let mac_serdes_status =
+            phy.read(phy::EXTENDED_3::MAC_SERDES_STATUS())?;
+        if mac_serdes_pcs_status.mac_pcs_sig_detect() == 0
+            || mac_serdes_pcs_status.mac_link_status() == 0
+        {
+            ringbuf_entry!(Trace::Vsc8504SuspiciousMacStatus {
+                mac_serdes_pcs_status: mac_serdes_pcs_status.into(),
+                mac_serdes_status: mac_serdes_status.into(),
+            });
+        }
         Ok(())
     }
 
@@ -595,10 +643,12 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         unlock_until: u64,
     ) -> Result<(), RequestError<MonorailError>> {
         ringbuf_entry!(Trace::UnlockUntil(unlock_until));
-        self.vsc7448.sidecar_vlan_unlock().map_err(|e| {
-            ringbuf_entry!(Trace::UnlockError(e));
-            MonorailError::from(e)
-        })?;
+        self.vsc7448
+            .sidecar_vlan_unlock(VLAN_UNLOCK_TARGETS)
+            .map_err(|e| {
+                ringbuf_entry!(Trace::UnlockError(e));
+                MonorailError::from(e)
+            })?;
         self.vlan_mode = VLanMode::UnlockedUntil(unlock_until);
         Ok(())
     }

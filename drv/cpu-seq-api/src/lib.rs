@@ -8,7 +8,7 @@
 
 use counters::Count;
 use derive_idol_err::IdolError;
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 // Re-export PowerState for client convenience.
@@ -71,6 +71,14 @@ pub enum StateChangeReason {
     HostReboot,
     /// The system powered off because a component has overheated.
     Overheat,
+    /// A0 MAPO fault from the sequencer
+    A0Mapo,
+    /// System Management Error
+    SmerrAssert,
+    /// NIC MAPO fault from the sequencer.
+    NicMapo,
+    /// The system powered off for reasons we can't explain
+    Unknown,
 }
 
 /// Indicates the result of a power state transition.

@@ -244,12 +244,12 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // N.B. if you are staring at this macro thinking that it looks like it
     // doesn't do anything and might be obsolescent, the key is the :upper. This

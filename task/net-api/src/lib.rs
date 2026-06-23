@@ -250,14 +250,12 @@ impl From<Address> for smoltcp::wire::IpAddress {
 }
 
 #[cfg(feature = "use-smoltcp")]
-impl TryFrom<smoltcp::wire::IpAddress> for Address {
-    type Error = AddressUnspecified;
-
-    fn try_from(a: smoltcp::wire::IpAddress) -> Result<Self, Self::Error> {
+impl From<smoltcp::wire::IpAddress> for Address {
+    fn from(a: smoltcp::wire::IpAddress) -> Self {
         use smoltcp::wire::IpAddress;
 
         match a {
-            IpAddress::Ipv6(a) => Ok(Self::Ipv6(a.into())),
+            IpAddress::Ipv6(a) => Self::Ipv6(a.into()),
         }
     }
 }

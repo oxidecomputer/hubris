@@ -351,7 +351,7 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         self.phy
             .write(phy::STANDARD::MODE_CONTROL(), 0xC040.into())?;
         sleep_for(1); // line 934
-                      // XXX the SDK loops here waiting for a flag to be clear
+        // XXX the SDK loops here waiting for a flag to be clear
 
         // We are now roughly at line 948, doing
         //      phy_reset_private

@@ -6,7 +6,7 @@
 //!
 //! This crate contains (generally) all I2C device drivers, including:
 //!
-//! - [`adm1272`]: ADM1272 hot swap controller
+//! - [`adm127x`]: ADM1272 or ADM1273 hot swap controller
 //! - [`adt7420`]: ADT7420 temperature sensor
 //! - [`at24csw080`]: AT24CSW080 serial EEPROM
 //! - [`ds2482`]: DS2482-100 1-wire initiator
@@ -23,7 +23,7 @@
 //! - [`max6634`]: MAX6634 temperature sensor
 //! - [`max31790`]: MAX31790 fan controller
 //! - [`mcp9808`]: MCP9808 temperature sensor
-//! - [`mwocp68`]: Murata power shelf
+//! - [`mwocp6x`]: Murata power supply units
 //! - [`nvme_bmc`]: NVMe basic management control
 //! - [`pca9538`]: PCA9538 GPIO expander
 //! - [`pca9956b`]: PCA9956B LED driver
@@ -39,27 +39,36 @@
 
 #![no_std]
 
-use drv_i2c_api::{I2cDevice, ResponseCode};
+use drv_i2c_api::{I2cDevice, ResponseCode, pmbus_status::Capabilities};
 use pmbus::commands::CommandCode;
 
 macro_rules! pmbus_read {
-    ($device:expr, $cmd:ident) => {
-        match $cmd::CommandData::from_slice(&match $device
-            .read_reg::<u8, [u8; $cmd::CommandData::len()]>(
-                $cmd::CommandData::code(),
-            ) {
-            Ok(rval) => Ok(rval),
-            Err(code) => Err(Error::BadRead {
-                cmd: $cmd::CommandData::code(),
+    // "Raw" variant: Doesn't feed output through the pmbus crate, and
+    // expects the caller to pass in length and the raw command code
+    (@raw => $device:expr, $cmd_code:expr, $len:expr $(,)?) => {
+        $device
+            .read_reg::<u8, [u8; $len]>(
+                $cmd_code,
+            )
+            .map_err(|code| Error::BadRead {
+                cmd: $cmd_code,
                 code,
-            }),
-        }?) {
-            Some(data) => Ok(data),
-            None => Err(Error::BadData {
-                cmd: $cmd::CommandData::code(),
-            }),
-        }
+            })
     };
+
+    // Non-raw, expects cmd to be a CommandCode, and obtains the raw
+    // command and length from that
+    ($device:expr, $cmd:ident) => {{
+        let cmd_code = $cmd::CommandData::code();
+        const CMD_LEN: usize = $cmd::CommandData::len();
+
+        pmbus_read!(@raw => $device, cmd_code, CMD_LEN)
+            .and_then(|rval| {
+                $cmd::CommandData::from_slice(&rval).ok_or(Error::BadData {
+                    cmd: $cmd::CommandData::code(),
+                })
+            })
+    }};
 
     ($device:expr, $dev:ident::$cmd:ident) => {{
         use $dev::$cmd;
@@ -68,56 +77,58 @@ macro_rules! pmbus_read {
 }
 
 macro_rules! pmbus_rail_read {
-    ($device:expr, $rail:expr, $cmd:ident) => {{
-        let payload = [PAGE::CommandData::code(), $rail];
-
-        match $cmd::CommandData::from_slice(&match $device
-            .write_read_reg::<u8, [u8; $cmd::CommandData::len()]>(
-                $cmd::CommandData::code(),
-                &payload,
-            ) {
-            Ok(rval) => Ok(rval),
-            Err(code) => Err(Error::BadRead {
-                cmd: $cmd::CommandData::code(),
+    // "Raw" variant: Doesn't feed output through the pmbus crate, and
+    // expects the caller to pass in length and the raw command code
+    (@raw => $device:expr, $rail:expr, $cmd_code:expr, $len:expr $(,)?) => {
+        $device
+            .write_read_reg::<u8, [u8; $len]>(
+                $cmd_code,
+                &[PAGE::CommandData::code(), $rail],
+            )
+            .map_err(|code| Error::BadRead {
+                cmd: $cmd_code,
                 code,
-            }),
-        }?) {
-            Some(data) => Ok(data),
-            None => Err(Error::BadData {
-                cmd: $cmd::CommandData::code(),
-            }),
-        }
+            })
+    };
+
+    // Non-raw, expects cmd to be a CommandCode, and obtains the raw
+    // command and length from that
+    ($device:expr, $rail:expr, $cmd:ident $(,)?) => {{
+        let cmd_code = $cmd::CommandData::code();
+        const CMD_LEN: usize = $cmd::CommandData::len();
+
+        pmbus_rail_read!(@raw => $device, $rail, cmd_code, CMD_LEN)
+            .and_then(|rval| {
+                $cmd::CommandData::from_slice(&rval).ok_or(Error::BadData {
+                    cmd: $cmd::CommandData::code(),
+                })
+            })
     }};
 
-    ($device:expr, $rail:expr, $dev:ident::$cmd:ident) => {{
-        use $dev::{$cmd, PAGE};
+    ($device:expr, $rail:expr, $dev:ident::$cmd:ident $(,)?) => {{
+        use $dev::{PAGE, $cmd};
         pmbus_rail_read!($device, $rail, $cmd)
     }};
 }
 
 macro_rules! pmbus_rail_phase_read {
-    ($device:expr, $rail:expr, $phase:expr, $cmd:ident) => {{
-        let rail_payload = [PAGE::CommandData::code(), $rail];
-        let phase_payload = [PHASE::CommandData::code(), $phase];
-
-        match $cmd::CommandData::from_slice(&match $device
+    ($device:expr, $rail:expr, $phase:expr, $cmd:ident) => {
+        $device
             .write_write_read_reg::<u8, [u8; $cmd::CommandData::len()]>(
                 $cmd::CommandData::code(),
-                &rail_payload,
-                &phase_payload,
-            ) {
-            Ok(rval) => Ok(rval),
-            Err(code) => Err(Error::BadRead {
+                &[PAGE::CommandData::code(), $rail],
+                &[PHASE::CommandData::code(), $phase],
+            )
+            .map_err(|code| Error::BadRead {
                 cmd: $cmd::CommandData::code(),
                 code,
-            }),
-        }?) {
-            Some(data) => Ok(data),
-            None => Err(Error::BadData {
-                cmd: $cmd::CommandData::code(),
-            }),
-        }
-    }};
+            })
+            .and_then(|rval| {
+                $cmd::CommandData::from_slice(&rval).ok_or(Error::BadData {
+                    cmd: $cmd::CommandData::code(),
+                })
+            })
+    };
 }
 
 macro_rules! pmbus_write {
@@ -154,6 +165,19 @@ macro_rules! pmbus_write {
 }
 
 macro_rules! pmbus_rail_write {
+    // Write a command with no additional data bytes.
+    ($device:expr, $rail:expr, $cmd:ident) => {{
+        let rpayload = [PAGE::CommandData::code(), $rail];
+        let payload: [u8; 1] = [CommandCode::$cmd as u8];
+        match $device.write_write(&rpayload, &payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: CommandCode::$cmd as u8,
+                code,
+            }),
+            Ok(_) => Ok(()),
+        }
+    }};
+    // Write a command code followed by data.
     ($device:expr, $rail:expr, $cmd:ident, $data:expr) => {{
         let rpayload = [PAGE::CommandData::code(), $rail];
 
@@ -171,8 +195,44 @@ macro_rules! pmbus_rail_write {
     }};
 
     ($device:expr, $rail:expr, $dev:ident::$cmd:ident, $data:expr) => {{
-        use $dev::{$cmd, PAGE};
+        use $dev::{PAGE, $cmd};
         pmbus_rail_write!($device, $rail, $cmd, $data)
+    }};
+}
+
+/// Write the mask `$mask` to the `SMBALERT_MASK` register for `$reg`, where
+/// `$reg` is a status register, and `$mask` is a `CommandData` value for that
+/// register.
+///
+/// Importantly, `$reg` must be a PMBus `STATUS_<whatever>` register. This macro
+/// cannot stop you from providing any `CommandCode` as the value of `$reg` and
+/// any `CommandData` as the value of `$mask`, but, uh, don't do that. On the
+/// other hand, the macro *does* at least ensure that `$mask` is a `CommandData`.
+/// for the same register as `$reg`.
+macro_rules! pmbus_smbalert_mask_write {
+    ($device:expr, $rail:expr, $reg:ident, $mask:expr) => {{
+        // This assignment is just a type assertion that `$mask` is a
+        // `CommandData` for the same register as `$reg`.
+        let mask: $reg::CommandData = $mask;
+        let rpayload = [PAGE::CommandData::code(), $rail];
+        // N.B. that the status register *should* always be a single byte, but
+        // we'll do this "properly" just in case.
+        let mut payload = [0u8; $reg::CommandData::len() + 2];
+        // 0               7               15              23
+        // +---------------+---------------+---------------+
+        // | SMBALERT_MASK | register code | mask byte     |
+        // +---------------+---------------+---------------+
+        payload[0] = CommandCode::SMBALERT_MASK as u8;
+        payload[1] = $reg::CommandData::code();
+        mask.to_slice(&mut payload[2..]);
+
+        match $device.write_write(&rpayload, &payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: CommandCode::SMBALERT_MASK as u8,
+                code,
+            }),
+            Ok(_) => Ok(()),
+        }
     }};
 }
 
@@ -233,7 +293,119 @@ pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     }
 }
 
-pub mod adm1272;
+/// A report of obtained status registers from a pmbus device
+///
+/// Typically obtained via [`PmbusStatus::try_read_from()`].
+// grumble grumble, copied from `gateway_messages::sp_to_mgs::PmbusStatus`
+// grumble grumble, also basically the same as `ereports/src/pwr`
+pub struct PmbusStatus {
+    pub status_word: u16,
+    pub status_vout: Result<u8, PmbusStatusError>,
+    pub status_iout: Result<u8, PmbusStatusError>,
+    pub status_temperature: Result<u8, PmbusStatusError>,
+    pub status_cml: Result<u8, PmbusStatusError>,
+    pub status_other: Result<u8, PmbusStatusError>,
+    pub status_input: Result<u8, PmbusStatusError>,
+    pub status_mfr_specific: Result<u8, PmbusStatusError>,
+    pub status_fans_1_2: Result<u8, PmbusStatusError>,
+    pub status_fans_3_4: Result<u8, PmbusStatusError>,
+}
+
+/// An error for querying PMBus `STATUS_*` registers.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum PmbusStatusError {
+    /// Reading failed when querying the i2c driver
+    BadRead { cmd: u8, code: ResponseCode },
+    /// The given status register is unsupported by the device
+    Unsupported,
+}
+
+impl PmbusStatus {
+    /// Attempt to read a [`PmbusStatus`] from the given device and rail.
+    ///
+    /// This function returns an error if the initial attempt to obtain
+    /// `STATUS_WORD` from the device fails, otherwise returnining successfully
+    /// even if "leaf" status bytes were unable to be read, either due to
+    /// ephemeral hiccups, or that status byte being unsupported by the device
+    /// queried.
+    pub fn try_read_from(
+        dev: &I2cDevice,
+        rail_idx: Option<u8>,
+        device_caps: Capabilities,
+    ) -> Result<Self, PmbusStatusError> {
+        use drv_i2c_types::pmbus_status::Capabilities;
+        // Keep the lines short
+        use CommandCode as Cc;
+        // These need to be like this to humor the macro invocations
+        use PmbusStatusError as Error;
+        use pmbus::commands::PAGE;
+
+        // We don't actually try to understand the u8/u16 returned from the
+        // status information, therefore we bypass the typical machinery that
+        // transits through `pmbus` generated types, and only get the raw
+        // info. These helpers get 1/2 bytes with the proper paging helpers
+        // to obtain this information.
+        let read_u16 = |cmd, cap| {
+            if !device_caps.supports(&cap) {
+                return Err(PmbusStatusError::Unsupported);
+            }
+            if let Some(rail_idx) = rail_idx {
+                pmbus_rail_read!(@raw => dev, rail_idx, cmd as u8, 2)
+            } else {
+                pmbus_read!(@raw => dev, cmd as u8, 2)
+            }
+            .map(u16::from_le_bytes)
+        };
+
+        let read_byte = |cmd, cap| {
+            if !device_caps.supports(&cap) {
+                return Err(PmbusStatusError::Unsupported);
+            }
+            if let Some(rail_idx) = rail_idx {
+                pmbus_rail_read!(@raw => dev, rail_idx, cmd as u8, 1)
+            } else {
+                pmbus_read!(@raw => dev, cmd as u8, 1)
+            }
+            .map(|v| v[0])
+        };
+
+        Ok(PmbusStatus {
+            // Status word *must* succeed, otherwise we don't have reasonable
+            // data to return. We may want to consider making some/all of these
+            // retryable, but for now you either get them or you don't.
+            status_word: read_u16(Cc::STATUS_WORD, Capabilities::STATUS_WORD)?,
+            status_vout: read_byte(Cc::STATUS_VOUT, Capabilities::STATUS_VOUT),
+            status_iout: read_byte(Cc::STATUS_IOUT, Capabilities::STATUS_IOUT),
+            status_temperature: read_byte(
+                Cc::STATUS_TEMPERATURE,
+                Capabilities::STATUS_TEMPERATURE,
+            ),
+            status_cml: read_byte(Cc::STATUS_CML, Capabilities::STATUS_CML),
+            status_other: read_byte(
+                Cc::STATUS_OTHER,
+                Capabilities::STATUS_OTHER,
+            ),
+            status_input: read_byte(
+                Cc::STATUS_INPUT,
+                Capabilities::STATUS_INPUT,
+            ),
+            status_fans_1_2: read_byte(
+                Cc::STATUS_FANS_1_2,
+                Capabilities::STATUS_FANS_1_2,
+            ),
+            status_fans_3_4: read_byte(
+                Cc::STATUS_FANS_3_4,
+                Capabilities::STATUS_FANS_3_4,
+            ),
+            status_mfr_specific: read_byte(
+                Cc::STATUS_MFR_SPECIFIC,
+                Capabilities::STATUS_MFR_SPECIFIC,
+            ),
+        })
+    }
+}
+
+pub mod adm127x;
 pub mod adt7420;
 pub mod at24csw080;
 pub mod bmr491;
@@ -249,7 +421,7 @@ pub mod max31790;
 pub mod max5970;
 pub mod max6634;
 pub mod mcp9808;
-pub mod mwocp68;
+pub mod mwocp6x;
 pub mod nvme_bmc;
 pub mod pca9538;
 pub mod pca9956b;

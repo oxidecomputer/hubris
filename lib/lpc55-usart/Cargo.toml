@@ -1,7 +1,7 @@
 [package]
 name = "lib-lpc55-usart"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 embedded-hal = { workspace = true }

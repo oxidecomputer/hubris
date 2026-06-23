@@ -12,9 +12,9 @@ use core::marker::PhantomData;
 use zerocopy::{FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout};
 
 use crate::{
-    sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_get_timer,
-    sys_recv, sys_recv_closed, sys_recv_open, sys_reply, sys_reply_fault,
-    sys_set_timer, BorrowInfo, ClosedRecvError, FromPrimitive,
+    BorrowInfo, ClosedRecvError, FromPrimitive, sys_borrow_info,
+    sys_borrow_read, sys_borrow_write, sys_get_timer, sys_recv,
+    sys_recv_closed, sys_recv_open, sys_reply, sys_reply_fault, sys_set_timer,
 };
 
 const INTERNAL_TIMER_NOTIFICATION: u32 = 1 << 31;

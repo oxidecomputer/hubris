@@ -1,42 +1,142 @@
-name: release
+name: Release
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
-      board-set:
-        description: "Which set to build"
+      group:
+        description: Boards group
         required: true
+        type: choice
+        options:
+          - all-sp
+          - rot
+      brussels-run-id:
+        description: Download Brussels from a Run ID
+        type: string
+      override-version:
+        description: Custom version number
         type: string
 
+# Prevent multiple releases for the same group from happening concurrently.
+concurrency:
+  group: release-${{ github.event.inputs.group }}
+
 jobs:
-  do-build:
+  init:
+    name: Initialize the release
+    runs-on: oxide-colo-builder-hubris
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      version: ${{ steps.init.outputs.version }}
+      tag_name: ${{ steps.init.outputs.tag_name }}
+      hubris_app_dirs: ${{ steps.init.outputs.hubris_app_dirs }}
+      commit_sha1: ${{ steps.init.outputs.commit_sha1 }}
+    steps:
+      - &brussels-token
+        name: Get a token to fetch Brussels
+        id: brussels-token
+        uses: oxidecomputer/oidcx-action@main
+        with:
+          service: github
+          repositories: oxidecomputer/brussels
+          permissions: contents:read,actions:read
+
+      - &download-brussels
+        name: Download Brussels
+        run: |
+          if [[ "${BRUSSELS_RUN_ID}" == "" ]]; then
+            gh release download -R oxidecomputer/brussels -p brussels v0.5.0
+          else
+            gh run download "${BRUSSELS_RUN_ID}" -R oxidecomputer/brussels -n prebuilt-binary
+          fi
+          sudo mv brussels /usr/local/bin
+          sudo chmod +x /usr/local/bin/brussels
+        env:
+          GH_TOKEN: ${{ steps.brussels-token.outputs.access-token }}
+          BRUSSELS_RUN_ID: ${{ github.event.inputs.brussels-run-id }}
+
+      - id: init
+        name: Initialize the release
+        run: |
+          flags=()
+          if [[ "${override_version}" != "" ]]; then
+            flags+=("--override-version=${override_version}")
+          fi
+          brussels init "$group" HEAD "${flags[@]}" >brussels-manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          group: ${{ github.event.inputs.group }}
+          override_version: ${{ github.event.inputs.override-version }}
+
+      - name: Upload the release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: brussels-manifest
+          path: brussels-manifest.json
+          if-no-files-found: error
+
+  build:
+    name: Build boards
+    needs:
+      - init
     uses: ./.github/workflows/build-boards.yml
     with:
-       os: oxide-colo-builder-hubris
-       board-set: ${{ inputs.board-set }}
+      ref: ${{ needs.init.outputs.commit_sha1 }}
+      os: oxide-colo-builder-hubris
+      filter-directories: ${{ needs.init.outputs.hubris_app_dirs }}
+      upload-artifacts: true
+      caboose-version: ${{ needs.init.outputs.version }}
+      attest: true
 
-  release-build:
-    needs: do-build
+  release:
+    name: Publish the release
+    if: github.event.inputs.group == 'all-sp'
+    needs:
+      - init
+      - build
+    runs-on: oxide-colo-builder-hubris
+    permissions:
+      contents: write # Publish the release
+      id-token: write # Authenticate with oidcx
+      actions: read # Download artifacts
+    steps:
+      - *brussels-token
+      - *download-brussels
+
+      # TODO: pin this somehow
+      - name: Retrieve the Sigstore trusted roots
+        run: gh attestation trusted-root > trusted-root.jsonl
+
+      - name: Publish the release with Brussels
+        run: brussels publish --trusted-root=trusted-root.jsonl $run_id
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          run_id: ${{ github.run_id }}
+
+  release-legacy:
+    name: Publish the release (legacy)
+    if: github.event.inputs.group == 'rot'
+    needs:
+      - init
+      - build
     runs-on: oxide-colo-builder-hubris
     steps:
-    - name: grab binary
+    - name: Download all artifacts to release
       id: grab
       uses: actions/download-artifact@v4
       with:
         path: out
-    - name: prep
-      run: |
-        OUT=${{ steps.grab.outputs.download-path }}
-        for build in `ls $OUT`; do
-           for f in `ls $OUT/$build`; do
-              mv $OUT/$build/$f $OUT/$f
-           done
-        done
+        merge-multiple: true
 
-    - name: cut release
-      uses: softprops/action-gh-release@v1
+    - name: Publish the release
+      uses: softprops/action-gh-release@v2
       with:
-        name: "${{ inputs.board-set }} release"
+        target_commitish: ${{ needs.init.outputs.commit_sha1 }}
+        tag_name: ${{ needs.init.outputs.tag_name }}
+        name: "${{ github.event.inputs.group }} release"
         fail_on_unmatched_files: true
-        body: "These are UNVERSIONED hubris artifacts"
+        body: "These are versioned but UNSIGNED hubris ${{ github.event.inputs.group }} artifacts"
         files: |
           ${{ steps.grab.outputs.download-path }}/*.zip
+          ${{ steps.grab.outputs.download-path }}/brussels-manifest.json

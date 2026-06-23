@@ -2,17 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::{common::CurrentUpdate, ComponentUpdater};
+use super::{ComponentUpdater, common::CurrentUpdate};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_hf_api::{
-    HfDevSelect, HfError, HfProtectMode, HostFlash, PAGE_SIZE_BYTES,
-    SECTOR_SIZE_BYTES,
+    ApobClearError, HfDevSelect, HfError, HfProtectMode, HostFlash,
+    PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
-    ComponentUpdatePrepare, HfError as GwHfError, SpComponent, SpError,
-    UpdateId, UpdateInProgressStatus, UpdatePreparationProgress,
-    UpdatePreparationStatus, UpdateStatus,
+    ApobComponentActionResponse, ComponentUpdatePrepare, HfError as GwHfError,
+    SpComponent, SpError, UpdateId, UpdateInProgressStatus,
+    UpdatePreparationProgress, UpdatePreparationStatus, UpdateStatus,
 };
 
 userlib::task_slot!(HOST_FLASH, hf);
@@ -75,13 +75,23 @@ impl HostFlashUpdate {
     }
 
     pub(crate) fn active_slot(&self) -> Result<u16, SpError> {
-        match self
-            .task
+        self.task
             .get_dev()
-            .map_err(|err| SpError::ComponentOperationFailed(err as u32))?
-        {
-            HfDevSelect::Flash0 => Ok(0),
-            HfDevSelect::Flash1 => Ok(1),
+            .map(Self::dev_to_slot)
+            .map_err(|err| SpError::ComponentOperationFailed(err as u32))
+    }
+
+    pub(crate) fn persistent_slot(&self) -> Result<u16, SpError> {
+        self.task
+            .get_persistent_data()
+            .map(|data| Self::dev_to_slot(data.dev_select))
+            .map_err(hf_to_gwhf)
+    }
+
+    fn dev_to_slot(dev: HfDevSelect) -> u16 {
+        match dev {
+            HfDevSelect::Flash0 => 0,
+            HfDevSelect::Flash1 => 1,
         }
     }
 
@@ -128,6 +138,21 @@ impl HostFlashUpdate {
             }
         } else {
             Ok(())
+        }
+    }
+
+    pub(crate) fn apob_clear(&self) -> ApobComponentActionResponse {
+        match self.task.apob_clear() {
+            Ok(()) => ApobComponentActionResponse::Success,
+            Err(ApobClearError::NotImplemented) => {
+                ApobComponentActionResponse::NotImplemented
+            }
+            Err(ApobClearError::NotMuxedToSp) => {
+                ApobComponentActionResponse::NotMuxedToSp
+            }
+            Err(ApobClearError::InvalidState) => {
+                ApobComponentActionResponse::InvalidState
+            }
         }
     }
 }
@@ -186,7 +211,7 @@ impl ComponentUpdater for HostFlashUpdate {
         // capacity is an exact multiple of the sector size, which is probably
         // a safe assumption for future parts as well. We'll fail here if that's
         // untrue, which will require reworking how we erase the target slot.
-        if capacity % SECTOR_SIZE_BYTES != 0 {
+        if !capacity.is_multiple_of(SECTOR_SIZE_BYTES) {
             // We don't have an error case for "our assumptions are wrong", so
             // we'll fill in an easily-greppable update failure code. In case it
             // shows up in logs in base 10, 0x1de_0001 == 31326209.
@@ -328,10 +353,10 @@ impl ComponentUpdater for HostFlashUpdate {
                 dev,
             } => (buffer, next_write_offset, dev),
             State::ErasingSectors { .. } | State::Complete | State::Aborted => {
-                return Err(SpError::UpdateNotPrepared)
+                return Err(SpError::UpdateNotPrepared);
             }
             State::Failed(err) => {
-                return Err(SpError::UpdateFailed(*err as u32))
+                return Err(SpError::UpdateFailed(*err as u32));
             }
         };
 
@@ -375,16 +400,16 @@ impl ComponentUpdater for HostFlashUpdate {
                     return Err(SpError::UpdateFailed(err as u32));
                 }
 
-                if skip_bytes < buffer.len() {
-                    if let Err(err) = self.task.page_program_dev(
+                if skip_bytes < buffer.len()
+                    && let Err(err) = self.task.page_program_dev(
                         *dev,
                         *next_write_offset + skip_bytes as u32,
                         HfProtectMode::ProtectSector0,
                         &buffer[skip_bytes..],
-                    ) {
-                        *current.state_mut() = State::Failed(err);
-                        return Err(SpError::UpdateFailed(err as u32));
-                    }
+                    )
+                {
+                    *current.state_mut() = State::Failed(err);
+                    return Err(SpError::UpdateFailed(err as u32));
                 }
 
                 *next_write_offset += buffer.len() as u32;

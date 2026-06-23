@@ -12,15 +12,15 @@
 
 use drv_hash_api::SHA256_SZ;
 use drv_hf_api::{
-    HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
-    PAGE_SIZE_BYTES,
+    HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
+    HfProtectMode, PAGE_SIZE_BYTES,
 };
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
 use userlib::{RecvMessage, UnwrapLite};
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
@@ -48,8 +48,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read_id(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 20], RequestError<HfError>> {
-        Ok(*b"mockmockmockmockmock")
+    ) -> Result<HfChipId, RequestError<HfError>> {
+        Ok(HfChipId {
+            mfr_id: 0,
+            memory_type: 1,
+            capacity: 2,
+            unique_id: *b"mockmockmockmock!",
+        })
     }
 
     fn capacity(
@@ -234,30 +239,52 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Err(HfError::HashNotConfigured.into())
     }
 
-    fn bonus_page_program(
+    fn apob_begin(
         &mut self,
         _: &RecvMessage,
-        _addr: u32,
-        _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
-    ) -> Result<(), RequestError<HfError>> {
-        Err(HfError::BadAddress.into())
+        _length: u32,
+        _alg: drv_hf_api::ApobHash,
+    ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
+        Err(drv_hf_api::ApobBeginError::NotImplemented.into())
     }
 
-    fn bonus_read(
+    fn apob_write(
         &mut self,
         _: &RecvMessage,
-        _addr: u32,
-        _dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
-    ) -> Result<(), RequestError<HfError>> {
-        Err(HfError::BadAddress.into())
+        _offset: u32,
+        _data: Leased<R, [u8]>,
+    ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
+        Err(drv_hf_api::ApobWriteError::NotImplemented.into())
     }
 
-    fn bonus_sector_erase(
+    fn apob_commit(
         &mut self,
         _: &RecvMessage,
-        _addr: u32,
-    ) -> Result<(), RequestError<HfError>> {
-        Err(HfError::BadAddress.into())
+    ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
+        Err(drv_hf_api::ApobCommitError::NotImplemented.into())
+    }
+
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
+
+    fn apob_read(
+        &mut self,
+        _: &RecvMessage,
+        _offset: u32,
+        _data: Leased<W, [u8]>,
+    ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
+        Err(drv_hf_api::ApobReadError::InvalidState.into())
+    }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::NotImplemented.into())
     }
 }
 
@@ -267,13 +294,18 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
 mod idl {
     use super::{
-        HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+        HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
+        HfProtectMode,
+    };
+    use drv_hf_api::{
+        ApobBeginError, ApobClearError, ApobCommitError, ApobHash,
+        ApobReadError, ApobWriteError,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

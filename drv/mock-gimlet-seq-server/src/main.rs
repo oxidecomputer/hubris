@@ -14,7 +14,7 @@ use userlib::{FromPrimitive, RecvMessage, UnwrapLite};
 
 userlib::task_slot!(JEFE, jefe);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl::init(Jefe::from(JEFE.get_task_id()));
@@ -103,6 +103,62 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<[u8; 64], RequestError<core::convert::Infallible>> {
         Ok([0; 64])
     }
+
+    fn last_post_code(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn post_code_buffer_len(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn get_post_code(
+        &mut self,
+        _: &RecvMessage,
+        _index: u32,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn gpio_edge_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Ok(0)
+    }
+
+    fn gpio_cycle_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Ok(0)
+    }
+
+    fn enable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
+
+    fn disable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -111,7 +167,7 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }

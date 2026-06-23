@@ -7,7 +7,7 @@
 use drv_caboose::CabooseError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 
 pub use stage0_handoff::ImageVersion;
 

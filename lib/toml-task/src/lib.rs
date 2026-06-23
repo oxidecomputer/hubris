@@ -4,7 +4,7 @@
 
 //! `toml-task` allows for `xtask` and `build.rs` scripts to share a common
 //! definition of a `task` within a TOML file.
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -35,6 +35,10 @@ pub struct Task<T = ordered_toml::Value> {
     #[serde(default)]
     pub extern_regions: Vec<String>,
 
+    /// RAM region to use for this task
+    #[serde(default)]
+    pub default_ram: Option<String>,
+
     // Order matters here:
     // TOML serialization doesn't allow us to put a value type after any Table
     // type, so we put all of our `IndexMap` (and `config`, which often contains
@@ -60,6 +64,8 @@ pub struct Task<T = ordered_toml::Value> {
     pub max_sizes: IndexMap<String, u32>,
     #[serde(default)]
     pub no_default_features: bool,
+    #[serde(default)]
+    pub bindeps: Vec<TaskBinDep>,
 }
 
 impl<T> Task<T> {
@@ -82,6 +88,21 @@ impl<T> Task<T> {
     pub fn notification_mask(&self, name: &str) -> Result<u32> {
         Ok(1u32 << self.notification_bit(name)?)
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct TaskBinDep {
+    /// Package name
+    ///
+    /// This must match a binary crate name in the workspace.  The path to the
+    /// resulting binary is exposed to the task's build scripts as an
+    /// environment variable named `XTASK_BIN_FILE_<UPPERCASED_NAME>`
+    pub name: String,
+    /// Target triple (e.g. `thumbv7em-none-eabihf`)
+    pub target: String,
+    /// Set of features to enable
+    pub features: Vec<String>,
 }
 
 /// In the common case, task slots map back to a task of the same name (e.g.

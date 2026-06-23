@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{Context, Result};
-use idol::{server::ServerStyle, CounterSettings};
+use idol::{CounterSettings, server::ServerStyle};
 use serde::Deserialize;
 use std::{fs::File, io::Write};
 
@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join(CFG_SRC);
     let mut out = File::create(dest_path)
-        .with_context(|| format!("creating {}", CFG_SRC))?;
+        .with_context(|| format!("creating {CFG_SRC}"))?;
 
     let data_regions = build_util::task_extern_regions::<DataRegion>()?;
     if data_regions.is_empty() {

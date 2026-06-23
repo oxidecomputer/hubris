@@ -9,8 +9,8 @@
 use drv_stm32h7_usart as drv_usart;
 
 use attest_data::messages::{
-    HostToRotCommand, RecvSprotError as AttestDataSprotError, RotToHost,
-    MAX_DATA_LEN,
+    HostToRotCommand, MAX_DATA_LEN, RecvSprotError as AttestDataSprotError,
+    RotToHost,
 };
 use drv_cpu_seq_api::{
     PowerState, SeqError, Sequencer, StateChangeReason, Transition,
@@ -23,8 +23,8 @@ use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
     Bsu, DecodeFailureReason, Header, HostToSp, Key, KeyLookupResult,
-    KeySetResult, SpToHost, Status, MAX_MESSAGE_SIZE,
-    MIN_SP_TO_HOST_FILL_DATA_LEN,
+    KeySetResult, MAX_MESSAGE_SIZE, MIN_SP_TO_HOST_FILL_DATA_LEN, SpToHost,
+    Status,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -39,7 +39,7 @@ use task_host_sp_comms_api::HostSpCommsError;
 use task_net_api::Net;
 use task_packrat_api::Packrat;
 use userlib::{
-    sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
+    FromPrimitive, UnwrapLite, sys_get_timer, sys_irq_control, task_slot,
 };
 
 mod inventory;
@@ -56,8 +56,14 @@ use inventory::INVENTORY_API_VERSION;
     path = "bsp/gimlet_bcde.rs"
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
-#[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
-#[cfg_attr(target_board = "cosmo-a", path = "bsp/cosmo_a.rs")]
+#[cfg_attr(
+    any(target_board = "grapefruit-a", target_board = "grapefruit-b",),
+    path = "bsp/grapefruit.rs"
+)]
+#[cfg_attr(
+    any(target_board = "cosmo-a", target_board = "cosmo-b",),
+    path = "bsp/cosmo_ab.rs"
+)]
 mod bsp;
 
 use bsp::SP_TO_HOST_CPU_INT_L;
@@ -67,11 +73,11 @@ use tx_buf::TxBuf;
 
 task_slot!(CONTROL_PLANE_AGENT, control_plane_agent);
 task_slot!(CPU_SEQ, cpu_seq);
-task_slot!(HOST_FLASH, hf);
 task_slot!(PACKRAT, packrat);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
 task_slot!(SPROT, sprot);
+task_slot!(pub HOST_FLASH, hf);
 
 // TODO: When rebooting the host, we need to wait for the relevant power rails
 // to decay. We ought to do this properly by monitoring the rails, but for now,
@@ -101,12 +107,25 @@ const MAX_HOST_FAIL_MESSAGE_LEN: usize = 4096;
 // of that for us.
 const NUM_HOST_MAC_ADDRESSES: u16 = 3;
 
+// The same IO path can be used for both IPCC, and a lower-level debugging
+// interface, for testing the IO path itself.  We differentiate between the two
+// by detecting specific header types, and parsing the corresponding messages
+// into a typed enum: debug message handling is then short-circuited.
+enum DebugCmd<'a> {
+    Discard,
+    Echo(&'a [u8]),
+    CharGen(u16),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
     UartRxOverrun,
     ParseError(#[count(children)] DecodeFailureReason),
+    DebugDiscard,
+    DebugEcho(u64),
+    DebugCharGen(u16),
     SetState {
         now: u64,
         #[count(children)]
@@ -145,6 +164,16 @@ enum Trace {
         #[count(children)]
         message: SpToHost,
     },
+    ApobWriteError {
+        offset: u32,
+        #[count(children)]
+        err: drv_hf_api::ApobWriteError,
+    },
+    ApobReadError {
+        offset: u32,
+        #[count(children)]
+        err: drv_hf_api::ApobReadError,
+    },
 }
 
 counted_ringbuf!(Trace, 20, Trace::None);
@@ -171,7 +200,7 @@ enum Timers {
     TxPeriodicZeroByte,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut server = ServerImpl::claim_static_resources();
 
@@ -266,6 +295,18 @@ struct ServerImpl {
     /// Temporary space for inventory data, which is a large `enum`
     scratch: &'static mut host_sp_messages::InventoryData,
 
+    /// Scratch buffer for reading barcodes out of EEPROMs.
+    ///
+    /// MPN1 barcodes can be up to 128 bytes long, so this is better kept off
+    /// the stack.
+    // This is not used on dev board targets.
+    #[cfg(not(any(
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
+        target_board = "gimletlet-2"
+    )))]
+    barcode_buf: &'static mut [u8; oxide_barcode::VpdIdentity::MAX_LEN],
+
     /// Set when the host OS fails to boot or panics, and unset when the system
     /// reboots.
     ///
@@ -295,8 +336,14 @@ impl ServerImpl {
             etc_system: [u8; MAX_ETC_SYSTEM_LEN],
             dtrace_conf: [u8; MAX_DTRACE_CONF_LEN],
             scratch: host_sp_messages::InventoryData,
+            #[cfg(not(any(
+                target_board = "grapefruit-a",
+                target_board = "grapefruit-b",
+                target_board = "gimletlet-2"
+            )))]
+            barcode_buf: [u8; oxide_barcode::VpdIdentity::MAX_LEN],
         }
-        let Bufs {
+        let &mut Bufs {
             ref mut tx_buf,
             ref mut rx_buf,
             ref mut last_boot_fail,
@@ -304,6 +351,12 @@ impl ServerImpl {
             ref mut etc_system,
             ref mut dtrace_conf,
             ref mut scratch,
+            #[cfg(not(any(
+                target_board = "grapefruit-a",
+                target_board = "grapefruit-b",
+                target_board = "gimletlet-2"
+            )))]
+            ref mut barcode_buf,
         } = {
             static BUFS: ClaimOnceCell<Bufs> = ClaimOnceCell::new(Bufs {
                 tx_buf: tx_buf::StaticBufs::new(),
@@ -312,6 +365,12 @@ impl ServerImpl {
                 last_panic: [0; MAX_HOST_FAIL_MESSAGE_LEN],
                 etc_system: [0; MAX_ETC_SYSTEM_LEN],
                 dtrace_conf: [0; MAX_DTRACE_CONF_LEN],
+                #[cfg(not(any(
+                    target_board = "grapefruit-a",
+                    target_board = "grapefruit-b",
+                    target_board = "gimletlet-2"
+                )))]
+                barcode_buf: [0; oxide_barcode::VpdIdentity::MAX_LEN],
 
                 // Default value for InventoryData
                 scratch: host_sp_messages::InventoryData::DimmSpd {
@@ -327,6 +386,12 @@ impl ServerImpl {
             timers,
             tx_buf: tx_buf::TxBuf::new(tx_buf),
             rx_buf,
+            #[cfg(not(any(
+                target_board = "grapefruit-a",
+                target_board = "grapefruit-b",
+                target_board = "gimletlet-2"
+            )))]
+            barcode_buf,
             status: Status::empty(),
             sequencer: Sequencer::from(CPU_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
@@ -742,6 +807,53 @@ impl ServerImpl {
         }
     }
 
+    // Process a request message from the host.
+    fn process_message(
+        &mut self,
+        reset_tx_buf: bool,
+    ) -> Result<(), DecodeFailureReason> {
+        // Debug messages have a distinct header that separates them from normal
+        // IPCC messages.
+        if is_debug_message(self.rx_buf) {
+            self.process_debug_message(reset_tx_buf)
+        } else {
+            self.process_ipcc_message(reset_tx_buf)
+        }
+    }
+
+    // Process a framed debug packet
+    fn process_debug_message(
+        &mut self,
+        reset_tx_buf: bool,
+    ) -> Result<(), DecodeFailureReason> {
+        match parse_debug_message(self.rx_buf) {
+            Ok(cmd) => {
+                if reset_tx_buf {
+                    self.tx_buf.reset();
+                }
+                match cmd {
+                    DebugCmd::Discard => ringbuf_entry!(Trace::DebugDiscard),
+                    DebugCmd::Echo(data) => {
+                        ringbuf_entry!(Trace::DebugEcho(data.len() as u64));
+                        let _ = self.tx_buf.try_copy_raw_data(data);
+                    }
+                    DebugCmd::CharGen(count) => {
+                        ringbuf_entry!(Trace::DebugCharGen(count));
+                        let mut it = (b'!'..=b'~').cycle().take(count.into());
+                        let _ = self.tx_buf.try_fill(&mut it);
+                    }
+                }
+                self.rx_buf.clear();
+                Ok(())
+            }
+            Err(err) => {
+                ringbuf_entry!(Trace::ParseError(err));
+                self.rx_buf.clear();
+                Err(err)
+            }
+        }
+    }
+
     // Process the framed packet sitting in `self.rx_buf`. If it warrants a
     // response, we configure `self.tx_buf` appropriate: either populating it
     // with a response if we can come up with that response immediately, or
@@ -756,7 +868,7 @@ impl ServerImpl {
     //
     // This method always (i.e., on success or failure) clears `rx_buf` before
     // returning to prepare for the next packet.
-    fn process_message(
+    fn process_ipcc_message(
         &mut self,
         reset_tx_buf: bool,
     ) -> Result<(), DecodeFailureReason> {
@@ -779,6 +891,28 @@ impl ServerImpl {
         // packet.
         if reset_tx_buf {
             self.tx_buf.reset();
+        }
+
+        // If we receive an out-of-sequence message, then lock the APOB state
+        // machine.  This makes it harder for malicious hosts to exfiltrate
+        // data via the host flash APOB slots.
+        match request {
+            HostToSp::KeyLookup { .. }
+            | HostToSp::GetBootStorageUnit
+            | HostToSp::GetIdentity
+            | HostToSp::GetStatus
+            | HostToSp::AckSpStart
+            | HostToSp::ApobBegin { .. }
+            | HostToSp::ApobData { .. }
+            | HostToSp::ApobRead { .. }
+            | HostToSp::ApobCommit
+            | HostToSp::BootStage { .. } => {
+                // These are explicitly allowed
+            }
+            _ => {
+                // Anything not allowed is prohibited!
+                self.hf.apob_lock();
+            }
         }
 
         // We defer any actions until after we've serialized our response to
@@ -993,6 +1127,44 @@ impl ServerImpl {
                     }),
                 }
             }
+            HostToSp::ApobBegin { length, algorithm } => {
+                Some(SpToHost::ApobBegin(Self::apob_begin(
+                    &self.hf, length, algorithm, data,
+                )))
+            }
+            HostToSp::ApobCommit => {
+                // Call into `hf` to do the work here
+                use drv_hf_api::ApobCommitError;
+                use host_sp_messages::ApobCommitResult;
+                Some(SpToHost::ApobCommit(match self.hf.apob_commit() {
+                    Ok(()) => ApobCommitResult::Ok,
+                    Err(ApobCommitError::NotImplemented) => {
+                        ApobCommitResult::NotImplemented
+                    }
+                    Err(ApobCommitError::InvalidState) => {
+                        ApobCommitResult::InvalidState
+                    }
+                    Err(ApobCommitError::ValidationFailed) => {
+                        ApobCommitResult::ValidationFailed
+                    }
+                    Err(ApobCommitError::CommitFailed) => {
+                        ApobCommitResult::CommitFailed
+                    }
+                }))
+            }
+            HostToSp::ApobData { offset } => Some(SpToHost::ApobData(
+                Self::apob_write(&self.hf, offset, data),
+            )),
+            HostToSp::ApobRead { offset, size } => {
+                // apob_read does serialization itself
+                self.apob_read(header.sequence, offset, size);
+                None
+            }
+            HostToSp::BootStage { .. } => {
+                // The only action for this is to acknowledge it. A ringbuf
+                // entry will have been created and that's what we care about.
+                Some(SpToHost::Ack)
+            }
         };
 
         if let Some(response) = response {
@@ -1019,6 +1191,128 @@ impl ServerImpl {
         self.rx_buf.clear();
 
         Ok(())
+    }
+
+    fn apob_begin(
+        hf: &HostFlash,
+        length: u64,
+        algorithm: u8,
+        data: &[u8],
+    ) -> host_sp_messages::ApobBeginResult {
+        // Decode into internal types, then call into `hf`
+        // XXX should bad hash algorithms or lengths lock the APOB?
+        use drv_hf_api::{ApobBeginError, ApobHash};
+        use host_sp_messages::ApobBeginResult;
+        let Ok(length) = u32::try_from(length) else {
+            return host_sp_messages::ApobBeginResult::BadDataLength;
+        };
+        match algorithm {
+            0 => {
+                if let Ok(d) = data.try_into() {
+                    let hash = ApobHash::Sha256(d);
+                    match hf.apob_begin(length, hash) {
+                        Ok(()) => ApobBeginResult::Ok,
+                        Err(ApobBeginError::NotImplemented) => {
+                            ApobBeginResult::NotImplemented
+                        }
+                        Err(ApobBeginError::InvalidState) => {
+                            ApobBeginResult::InvalidState
+                        }
+                        Err(ApobBeginError::BadDataLength) => {
+                            ApobBeginResult::BadDataLength
+                        }
+                    }
+                } else {
+                    ApobBeginResult::BadHashLength
+                }
+            }
+            _ => ApobBeginResult::InvalidAlgorithm,
+        }
+    }
+
+    /// Write data to the bonus region of flash
+    ///
+    /// This does not take `&self` because we need to force a split borrow
+    fn apob_write(
+        hf: &HostFlash,
+        offset: u64,
+        data: &[u8],
+    ) -> host_sp_messages::ApobDataResult {
+        use drv_hf_api::ApobWriteError;
+        use host_sp_messages::ApobDataResult;
+        let Ok(offset) = u32::try_from(offset) else {
+            return ApobDataResult::InvalidOffset;
+        };
+        match hf.apob_write(offset, data) {
+            Ok(()) => ApobDataResult::Ok,
+            Err(err) => {
+                ringbuf_entry!(Trace::ApobWriteError { offset, err });
+                match err {
+                    ApobWriteError::NotImplemented => {
+                        ApobDataResult::NotImplemented
+                    }
+                    ApobWriteError::InvalidState => {
+                        ApobDataResult::InvalidState
+                    }
+                    ApobWriteError::InvalidOffset => {
+                        ApobDataResult::InvalidOffset
+                    }
+                    ApobWriteError::InvalidSize => ApobDataResult::InvalidSize,
+                    ApobWriteError::WriteFailed => ApobDataResult::WriteFailed,
+                    ApobWriteError::NotErased => ApobDataResult::NotErased,
+                }
+            }
+        }
+    }
+
+    /// Reads and encodes data from the bonus region of flash
+    fn apob_read(&mut self, sequence: u64, offset: u64, size: u64) {
+        use drv_hf_api::ApobReadError;
+        use host_sp_messages::ApobReadResult;
+        let Ok(size) = usize::try_from(size) else {
+            self.tx_buf.encode_response(
+                sequence,
+                &SpToHost::ApobRead(ApobReadResult::InvalidSize),
+                |_buf| 0,
+            );
+            return;
+        };
+        let Ok(offset) = u32::try_from(offset) else {
+            self.tx_buf.encode_response(
+                sequence,
+                &SpToHost::ApobRead(ApobReadResult::InvalidOffset),
+                |_buf| 0,
+            );
+            return;
+        };
+        self.tx_buf.try_encode_response(
+            sequence,
+            &SpToHost::ApobRead(ApobReadResult::Ok),
+            |buf| match self.hf.apob_read(offset, &mut buf[..size]) {
+                Ok(n) => Ok(n),
+                Err(err) => {
+                    ringbuf_entry!(Trace::ApobReadError { offset, err });
+                    Err(SpToHost::ApobRead(match err {
+                        ApobReadError::NotImplemented => {
+                            ApobReadResult::NotImplemented
+                        }
+                        ApobReadError::InvalidState => {
+                            ApobReadResult::InvalidState
+                        }
+                        ApobReadError::NoValidApob => {
+                            ApobReadResult::NoValidApob
+                        }
+                        ApobReadError::InvalidOffset => {
+                            ApobReadResult::InvalidOffset
+                        }
+                        ApobReadError::InvalidSize => {
+                            ApobReadResult::InvalidSize
+                        }
+                        ApobReadError::ReadFailed => ApobReadResult::ReadFailed,
+                    }))
+                }
+            },
+        );
     }
 
     fn handle_sprot(
@@ -1384,17 +1678,18 @@ impl NotificationHandler for ServerImpl {
             | notifications::CONTROL_PLANE_AGENT_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if bits & notifications::USART_IRQ_MASK != 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.check_notification_mask(notifications::USART_IRQ_MASK) {
             self.handle_usart_notification();
             sys_irq_control(notifications::USART_IRQ_MASK, true);
         }
 
-        if bits & notifications::JEFE_STATE_CHANGE_MASK != 0 {
+        if bits.check_notification_mask(notifications::JEFE_STATE_CHANGE_MASK) {
             self.handle_jefe_notification(self.sequencer.get_state());
         }
 
-        if bits & notifications::CONTROL_PLANE_AGENT_MASK != 0 {
+        if bits.check_notification_mask(notifications::CONTROL_PLANE_AGENT_MASK)
+        {
             self.handle_control_plane_agent_notification();
         }
 
@@ -1403,7 +1698,7 @@ impl NotificationHandler for ServerImpl {
         // We'll record whether or not we want to clear the timer in this
         // variable, then actually clear it (if needed) after the loop over the
         // fired timers.
-        self.timers.handle_notification(bits);
+        self.timers.handle_notification(bits.get_raw_bits());
         let mut tx_timer_disposition = TimerDisposition::LeaveRunning;
         for t in self.timers.iter_fired() {
             match t {
@@ -1436,8 +1731,9 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-// This is conceptually a method on `ServerImpl`, but it takes a reference to
-// `rx_buf` instead of `self` to avoid borrow checker issues.
+// Parse a received message.  This is conceptually a method on `ServerImpl`,
+// but it takes a reference to `rx_buf` instead of `self` to avoid borrow
+// checker issues.
 fn parse_received_message(
     rx_buf: &mut [u8],
 ) -> Result<(Header, HostToSp, &[u8]), DecodeFailureReason> {
@@ -1461,6 +1757,48 @@ fn parse_received_message(
     }
 
     Ok((header, request, data))
+}
+
+// Debug messages have a distinct header that separates them from IPCC
+// messages.  The first 5 bytes are the ASCII characters, "DEBUG".  The
+// 6th and 7th bytes encode the command number, as 0 padded ASCII hexadecimal
+// string (using upper case for the non-numeric hexadigits).  The commands
+// are:
+//
+//   "07" (0x07 ==  7 dec) Echo
+//   "09" (0x09 ==  9 dec) Discard
+//   "13" (0x13 == 19 dec) CharGen
+//
+// The command values correspond to the IANA-assigned port numbers for the
+// corresponding UDP and TCP/IP services.
+//
+// This is conceptually a method on `ServerImpl`, but it takes references to
+// several of its fields instead of `self` to avoid borrow checker issues.
+fn is_debug_message(msg: &[u8]) -> bool {
+    if msg.len() < 7 {
+        return false;
+    }
+    msg[0..5] == *b"DEBUG"
+}
+
+// This is conceptually a method on `ServerImpl`, but it takes references to
+// several of its fields instead of `self` to avoid borrow checker issues.
+fn parse_debug_message(
+    msg: &[u8],
+) -> Result<DebugCmd<'_>, DecodeFailureReason> {
+    assert!(is_debug_message(msg));
+    match &msg[5..7] {
+        b"07" => Ok(DebugCmd::Echo(&msg[7..])),
+        b"09" => Ok(DebugCmd::Discard),
+        b"13" if msg.len() == 11 => {
+            let nstr = str::from_utf8(&msg[7..11])
+                .map_err(|_| DecodeFailureReason::Deserialize)?;
+            let n = u16::from_str_radix(nstr, 16)
+                .map_err(|_| DecodeFailureReason::Deserialize)?;
+            Ok(DebugCmd::CharGen(n))
+        }
+        _ => Err(DecodeFailureReason::Deserialize),
+    }
 }
 
 // This is conceptually a method on `ServerImpl`, but it takes references to

@@ -1,7 +1,7 @@
 [package]
 name = "drv-lpc55-swd"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 cfg-if = { workspace = true }
@@ -13,6 +13,7 @@ zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 bitflags = { workspace = true }
 static_assertions = { workspace = true }
+measurement-token = { workspace = true }
 
 attest-api = { path = "../../task/attest-api" }
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
@@ -29,7 +30,6 @@ build-lpc55pins = { path = "../../build/lpc55pins" }
 build-util = { path = "../../build/util" }
 call_rustfmt = { path = "../../build/call_rustfmt" }
 endoscope-abi = { path = "../../lib/endoscope-abi" }
-endoscope = { path = "../../lib/endoscope", artifact="bin:endoscope", target = "thumbv7em-none-eabihf", features = ["soc_stm32h753"]}
 goblin = { workspace = true }
 idol = { workspace = true }
 quote = { workspace = true }

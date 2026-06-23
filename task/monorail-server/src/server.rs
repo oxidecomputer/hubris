@@ -13,8 +13,8 @@ use drv_monorail_api::{
 use idol_runtime::{NotificationHandler, RequestError};
 use userlib::{sys_get_timer, sys_set_timer};
 use vsc7448::{
+    DevGeneric, PORT_COUNT, Vsc7448, Vsc7448Rw,
     config::{PortMap, PortMode},
-    DevGeneric, Vsc7448, Vsc7448Rw, PORT_COUNT,
 };
 use vsc7448_pac::{types::PhyRegisterAddress, *};
 
@@ -58,15 +58,15 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
 
     pub fn wake(&mut self) -> Result<(), VscError> {
         let now = sys_get_timer().now;
-        if let Some(wake_interval) = bsp::WAKE_INTERVAL {
-            if now >= self.wake_target_time {
-                let out = self.bsp.wake();
-                self.wake_target_time = userlib::set_timer_relative(
-                    wake_interval,
-                    notifications::WAKE_TIMER_MASK,
-                );
-                return out;
-            }
+        if let Some(wake_interval) = bsp::WAKE_INTERVAL
+            && now >= self.wake_target_time
+        {
+            let out = self.bsp.wake();
+            self.wake_target_time = userlib::set_timer_relative(
+                wake_interval,
+                notifications::WAKE_TIMER_MASK,
+            );
+            return out;
         }
         Ok(())
     }
@@ -462,24 +462,36 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                 let status = phy.read(phy::STANDARD::MODE_STATUS())?;
                 let media_link_up = (status.0 & (1 << 2)) != 0;
 
-                // The VSC8504 is running in forced-speed protocol transfer mode.
-                // Experimentally, packets get through without MAC_LINK_STATUS
-                // set, and despite what "ENT-AN1175" says, I don't see anything
-                // in register 24G.  As such, we'll be optimistic: if there's a
-                // valid QSGMII link and MAC_PCS_SIG_DETECT, then let's call it
-                // good.
                 let status =
                     phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
                 let mac_serdes =
                     phy.read(phy::EXTENDED_3::MAC_SERDES_STATUS())?;
                 let qsgmii_mask = ty.qsgmii_okay_mask();
                 let mac_link_up = match ty {
+                    // The VSC8504 is running in forced-speed protocol transfer
+                    // mode.
+                    //
+                    // Experimentally, packets get through when either
+                    // MAC_LINK_STATUS or MAC_PCS_SIG_DETECT are set in
+                    // MAC_SERDES_PCS_STATUS (or both, obviously).  These
+                    // correspond to "QSGMII sync status", and "MAC comma
+                    // detect" in the MAC_SERDES_STATUS register.
+                    //
+                    // Despite what "ENT-AN1175" says, I don't see anything in
+                    // register 24G.  As such, we'll be optimistic: if *either**
+                    // MAC_LINK_STATUS or MAC_PCS_SIG_DETECT is present in
+                    // MAC_SERDES_PCS_STATUS (along with their corresponding
+                    // flags in MAC_SERDES_STATUS), then let's call it good.
                     PhyType::Vsc8504 => {
-                        if status.mac_pcs_sig_detect() == 0 {
+                        if status.mac_pcs_sig_detect() == 0
+                            && status.mac_link_status() == 0
+                        {
                             LinkStatus::Down
                         } else if status.mac_sync_fail() != 0
                             || status.mac_cgbad() != 0
-                            || (mac_serdes.0 & qsgmii_mask) != qsgmii_mask
+                            // Accept any of the QSGMII valid bits; don't
+                            // require them all to be set
+                            || (mac_serdes.0 & qsgmii_mask) == 0
                         {
                             LinkStatus::Error
                         } else {
@@ -798,16 +810,14 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         _mgs: &userlib::RecvMessage,
         unlock_until: u64,
     ) -> Result<(), RequestError<MonorailError>> {
-        self.bsp
-            .unlock_vlans_until(unlock_until)
-            .map_err(RequestError::from)
+        self.bsp.unlock_vlans_until(unlock_until)
     }
 
     fn lock_vlans(
         &mut self,
         _mgs: &userlib::RecvMessage,
     ) -> Result<(), RequestError<MonorailError>> {
-        self.bsp.lock_vlans().map_err(RequestError::from)
+        self.bsp.lock_vlans()
     }
 }
 
@@ -817,7 +827,7 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
         notifications::WAKE_TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         // Nothing to do here: the wake IRQ is handled in the main `net` loop
     }
 }

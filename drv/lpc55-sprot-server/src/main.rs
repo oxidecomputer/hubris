@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#![allow(clippy::doc_overindented_list_items)]
 //! A driver for the LPC55 HighSpeed SPI interface.
 //!
 //! See drv/sprot-api/README.md
@@ -51,13 +52,13 @@ use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{
-    RotIoStats, SprotProtocolError, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
-    ROT_FIFO_SIZE,
+    REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE, ROT_FIFO_SIZE, RotIoStats,
+    SprotProtocolError,
 };
 use lpc55_pac as device;
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
-    sys_irq_control, sys_recv_notification, task_slot, TaskId, UnwrapLite,
+    TaskId, UnwrapLite, sys_irq_control, sys_recv_notification, task_slot,
 };
 
 mod handler;
@@ -75,6 +76,7 @@ pub(crate) enum Trace {
     Err(SprotProtocolError),
     Stats(RotIoStats),
     Desynchronized,
+    RequestMsgTooLarge,
 
     #[cfg(feature = "sp-ctrl")]
     Dump(u32),
@@ -161,9 +163,12 @@ enum IoError {
     /// send a request to the RoT. We also return this error if we started
     /// receiving a request in the middle.
     Desynchronized,
+
+    /// The SP sent a request that was too large to fit in the RoT's rx buffer.
+    RequestMsgTooLarge,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut io = configure_spi();
     let (rx_buf, tx_buf) = {
@@ -203,6 +208,10 @@ fn main() -> ! {
             Err(IoError::Desynchronized) => {
                 ringbuf_entry!(Trace::Desynchronized);
                 handler.desynchronized_error(tx_buf)
+            }
+            Err(IoError::RequestMsgTooLarge) => {
+                ringbuf_entry!(Trace::RequestMsgTooLarge);
+                handler.request_message_too_large_error(tx_buf)
             }
         };
 
@@ -310,6 +319,14 @@ impl Io {
         ringbuf_entry!(Trace::ReceivedBytes(bytes_received));
 
         self.check_for_rx_error()?;
+
+        // The rx fifo contained more bytes than could fit in the buffer, which
+        // is more than we ever expect to receive in one request message.
+        if bytes_received > rx_buf.len() {
+            self.stats.request_msg_too_large =
+                self.stats.request_msg_too_large.wrapping_add(1);
+            return Err(IoError::RequestMsgTooLarge);
+        }
 
         // Was this a CSn pulse?
         if bytes_received == 0 {

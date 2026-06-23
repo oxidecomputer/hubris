@@ -49,7 +49,7 @@ struct Transmit {
     pos: usize,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_usart();

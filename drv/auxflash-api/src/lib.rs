@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReader};
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};

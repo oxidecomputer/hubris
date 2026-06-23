@@ -12,21 +12,23 @@ use drv_spartan7_loader_api::Spartan7Loader;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
-use task_packrat_api::{CacheSetError, MacAddressBlock, Packrat, VpdIdentity};
-use userlib::{hl, task_slot, FromPrimitive, RecvMessage, UnwrapLite};
+use task_packrat_api::{
+    CacheSetError, MacAddressBlock, OxideIdentity, Packrat,
+};
+use userlib::{FromPrimitive, RecvMessage, UnwrapLite, hl, task_slot};
 
-use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
+use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
-    MacsAlreadySet(MacAddressBlock),
-    IdentityAlreadySet(VpdIdentity),
-
     #[count(skip)]
     None,
+
+    MacsAlreadySet(MacAddressBlock),
+    IdentityAlreadySet(OxideIdentity),
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
@@ -34,7 +36,7 @@ counted_ringbuf!(Trace, 128, Trace::None);
 task_slot!(SYS, sys);
 task_slot!(PACKRAT, packrat);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
@@ -51,7 +53,7 @@ fn main() -> ! {
             ringbuf_entry!(Trace::MacsAlreadySet(macs));
         }
     }
-    let identity = VpdIdentity {
+    let identity = OxideIdentity {
         serial: *b"GRAPEFRUIT\0",
         part_number: *b"913-0000083",
         revision: 0,
@@ -73,7 +75,8 @@ fn main() -> ! {
 #[allow(unused)]
 struct ServerImpl {
     jefe: Jefe,
-    sgpio: fmc_periph::Sgpio,
+    sgpio: fmc_periph::sgpio::Sgpio,
+    espi: fmc_periph::espi::Espi,
 }
 
 impl ServerImpl {
@@ -94,7 +97,8 @@ impl ServerImpl {
 
         let server = Self {
             jefe: Jefe::from(JEFE.get_task_id()),
-            sgpio: fmc_periph::Sgpio::new(loader.get_token()),
+            sgpio: fmc_periph::sgpio::Sgpio::new(loader.get_token()),
+            espi: fmc_periph::espi::Espi::new(loader.get_token()),
         };
 
         // Note that we don't use `Self::set_state_impl` here, as that will
@@ -182,6 +186,71 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<[u8; 64], RequestError<core::convert::Infallible>> {
         Ok([0; 64])
     }
+
+    fn last_post_code(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Ok(self.espi.last_post_code.payload())
+    }
+
+    fn post_code_buffer_len(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        // espi.post_code_count exists in the JSON file, but the
+        // post_code_buffer memory isn't present.  Fixing this isn't urgent,
+        // since no one is booting with Grapefruit these days.
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn get_post_code(
+        &mut self,
+        _: &RecvMessage,
+        _index: u32,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn gpio_edge_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn gpio_cycle_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn enable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn disable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -189,7 +258,7 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
@@ -200,5 +269,5 @@ mod idl {
 }
 
 mod fmc_periph {
-    include!(concat!(env!("OUT_DIR"), "/fmc_sgpio.rs"));
+    include!(concat!(env!("OUT_DIR"), "/fmc_periph.rs"));
 }

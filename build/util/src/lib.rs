@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
 use std::collections::BTreeMap;
@@ -13,7 +13,7 @@ use std::io::Write;
 ///
 /// This ensures a rebuild if the variable changes
 pub fn env_var(key: &str) -> Result<String> {
-    println!("cargo:rerun-if-env-changed={}", key);
+    println!("cargo::rerun-if-env-changed={key}");
     std::env::var(key).with_context(|| format!("reading env var ${key}"))
 }
 
@@ -65,17 +65,17 @@ pub fn has_feature(s: &str) -> bool {
 pub fn expose_m_profile() -> Result<()> {
     let target = crate::target();
 
-    println!("cargo:rustc-check-cfg=cfg(armv6m)");
-    println!("cargo:rustc-check-cfg=cfg(armv7m)");
-    println!("cargo:rustc-check-cfg=cfg(armv8m)");
+    println!("cargo::rustc-check-cfg=cfg(armv6m)");
+    println!("cargo::rustc-check-cfg=cfg(armv7m)");
+    println!("cargo::rustc-check-cfg=cfg(armv8m)");
 
     if target.starts_with("thumbv6m") {
-        println!("cargo:rustc-cfg=armv6m");
+        println!("cargo::rustc-cfg=armv6m");
     } else if target.starts_with("thumbv7m") || target.starts_with("thumbv7em")
     {
-        println!("cargo:rustc-cfg=armv7m");
+        println!("cargo::rustc-cfg=armv7m");
     } else if target.starts_with("thumbv8m") {
-        println!("cargo:rustc-cfg=armv8m");
+        println!("cargo::rustc-cfg=armv8m");
     } else {
         bail!("Don't know the target {target}");
     }
@@ -103,7 +103,7 @@ pub fn expose_target_board() {
         }
     }
     out_dir.push("boards");
-    println!("cargo:rerun-if-changed={}", out_dir.display());
+    println!("cargo::rerun-if-changed={}", out_dir.display());
     if let Ok(dir) = std::fs::read_dir(&out_dir) {
         for dirent in dir {
             let Ok(dirent) = dirent else {
@@ -133,9 +133,9 @@ pub fn expose_target_board() {
 
     let values = boards.join(",");
 
-    println!("cargo:rustc-check-cfg=cfg(target_board, values({values}))");
+    println!("cargo::rustc-check-cfg=cfg(target_board, values({values}))");
     if let Some(board) = target_board() {
-        println!("cargo:rustc-cfg=target_board=\"{}\"", board);
+        println!("cargo::rustc-cfg=target_board=\"{board}\"");
     }
 }
 
@@ -198,18 +198,29 @@ pub fn task_extern_regions<T: DeserializeOwned>() -> Result<IndexMap<String, T>>
     Ok(t)
 }
 
+/// Pulls the entire config for all tasks
+pub fn all_tasks_full_config<T: DeserializeOwned>()
+-> Result<IndexMap<String, toml_task::Task<T>>> {
+    toml_from_env::<IndexMap<String, toml_task::Task<_>>>(
+        "HUBRIS_ALL_TASK_CONFIGS",
+    )?
+    .ok_or_else(|| anyhow!("HUBRIS_ALL_TASK_CONFIGS is not defined"))
+}
+
 /// Pulls the full task configuration block of a different task
 pub fn other_task_full_config<T: DeserializeOwned>(
     name: &str,
 ) -> Result<toml_task::Task<T>> {
-    let mut t = toml_from_env::<IndexMap<String, toml_task::Task<_>>>(
-        "HUBRIS_ALL_TASK_CONFIGS",
-    )?
-    .ok_or_else(|| anyhow!("HUBRIS_ALL_TASK_CONFIGS is not defined"))?;
+    let mut t = all_tasks_full_config::<T>()?;
     let out = t
         .remove(name)
         .ok_or_else(|| anyhow!("Could not find {name} in tasks"))?;
     Ok(out)
+}
+
+pub fn all_tasks_full_config_toml()
+-> Result<IndexMap<String, toml_task::Task<ordered_toml::Value>>> {
+    all_tasks_full_config()
 }
 
 pub fn other_task_full_config_toml(
@@ -249,7 +260,7 @@ impl TaskIds {
             .map(|name| {
                 let name = name.as_ref();
                 self.get(name)
-                    .ok_or_else(|| anyhow!("unknown task `{}`", name))
+                    .ok_or_else(|| anyhow!("unknown task `{name}`"))
             })
             .collect()
     }
@@ -325,11 +336,15 @@ pub fn build_notifications() -> Result<()> {
 
     write_task_notifications(&mut out, &full_task_config.notifications)?;
 
-    for task in env_var("HUBRIS_TASKS")
-        .expect("missing HUBRIS_TASKS")
-        .split(',')
-    {
-        let full_task_config = other_task_full_config_toml(task)?;
+    // Rather than re-parse the toml on every task iter, we just get the full
+    // task toml, and pluck out each task as we need it.
+    let all_task_configs = all_tasks_full_config_toml()?;
+    let all_tasks = env_var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
+
+    for task in all_tasks.split(',') {
+        let full_task_config = all_task_configs
+            .get(task)
+            .ok_or_else(|| anyhow!("Could not find {task} in tasks"))?;
         writeln!(&mut out, "pub mod {task} {{")?;
         write_task_notifications(&mut out, &full_task_config.notifications)?;
         writeln!(&mut out, "}}")?;

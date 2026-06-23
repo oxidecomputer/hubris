@@ -432,6 +432,11 @@ impl Sequencer {
     pub fn pcie_hotplug_status(&self) -> Result<u8, FpgaError> {
         self.fpga.read(Addr::PCIE_HOTPLUG_STATUS)
     }
+
+    pub fn is_pcie_reset(&self) -> Result<bool, FpgaError> {
+        let status: u8 = self.pcie_hotplug_status()?;
+        Ok(status & Reg::PCIE_HOTPLUG_STATUS::HOST_RESET != 0)
+    }
 }
 
 bitfield! {
@@ -486,6 +491,12 @@ pub enum DirectBarSegment {
     Cfg = 2 << 28,
 }
 
+impl From<DirectBarSegment> for u32 {
+    fn from(r: DirectBarSegment) -> Self {
+        r as u32
+    }
+}
+
 /// A few of the Tofino registers which are used in code below. These are found
 /// in 631384-0001_TF2-Top-Level_Register_Map_05062021.html as provided by
 /// Intel.
@@ -497,8 +508,11 @@ pub enum TofinoBar0Registers {
     Scratchpad = 0x0,
     FreeRunningCounter = 0x10,
     PcieDevInfo = 0x180,
+    PcieBusDev = 0x1A0,
+    TlTxProterr = 0x1B4,
     SoftwareReset = (0x80000 | 0x0),
     ResetOptions = (0x80000 | 0x4),
+    DbgRst = (0x80000 | 0xC),
     PciePhyLaneControl0 = (0x80000 | 0x38),
     PciePhyLaneControl1 = (0x80000 | 0x3c),
     PciePhyLaneStatus0 = (0x80000 | 0x40),
@@ -1083,7 +1097,7 @@ impl DebugPort {
         data: &mut [u8],
     ) -> Result<(), FpgaError> {
         // Only 4 byte aligned reads/writes are allowed.
-        if offset % 4 != 0 {
+        if !offset.is_multiple_of(4) {
             return Err(FpgaError::InvalidValue);
         }
 
@@ -1103,7 +1117,7 @@ impl DebugPort {
         data: &[u8],
     ) -> Result<(), FpgaError> {
         // Only 4 byte aligned reads/writes are allowed.
-        if offset % 4 != 0 {
+        if !offset.is_multiple_of(4) {
             return Err(FpgaError::InvalidValue);
         }
 

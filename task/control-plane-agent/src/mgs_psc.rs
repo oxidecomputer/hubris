@@ -3,25 +3,27 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
-    update::ComponentUpdater, usize_max, CriticalEvent, Log, MgsMessage,
+    CriticalEvent, Log, MgsMessage, mgs_common::MgsCommon,
+    update::ComponentUpdater, update::rot::RotUpdate, update::sp::SpUpdate,
+    usize_max,
 };
 use drv_user_leds_api::UserLeds;
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
+    ComponentAction, ComponentActionResponse, ComponentDetails,
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
     IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
-    PowerState, PowerStateTransition, RotBootInfo, RotRequest, RotResponse,
-    SensorRequest, SensorResponse, SpComponent, SpError, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    PmbusStatus, PowerRailName, PowerState, PowerStateTransition, RotBootInfo,
+    RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
+    SpError, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ignition,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
-use task_control_plane_agent_api::{ControlPlaneAgentError, VpdIdentity};
+use task_control_plane_agent_api::{ControlPlaneAgentError, OxideIdentity};
 use task_net_api::{MacAddress, UdpMetadata, VLanId};
 use userlib::sys_get_timer;
 
@@ -60,7 +62,7 @@ impl MgsHandler {
         }
     }
 
-    pub(crate) fn identity(&self) -> VpdIdentity {
+    pub(crate) fn identity(&self) -> OxideIdentity {
         self.common.identity()
     }
 
@@ -444,7 +446,13 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        self.common.inventory().num_component_details(&component)
+        self.common.inventory().num_component_details(
+            &component,
+            |_component| {
+                // Nothing in OUR_DEVICES has component details
+                0
+            },
+        )
     }
 
     fn component_details(
@@ -452,7 +460,13 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         index: BoundsChecked,
     ) -> ComponentDetails {
-        self.common.inventory().component_details(&component, index)
+        self.common
+            .inventory()
+            .component_details(&component, index, |_, _| {
+                // This should never be called, because num_component_details
+                // never returns > 0 for devices in the OUR_DEVICES array
+                panic!("no custom devices")
+            })
     }
 
     fn component_get_active_slot(
@@ -482,6 +496,17 @@ impl SpHandler for MgsHandler {
 
         self.common
             .component_set_active_slot(component, slot, persist)
+    }
+
+    fn component_get_persistent_slot(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<u16, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentGetPersistentSlot { component }
+        ));
+
+        self.common.component_get_persistent_slot(component)
     }
 
     fn component_clear_status(
@@ -677,5 +702,12 @@ impl SpHandler for MgsHandler {
             slot: 0
         }));
         Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn get_pmbus_status(
+        &mut self,
+        rail: &PowerRailName,
+    ) -> Result<PmbusStatus, SpError> {
+        self.common.get_pmbus_status(rail)
     }
 }

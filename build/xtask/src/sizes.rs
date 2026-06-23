@@ -8,17 +8,17 @@ use std::io::Write;
 use std::path::Path;
 use std::process;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use colored::*;
 use goblin::Object;
-use indexmap::map::Entry;
 use indexmap::IndexMap;
+use indexmap::map::Entry;
 
 use crate::{
-    dist::{
-        get_max_stack, Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK,
-    },
     Config,
+    dist::{
+        Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK, get_max_stack,
+    },
 };
 
 #[derive(Debug)]
@@ -27,27 +27,29 @@ struct TaskSizes<'a> {
     sizes: IndexMap<&'a str, IndexMap<&'a str, u64>>,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct SizeFlags {
+    pub only_suggest: bool,
+    pub compare: bool,
+    pub save: bool,
+    pub stacks: bool,
+    pub verbose: bool,
+}
+
 /// When `only_suggest` is true, prints only the suggested improvements to
 /// stderr, rather than printing all sizes.  Suggestions are formatted to
 /// match compiler warnings.
-pub fn run(
-    cfg: &Path,
-    allocs: &Allocations,
-    only_suggest: bool,
-    compare: bool,
-    save: bool,
-    verbose: bool,
-) -> Result<()> {
+pub fn run(cfg: &Path, allocs: &Allocations, flags: SizeFlags) -> Result<()> {
     let toml = Config::from_file(cfg)?;
     let sizes = create_sizes(&toml)?;
 
     let filename = format!("{}.json", toml.name);
 
-    if save {
-        println!("Writing json to {}", filename);
+    if flags.save {
+        println!("Writing json to {filename}");
         fs::write(filename, serde_json::ser::to_string(&sizes.sizes)?)?;
         process::exit(0);
-    } else if compare {
+    } else if flags.compare {
         let compare = fs::read(filename)?;
         let compare: IndexMap<&str, IndexMap<&str, u64>> =
             serde_json::from_slice(&compare)?;
@@ -57,20 +59,22 @@ pub fn run(
         process::exit(0);
     }
 
-    let mut out: Box<dyn Write> = if only_suggest {
+    let mut out: Box<dyn Write> = if flags.only_suggest {
         Box::new(std::io::stderr())
     } else {
         Box::new(std::io::stdout())
     };
 
     // Print detailed sizes relative to usage
-    if !only_suggest {
+    if !flags.only_suggest {
         let map = build_memory_map(&toml, &sizes, allocs)?;
-        print_memory_map(&toml, &map, verbose)?;
+        print_memory_map(&toml, &map, flags.verbose)?;
         print!("\n\n");
         print_task_table(&toml, &map)?;
-        print!("\n\n");
-        print_task_stacks(&toml)?;
+        if flags.stacks {
+            print!("\n\n");
+            print_task_stacks(&toml)?;
+        }
     }
 
     // Because tasks are autosized, the only place where we can improve
@@ -92,7 +96,7 @@ pub fn run(
         }
         if !printed_header {
             printed_header = true;
-            if only_suggest {
+            if flags.only_suggest {
                 write!(out, "{}", "warning".bold().yellow())?;
                 writeln!(out, ": memory allocation is sub-optimal")?;
                 writeln!(out, "{}", "Suggested improvements:".bold())?;
@@ -111,9 +115,9 @@ pub fn run(
         writeln!(
             out,
             "  {:<6} {: >5} {}",
-            format!("{}:", mem),
+            format!("{mem}:"),
             suggestion,
-            format!(" (currently {})", size).dimmed()
+            format!(" (currently {size})").dimmed()
         )?;
     }
 
@@ -135,10 +139,11 @@ struct MemoryChunk<'a> {
 
 fn build_memory_map<'a>(
     toml: &'a Config,
-    sizes: &'a TaskSizes,
+    sizes: &'a TaskSizes<'a>,
     allocs: &'a Allocations,
 ) -> Result<BTreeMap<&'a str, BTreeMap<u32, MemoryChunk<'a>>>> {
-    let mut map: BTreeMap<&str, BTreeMap<u32, MemoryChunk>> = BTreeMap::new();
+    let mut map: BTreeMap<&str, BTreeMap<u32, MemoryChunk<'a>>> =
+        BTreeMap::new();
 
     for (name, requires, alloc) in toml
         .tasks
@@ -199,7 +204,7 @@ fn build_memory_map<'a>(
 
 fn print_task_table(
     toml: &Config,
-    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
+    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk<'_>>>,
 ) -> Result<()> {
     let task_pad = toml
         .tasks
@@ -215,22 +220,22 @@ fn print_task_table(
         .map(|c| format!("{}", c.total_size.iter().sum::<u32>()).len())
         .chain(std::iter::once(4))
         .max()
-        .unwrap_or(0) as usize;
+        .unwrap_or(0);
     let region_pad = map
         .keys()
         .chain(std::iter::once(&"REGION"))
         .map(|c| c.to_string().len())
         .max()
-        .unwrap_or(0) as usize;
+        .unwrap_or(0);
 
     // Turn the memory map around so we can index it by [region][task name]
-    let map: BTreeMap<&str, BTreeMap<&str, MemoryChunk>> = map
+    let map: BTreeMap<&str, BTreeMap<&str, MemoryChunk<'_>>> = map
         .iter()
         .map(|(region, map)| {
             (
                 *region,
-                map.iter()
-                    .map(|(_, chunk)| (chunk.owner, chunk.clone()))
+                map.values()
+                    .map(|chunk| (chunk.owner, chunk.clone()))
                     .collect(),
             )
         })
@@ -259,7 +264,7 @@ fn print_task_table(
                     task = task_pad
                 );
                 printed_name = true;
-                print!("{:<reg$}  ", region, reg = region_pad);
+                print!("{region:<region_pad$}  ");
                 print!(
                     "{:<mem$}  {:<mem$}  ",
                     chunk.used_size,
@@ -268,7 +273,7 @@ fn print_task_table(
                 );
                 match chunk.recommended {
                     None => print!("(auto)"),
-                    Some(Recommended::MaxSize(m)) => print!("{}", m),
+                    Some(Recommended::MaxSize(m)) => print!("{m}"),
                     Some(Recommended::FixedSize) => print!("(fixed)"),
                 }
                 println!();
@@ -280,7 +285,7 @@ fn print_task_table(
 
 fn print_memory_map(
     toml: &Config,
-    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
+    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk<'_>>>,
     verbose: bool,
 ) -> Result<()> {
     let task_pad = toml
@@ -298,17 +303,17 @@ fn print_memory_map(
         .max()
         .unwrap_or(0);
     for (mem_name, map) in map {
-        println!("\n{}:", mem_name);
+        println!("\n{mem_name}:");
         if verbose {
             println!(
-            "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | {:>mem$} | LIMIT",
-            "PROGRAM",
-            "USED",
-            "SIZE",
-            "CHUNKS",
-            task = task_pad,
-            mem = mem_pad,
-        );
+                "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | {:>mem$} | LIMIT",
+                "PROGRAM",
+                "USED",
+                "SIZE",
+                "CHUNKS",
+                task = task_pad,
+                mem = mem_pad,
+            );
         } else {
             println!(
                 "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | LIMIT",
@@ -362,7 +367,7 @@ fn print_memory_map(
                 if i == 0 {
                     match chunk.recommended {
                         None => print!("(auto)"),
-                        Some(Recommended::MaxSize(m)) => print!("{}", m),
+                        Some(Recommended::MaxSize(m)) => print!("{m}"),
                         Some(Recommended::FixedSize) => print!("(fixed)"),
                     }
                 }
@@ -432,7 +437,7 @@ fn print_task_stacks(toml: &Config) -> Result<()> {
         let task_stack_size =
             task.stacksize.unwrap_or_else(|| toml.stacksize.unwrap());
 
-        let max_stack = get_max_stack(&toml, task_name, false)?;
+        let max_stack = get_max_stack(toml, task_name, false)?;
         let total: u64 = max_stack.iter().map(|(n, _)| *n).sum();
         println!("{task_name}: {total} bytes (limit is {task_stack_size})");
         for (frame_size, name) in max_stack {
@@ -460,12 +465,12 @@ pub fn load_task_size<'a>(
             .join("dist")
             .join(match name {
                 "kernel" => name.to_owned(),
-                _ => format!("{}.tmp", name),
+                _ => format!("{name}.tmp"),
             });
     let buffer = std::fs::read(elf_name)?;
     let elf = match Object::parse(&buffer)? {
         Object::Elf(elf) => elf,
-        o => bail!("Invalid Object {:?}", o),
+        o => bail!("Invalid Object {o:?}"),
     };
 
     // We can't naively add up section sizes, since there may be gaps left
@@ -506,16 +511,21 @@ pub fn load_task_size<'a>(
         .map(|(name, range)| (name, range.end - range.start))
         .collect();
 
+    let ram_region = match name {
+        "kernel" => toml.kernel_ram_region(),
+        n => toml.task_ram_region(n),
+    };
+
     // The stack is 8-byte aligned (checked elsewhere in the build and
     // rechecked here) Everything else in RAM is ALIGN(4), so we don't need to
     // worry about padding here.
     assert!(stacksize.trailing_zeros() >= 3);
-    *memory_sizes.entry("ram").or_default() += stacksize as u64;
+    *memory_sizes.entry(ram_region).or_default() += stacksize as u64;
 
     Ok(memory_sizes)
 }
 
-fn create_sizes(toml: &Config) -> Result<TaskSizes> {
+fn create_sizes(toml: &Config) -> Result<TaskSizes<'_>> {
     let mut sizes = IndexMap::new();
 
     let kernel_sizes = load_task_size(
@@ -542,8 +552,8 @@ fn create_sizes(toml: &Config) -> Result<TaskSizes> {
 }
 
 fn compare_sizes(
-    current_sizes: TaskSizes,
-    saved_sizes: TaskSizes,
+    current_sizes: TaskSizes<'_>,
+    saved_sizes: TaskSizes<'_>,
 ) -> Result<()> {
     println!("Comparing against the previously saved sizes");
 
@@ -557,7 +567,7 @@ fn compare_sizes(
         .collect();
 
     for name in names {
-        println!("Checking for differences in {}", name);
+        println!("Checking for differences in {name}");
 
         let current_size = current_sizes.entry(name);
         let saved_size = saved_sizes.entry(name);
@@ -572,7 +582,7 @@ fn compare_sizes(
                     let diff = value as i64 - saved as i64;
 
                     if diff != 0 {
-                        println!("\t{}: {}", key, diff);
+                        println!("\t{key}: {diff}");
                     }
                 }
             }
@@ -583,20 +593,22 @@ fn compare_sizes(
                 );
                 let saved = saved_entry.get();
                 for (key, value) in saved {
-                    println!("\t{}: {}", key, value);
+                    println!("\t{key}: {value}");
                 }
             }
             // we have removed this entirely
             (Entry::Occupied(current_entry), Entry::Vacant(_)) => {
-                println!("This task was removed since we last saved size information.");
+                println!(
+                    "This task was removed since we last saved size information."
+                );
                 let current = current_entry.get();
                 for (key, value) in current {
-                    println!("\t{}: {}", key, value);
+                    println!("\t{key}: {value}");
                 }
             }
             // this should never happen
             (Entry::Vacant(_), Entry::Vacant(_)) => {
-                bail!("{} doesn't exist, and this should never happen.", name)
+                bail!("{name} doesn't exist, and this should never happen.")
             }
         }
     }

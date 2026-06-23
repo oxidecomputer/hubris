@@ -22,7 +22,7 @@ pub unsafe fn disable_mpu(mpu: &RegisterBlock) {
     // executing a DMB instruction and the MPU disabled before it can be
     // configured
     cortex_m::asm::dmb();
-    mpu.ctrl.write(DISABLE);
+    unsafe { mpu.ctrl.write(DISABLE) }
 }
 
 /// Enable the MPU and set the default memory map as background region for privileged
@@ -46,7 +46,7 @@ pub unsafe fn enable_mpu(
         0b000
     };
 
-    mpu.ctrl.write(ENABLE | privdefena);
+    unsafe { mpu.ctrl.write(ENABLE | privdefena) }
     // From the ARMv8m MPU manual
     //
     // The final step is to enable the MPU by writing to MPU_CTRL. Code

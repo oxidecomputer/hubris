@@ -5,12 +5,12 @@
 use core::cell::Cell;
 
 use crate::{
-    pmbus_validate, BadValidation, CurrentSensor, TempSensor, Validate,
-    VoltageSensor,
+    BadValidation, CurrentSensor, TempSensor, Validate, VoltageSensor,
+    pmbus_validate,
 };
 use drv_i2c_api::*;
-use pmbus::commands::raa229620a::*;
 use pmbus::commands::CommandCode;
+use pmbus::commands::raa229620a::*;
 use pmbus::*;
 use userlib::units::*;
 
@@ -109,14 +109,65 @@ impl Raa229620A {
         }
     }
 
-    pub fn clear_faults(&self) -> Result<(), Error> {
-        pmbus_write!(self.device, CLEAR_FAULTS)
+    /// Clear faults on the rail that was provided when this `Raa229620A` was
+    /// constructed.
+    ///
+    /// To clear faults on *all* rails regulated by the physical RAA22960A
+    /// represented by this device handle, use
+    /// [`Self::clear_faults_on_all_rails`].
+    pub fn clear_faults_on_this_rail(&self) -> Result<(), Error> {
+        pmbus_rail_write!(self.device, self.rail, CLEAR_FAULTS)
+    }
+
+    /// Clear faults on *all* rails regulated by the physical RAA229620A
+    /// represented by this device.
+    ///
+    /// To clear faults on only the rail selected by this device handle, use
+    /// [`Self::clear_faults_on_this_rail`].
+    pub fn clear_faults_on_all_rails(&self) -> Result<(), Error> {
+        // Per the PMBus spec, `CLEAR_FAULTS` is paged. Sending an un-paged
+        // `CLEAR_FAULTS` doesn't clear all faults, you need to send page `0xff`
+        // to do that:
+        //
+        // > Commands to clear a bit are gated by the PAGE command. The
+        // > CLEAR_FAULTS can be made to clear all faults on all pages by
+        // > setting the page command to FFh.
+        // > --- PMBus Power System Mgt Protocol Specification – Part II –
+        // >     Revision 1.3.1_; section 10.3 (pp 44)
+        pmbus_rail_write!(self.device, 0xff, CLEAR_FAULTS)
     }
 
     pub fn set_vin_uv_warn_limit(&self, value: Volts) -> Result<(), Error> {
         let mut vin = VIN_UV_WARN_LIMIT::CommandData(0);
         vin.set(pmbus::units::Volts(value.0))?;
         pmbus_rail_write!(self.device, self.rail, VIN_UV_WARN_LIMIT, vin)
+    }
+
+    /// Set the `SMBALERT_MASK` for the `STATUS_IOUT` register.
+    ///
+    /// Any bits set in `mask` will be masked, suppressing SMBus alerts when
+    /// those bits in `STATUS_IOUT` become set.
+    pub fn set_status_iout_smbalert_mask(
+        &self,
+        mask: STATUS_IOUT::CommandData,
+    ) -> Result<(), Error> {
+        pmbus_smbalert_mask_write!(self.device, self.rail, STATUS_IOUT, mask)
+    }
+
+    /// Set the `SMBALERT_MASK` for the `STATUS_CML` register, sending page
+    /// 0xFF. Though I couldn't find explicit confirmation of this in the PMBus
+    /// standard, one must kind of assume that `STATUS_CML` bits, which are not
+    /// specific to a particular output rail, are probably set on all PMBus
+    /// pages when a CML event happens, and thus we must mask them out on all
+    /// pages to stop SMBus alerts from being generated?
+    ///
+    /// Any bits set in `mask` will be masked, suppressing SMBus alerts when
+    /// those bits in `STATUS_CML` become set.
+    pub fn set_status_cml_smbalert_mask_on_all_rails(
+        &self,
+        mask: STATUS_CML::CommandData,
+    ) -> Result<(), Error> {
+        pmbus_smbalert_mask_write!(self.device, 0xff, STATUS_CML, mask)
     }
 
     pub fn read_vin(&self) -> Result<Volts, Error> {
@@ -132,6 +183,38 @@ impl Raa229620A {
             PHASE_CURRENT
         )?;
         Ok(Amperes(iout.get()?.0))
+    }
+
+    pub fn status_word(&self) -> Result<STATUS_WORD::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_WORD)
+    }
+
+    pub fn status_iout(&self) -> Result<STATUS_IOUT::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_IOUT)
+    }
+
+    pub fn status_vout(&self) -> Result<STATUS_VOUT::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_VOUT)
+    }
+
+    pub fn status_input(&self) -> Result<STATUS_INPUT::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_INPUT)
+    }
+
+    pub fn status_cml(&self) -> Result<STATUS_CML::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_CML)
+    }
+
+    pub fn status_temperature(
+        &self,
+    ) -> Result<STATUS_TEMPERATURE::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_TEMPERATURE)
+    }
+
+    pub fn status_mfr_specific(
+        &self,
+    ) -> Result<STATUS_MFR_SPECIFIC::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_MFR_SPECIFIC)
     }
 
     pub fn i2c_device(&self) -> &I2cDevice {

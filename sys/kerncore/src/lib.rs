@@ -431,11 +431,7 @@ mod tests {
 
         assert!(
             // Load-bearing tiny punctuation character:
-            !can_access(
-                slice,
-                &region_table,
-                accept_only_good_regions,
-            ),
+            !can_access(slice, &region_table, accept_only_good_regions,),
             "should NOT be able to access slice that spans adjacent bad ranges, but can",
         );
     }

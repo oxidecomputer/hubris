@@ -87,7 +87,7 @@ enum Errs {
     BadMsg = 1,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 pub fn main() -> ! {
     let mut the_integer: u32 = 0; // <1>
 
@@ -176,7 +176,7 @@ impl From<ResponseCode> for u32 { // <4>
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 pub fn main() -> ! {
     let mut the_integer: u32 = 0; // <5>
 

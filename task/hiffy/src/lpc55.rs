@@ -18,10 +18,10 @@ task_slot!(SP_CTRL, swd);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Execute((usize, hif::Op)),
     Failure(Failure),
     Success,
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -159,30 +159,6 @@ pub(crate) fn read_from_sp(
         Ok(_) => Ok(len),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
-}
-
-#[cfg(feature = "spctrl")]
-pub(crate) fn db_reset_sp(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    if stack.is_empty() {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    let fp = stack.len() - 1;
-    let delay = match stack[fp + 0] {
-        Some(delay) => delay,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(0)));
-        }
-    };
-
-    let task = SP_CTRL.get_task_id();
-    let sp_ctrl = drv_sp_ctrl_api::SpCtrl::from(task);
-
-    sp_ctrl.db_reset_sp(delay);
-    Ok(0)
 }
 
 #[cfg(feature = "gpio")]
@@ -400,16 +376,14 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     read_from_sp,
     #[cfg(feature = "spctrl")]
     sp_ctrl_init,
-    #[cfg(feature = "spctrl")]
-    db_reset_sp,
 ];
 
 //
 // This definition forces the compiler to emit the DWARF needed for debuggers
 // to be able to know function indices, arguments and return values.
 //
-#[used]
-static HIFFY_FUNCTIONS: Option<&Functions> = None;
+#[unsafe(no_mangle)]
+pub static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
 pub(crate) fn trace_execute(offset: usize, op: hif::Op) {
     ringbuf_entry!(Trace::Execute((offset, op)));

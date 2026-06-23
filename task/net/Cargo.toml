@@ -2,7 +2,7 @@
 name = "task-net"
 version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 cfg-if = { workspace = true }

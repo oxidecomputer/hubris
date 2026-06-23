@@ -97,27 +97,30 @@ use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sp_ctrl_api::SpCtrlError;
 use endoscope_abi::{Shared, State};
 use idol_runtime::{
-    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
-    RequestError, R, W,
+    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler, R,
+    RequestError, W,
 };
 use lpc55_pac as device;
 use ringbuf::*;
 use static_assertions::const_assert;
 use userlib::{
-    hl, set_timer_relative, sys_get_timer, sys_irq_control,
-    sys_irq_control_clear_pending, sys_set_timer, task_slot, FromPrimitive,
-    RecvMessage, TaskId, UnwrapLite,
+    FromPrimitive, RecvMessage, TaskId, UnwrapLite, hl, set_timer_relative,
+    sys_get_timer, sys_irq_control, sys_irq_control_clear_pending,
+    sys_set_timer, task_slot,
 };
 use zerocopy::IntoBytes;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
+    Start {
+        is_dongle_connected: bool,
+    },
     Idcode(u32),
     Idr(u32),
     MemVal(u32),
     ReadCmd,
     WriteCmd,
-    None,
     AckErr(Ack),
     DongleDetected,
     Dhcsr(Dhcsr),
@@ -137,8 +140,6 @@ enum Trace {
         data: u32,
         src: u32,
     },
-    DemcrReadError,
-    // Demcr(Demcr),
     DemcrWriteError,
     DfsrReadError,
     Dfsr(Dfsr),
@@ -153,7 +154,6 @@ enum Trace {
         delta_t: u32,
     },
     HaltFail(u32),
-    IncompleteUndo(Undo),
     Injected {
         start: u32,
         length: usize,
@@ -163,18 +163,13 @@ enum Trace {
     InvalidatedSpMeasurement,
     InvalidateSpMeasurement,
     LimitRemaining(u32),
-    // Lockup(Dhcsr),
     MeasuredSp {
         success: bool,
         delta_t: u32,
     },
     MeasureFailed,
-    Never,
     SharedState(u32),
-    Digest0([u8; 8]),
-    Digest1([u8; 8]),
-    Digest2([u8; 8]),
-    Digest3([u8; 8]),
+    Digest(usize, [u8; 8]),
     ReadbackFailure,
     ReadBufFail,
     ReadX {
@@ -193,13 +188,13 @@ enum Trace {
     SwdSetupFail,
     SwdSetupOk,
     TimerHandlerError(SpCtrlError),
-    VcCoreReset(bool),
     VcCoreResetNotCaught,
     WaitingForSpHalt {
         timeout: u32,
     },
     WrotePcRegisterFail,
     WroteSpRegisterFail,
+    TokenWriteFail(Ack),
 }
 
 ringbuf!(Trace, 128, Trace::None);
@@ -286,9 +281,7 @@ const WAIT_FOR_HALT_MS: u64 = 500;
 // Debug Interface from Armv7 Architecture Manual chapter C-1
 mod armv7debug;
 
-use armv7debug::{
-    Demcr, Dfsr, Dhcsr, DpAddressable, Reg, Undo, DCRDR, DCRSR, VTOR,
-};
+use armv7debug::{DCRDR, DCRSR, Demcr, Dfsr, Dhcsr, DpAddressable, Reg, VTOR};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Port {
@@ -411,11 +404,27 @@ enum SwdSetupErr {
     Idr(Ack),
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum SwdState {
+    /// The SWD GPIOs are configured as inputs
+    ///
+    /// This is used when a physical debugger is attached to the SP (detected
+    /// through the JTAG_DETECT line)
+    Disconnected,
+
+    /// The SWD GPIOs are configured
+    Connected {
+        /// Marks whether SWD has been initialized
+        init: bool,
+    },
+}
+
 struct ServerImpl {
     spi: spi_core::Spi,
-    gpio: TaskId,
+    gpio_task: TaskId,
+    gpio: drv_lpc55_gpio_api::Pins,
     attest: Attest,
-    init: bool,
+    state: SwdState,
     transaction: Option<MemTransaction>,
 }
 
@@ -447,7 +456,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         }
 
         let cnt = dest.len();
-        if cnt % 4 != 0 {
+        if !cnt.is_multiple_of(4) {
             return Err(SpCtrlError::BadLen.into());
         }
         let mut buf = LeaseBufWriter::<_, 32>::from(dest.into_inner());
@@ -477,7 +486,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             return Err(SpCtrlError::NeedInit.into());
         }
         let cnt = dest.len();
-        if cnt % 4 != 0 {
+        if !cnt.is_multiple_of(4) {
             return Err(SpCtrlError::BadLen.into());
         }
         let mut buf = LeaseBufWriter::<_, 32>::from(dest.into_inner());
@@ -506,7 +515,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             return Err(SpCtrlError::NeedInit.into());
         }
         let cnt = dest.len();
-        if cnt % 4 != 0 {
+        if !cnt.is_multiple_of(4) {
             return Err(SpCtrlError::BadLen.into());
         }
         let mut buf = LeaseBufReader::<_, 32>::from(dest.into_inner());
@@ -611,36 +620,6 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         sys_set_timer(None, notifications::TIMER_MASK);
         Ok(())
     }
-
-    /// Remote debugging support.
-    /// Yet another way to reset the SP. This one is known to finish before
-    /// any other code in this task runs.
-    #[cfg(feature = "enable_ext_sp_reset")]
-    fn db_reset_sp(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        delay: u32,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        self.sp_reset_enter();
-        hl::sleep_for(delay.into());
-        let _ = self.swd_setup();
-        let _ = self.dp_write_bitflags::<Demcr>(Demcr::from_bits_retain(0));
-        let _ = self.dp_write_bitflags::<Dhcsr>(Dhcsr::end_debug());
-        self.swd_finish();
-        self.sp_reset_leave();
-        Ok(())
-    }
-
-    #[cfg(not(feature = "enable_ext_sp_reset"))]
-    fn db_reset_sp(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        _delay: u32,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        // This is a debug feature. Don't reset the client for asking.
-        // Silently ignore.
-        Ok(())
-    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -650,7 +629,7 @@ impl NotificationHandler for ServerImpl {
             + notifications::JTAG_DETECT_IRQ_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         // If JTAG_DETECT fires:
         //   - invalidate any SP measurement
         //   - if still asserted, then the other handlers will fail on
@@ -659,33 +638,25 @@ impl NotificationHandler for ServerImpl {
         //     that the SP dongle is removed or its power is removed, but if
         //     there is a dongle attached to the SP, then let the humans figure it out
         //     and don't complicate the behavior here.
-        //
 
-        let mut invalidate = false;
-        let gpio = Pins::from(self.gpio);
-
-        if (bits & notifications::JTAG_DETECT_IRQ_MASK) != 0 {
+        if bits.check_notification_mask(notifications::JTAG_DETECT_IRQ_MASK) {
             ringbuf_entry!(Trace::SpJtagDetectFired);
             const SLOT: PintSlot = SP_TO_ROT_JTAG_DETECT_L_PINT_SLOT;
-            if let Ok(Some(detected)) =
-                gpio.pint_op(SLOT, PintOp::Detected, PintCondition::Falling)
-            {
-                if detected {
-                    ringbuf_entry!(Trace::InvalidateSpMeasurement);
-                    // Reset the attestation log
-                    invalidate = true;
-                    self.next_use_must_setup_swd();
-                }
+            if self.gpio.pint_detect(SLOT, PintFlag::Falling) {
+                ringbuf_entry!(Trace::InvalidateSpMeasurement);
+                self.on_swd_connected();
+                self.gpio.pint_clear(SLOT, PintFlag::Both);
             } else {
-                // The pint_op parameters are for a configured PINT slot for one of
-                // our configured GPIO pins. We're testing a status bit in a register.
-                unreachable!();
+                // Spurious notification, ignore it
             }
-            let _ = gpio.pint_op(SLOT, PintOp::Clear, PintCondition::Status);
             sys_irq_control(notifications::JTAG_DETECT_IRQ_MASK, true);
+        } else if matches!(self.state, SwdState::Disconnected)
+            && !self.swd_dongle_detected()
+        {
+            self.on_swd_disconnected();
         }
 
-        if (bits & notifications::TIMER_MASK) != 0 {
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
             ringbuf_entry!(Trace::WatchdogFired);
 
             match self.do_setup_swd() {
@@ -704,10 +675,10 @@ impl NotificationHandler for ServerImpl {
                         //     the timer firing, a JTAG dongle has been
                         //     powered-up or attached.
                         //
-                        // These problems either should have been caught in
-                        // CI testing, require HW repair, or are because a
-                        // human is messing with the system by holding down the
-                        // SP's physical reset button.
+                        // These problems either should have been caught in CI
+                        // testing, require HW repair, or are because a human is
+                        // messing with the system by holding down the SP's
+                        // physical reset button.
                         //
                         // Reporting:
                         // RFDs 544 and 520 may result in a reporting
@@ -725,45 +696,34 @@ impl NotificationHandler for ServerImpl {
                     }
                 }
                 Err(e) => {
-                    // This should only fail if JTAG_DETECT or SP_RESET are currently asserted.
+                    // This should only fail if JTAG_DETECT or SP_RESET are
+                    // currently asserted.
                     ringbuf_entry!(Trace::TimerHandlerError(e));
                 }
             }
         }
 
-        if (bits & notifications::SP_RESET_IRQ_MASK) != 0 {
-            ringbuf_entry!(Trace::SpResetFired);
-            if !invalidate && !self.do_handle_sp_reset() {
-                ringbuf_entry!(Trace::InvalidateSpMeasurement);
-                // Clear the attestation log
-                invalidate = true;
-            }
-            self.next_use_must_setup_swd();
-
-            //  We are not going to try to measure/trust the SP
-            //  when there is a glitch on the JTAG_DETECT signal.
+        if bits.check_notification_mask(notifications::SP_RESET_IRQ_MASK) {
+            //  We are not going to try to measure/trust the SP when there is a
+            //  glitch on the JTAG_DETECT signal.
             //
             //  e.g. JTAG_DETECT fired but before the handler was called, it
             //  de-asserted so that the SP_RESET that also fired could be
             //  handled successfully.
-            //}
+            ringbuf_entry!(Trace::SpResetFired);
+            if matches!(self.state, SwdState::Connected { .. })
+                && !self.do_handle_sp_reset()
+            {
+                // If handling the SP reset failed, clear the attestation log
+                ringbuf_entry!(Trace::InvalidateSpMeasurement);
+                self.invalidate_sp_measurement();
+            }
+            self.next_use_must_setup_swd();
 
-            const SLOT: PintSlot = ROT_TO_SP_RESET_L_IN_PINT_SLOT;
-
-            // Squelch the interrupts generated by this handler's
-            // toggling of SP_RESET.
-            let _ = gpio.pint_op(
-                ROT_TO_SP_RESET_L_IN_PINT_SLOT,
-                PintOp::Clear,
-                PintCondition::Rising,
-            );
-            let _ = gpio.pint_op(
-                ROT_TO_SP_RESET_L_IN_PINT_SLOT,
-                PintOp::Clear,
-                PintCondition::Falling,
-            );
-            let _ = gpio.pint_op(SLOT, PintOp::Clear, PintCondition::Status);
-
+            // Squelch the interrupts generated by this handler's toggling of
+            // SP_RESET.
+            self.gpio
+                .pint_clear(ROT_TO_SP_RESET_L_IN_PINT_SLOT, PintFlag::Falling);
             sys_irq_control_clear_pending(
                 notifications::SP_RESET_IRQ_MASK,
                 true,
@@ -771,15 +731,31 @@ impl NotificationHandler for ServerImpl {
 
             ringbuf_entry!(Trace::EndOfNotificationHandler);
         }
-
-        if invalidate {
-            // invalidate_sp_measurement() logs to Ringbuf
-            let _ = self.invalidate_sp_measurement();
-        }
     }
 }
 
 impl ServerImpl {
+    /// Callback to handle when an external programmer is connected
+    ///
+    /// This function invalidates the measurement log, switches our internal
+    /// state, and configures the SPI pins as inputs (to avoid fighting with the
+    /// programmer).
+    fn on_swd_connected(&mut self) {
+        // Reset the attestation log
+        self.invalidate_sp_measurement();
+
+        // Cancel ongoing transactions
+        self.transaction = None;
+        self.state = SwdState::Disconnected;
+        switch_io_disconnected();
+    }
+
+    /// When an external programmer is disconnected, connect to the SP
+    fn on_swd_disconnected(&mut self) {
+        switch_io_connected();
+        self.state = SwdState::Connected { init: false };
+    }
+
     fn io_out(&mut self) {
         self.wait_for_mstidle();
         switch_io_out();
@@ -913,7 +889,7 @@ impl ServerImpl {
         // for the correct count.
         //
         // Round up here just to be safe
-        let rounded = ((cnt + 7) / 8) * 8;
+        let rounded = cnt.div_ceil(8) * 8;
         for _ in 0..(rounded / 8) {
             self.tx_byte(0x00);
         }
@@ -968,7 +944,7 @@ impl ServerImpl {
     }
 
     fn write_word(&mut self, val: u32) {
-        let parity: u32 = u32::from(val.count_ones() % 2 != 0);
+        let parity: u32 = u32::from(!val.count_ones().is_multiple_of(2));
 
         let rev = val.reverse_bits();
 
@@ -1018,8 +994,7 @@ impl ServerImpl {
     }
 
     fn swd_dongle_detected(&self) -> bool {
-        let gpio = Pins::from(self.gpio);
-        gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
+        self.gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
     }
 
     fn swd_setup(&mut self) -> Result<(), SwdSetupErr> {
@@ -1167,7 +1142,7 @@ impl ServerImpl {
         // It is consuming about 0.25 seconds to inject the `endoscope` code.
         let mut addr = addr;
         const U32_SIZE: usize = core::mem::size_of::<u32>();
-        if data.len() % U32_SIZE != 0 {
+        if !data.len().is_multiple_of(U32_SIZE) {
             ringbuf_entry!(Trace::BadLen);
             return Err(Ack::Fault);
         }
@@ -1201,7 +1176,7 @@ impl ServerImpl {
     }
 
     fn read_transaction_word(&mut self) -> Result<Option<u32>, Ack> {
-        if let Some(mut transaction) = &self.transaction {
+        if let Some(mut transaction) = self.transaction {
             let val = self.swd_read_ap_reg(ApAddr(0, ApReg::DRW), true)?;
 
             transaction.read_cnt += 1;
@@ -1367,15 +1342,13 @@ impl ServerImpl {
     }
 
     fn sp_reset_enter(&mut self) {
-        setup_rot_to_sp_reset_l_out(self.gpio);
-        let gpio = Pins::from(self.gpio);
-        gpio.set_val(ROT_TO_SP_RESET_L_OUT, Value::Zero);
+        setup_rot_to_sp_reset_l_out(self.gpio_task);
+        self.gpio.set_val(ROT_TO_SP_RESET_L_OUT, Value::Zero);
     }
 
     fn sp_reset_leave(&mut self) {
-        let gpio = Pins::from(self.gpio);
-        setup_rot_to_sp_reset_l_in(self.gpio);
-        gpio.set_val(ROT_TO_SP_RESET_L_IN, Value::One); // should be a no-op
+        setup_rot_to_sp_reset_l_in(self.gpio_task);
+        self.gpio.set_val(ROT_TO_SP_RESET_L_IN, Value::One); // should be a no-op
     }
 
     // The SP is halted at its reset vector.
@@ -1468,8 +1441,7 @@ impl ServerImpl {
         if self.wait_for_sp_halt(WAIT_FOR_HALT_MS).is_err() {
             // If a human is holding down a physical reset button then
             // SP_RESET may have never been released.
-            let gpio = Pins::from(self.gpio);
-            let sp_reset_state = gpio.read_val(ROT_TO_SP_RESET_L_IN);
+            let sp_reset_state = self.gpio.read_val(ROT_TO_SP_RESET_L_IN);
             ringbuf_entry!(Trace::DidNotHalt { sp_reset_state });
             return Err(());
         };
@@ -1492,17 +1464,9 @@ impl ServerImpl {
             return Err(());
         }
 
-        if let Ok(d) = shared.digest[0x00..=0x07].try_into() {
-            ringbuf_entry!(Trace::Digest0(d));
-        }
-        if let Ok(d) = shared.digest[0x08..=0x0f].try_into() {
-            ringbuf_entry!(Trace::Digest1(d));
-        }
-        if let Ok(d) = shared.digest[0x10..=0x17].try_into() {
-            ringbuf_entry!(Trace::Digest2(d));
-        }
-        if let Ok(d) = shared.digest[0x18..=0x1f].try_into() {
-            ringbuf_entry!(Trace::Digest3(d));
+        for (i, chunk) in shared.digest.chunks_exact(8).enumerate() {
+            let d = chunk.try_into().unwrap_lite();
+            ringbuf_entry!(Trace::Digest(i, d));
         }
 
         Ok(shared.digest)
@@ -1570,7 +1534,7 @@ impl ServerImpl {
             .map_err(SpCtrlError::from)?;
 
         let cnt = buf.len();
-        if cnt % 4 != 0 {
+        if !cnt.is_multiple_of(4) {
             return Err(SpCtrlError::BadLen);
         }
 
@@ -1591,14 +1555,18 @@ impl ServerImpl {
         ringbuf_entry!(Trace::DoSetup);
 
         if self.swd_dongle_detected() {
+            // Don't change state here; we'll catch it in the pin-change IRQ
             ringbuf_entry!(Trace::DongleDetected);
             return Err(SpCtrlError::DongleDetected);
+        } else if self.state == SwdState::Disconnected {
+            switch_io_connected();
+            self.state = SwdState::Connected { init: false };
         }
 
         match self.swd_setup() {
             Ok(_) => {
                 ringbuf_entry!(Trace::SwdSetupOk);
-                self.init = true;
+                self.state = SwdState::Connected { init: true };
                 Ok(())
             }
             Err(e) => {
@@ -1634,13 +1602,16 @@ impl ServerImpl {
     }
 
     fn next_use_must_setup_swd(&mut self) {
-        self.init = false;
+        // Reset SWD state if it is connected
+        if let SwdState::Connected { init } = &mut self.state {
+            *init = false;
+        }
         // Any in-progress bulk data transfer is cancelled.
         self.transaction = None;
     }
 
     fn is_swd_setup(&self) -> bool {
-        self.init
+        matches!(self.state, SwdState::Connected { init: true })
     }
 
     fn do_halt(&mut self) -> Result<(), SpCtrlError> {
@@ -1677,8 +1648,7 @@ impl ServerImpl {
             if deadline <= sys_get_timer().now {
                 // If a human is holding down a physical reset button then
                 // SP_RESET may have never been released.
-                let gpio = Pins::from(self.gpio);
-                let sp_reset_state = gpio.read_val(ROT_TO_SP_RESET_L_IN);
+                let sp_reset_state = self.gpio.read_val(ROT_TO_SP_RESET_L_IN);
                 ringbuf_entry!(Trace::DidNotHalt { sp_reset_state });
                 break Err(SpCtrlError::Timeout);
             }
@@ -1696,247 +1666,187 @@ impl ServerImpl {
         }
     }
 
-    fn invalidate_sp_measurement(&mut self) -> Result<(), AttestError> {
+    /// Invalidates the SP measurement, logging the result
+    fn invalidate_sp_measurement(&mut self) {
         match self.attest.reset() {
-            Ok(()) => {
-                ringbuf_entry!(Trace::InvalidatedSpMeasurement);
-                Ok(())
-            }
-            Err(e) => {
-                ringbuf_entry!(Trace::AttestError(e));
-                Err(e)
-            }
+            Ok(()) => ringbuf_entry!(Trace::InvalidatedSpMeasurement),
+            Err(e) => ringbuf_entry!(Trace::AttestError(e)),
         }
     }
 
     // Return true if necessary work was done.
     // Return false if any current SP measurement should be invalidated.
+    #[must_use]
     fn do_handle_sp_reset(&mut self) -> bool {
-        let start = sys_get_timer().now;
-        let gpio = Pins::from(self.gpio);
-        const SLOT: PintSlot = ROT_TO_SP_RESET_L_IN_PINT_SLOT;
-        let mut need_undo = Undo::from_bits_retain(0);
-
         // Did SP_RESET transition to Zero?
-        if let Ok(Some(detected)) =
-            gpio.pint_op(SLOT, PintOp::Detected, PintCondition::Falling)
+        if !self
+            .gpio
+            .pint_detect(ROT_TO_SP_RESET_L_IN_PINT_SLOT, PintFlag::Falling)
         {
-            if !detected {
-                // Use of sys_irq_control_clear_pending(...) should avoid
-                // appearance of a "spurious" interrupt.
-                // Otherwise, cases where we assert SP_RESET then clean-up the PINT
-                // condition will have a pending notification.
-                ringbuf_entry!(Trace::SpResetNotAsserted);
-                return true; // no work required.
-            }
-        } else {
-            // The pint_op parameters are for a configured PINT slot for one of
-            // our configured GPIO pins. We're testing a status bit in a register.
-            unreachable!();
+            // Use of sys_irq_control_clear_pending(...) should avoid appearance
+            // of a "spurious" interrupt.
+            //
+            // Otherwise, cases where we assert SP_RESET then clean-up the PINT
+            // condition will have a pending notification.
+            ringbuf_entry!(Trace::SpResetNotAsserted);
+            return true; // no work required.
         }
-
-        // Not ok yet: A reset happened. If we don't get a measurement then
-        // make sure that the old one is invalidated.
-        let mut error = false;
 
         ringbuf_entry!(Trace::SpResetAsserted);
 
-        // This notification handler should be compatible with watchdog but
-        // will result in the invalidation of any dumps held in the SP if successful.
+        // This notification handler should be compatible with watchdog but will
+        // result in the invalidation of any dumps held in the SP if successful.
 
         // TODO: confirm that bank-flipping SP update watchdog is working.
 
         if self.do_setup_swd().is_ok() {
             ringbuf_entry!(Trace::SetupSwdOk);
-            need_undo |= Undo::SWD;
         } else {
             // We may have interrupted dumper or watchdog activity.
             return false; // Cannot make the required measurement.
         }
 
-        // Armv7-M Arch Ref:
-        // C1.4.1 Entering Debug state on leaving reset state
-        //
-        // To force the processor to enter Debug state as soon as it
-        // comes out of reset, a debugger sets DHCSR.C_DEBUGEN to 1, to
-        // enable Halting debug, and sets DEMCR.VC_CORERESET to 1 to
-        // enable vector catch on the Reset exception. When the
-        // processor comes out of reset it sets DHCSR.C_HALT to 1,
-        // and enters Debug state.
+        let out = self.reset_and_measure_sp();
+        self.swd_finish();
+        out.is_ok()
+    }
 
-        // If we are late to the SP_RESET party, we're still not that late.
-        // In any case, keep/force the SP into a reset condition.
-        // Though AIRCR::SYSRESETREQ can be used to effect a local reset.
-        // that does not affect the whole SP SoC.
-        // So, use the SP_RESET GPIO.
-        //
-
-        // Setting up to inject the measurement program into the SP
-        // has several potential failures. Use this `prep` closure
-        // and `need_undo` state to keep from indenting too much.
-        let mut prep = || -> Result<(), ()> {
-            self.sp_reset_enter();
-            need_undo |= Undo::RESET;
-
-            // Asserting SP_RESET for >1ms here works.
-            hl::sleep_for(1);
-
-            // Try to undo the change in DEBUGEN even if
-            // setting it failed.
-            need_undo |= Undo::DEBUGEN;
-            if self.dp_write_bitflags::<Dhcsr>(Dhcsr::resume()).is_err() {
-                ringbuf_entry!(Trace::DemcrWriteError);
-                return Err(());
-            }
-
-            // Try to undo the change in VC_CORERESET even if
-            // setting it failed.
-            need_undo |= Undo::VC_CORERESET;
-            if self
-                .dp_write_bitflags::<Demcr>(Demcr::VC_CORERESET)
-                .is_err()
-            {
-                ringbuf_entry!(Trace::DemcrWriteError);
-                return Err(());
-            }
-
-            self.sp_reset_leave();
-            need_undo &= !Undo::RESET;
-
-            // 500ms max wait allows for testing using manual reset button.
-            // Typical wait looks to be 5ms.
-            self.wait_for_sp_halt(WAIT_FOR_HALT_MS).map_err(|_| ())?;
-
-            // Check that RESET was caught
-            if let Ok(dfsr) = self.dp_read_bitflags::<Dfsr>() {
-                if !dfsr.is_vcatch() {
-                    ringbuf_entry!(Trace::Dfsr(dfsr));
-                    ringbuf_entry!(Trace::VcCoreResetNotCaught);
-                    return Err(());
-                }
-            } else {
-                ringbuf_entry!(Trace::DfsrReadError);
-            }
-
-            // We don't want to catch the next reset.
-            if self
-                .dp_write_bitflags::<Demcr>(Demcr::from_bits_retain(0))
-                .is_err()
-            {
-                ringbuf_entry!(Trace::DemcrWriteError);
-                return Err(());
-            }
-
-            // need_undo was set appropriately
-            if let Ok(demcr) = self.dp_read_bitflags::<Demcr>() {
-                if demcr & Demcr::VC_CORERESET != Demcr::VC_CORERESET {
-                    ringbuf_entry!(Trace::VcCoreReset(false));
-                    need_undo &= !Undo::VC_CORERESET;
-                } else {
-                    ringbuf_entry!(Trace::VcCoreReset(true));
-                    return Err(());
-                }
-            } else {
-                ringbuf_entry!(Trace::DemcrReadError);
-                return Err(());
-            }
-            Ok(())
-        };
-
-        // To ensures that any cleanup is done and the SP hardware is left
-        // running properly, there can only be one return at the end.
-
-        let digest = prep().and_then(|()| self.do_measure_sp());
-
-        // From here on, we're cleaning up and restarting the SP.
-
-        // It is very unlikely that an attached SP debug dongle would go
-        // active just as we are taking a measurement.
-        // If that happened, then JTAG DETECT will have its own notification
-        // and this task will perform an explicit attestation log reset.
-        // If there was any SWD problem for us, we may need to clean up
-        // ore or more of the steps that `prep` performed.
-
-        // If anything deviates from the happy-path, we will not record a valid measurement.
-
-        if need_undo & Undo::VC_CORERESET == Undo::VC_CORERESET {
-            // This will happen if one holds down a physical reset button.
-            // In any case, don't believe any measurement we may have recorded.
-            ringbuf_entry!(Trace::IncompleteUndo(need_undo));
-            error = true;
-
-            if self
-                .dp_write_bitflags::<Demcr>(Demcr::from_bits_retain(0))
-                .is_ok()
-            {
-                need_undo &= !Undo::VC_CORERESET;
-                ringbuf_entry!(Trace::VcCoreReset(false));
-            } else {
-                ringbuf_entry!(Trace::DemcrWriteError);
-            }
-            if let Ok(r) = self.dp_read_bitflags::<Dhcsr>() {
-                ringbuf_entry!(Trace::Dhcsr(r));
-            }
-        }
-
-        // Unless `prep` failed, this will always be needed.
-        if need_undo & Undo::DEBUGEN == Undo::DEBUGEN {
-            if self.dp_write_bitflags::<Dhcsr>(Dhcsr::end_debug()).is_ok() {
-                need_undo &= !Undo::DEBUGEN;
-            } else {
-                ringbuf_entry!(Trace::DhcsrWriteError);
-            }
-        } else {
-            ringbuf_entry!(Trace::Never);
-        }
-
-        // This should always be needed
-        if need_undo & Undo::SWD == Undo::SWD {
-            self.swd_finish();
-            need_undo &= !Undo::SWD;
-        } else {
-            ringbuf_entry!(Trace::Never);
-            error = true;
-        }
-
-        if !need_undo.is_empty() {
-            ringbuf_entry!(Trace::IncompleteUndo(need_undo));
-            error = true;
-        }
-
-        // The SP is still halted.
-        // Get it running again by toggling its RESET pin.
+    /// Resets the SP, forcing it to come up in debug halted state
+    ///
+    /// This is done per C1.4.1 in the ARMv7-M Architectural Reference Manual:
+    /// - `DHCSR.C_DEBUGEN` enables halting debug
+    /// - `DEMCR.VC_CORERESET` enables vector catch on the reset exception
+    ///
+    /// When the reset pin is released, we wait for a hard-coded timeout for
+    /// `DFSR.HALTED` to be set to 1.
+    ///
+    /// If this function returns `Ok(())`, then the SP should be in debug halt;
+    /// `DHCSR.C_DEBUGEN` and `DFSR.HALTED` should be set.
+    ///
+    /// If it returns an error, then the `DHCSR.C_DEBUGEN` bit is cleared, and
+    /// the SP should be assumed to be running.
+    ///
+    /// In all cases, the reset line is not asserted when this function returns.
+    /// Additionally, `DEMCR.VC_CORERESET` is always cleared, so future resets
+    /// will not trigger a vector catch.
+    #[allow(clippy::result_unit_err)]
+    fn reset_into_debug_halt(&mut self) -> Result<(), ()> {
+        // Asserting SP_RESET for >1ms here works.
         self.sp_reset_enter();
+        hl::sleep_for(1);
 
-        // Record a successful measurement before releasing the SP from reset.
-        let success = if let Ok(digest) = digest {
-            // SP resets the attestation log and record the new measurement.
-            if !error
-                && self
+        // Enable halting debug
+        if self.dp_write_bitflags::<Dhcsr>(Dhcsr::resume()).is_err() {
+            // If the write fails, then attempt to undo it
+            ringbuf_entry!(Trace::DhcsrWriteError);
+            self.disable_halting_debug();
+            return Err(());
+        }
+
+        // Enable vector catch
+        if self
+            .dp_write_bitflags::<Demcr>(Demcr::VC_CORERESET)
+            .is_err()
+        {
+            ringbuf_entry!(Trace::DemcrWriteError);
+            self.disable_halting_debug();
+            self.disable_vector_catch();
+            return Err(());
+        }
+        self.sp_reset_leave();
+
+        // 500ms max wait allows for testing using manual reset button.
+        // Typical wait looks to be 5ms.
+        let halted = self.wait_for_sp_halt(WAIT_FOR_HALT_MS);
+
+        // We always disable vector catch, because we want the next reset to
+        // proceed as usual.
+        self.disable_vector_catch();
+        let out = match halted {
+            Ok(()) => {
+                // Check that RESET was caught; if we halted for some other
+                // reason (or can't read DFSR), then that's a bad sign.
+                match self.dp_read_bitflags::<Dfsr>() {
+                    Ok(dfsr) if dfsr.is_vcatch() => Ok(()),
+                    Ok(dfsr) => {
+                        ringbuf_entry!(Trace::Dfsr(dfsr));
+                        ringbuf_entry!(Trace::VcCoreResetNotCaught);
+                        Err(())
+                    }
+                    Err(_) => {
+                        ringbuf_entry!(Trace::DfsrReadError);
+                        Err(())
+                    }
+                }
+            }
+            Err(_) => Err(()),
+        };
+        if out.is_err() {
+            self.disable_halting_debug();
+        }
+        out
+    }
+
+    /// Disables debug halt by clearing `DHCSR.C_DEBUGEN`
+    fn disable_halting_debug(&mut self) {
+        if self.dp_write_bitflags::<Dhcsr>(Dhcsr::end_debug()).is_err() {
+            ringbuf_entry!(Trace::DhcsrWriteError);
+        }
+    }
+
+    /// Disables vector catch by clearing `DEMCR.VC_CORERESET`
+    fn disable_vector_catch(&mut self) {
+        if self
+            .dp_write_bitflags::<Demcr>(Demcr::from_bits_retain(0))
+            .is_err()
+        {
+            ringbuf_entry!(Trace::DemcrWriteError);
+        }
+    }
+
+    /// Resets the SP and obtains a measurement, sending it to `attest`
+    ///
+    /// Returns `Ok(())` if the SP was measured, `Err(())` if something went
+    /// wrong and existing measurements should be invalidated.
+    fn reset_and_measure_sp(&mut self) -> Result<(), ()> {
+        self.reset_into_debug_halt()?;
+        let success = match self.do_measure_sp() {
+            Ok(digest) => {
+                // SP resets the attestation log and record the new measurement.
+                if self
                     .attest
                     .reset_and_record(HashAlgorithm::Sha3_256, &digest)
                     .is_ok()
-            {
-                ringbuf_entry!(Trace::RecordedMeasurement);
-                true
-            } else {
-                ringbuf_entry!(Trace::RecordMeasurementFailed);
-                false
+                {
+                    ringbuf_entry!(Trace::RecordedMeasurement);
+                    Ok(())
+                } else {
+                    ringbuf_entry!(Trace::RecordMeasurementFailed);
+                    Err(())
+                }
             }
-        } else {
-            ringbuf_entry!(Trace::MeasureFailed);
-            false
+            Err(()) => {
+                ringbuf_entry!(Trace::MeasureFailed);
+                Err(())
+            }
         };
 
-        hl::sleep_for(1);
-        self.sp_reset_leave();
-
-        let now = sys_get_timer().now;
-        ringbuf_entry!(Trace::MeasuredSp {
-            success,
-            delta_t: (now.saturating_sub(start)) as u32
-        });
-
+        if success.is_ok() && self.reset_into_debug_halt().is_ok() {
+            // Deposit the measurement token into SP memory
+            if let Err(e) = self.write_single_target_addr(
+                measurement_token::SP_ADDR as u32,
+                measurement_token::VALID,
+            ) {
+                ringbuf_entry!(Trace::TokenWriteFail(e));
+            }
+            self.disable_halting_debug();
+        } else {
+            // Reset the SP into normal operation
+            self.disable_halting_debug();
+            self.sp_reset_enter();
+            hl::sleep_for(1); // plenty of time, the internal pulse is 20µs
+            self.sp_reset_leave();
+        }
         success
     }
 }
@@ -1945,11 +1855,11 @@ fn slice_to_le_u32(slice: &[u8]) -> Option<u32> {
     slice.try_into().map(u32::from_le_bytes).ok()
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = SYSCON.get_task_id();
 
-    let gpio = GPIO.get_task_id();
+    let gpio_task = GPIO.get_task_id();
     let attest = Attest::from(ATTEST.get_task_id());
 
     let mut spi = setup_spi(syscon);
@@ -1966,35 +1876,43 @@ fn main() -> ! {
 
     spi.enable();
 
-    let mut server = ServerImpl {
-        spi,
-        gpio,
-        attest,
-        init: false,
-        transaction: None,
-    };
-
     // Setup GPIO pins so that we can receive interrupts
     // and interact with the SP's SWD interface.
-    let _ = setup_pins(server.gpio);
+    let _ = setup_pins(gpio_task);
+
+    // Check whether the dongle is connected at startup
+    let gpio = drv_lpc55_gpio_api::Pins::from(gpio_task);
+    let is_dongle_connected =
+        gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero;
+    if is_dongle_connected {
+        switch_io_disconnected();
+    }
+    ringbuf_entry!(Trace::Start {
+        is_dongle_connected
+    });
 
     // Detect SP entering reset
-    let _ = Pins::from(server.gpio).pint_op(
-        ROT_TO_SP_RESET_L_IN_PINT_SLOT,
-        PintOp::Enable,
-        PintCondition::Falling,
-    );
+    gpio.pint_enable(ROT_TO_SP_RESET_L_IN_PINT_SLOT, PintCondition::Falling);
     sys_irq_control(notifications::SP_RESET_IRQ_MASK, true);
 
     // JTAG active will block SWD operations.
     // We also need to detect JTAG going active so that if we've made a
     // measurement it can be invalidated.
-    let _ = Pins::from(server.gpio).pint_op(
-        SP_TO_ROT_JTAG_DETECT_L_PINT_SLOT,
-        PintOp::Enable,
-        PintCondition::Falling,
-    );
+    gpio.pint_enable(SP_TO_ROT_JTAG_DETECT_L_PINT_SLOT, PintCondition::Falling);
     sys_irq_control(notifications::JTAG_DETECT_IRQ_MASK, true);
+
+    let mut server = ServerImpl {
+        spi,
+        gpio_task,
+        gpio,
+        attest,
+        state: if is_dongle_connected {
+            SwdState::Disconnected
+        } else {
+            SwdState::Connected { init: false }
+        },
+        transaction: None,
+    };
 
     let mut incoming = [0; idl::INCOMING_SIZE];
 

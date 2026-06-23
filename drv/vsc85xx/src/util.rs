@@ -5,8 +5,8 @@
 use crate::{Phy, PhyRw, Trace};
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc_err::VscError;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
 
 impl<'a, P: PhyRw> Phy<'a, P> {
     pub fn read_id(&self) -> Result<u32, VscError> {

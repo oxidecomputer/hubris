@@ -1,7 +1,7 @@
 [package]
 name = "task-jefe-api"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 num-traits = { workspace = true }
@@ -12,6 +12,7 @@ zerocopy-derive = { workspace = true }
 hubpack = { workspace = true }
 humpty = { workspace = true }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
+hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 userlib = { path = "../../sys/userlib" }
 counters = { path = "../../lib/counters" }
 dump-agent-api = { path = "../dump-agent-api" }

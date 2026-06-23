@@ -2,6 +2,7 @@ name = "tests-gemini-bu"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
 chip = "../../chips/stm32h7"
+default-ram = "dtcm"
 stacksize = 2048
 
 [kernel]
@@ -53,6 +54,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["suite", "runner"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

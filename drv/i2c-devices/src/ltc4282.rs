@@ -9,8 +9,8 @@ use bitfield::bitfield;
 use core::cell::Cell;
 use drv_i2c_api::*;
 use userlib::{
-    units::{Amperes, Ohms, Volts},
     FromPrimitive,
+    units::{Amperes, Ohms, Volts},
 };
 
 #[allow(dead_code, non_camel_case_types)]

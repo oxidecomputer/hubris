@@ -146,12 +146,12 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let devs = i2c_config::devices::sbrmi(I2C.get_task_id());
     let mut server = ServerImpl {

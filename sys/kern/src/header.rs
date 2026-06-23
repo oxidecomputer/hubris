@@ -5,6 +5,6 @@
 use abi::ImageHeader;
 
 // Filled with dummy data by the linker, then populated by the build system
-extern "C" {
+unsafe extern "C" {
     pub static HEADER: ImageHeader;
 }

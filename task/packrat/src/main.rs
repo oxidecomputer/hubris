@@ -25,17 +25,52 @@
 //!    functions.
 //! 3. packrat never calls into any other task, as calling into a task gives the
 //!    callee opportunity to fault the caller.
-
+//!
+//! ## ereport aggregation
+//!
+//! When the "ereport" feature flag is enabled, packrat is also responsible for
+//! aggregating ereports received from other tasks, as described in [RFD 545].
+//! In addition to enabling packrat's "ereport" feature, the RNG driver task
+//! must have its "ereport" feature flag enabled, so that it can generate a
+//! restart ID and send it to packrat on startup. Otherwise, ereports will never
+//! be reported.
+//!
+//! Other tasks interact with the ereport aggregation subsystem through three
+//! IPC operations:
+//!
+//! - `deliver_ereport`: called by any task which wishes to record an ereport,
+//!   with a read-only lease containing the CBOR-encoded ereport data. Packrat
+//!   will store the ereport in its buffer, provided that space remains for the
+//!   message.
+//!
+//! - `read_ereports`: called by the `snitch` task, this IPC reads ereports
+//!   starting at the requested starting ENA into the provided lease. The
+//!   `committed_ena` parameter indicates that all ereports with ENAs earlier
+//!   than the provided one have been written to persistent storage, and
+//!   packrat may flush them from its buffer, to free memory for new
+//!   ereports.
+//!
+//! - `set_ereport_restart_id`: called by the `rng` task to set the
+//!   128-bit random restart ID that uniquely identifies this system's
+//!   boot/restart. No ereports will be reported until this IPC has been
+//!   called.
+//!
+//! If the "ereport" feature flag is *not* enabled, packrat's `deliver_ereport`
+//! and `read_ereports` IPCs will always fail with
+//! `ClientError::UnknownOperation`.
+//!
+//! [RFD 545]: https://rfd.shared.oxide.computer/rfd/0545
 #![no_std]
 #![no_main]
 
 use core::convert::Infallible;
+use gateway_ereport_messages as ereport_messages;
 use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
-    CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
-    VpdIdentity,
+    CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
+    HostStartupOptions, MacAddressBlock, OxideIdentity,
 };
 use userlib::RecvMessage;
 
@@ -56,6 +91,9 @@ use gimlet::SpdData;
 #[cfg(feature = "cosmo")]
 use cosmo::SpdData;
 
+#[cfg(feature = "ereport")]
+mod ereport;
+
 #[cfg(not(any(feature = "gimlet", feature = "cosmo")))]
 type SpdData = spd_data::SpdData<0, 0>; // dummy type
 
@@ -64,9 +102,18 @@ type SpdData = spd_data::SpdData<0, 0>; // dummy type
 enum Trace {
     None,
     MacAddressBlockSet(TraceSet<MacAddressBlock>),
-    VpdIdentitySet(TraceSet<VpdIdentity>),
+    VpdIdentitySet(TraceSet<OxideIdentity>),
     SetNextBootHostStartupOptions(HostStartupOptions),
-    SpdDataUpdate { index: u8, offset: usize, len: u8 },
+    SpdDataUpdate {
+        index: u8,
+        offset: usize,
+        len: u8,
+    },
+    SpdRemoveEeprom {
+        index: u8,
+    },
+    #[cfg(feature = "ereport")]
+    RestartIdSet(TraceSet<u128>),
 }
 
 impl From<TraceSet<MacAddressBlock>> for Trace {
@@ -75,9 +122,24 @@ impl From<TraceSet<MacAddressBlock>> for Trace {
     }
 }
 
-impl From<TraceSet<VpdIdentity>> for Trace {
-    fn from(value: TraceSet<VpdIdentity>) -> Self {
+impl From<TraceSet<OxideIdentity>> for Trace {
+    fn from(value: TraceSet<OxideIdentity>) -> Self {
         Self::VpdIdentitySet(value)
+    }
+}
+
+#[cfg(feature = "ereport")]
+impl From<TraceSet<ereport_messages::RestartId>> for Trace {
+    fn from(value: TraceSet<ereport_messages::RestartId>) -> Self {
+        // Turn this into a TraceSet<u128> instead of the newtype so that
+        // Humility formats it in a less ugly way.
+        Self::RestartIdSet(match value {
+            TraceSet::Set(id) => TraceSet::Set(id.into()),
+            TraceSet::SetToSameValue(id) => TraceSet::SetToSameValue(id.into()),
+            TraceSet::AttemptedSetToNewValue(id) => {
+                TraceSet::AttemptedSetToNewValue(id.into())
+            }
+        })
     }
 }
 
@@ -93,24 +155,27 @@ enum TraceSet<T> {
 }
 
 ringbuf!(Trace, 16, Trace::None);
-
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     struct StaticBufs {
         mac_address_block: Option<MacAddressBlock>,
-        identity: Option<VpdIdentity>,
+        identity: Option<OxideIdentity>,
         #[cfg(feature = "gimlet")]
         gimlet_bufs: gimlet::StaticBufs,
         #[cfg(feature = "cosmo")]
         cosmo_bufs: cosmo::StaticBufs,
+        #[cfg(feature = "ereport")]
+        ereport_bufs: ereport::EreportBufs,
     }
-    let StaticBufs {
+    let &mut StaticBufs {
         ref mut mac_address_block,
         ref mut identity,
         #[cfg(feature = "gimlet")]
         ref mut gimlet_bufs,
         #[cfg(feature = "cosmo")]
         ref mut cosmo_bufs,
+        #[cfg(feature = "ereport")]
+        ref mut ereport_bufs,
     } = {
         static BUFS: ClaimOnceCell<StaticBufs> =
             ClaimOnceCell::new(StaticBufs {
@@ -120,6 +185,8 @@ fn main() -> ! {
                 gimlet_bufs: gimlet::StaticBufs::new(),
                 #[cfg(feature = "cosmo")]
                 cosmo_bufs: cosmo::StaticBufs::new(),
+                #[cfg(feature = "ereport")]
+                ereport_bufs: ereport::EreportBufs::new(),
             });
         BUFS.claim()
     };
@@ -133,6 +200,8 @@ fn main() -> ! {
         grapefruit_data: grapefruit::GrapefruitData::new(),
         #[cfg(feature = "cosmo")]
         cosmo_data: cosmo::CosmoData::new(cosmo_bufs),
+        #[cfg(feature = "ereport")]
+        ereport_store: ereport::EreportStore::new(ereport_bufs),
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -143,13 +212,15 @@ fn main() -> ! {
 
 struct ServerImpl {
     mac_address_block: &'static mut Option<MacAddressBlock>,
-    identity: &'static mut Option<VpdIdentity>,
+    identity: &'static mut Option<OxideIdentity>,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
     #[cfg(feature = "grapefruit")]
     grapefruit_data: grapefruit::GrapefruitData,
     #[cfg(feature = "cosmo")]
     cosmo_data: cosmo::CosmoData,
+    #[cfg(feature = "ereport")]
+    ereport_store: ereport::EreportStore,
 }
 
 impl ServerImpl {
@@ -241,7 +312,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn get_identity(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<VpdIdentity, RequestError<CacheGetError>> {
+    ) -> Result<OxideIdentity, RequestError<CacheGetError>> {
         let addrs = self.identity.ok_or(CacheGetError::ValueNotSet)?;
         Ok(addrs)
     }
@@ -249,7 +320,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn set_identity(
         &mut self,
         _: &RecvMessage,
-        identity: VpdIdentity,
+        identity: OxideIdentity,
     ) -> Result<(), RequestError<CacheSetError>> {
         Self::set_once(self.identity, identity).map_err(Into::into)
     }
@@ -365,6 +436,20 @@ impl idl::InOrderPackratImpl for ServerImpl {
         }
     }
 
+    fn remove_spd(
+        &mut self,
+        _: &RecvMessage,
+        index: u8,
+    ) -> Result<(), RequestError<Infallible>> {
+        if let Some(spd) = self.spd_mut() {
+            spd.remove_eeprom(index)
+        } else {
+            Err(RequestError::Fail(
+                idol_runtime::ClientError::BadMessageContents,
+            ))
+        }
+    }
+
     fn get_spd_present(
         &mut self,
         _: &RecvMessage,
@@ -408,24 +493,121 @@ impl idl::InOrderPackratImpl for ServerImpl {
             ))
         }
     }
+
+    #[cfg(not(feature = "ereport"))]
+    fn set_ereport_restart_id(
+        &mut self,
+        _: &RecvMessage,
+        _: u128,
+    ) -> Result<(), RequestError<CacheSetError>> {
+        Ok(())
+    }
+
+    #[cfg(feature = "ereport")]
+    fn set_ereport_restart_id(
+        &mut self,
+        _: &RecvMessage,
+        value: u128,
+    ) -> Result<(), RequestError<CacheSetError>> {
+        let restart_id = ereport_messages::RestartId::new(value);
+        Self::set_once(&mut self.ereport_store.restart_id, restart_id)
+            .map_err(Into::into)
+    }
+
+    #[cfg(not(feature = "ereport"))]
+    fn deliver_encoded_ereport(
+        &mut self,
+        _: &RecvMessage,
+        _: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
+    ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
+        // go away, we don't know how to do that
+        Err(idol_runtime::ClientError::UnknownOperation.fail())
+    }
+
+    #[cfg(feature = "ereport")]
+    fn deliver_encoded_ereport(
+        &mut self,
+        msg: &RecvMessage,
+        data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
+    ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
+        self.ereport_store.deliver_encoded_ereport(msg, data)
+    }
+
+    #[cfg(not(feature = "ereport"))]
+    fn read_ereports(
+        &mut self,
+        _msg: &RecvMessage,
+        _: ereport_messages::RequestIdV0,
+        _: ereport_messages::RestartId,
+        _: ereport_messages::Ena,
+        _: u8,
+        _: ereport_messages::Ena,
+        _: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<EreportReadError>> {
+        // go away, we don't know how to do that
+        Err(idol_runtime::ClientError::UnknownOperation.fail())
+    }
+
+    #[cfg(feature = "ereport")]
+    fn read_ereports(
+        &mut self,
+        _msg: &RecvMessage,
+        request_id: ereport_messages::RequestIdV0,
+        restart_id: ereport_messages::RestartId,
+        begin_ena: ereport_messages::Ena,
+        limit: u8,
+        committed_ena: ereport_messages::Ena,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<EreportReadError>> {
+        self.ereport_store.read_ereports(
+            request_id,
+            restart_id,
+            begin_ena,
+            limit,
+            committed_ena,
+            data,
+            self.identity.as_ref(),
+        )
+    }
 }
 
+// If we are not built with ereport support, we expect no notifications.
+#[cfg(not(feature = "ereport"))]
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         // We don't use notifications, don't listen for any.
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
+    }
+}
+
+#[cfg(feature = "ereport")]
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        notifications::TASK_FAULTED_MASK
+    }
+
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        let now = userlib::sys_get_timer().now;
+
+        if bits.check_notification_mask(notifications::TASK_FAULTED_MASK) {
+            self.ereport_store.record_faulted_tasks(now);
+        }
+
+        // Otherwise, we've received a spurious notification.
     }
 }
 
 mod idl {
     use super::{
-        CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
-        VpdIdentity,
+        CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
+        HostStartupOptions, MacAddressBlock, OxideIdentity, ereport_messages,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

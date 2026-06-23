@@ -19,7 +19,7 @@ use config::DataRegion;
 use core::slice;
 use hubpack::SerializedSize;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
 use lib_dice::{AliasData, CertData, SeedBuf};
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -40,6 +40,7 @@ use build::{ALIAS_DATA, CERT_DATA, PERMIT_LOG_RESET};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Cert,
     CertChainLen(u32),
     CertLen(usize),
@@ -58,7 +59,6 @@ enum Trace {
     ClientError(ClientError),
     StartAttest,
     FinishAttest,
-    None,
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -256,7 +256,7 @@ impl idl::InOrderAttestImpl for AttestServer {
 
         // The first measurement can only be made by a privileged task.
         if self.measurements.is_empty()
-            && !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0)
+            && !PERMIT_LOG_RESET.contains(&msg.sender.0)
         {
             // This is NOT a coding error in the client.
             // The SP has not been measured yet and the first
@@ -288,7 +288,7 @@ impl idl::InOrderAttestImpl for AttestServer {
         &mut self,
         msg: &userlib::RecvMessage,
     ) -> Result<(), RequestError<AttestError>> {
-        if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
+        if !PERMIT_LOG_RESET.contains(&msg.sender.0) {
             // This is a coding error in the client.
             // They should not ask to reset the attestation log.
             return Err(ClientError::AccessViolation.fail());
@@ -308,7 +308,7 @@ impl idl::InOrderAttestImpl for AttestServer {
     ) -> Result<(), RequestError<AttestError>> {
         ringbuf_entry!(Trace::ResetRecord(algorithm));
 
-        if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
+        if !PERMIT_LOG_RESET.contains(&msg.sender.0) {
             // This is a coding error in the client.
             // They should not ask to reset the attestation log.
             return Err(ClientError::AccessViolation.fail());
@@ -612,12 +612,12 @@ impl NotificationHandler for AttestServer {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     ringbuf_entry!(Trace::Startup);
 

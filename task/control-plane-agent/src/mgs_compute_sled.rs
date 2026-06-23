@@ -3,9 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, notifications, update::host_flash::HostFlashUpdate,
-    update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
-    usize_max, CriticalEvent, Log, MgsMessage, SYS,
+    CriticalEvent, Log, MgsMessage, SYS, mgs_common::MgsCommon, notifications,
+    update::ComponentUpdater, update::host_flash::HostFlashUpdate,
+    update::rot::RotUpdate, update::sp::SpUpdate, usize_max,
 };
 use core::time::Duration;
 use drv_cpu_seq_api::Sequencer;
@@ -15,13 +15,15 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
-    ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask, Header,
-    IgnitionCommand, IgnitionState, Message, MessageKind, MgsError, MgsRequest,
-    MgsResponse, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
-    RotResponse, SensorRequest, SensorResponse, SpComponent, SpError,
-    SpPort as GwSpPort, SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk,
-    UpdateId, UpdateStatus, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    ApobComponentAction, ComponentAction, ComponentActionResponse,
+    ComponentDetails, ComponentUpdatePrepare, DiscoverResponse, DumpSegment,
+    DumpTask, GpioToggleCount, Header, IgnitionCommand, IgnitionState,
+    LastPostCode, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
+    PmbusStatus, PostCode, PowerRailName, PowerState, PowerStateTransition,
+    RotBootInfo, RotRequest, RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpPort as GwSpPort,
+    SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ignition,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -29,11 +31,11 @@ use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
 use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::{
-    ControlPlaneAgentError, UartClient, VpdIdentity,
-    MAX_INSTALLINATOR_IMAGE_ID_LEN,
+    ControlPlaneAgentError, MAX_INSTALLINATOR_IMAGE_ID_LEN, OxideIdentity,
+    UartClient,
 };
 use task_net_api::{Address, MacAddress, UdpMetadata, VLanId};
-use userlib::{sys_get_timer, sys_irq_control, FromPrimitive, UnwrapLite};
+use userlib::{FromPrimitive, UnwrapLite, sys_get_timer, sys_irq_control};
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
@@ -140,7 +142,7 @@ impl MgsHandler {
             installinator_image_id: InstallinatorImageIdBuf,
             host_phase2_buf: host_phase2::Phase2Buf,
         }
-        let Bufs {
+        let &mut Bufs {
             ref mut usart_to_tx,
             ref mut usart_from_rx,
             ref mut installinator_image_id,
@@ -170,7 +172,7 @@ impl MgsHandler {
         }
     }
 
-    pub(crate) fn identity(&self) -> VpdIdentity {
+    pub(crate) fn identity(&self) -> OxideIdentity {
         self.common.identity()
     }
 
@@ -612,6 +614,17 @@ impl SpHandler for MgsHandler {
                 .unwrap();
                 Ok(ComponentActionResponse::Ack)
             }
+            (
+                SpComponent::HOST_CPU_BOOT_APOB,
+                ComponentAction::Apob(action),
+            ) => {
+                let r = match action {
+                    ApobComponentAction::Clear => {
+                        self.host_flash_update.apob_clear()
+                    }
+                };
+                Ok(ComponentActionResponse::Apob(r))
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -728,7 +741,7 @@ impl SpHandler for MgsHandler {
             PowerState::A1 => {
                 return Err(SpError::PowerStateError(
                     drv_cpu_seq_api::SeqError::IllegalTransition.into(),
-                ))
+                ));
             }
             PowerState::A2 => DrvPowerState::A2,
         };
@@ -906,7 +919,21 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        self.common.inventory().num_component_details(&component)
+        self.common
+            .inventory()
+            .num_component_details(&component, |component| {
+                match *component {
+                    // The SP5 CPU can report a POST code and GPIO cycle count
+                    SpComponent::SP5_HOST_CPU => 2,
+                    // The SP3 CPU can report GPIO toggle counts
+                    SpComponent::SP3_HOST_CPU => 1,
+                    // The SP5 POST code buffer reports a dynamic length
+                    SpComponent::SP5_POST_CODES => {
+                        self.sequencer.post_code_buffer_len()
+                    }
+                    _ => 0,
+                }
+            })
     }
 
     fn component_details(
@@ -914,7 +941,44 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         index: BoundsChecked,
     ) -> ComponentDetails {
-        self.common.inventory().component_details(&component, index)
+        self.common.inventory().component_details(
+            &component,
+            index,
+            |dev, index| {
+                match dev.component {
+                    SpComponent::SP5_HOST_CPU => match index.0 {
+                        0 => ComponentDetails::LastPostCode(LastPostCode(
+                            self.sequencer.last_post_code(),
+                        )),
+                        1 => {
+                            ComponentDetails::GpioToggleCount(GpioToggleCount {
+                                edge_count: self.sequencer.gpio_edge_count(),
+                                cycles_since_last_edge: self
+                                    .sequencer
+                                    .gpio_cycle_count(),
+                            })
+                        }
+                        _ => panic!("invalid index"),
+                    },
+                    SpComponent::SP5_POST_CODES => ComponentDetails::PostCode(
+                        PostCode(self.sequencer.get_post_code(index.0)),
+                    ),
+                    SpComponent::SP3_HOST_CPU => {
+                        // Only one component detail for now
+                        assert_eq!(index.0, 0);
+                        ComponentDetails::GpioToggleCount(GpioToggleCount {
+                            edge_count: self.sequencer.gpio_edge_count(),
+                            cycles_since_last_edge: self
+                                .sequencer
+                                .gpio_cycle_count(),
+                        })
+                    }
+                    _ => {
+                        panic!("no other devices have component details");
+                    }
+                }
+            },
+        )
     }
 
     fn component_get_active_slot(
@@ -953,6 +1017,22 @@ impl SpHandler for MgsHandler {
             _ => self
                 .common
                 .component_set_active_slot(component, slot, persist),
+        }
+    }
+
+    fn component_get_persistent_slot(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<u16, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentGetPersistentSlot { component }
+        ));
+
+        match component {
+            SpComponent::HOST_CPU_BOOT_FLASH => {
+                self.host_flash_update.persistent_slot()
+            }
+            _ => self.common.component_get_persistent_slot(component),
         }
     }
 
@@ -1179,6 +1259,13 @@ impl SpHandler for MgsHandler {
             slot
         }));
         self.host_flash_update.get_hash(slot)
+    }
+
+    fn get_pmbus_status(
+        &mut self,
+        rail: &PowerRailName,
+    ) -> Result<PmbusStatus, SpError> {
+        self.common.get_pmbus_status(rail)
     }
 }
 

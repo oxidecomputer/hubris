@@ -7,8 +7,8 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 use crate::{Phy, PhyRw, Trace};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use userlib::hl::sleep_for;
-use vsc7448_pac::phy;
 use vsc_err::VscError;
+use vsc7448_pac::phy;
 
 pub struct Vsc8562Phy<'a, 'b, P> {
     pub phy: &'b mut Phy<'a, P>,

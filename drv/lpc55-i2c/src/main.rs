@@ -24,7 +24,7 @@
 use drv_lpc55_gpio_api::*;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
-use userlib::{hl, task_slot, FromPrimitive, LeaseAttributes};
+use userlib::{FromPrimitive, LeaseAttributes, hl, task_slot};
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
@@ -54,7 +54,7 @@ struct Transmit {
     pos: usize,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = Syscon::from(SYSCON.get_task_id());
 

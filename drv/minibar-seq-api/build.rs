@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Check that a valid bitstream is available for this board.
     let board = build_util::env_var("HUBRIS_BOARD")?;
-    if board != "minibar" {
+    if board != "minibar-a" && board != "minibar-b" {
         panic!("unknown target board");
     }
 
@@ -27,8 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_FPGA").unwrap();
     writeln!(
         &mut file,
-        "\npub const MINIBAR_BITSTREAM_CHECKSUM: [u8; 32] = {};",
-        checksum,
+        "\npub const MINIBAR_BITSTREAM_CHECKSUM: [u8; 32] = {checksum};",
     )?;
 
     idol::Generator::new()

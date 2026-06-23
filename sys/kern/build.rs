@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use build_kconfig::{
     InterruptConfig, KernelConfig, OwnedAddress, RegionAttributes,
     RegionConfig, SpecialRole,
@@ -401,7 +401,7 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
     }
 }
 
-fn generate_statics(gen: &Generated) -> Result<()> {
+fn generate_statics(generated: &Generated) -> Result<()> {
     let image_id: u64 = build_util::env_var("HUBRIS_IMAGE_ID")?
         .parse()
         .context("parsing HUBRIS_IMAGE_ID")?;
@@ -416,13 +416,13 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     /////////////////////////////////////////////////////////
     // Basic constants and empty space
 
-    let task_count = gen.tasks.len();
+    let task_count = generated.tasks.len();
     writeln!(
         file,
         "{}",
         quote::quote! {
             const HUBRIS_TASK_COUNT: usize = #task_count;
-            #[no_mangle]
+            #[unsafe(no_mangle)]
             pub static HUBRIS_IMAGE_ID: u64 = #image_id;
 
             static mut HUBRIS_TASK_TABLE_SPACE:
@@ -434,7 +434,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     /////////////////////////////////////////////////////////
     // Task descriptors
 
-    let task_descs = &gen.tasks;
+    let task_descs = &generated.tasks;
     writeln!(
         file,
         "{}",
@@ -449,7 +449,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     /////////////////////////////////////////////////////////
     // Region descriptors
 
-    let regions = &gen.regions;
+    let regions = &generated.regions;
     let region_count = regions.len();
     writeln!(
         file,
@@ -464,7 +464,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     /////////////////////////////////////////////////////////
     // Interrupt table
 
-    writeln!(file, "{}", gen.irq_code)?;
+    writeln!(file, "{}", generated.irq_code)?;
 
     drop(file);
     call_rustfmt::rustfmt(kconfig_path)?;

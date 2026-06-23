@@ -10,9 +10,9 @@
 use derive_idol_err::IdolError;
 use drv_spi_api::{SpiDevice, SpiServer};
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
-use userlib::{hl, task_slot, FromPrimitive, RecvMessage};
+use userlib::{FromPrimitive, RecvMessage, hl, task_slot};
 
 const PAGE_SIZE_BYTES: usize = 256;
 
@@ -65,7 +65,7 @@ pub enum Command {
     ReleaseFromDeepPowerDown = 0xAB,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let spi_front = drv_spi_api::Spi::from(SPI_FRONT.get_task_id());
     let dev = spi_front.device(drv_spi_api::devices::MUX);
@@ -276,8 +276,8 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<'_, S> {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
-        // Nothing to do here
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+        unreachable!()
     }
 }
 

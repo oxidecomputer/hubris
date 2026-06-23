@@ -27,8 +27,8 @@ enum Event {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Event(Event),
     None,
+    Event(Event),
 }
 
 ringbuf!(Trace, 128, Trace::None);

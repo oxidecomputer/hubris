@@ -9,7 +9,7 @@ use userlib::*;
 
 task_slot!(USER_LEDS, user_leds);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 pub fn main() -> ! {
     const INTERVAL: u64 = 500;
 

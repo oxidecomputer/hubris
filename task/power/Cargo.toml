@@ -1,7 +1,7 @@
 [package]
 name = "task-power"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 cfg-if.workspace = true
@@ -40,6 +40,7 @@ gimlet = ["drv-cpu-seq-api", "h753"]
 cosmo = ["drv-cpu-seq-api", "h753"]
 sidecar = ["drv-sidecar-seq-api", "h753"]
 psc = ["drv-stm32xx-sys-api", "h753"]
+observer = ["drv-stm32xx-sys-api", "h753"]
 dc2024 = ["drv-stm32xx-sys-api", "h753"]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]

@@ -25,7 +25,7 @@ Interface(
         "get_identity": (
             doc: "Get the cached board identity",
             reply: Result(
-                ok: "VpdIdentity",
+                ok: "OxideIdentity",
                 err: CLike("CacheGetError"),
             ),
             idempotent: true,
@@ -33,7 +33,7 @@ Interface(
         "set_identity": (
             doc: "Set the cached board identity",
             args: {
-                "macs": "VpdIdentity",
+                "macs": "OxideIdentity",
             },
             reply: Result(
                 ok: "()",
@@ -50,6 +50,14 @@ Interface(
             doc: "Set the value for host OS startup options we will give to the host the next time it requests them from us.",
             args: {
                 "startup_options": "HostStartupOptions",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "remove_spd": (
+            doc: "Mark an SPD as absent",
+            args: {
+                "index": "u8",
             },
             reply: Simple("()"),
             idempotent: true,
@@ -94,6 +102,47 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "set_ereport_restart_id": (
+            doc: "Set the restart ID for ereports",
+            args: {
+                "restart_id": "u128",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("CacheSetError"),
+            ),
+            idempotent: true,
+        ),
+        "deliver_encoded_ereport": (
+            doc: "Hand an encoded ereport to packrat for buffering.",
+            args: {
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(1024)),
+            },
+            reply: Result(
+                ok: "ereport_messages::Ena",
+                err: CLike("EreportWriteError"),
+            ),
+            idempotent: true,
+        ),
+        "read_ereports": (
+            doc: "Read ereports starting with a watermark (ENA) value",
+            args: {
+                "request_id": "ereport_messages::RequestIdV0",
+                "restart_id": "ereport_messages::RestartId",
+                "start_ena": "ereport_messages::Ena",
+                "limit": "u8",
+                "committed_ena": "ereport_messages::Ena",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("EreportReadError"),
+            ),
+            idempotent: true,
+        ),
     },
 )
-

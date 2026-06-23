@@ -18,9 +18,9 @@ struct ServerImpl;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Validate(usize),
     ValidateFailure(drv_i2c_api::ResponseCode),
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -59,12 +59,12 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut server = ServerImpl;
     let mut buffer = [0; idl::INCOMING_SIZE];

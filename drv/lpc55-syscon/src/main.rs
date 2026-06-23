@@ -114,7 +114,7 @@ use drv_lpc55_syscon_api::*;
 use idol_runtime::{NotificationHandler, RequestError};
 use lpc55_pac as device;
 use task_jefe_api::{Jefe, ResetReason};
-use userlib::{task_slot, RecvMessage};
+use userlib::{RecvMessage, task_slot};
 
 task_slot!(JEFE, jefe);
 
@@ -214,12 +214,12 @@ impl NotificationHandler for ServerImpl<'_> {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = unsafe { &*device::SYSCON::ptr() };
 

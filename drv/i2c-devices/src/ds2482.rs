@@ -67,11 +67,11 @@ pub enum Error {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Read(Register, u8),
     ReadError(Register, ResponseCode),
     Command(Command),
     CommandError(Command, ResponseCode),
-    None,
 }
 
 ringbuf!(Trace, 196, Trace::None);

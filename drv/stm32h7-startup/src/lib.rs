@@ -30,7 +30,7 @@ unsafe fn system_pre_init() {
     // Synthesize a pointer using a const fn (which won't hit RAM) and then
     // convert it to a reference. We can have a reference to PWR because it's
     // hardware, and is thus not uninitialized.
-    let pwr = &*device::PWR::ptr();
+    let pwr = unsafe { &*device::PWR::ptr() };
     // Poke CR3 to enable the LDO and prevent further writes.
     pwr.cr3.modify(|_, w| w.ldoen().set_bit());
 
@@ -40,7 +40,7 @@ unsafe fn system_pre_init() {
     }
 
     // Turn on the internal RAMs.
-    let rcc = &*device::RCC::ptr();
+    let rcc = unsafe { &*device::RCC::ptr() };
     rcc.ahb2enr.modify(|_, w| {
         w.sram1en()
             .set_bit()
@@ -51,6 +51,15 @@ unsafe fn system_pre_init() {
     });
 
     // Okay, yay, we can use some RAMs now.
+
+    #[cfg(any(feature = "h743", feature = "h753"))]
+    {
+        // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
+        // read corruption" - limits AXI SRAM read concurrency.
+        let axi = unsafe { &*device::AXI::ptr() };
+        axi.targ7_fn_mod
+            .modify(|_, w| w.read_iss_override().set_bit());
+    }
 
     // We'll do the rest in system_init.
 }
@@ -96,14 +105,28 @@ pub fn system_init_custom(
     // static variables.
     //
     // We are running at 64MHz on the HSI oscillator at voltage scale VOS3.
+    //
+    // Turn on CPU I/D caches to improve performance. This has a significant
+    // impact on the delay loop a few lines below.
+    cp.SCB.enable_icache();
+    cp.SCB.enable_dcache(&mut cp.CPUID);
 
-    #[cfg(any(feature = "h743", feature = "h753"))]
-    {
-        // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
-        // read corruption" - limits AXI SRAM read concurrency.
-        p.AXI
-            .targ7_fn_mod
-            .modify(|_, w| w.read_iss_override().set_bit());
+    // Before doing anything else, check for a measurement handoff token
+    #[cfg(feature = "measurement-handoff")]
+    unsafe {
+        // After each delay, we'll wait roughly 200 ms.  We double the naive
+        // cycle count because the STM32H7 may (under some circumstances)
+        // dual-issue instructions in the delay loop, which would make the loop
+        // run twice as fast as expected.  We'd rather the loop sometimes run
+        // twice as *slow*, because that just slows down SP boot in cases where
+        // the RoT is not present; if the loop is twice as fast, the SP can time
+        // out before RoT comes up at all, which is a much worse failure mode.
+        const DELAY_CYCLES: u32 = 12860000 * 2;
+        const RETRY_COUNT: u32 = 20;
+        measurement_handoff::check(RETRY_COUNT, || {
+            cortex_m::asm::delay(DELAY_CYCLES);
+            cortex_m::peripheral::SCB::sys_reset()
+        });
     }
 
     // The H7 -- and perhaps the Cortex-M7 -- has the somewhat annoying
@@ -150,11 +173,6 @@ pub fn system_init_custom(
 
     // Ethernet is on RMII, not MII.
     p.SYSCFG.pmcr.modify(|_, w| unsafe { w.epis().bits(0b100) });
-
-    // Turn on CPU I/D caches to improve performance at the higher clock speeds
-    // we're about to enable.
-    cp.SCB.enable_icache();
-    cp.SCB.enable_dcache(&mut cp.CPUID);
 
     // The Flash controller comes out of reset configured for 3 wait states.
     // That's approximately correct for 64MHz at VOS3, which is fortunate, since

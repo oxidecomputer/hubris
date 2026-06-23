@@ -20,7 +20,7 @@ cfg_if::cfg_if! {
 }
 
 use cortex_m_rt::entry;
-use drv_stm32h7_startup::{system_init, ClockConfig};
+use drv_stm32h7_startup::{ClockConfig, system_init};
 
 #[entry]
 fn main() -> ! {

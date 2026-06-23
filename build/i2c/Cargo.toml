@@ -1,7 +1,7 @@
 [package]
 name = "build-i2c"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 build-util = {path = "../util"}
@@ -19,6 +19,7 @@ h743 = []
 h753 = []
 g031 = []
 g030 = []
+component-id = []
 
 [lints]
 workspace = true

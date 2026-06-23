@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Check that a valid bitstream is available for this board.
     let board = build_util::target_board().expect("could not get target board");
     match board.as_str() {
-        "grapefruit" | "cosmo-a" => (),
+        "grapefruit-a" | "grapefruit-b" | "cosmo-a" | "cosmo-b" => (),
         _ => panic!("unknown target board '{board}'"),
     }
 
@@ -24,8 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_SPA7").unwrap();
     writeln!(
         &mut file,
-        "\npub const SPARTAN7_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {};",
-        checksum,
+        "\npub const SPARTAN7_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {checksum};",
     )?;
 
     idol::Generator::new().build_server_support(

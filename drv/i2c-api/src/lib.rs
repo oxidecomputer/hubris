@@ -25,7 +25,7 @@
 use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 pub use drv_i2c_types::*;
-use userlib::{sys_send, FromPrimitive, Lease, TaskId};
+use userlib::{FromPrimitive, Lease, TaskId, sys_send};
 
 ///
 /// The 5-tuple that uniquely identifies an I2C device.  The multiplexer and
@@ -38,6 +38,8 @@ pub struct I2cDevice {
     pub port: PortIndex,
     pub segment: Option<(Mux, Segment)>,
     pub address: u8,
+    #[cfg(feature = "component-id")]
+    pub component_id: &'static str,
 }
 
 type I2cMessage = (u8, Controller, PortIndex, Option<(Mux, Segment)>);
@@ -54,7 +56,7 @@ impl Marshal<[u8; 4]> for I2cMessage {
         [
             self.0,
             self.1 as u8,
-            self.2 .0,
+            self.2.0,
             match self.3 {
                 Some((mux, seg)) => {
                     0b1000_0000 | ((mux as u8) << 4) | (seg as u8)
@@ -113,6 +115,7 @@ impl I2cDevice {
         port: PortIndex,
         segment: Option<(Mux, Segment)>,
         address: u8,
+        #[cfg(feature = "component-id")] component_id: &'static str,
     ) -> Self {
         Self {
             task,
@@ -120,7 +123,14 @@ impl I2cDevice {
             port,
             segment,
             address,
+            #[cfg(feature = "component-id")]
+            component_id,
         }
+    }
+
+    #[cfg(feature = "component-id")]
+    pub fn component_id(&self) -> &'static str {
+        self.component_id
     }
 }
 

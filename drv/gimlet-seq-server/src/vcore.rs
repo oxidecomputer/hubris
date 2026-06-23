@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use super::{I2cTxn, retry_i2c_txn};
+use crate::Ereporter;
 ///
 /// We have seen adventures on the V12_SYS_A2 rail in that it will sag from
 /// 12V to ~8V over a period of about ~4ms, and then rise back 12V over ~7ms.
@@ -30,37 +32,87 @@ use crate::gpio_irq_pins::VCORE_TO_SP_ALERT_L;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
+use ereports::pwr::{PmbusAlert, PmbusStatus};
+use fixedstr::FixedStr;
 use ringbuf::*;
 use sys_api::IrqControl;
 use userlib::{sys_get_timer, units};
 
 pub struct VCore {
     device: Raa229618,
+    faulted: bool,
     sys: sys_api::Sys,
 }
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Initializing,
     Initialized,
     LimitLoaded,
-    FaultsCleared,
-    Notified,
-    Fault,
-    Reading { timestamp: u64, volts: units::Volts },
+    Notified {
+        timestamp: u64,
+        asserted: bool,
+    },
+    RegulatorStatus {
+        power_good: bool,
+        faulted: bool,
+    },
+    TriedToClearFaults {
+        status_word: Result<u16, ResponseCode>,
+        pmalert: bool,
+        cleared: Result<(), ResponseCode>,
+    },
+    StatusWord(Result<u16, ResponseCode>),
+    StatusInput(Result<u8, ResponseCode>),
+    StatusVout(Result<u8, ResponseCode>),
+    StatusIout(Result<u8, ResponseCode>),
+    StatusTemperature(Result<u8, ResponseCode>),
+    StatusCml(Result<u8, ResponseCode>),
+    StatusMfrSpecific(Result<u8, ResponseCode>),
+    Reading {
+        timestamp: u64,
+        volts: units::Volts,
+    },
     Error(ResponseCode),
-    None,
 }
 
 ringbuf!(Trace, 120, Trace::None);
 
 ///
-/// We are going to set our input undervoltage warn limit to be 11.75 volts.
+/// Limit value for input undervoltage *warnings*.
 /// Note that we will not fault if VIN goes below this (that is, we will not
 /// lose POWER_GOOD), but the part will indicate an input fault and pull
-/// PWR_CONT1_VCORE_TO_SP_ALERT_L low.
+/// on its PMBus alert pin.
 ///
-const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
+/// * * *
+///
+/// Okay, so this number is actually a bit finnicky.  Per the RAA229618
+/// datasheet, in the documentation for the `VIN_UV_FAULT_RESPONSE` register,
+/// we find the following (emphasis mine):
+///
+/// > Configures the input undervoltage fault response. For a fault to be
+/// > considered cleared, **the input voltage must rise by 1/16th of the UV
+/// > fault threshold value.**
+/// >
+/// > --- R16DS0096EU0100 Rev.1.00 § 10.39, "VIN_UV_FAULT_RESPONSE" (p. 61)
+///
+/// While the documentation does not explicitly state that this also applies
+/// to *warnings* (and there is no corresponding `VIN_UV_WARN_RESPONSE`
+/// register, as the response is always just to assert the PMBus alert pin),
+/// it stands to reason that warnings would also only clear when voltage
+/// rises by 1/16th of the warning threshold value.  Empirical testing reveals
+/// that this is indeed the case.
+///
+/// So, the important thing here is that, when selecting a warning threshold,
+/// we must ensure that `lim + (1/16 * lim)` is less than the expected nominal
+/// input voltage, or else the warning will not clear even if the input voltage
+/// returns to nominal.
+///
+/// For a 12V input, 11V seems like a reasonable undervoltage warning limit.
+/// 1/16 * 11V = 0.6875V, so the warning will clear if the input voltage rises
+/// by at least 11.6875V.
+const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.0);
 
 ///
 /// We want to collect enough samples (at ~900µs per sample) to adequately
@@ -86,6 +138,7 @@ impl VCore {
     pub fn new(sys: &sys_api::Sys, device: &I2cDevice, rail: u8) -> Self {
         Self {
             device: Raa229618::new(device, rail),
+            faulted: false,
             sys: sys.clone(),
         }
     }
@@ -94,22 +147,24 @@ impl VCore {
         crate::notifications::VCORE_MASK
     }
 
-    pub fn initialize_uv_warning(&self) -> Result<(), ResponseCode> {
+    pub fn initialize_uv_warning(&mut self) -> Result<(), ResponseCode> {
         let sys = &self.sys;
 
         ringbuf_entry!(Trace::Initializing);
+
+        // Set our alert line to be an input.
+        //
+        // We do this prior to calling `try_to_clear_faults`, as that function
+        // will attempt to read the alert line.
+        sys.gpio_configure_input(VCORE_TO_SP_ALERT_L, sys_api::Pull::None);
+        sys.gpio_irq_configure(self.mask(), sys_api::Edge::Falling);
 
         // Set our warn limit
         self.device.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)?;
         ringbuf_entry!(Trace::LimitLoaded);
 
         // Clear our faults
-        self.device.clear_faults()?;
-        ringbuf_entry!(Trace::FaultsCleared);
-
-        // Set our alert line to be an input
-        sys.gpio_configure_input(VCORE_TO_SP_ALERT_L, sys_api::Pull::None);
-        sys.gpio_irq_configure(self.mask(), sys_api::Edge::Falling);
+        self.try_to_clear_faults();
 
         // Enable the interrupt!
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
@@ -119,14 +174,180 @@ impl VCore {
         Ok(())
     }
 
-    pub fn handle_notification(&self) {
-        let faulted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
+    pub fn handle_notification(&mut self, ereporter: &mut Ereporter) {
+        let now = sys_get_timer().now;
+        let asserted = self.is_pmalert_asserted();
 
-        ringbuf_entry!(Trace::Notified);
+        ringbuf_entry!(Trace::Notified {
+            timestamp: now,
+            asserted
+        });
 
-        if faulted {
-            ringbuf_entry!(Trace::Fault);
+        if asserted {
+            // Don't produce another ereport if PMALERT_L was already asserted
+            // without being deasserted.
+            if !self.faulted {
+                self.read_pmbus_status(now, ereporter);
+            }
+            // Clear the fault now so that PMALERT_L is reasserted if a
+            // subsequent fault occurs. Note that if the fault *condition*
+            // continues, the fault bits in the status registers will remain
+            // set, and sending the CLEAR_FAULTS command does *not* cause the
+            // device to power back on if it's off.
+            self.try_to_clear_faults();
+        }
 
+        let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
+    }
+
+    pub fn is_faulted(&self) -> bool {
+        self.faulted
+    }
+
+    pub fn try_to_clear_faults(&mut self) {
+        let cleared = retry_i2c_txn(I2cTxn::VCoreClearFaults, || {
+            self.device.clear_faults_on_all_rails()
+        });
+        let pmalert = self.is_pmalert_asserted();
+        self.faulted = pmalert;
+        let status_word =
+            self.device.status_word().map(|s| s.0).map_err(Into::into);
+        ringbuf_entry!(Trace::TriedToClearFaults {
+            cleared,
+            pmalert,
+            status_word
+        })
+    }
+
+    fn is_pmalert_asserted(&self) -> bool {
+        self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0
+    }
+
+    fn read_pmbus_status(&self, now: u64, ereporter: &mut Ereporter) {
+        use pmbus::commands::raa229618::STATUS_WORD;
+
+        // Read PMBus status registers and prepare an ereport.
+        let status_word = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_word()
+        });
+        ringbuf_entry!(Trace::StatusWord(status_word.map(|s| s.0)));
+
+        let mut input_fault = false;
+        let pwr_good = if let Ok(status) = status_word {
+            // If any fault bits are hot, set this VRM to "faulted", even if it
+            // was not the one whose `PMALERT` assertion actually triggered our
+            // IRQ.
+            //
+            // Note: since these are all single bits in the PMBus STATUS_WORD,
+            // the PMBus crate *should* never return `None` for them, as there
+            // are no un-interpretable values possible. Either a bit is set or
+            // it is not.
+            let mut faulted = false;
+            if status.get_input_fault()
+                != Some(STATUS_WORD::InputFault::NoFault)
+            {
+                faulted = true;
+                // If the INPUT_FAULT bit is set, we will also sample input
+                // voltage readings into the ringbuf.
+                input_fault = true;
+            }
+            faulted |= status.get_output_voltage_fault()
+                != Some(STATUS_WORD::OutputVoltageFault::NoFault);
+            faulted |= status.get_output_voltage_fault()
+                != Some(STATUS_WORD::OutputVoltageFault::NoFault);
+            faulted |= status.get_other_fault()
+                != Some(STATUS_WORD::OtherFault::NoFault);
+            faulted |= status.get_manufacturer_fault()
+                != Some(STATUS_WORD::ManufacturerFault::NoFault);
+            faulted |=
+                status.get_cml_fault() != Some(STATUS_WORD::CMLFault::NoFault);
+            faulted |= status.get_temperature_fault()
+                != Some(STATUS_WORD::TemperatureFault::NoFault);
+            // If the POWER_GOOD# bit is set, the regulator has deasserted its
+            // POWER_GOOD pin.
+            //
+            // Again, this *shouldn't* ever be `None`, as it's a single bit.
+            let power_good = status.get_power_good_status()
+                == Some(STATUS_WORD::PowerGoodStatus::PowerGood);
+            ringbuf_entry!(Trace::RegulatorStatus {
+                power_good,
+                faulted
+            });
+
+            // If we haven't faulted, and POWER_GOOD is asserted, nothing left
+            // to do here.
+            if !faulted && power_good {
+                return;
+            }
+            Some(power_good)
+        } else {
+            None
+        };
+
+        // Read remaining status registers.
+        let status_input = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_input()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusInput(status_input));
+        let status_vout = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_vout()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusVout(status_vout));
+        let status_iout = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_iout()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusIout(status_iout));
+        let status_temperature =
+            retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+                self.device.status_temperature()
+            })
+            .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusTemperature(status_temperature));
+        let status_cml = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_cml()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusCml(status_cml));
+        let status_mfr_specific =
+            retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+                self.device.status_mfr_specific()
+            })
+            .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusMfrSpecific(status_mfr_specific));
+
+        let status = PmbusStatus {
+            word: status_word.map(|s| s.0).ok(),
+            input: status_input.ok(),
+            vout: status_vout.ok(),
+            iout: status_iout.ok(),
+            temp: status_temperature.ok(),
+            cml: status_cml.ok(),
+            mfr: status_mfr_specific.ok(),
+        };
+
+        static RAIL: FixedStr<'static, 9> = FixedStr::from_str("VDD_VCORE");
+        let ereport = PmbusAlert {
+            refdes: FixedStr::<{ crate::REFDES_LEN }>::from_str(
+                self.device.i2c_device().component_id(),
+            ),
+            rail: RAIL,
+            time: now,
+            pwr_good,
+            pmbus_status: status,
+        };
+        let _ = ereporter.deliver_ereport(&ereport);
+        // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
+        // subsequent ereport for that.
+
+        // If the `INPUT_FAULT` bit in `STATUS_WORD` is set, or any bit is hot
+        // in `STATUS_INPUT`, sample Vin in order to record the voltage dip in
+        // the ringbuf. If we weren't able to read these status registers, let's
+        // also go ahead and record the input voltage, just in case.
+        if input_fault || status_input != Ok(0) {
+            // "Houston, we've got a main bus B undervolt..."
             for _ in 0..VCORE_NSAMPLES {
                 match self.device.read_vin() {
                     Ok(val) => {
@@ -151,7 +372,5 @@ impl VCore {
                 }
             }
         }
-
-        let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
     }
 }

@@ -13,7 +13,7 @@ use stm32h7::stm32h743 as device;
 use stm32h7::stm32h753 as device;
 
 use drv_qspi_api::Command;
-use userlib::{sys_irq_control, sys_recv_notification, UnwrapLite};
+use userlib::{UnwrapLite, sys_irq_control, sys_recv_notification};
 use zerocopy::IntoBytes;
 
 const FIFO_SIZE: usize = 32;

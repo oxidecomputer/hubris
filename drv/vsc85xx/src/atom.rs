@@ -4,8 +4,8 @@
 
 use crate::{Phy, PhyRw, Trace};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use vsc7448_pac::phy;
 use vsc_err::VscError;
+use vsc7448_pac::phy;
 
 /// Based on `vtss_atom_patch_suspend` in the SDK
 pub fn atom_patch_suspend<P: PhyRw>(

@@ -2,17 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::ecp5::{Command, Ecp5, Ecp5Driver};
+//! This module implements an ECP5 driver which exposes two physical devices,
+//! which share a single SPI bus using a mux and are controlled through a shared
+//! PCA9538 GPIO expander.
+
 use crate::FpgaUserDesign;
+use crate::ecp5::{Command, Ecp5, Ecp5Driver};
 use drv_fpga_api::FpgaError;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::pca9538;
 use drv_spi_api::{self as spi_api, SpiDevice, SpiError, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
-
-/// This module implements an ECP5 driver which exposes two physical devices,
-/// which share a single SPI bus using a mux and are controlled through a shared
-/// PCA9538 GPIO expander.
 
 /// Impl Error type, with conversion from `SpiError` and `ResponseCode`.
 #[derive(Copy, Clone, Debug)]
@@ -270,7 +270,7 @@ impl<'a, S: SpiServer> FpgaUserDesign for DeviceInstance<'a, S> {
     }
 
     fn set_user_design_enabled(&self, enabled: bool) -> Result<(), FpgaError> {
-        use crate::ecp5::{ecp5_trace, Trace};
+        use crate::ecp5::{Trace, ecp5_trace};
 
         self.set_user_design_reset_n(enabled)?;
 

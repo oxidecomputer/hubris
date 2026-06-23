@@ -61,7 +61,7 @@ enum Trace {
 
 ringbuf::counted_ringbuf!(Trace, 16, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 pub fn main() -> ! {
     let user_leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
@@ -104,7 +104,7 @@ pub fn main() -> ! {
 
         // Wait for the user button to be pressed.
         let notif = sys_recv_notification(notifications::BUTTON_MASK);
-        ringbuf_entry!(Trace::Notification(notif));
+        ringbuf_entry!(Trace::Notification(notif.get_raw_bits()));
     }
 }
 

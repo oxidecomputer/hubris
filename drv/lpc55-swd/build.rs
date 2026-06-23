@@ -2,12 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use build_lpc55pins::PinConfig;
 use call_rustfmt::rustfmt;
 use goblin::container::Container;
-use goblin::elf::section_header::{SectionHeader, SHF_ALLOC, SHT_PROGBITS};
 use goblin::elf::Elf;
+use goblin::elf::section_header::{SHF_ALLOC, SHT_PROGBITS, SectionHeader};
 use serde::Deserialize;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -27,6 +27,8 @@ pub const RESET_VECTOR_SYMBOL: &str = "Reset";
 struct TaskConfig {
     in_cfg: Vec<PinConfig>,
     out_cfg: Vec<PinConfig>,
+    connected_cfg: Vec<PinConfig>,
+    disconnected_cfg: Vec<PinConfig>,
     pins: Vec<PinConfig>,
     spi_num: usize,
 }
@@ -36,11 +38,41 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
     let dest_path = out_dir.join("swd.rs");
     let mut file = std::fs::File::create(dest_path)?;
 
-    let out_cfg = &config.out_cfg;
-    let in_cfg = &config.in_cfg;
     let spi_periph = quote::format_ident!("Fc{}", config.spi_num);
     let flexcomm = quote::format_ident!("FLEXCOMM{}", config.spi_num);
     let spi_regs = quote::format_ident!("SPI{}", config.spi_num);
+
+    let switch_io_fns = [
+        (&config.out_cfg, "switch_io_out"),
+        (&config.in_cfg, "switch_io_in"),
+        (&config.connected_cfg, "switch_io_connected"),
+        (&config.disconnected_cfg, "switch_io_disconnected"),
+    ]
+    .map(|(pins, name)| {
+        let name = quote::format_ident!("{name}");
+        quote::quote! {
+            fn #name() {
+                use drv_lpc55_gpio_api::*;
+                let iocon_base = lpc55_pac::IOCON::ptr() as *const u32 as u32;
+
+                #(
+                    let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(
+                        #pins
+                    );
+                    let base = iocon_base + 4 * pin;
+                    // SAFETY: we're relying on the enum value of the pin for
+                    // correctness here. The LPC55 IOCON Rust API has individual
+                    // functions for each pin which we aren't easy to use with a
+                    // task based setup but could actually be used here. It's
+                    // not clear how much benefit we'd actually get from that
+                    // though.
+                    unsafe {
+                        core::ptr::write_volatile(base as *mut u32, conf);
+                    }
+                )*
+            }
+        }
+    });
 
     // The RoT -> SP SWD control requires setting the IO functions at runtime
     // as opposed to just startup.
@@ -53,41 +85,12 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
         "{}",
         quote::quote! {
 
-        // SAFETY: we're relying on the enum value of the pin for correctness
-        // here. The LPC55 IOCON Rust API has individual functions for each
-        // pin which we aren't easy to use with a task based setup but
-        // could actually be used here. It's not clear how much benefit
-        // we'd actually get from that though.
 
-        // io_out = MOSI on, MISO off
-        fn switch_io_out() {
-            let iocon_base = lpc55_pac::IOCON::ptr() as *const u32 as u32;
+        // Helper functions
+        #(
+            #switch_io_fns
+        )*
 
-            #(
-            {
-                use drv_lpc55_gpio_api::*;
-
-                let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(#out_cfg);
-                let base = iocon_base + 4 * pin;
-                unsafe {
-                    core::ptr::write_volatile(base as *mut u32, conf);
-                }
-            })*
-        }
-        // io_in = MOSI off, MISO on
-        fn switch_io_in() {
-            let iocon_base = lpc55_pac::IOCON::ptr() as *const u32 as u32;
-
-            #(
-            {
-                use drv_lpc55_gpio_api::*;
-                let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(#in_cfg);
-                let base = iocon_base + 4 * pin;
-                unsafe {
-                    core::ptr::write_volatile(base as *mut u32, conf);
-                }
-            })*
-        }
         fn setup_spi(task : TaskId) -> spi_core::Spi {
             let syscon = Syscon::from(task);
             syscon.enable_clock(Peripheral::#spi_periph);
@@ -104,11 +107,11 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
 }
 
 fn prepare_endoscope() -> Result<(), anyhow::Error> {
-    let key = "CARGO_BIN_FILE_ENDOSCOPE";
-    println!("cargo:rerun-if-env-changed={key}");
+    let key = "XTASK_BIN_FILE_ENDOSCOPE"; // populated by the build system
+    println!("cargo::rerun-if-env-changed={key}");
     let elf_path = PathBuf::from(
         std::env::var(key)
-            .with_context(|| format!("Cannot read env var '{}'", key))?,
+            .with_context(|| format!("Cannot read env var '{key}'"))?,
     );
     let data = std::fs::read(&elf_path).context("could not open ELF file")?;
     let elf = Elf::parse(&data).context("cannot parse ELF file")?;
@@ -142,8 +145,8 @@ fn prepare_endoscope() -> Result<(), anyhow::Error> {
             if let Some(myname) = interesting.get(name) {
                 writeln!(
                     &mut file,
-                    "pub const {}: u32 = {:#x};",
-                    myname, sym.st_value
+                    "pub const {myname}: u32 = {:#x};",
+                    sym.st_value
                 )?;
             }
         }
@@ -201,8 +204,8 @@ where
     let sections: Vec<&SectionHeader> = elf
         .section_headers
         .iter()
-        .filter(|sh| (sh.sh_type & SHT_PROGBITS == SHT_PROGBITS))
-        .filter(|sh| (sh.sh_flags as u32 & SHF_ALLOC == SHF_ALLOC))
+        .filter(|sh| sh.sh_type & SHT_PROGBITS == SHT_PROGBITS)
+        .filter(|sh| sh.sh_flags as u32 & SHF_ALLOC == SHF_ALLOC)
         .filter(|sh| !sh.vm_range().is_empty())
         .collect();
     let bin_size: usize = sections.iter().map(|sh| sh.vm_range().len()).sum();
@@ -225,7 +228,9 @@ where
     //
     #[cfg(not(clippy))]
     if bin_size > 6 * 1024 {
-        bail!("bin_size of {bin_size} is over 6KiB. Was it built with the wrong profile?");
+        bail!(
+            "bin_size of {bin_size} is over 6KiB. Was it built with the wrong profile?"
+        );
     }
 
     // Test our assumptions that the sections are in order and contiguous.

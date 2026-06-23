@@ -39,9 +39,9 @@ use unwrap_lite::UnwrapLite;
 use crate::arch;
 use crate::err::{InteractFault, UserError};
 use crate::startup::with_task_table;
-use crate::task::{self, current_id, ArchState, NextTask, Task};
+use crate::task::{self, ArchState, NextTask, Task, current_id};
 use crate::time::Timestamp;
-use crate::umem::{safe_copy, USlice};
+use crate::umem::{USlice, safe_copy};
 
 #[cfg(hubris_phantom_svc_mitigation)]
 pub(crate) static EXPECT_PHANTOM_SYSCALL: AtomicBool = AtomicBool::new(false);
@@ -60,7 +60,7 @@ pub(crate) static EXPECT_PHANTOM_SYSCALL: AtomicBool = AtomicBool::new(false);
 /// To use this, you must (1) ensure that the state described above is saved on
 /// the way in and restored on the way out, (2) call this from the syscall
 /// interrupt handler, only, and (3) not call it reentrantly.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
     crate::profiling::event_syscall_enter(nr);
 
@@ -119,7 +119,7 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
 fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
     let res = match Sysnum::try_from(nr) {
         Ok(Sysnum::Send) => send(tasks, current),
-        Ok(Sysnum::Recv) => recv(tasks, current).map_err(UserError::from),
+        Ok(Sysnum::Recv) => recv(tasks, current),
         Ok(Sysnum::Reply) => reply(tasks, current).map_err(UserError::from),
         Ok(Sysnum::SetTimer) => Ok(set_timer(&mut tasks[current], arch::now())),
         Ok(Sysnum::BorrowRead) => borrow_read(tasks, current),

@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::dice::{MfgResult, KEYCODE_LEN, KEY_INDEX, SEED_LEN};
+use crate::dice::{KEY_INDEX, KEYCODE_LEN, MfgResult, SEED_LEN};
 use core::ops::{Deref, DerefMut};
-use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
+use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, Flash};
 use hubpack::SerializedSize;
 use lib_dice::{
     CertSerialNumber, DiceMfg, IntermediateCert, PersistIdCert, PersistIdSeed,
@@ -36,8 +36,12 @@ sa::const_assert!(
 );
 
 // ensure DICE_FLASH start and end are alligned
-sa::const_assert!(FLASH_DICE_MFG.end as usize % BYTES_PER_FLASH_PAGE == 0);
-sa::const_assert!(FLASH_DICE_MFG.start as usize % BYTES_PER_FLASH_PAGE == 0);
+sa::const_assert!(
+    (FLASH_DICE_MFG.end as usize).is_multiple_of(BYTES_PER_FLASH_PAGE)
+);
+sa::const_assert!(
+    (FLASH_DICE_MFG.start as usize).is_multiple_of(BYTES_PER_FLASH_PAGE)
+);
 
 const VERSION: u32 = 0;
 const MAGIC: [u8; 12] = [

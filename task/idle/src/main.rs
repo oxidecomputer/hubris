@@ -9,7 +9,7 @@
 // - we need it for our _start routine.
 extern crate userlib;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     loop {
         if cfg!(feature = "insomniac") {

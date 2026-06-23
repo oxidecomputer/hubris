@@ -43,7 +43,7 @@
 //! sands...
 //!
 
-use crate::{Disposition, TaskStatus};
+use crate::{Disposition, TaskState, TaskStatus};
 use core::sync::atomic::{AtomicU32, Ordering};
 
 // This trait may not be needed, if compiling for a non-armv6m target.
@@ -51,7 +51,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use armv6m_atomic_hack::AtomicU32Ext;
 
 use ringbuf::{ringbuf, ringbuf_entry};
-use userlib::{kipc, FromPrimitive};
+use userlib::{FromPrimitive, kipc};
 
 /// The actual requests that we honor from an external source entity
 #[derive(FromPrimitive, Copy, Clone, Debug, Eq, PartialEq)]
@@ -83,17 +83,17 @@ enum Trace {
 
 ringbuf!(Trace, 4, Trace::None);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_READY: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_REQUEST: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_TASKINDEX: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_KICK: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_REQUESTS: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_ERRORS: AtomicU32 = AtomicU32::new(0);
 
 ///
@@ -101,10 +101,10 @@ static JEFE_EXTERNAL_ERRORS: AtomicU32 = AtomicU32::new(0);
 /// potentially modifying the passed array.  Returns a boolean to indicate if
 /// a valid external request was received.
 ///
-pub(crate) fn check(states: &mut [TaskStatus]) {
+pub(crate) fn check(states: &mut [TaskStatus], now: u64) {
     // This wrapper is responsible for updating operation counters, and allowing
     // the inner function to use Result for convenience.
-    match check_inner(states) {
+    match check_inner(states, now) {
         Ok(true) => {
             JEFE_EXTERNAL_REQUESTS.fetch_add(1, Ordering::SeqCst);
         }
@@ -119,7 +119,7 @@ pub(crate) fn check(states: &mut [TaskStatus]) {
 }
 
 // Implementation factor of `check` that can use Result.
-fn check_inner(states: &mut [TaskStatus]) -> Result<bool, Error> {
+fn check_inner(states: &mut [TaskStatus], now: u64) -> Result<bool, Error> {
     if JEFE_EXTERNAL_KICK.swap(0, Ordering::SeqCst) == 0 {
         return Ok(false);
     }
@@ -161,7 +161,7 @@ fn check_inner(states: &mut [TaskStatus]) -> Result<bool, Error> {
             // Note that this command does _not_ clear task holds! For that, you
             // must issue Release, below. This means it's useful for starting
             // the task but still catching it on the _next_ fault.
-            kipc::restart_task(ndx, true);
+            kipc::reinit_task(ndx, true);
         }
 
         Request::Release => {
@@ -169,9 +169,9 @@ fn check_inner(states: &mut [TaskStatus]) -> Result<bool, Error> {
             // not only the disposition change, but may also have to restart the
             // task to clear a held fault.
             state.disposition = Disposition::Restart;
-            if state.holding_fault {
-                state.holding_fault = false;
-                kipc::restart_task(ndx, true);
+            if matches!(state.state, TaskState::HoldFault) {
+                state.state = TaskState::Running { started_at: now };
+                kipc::reinit_task(ndx, true);
             }
         }
 

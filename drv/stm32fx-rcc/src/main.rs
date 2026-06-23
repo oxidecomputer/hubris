@@ -105,7 +105,7 @@ macro_rules! clear_bits {
     };
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // From thin air, pluck a pointer to the RCC register block.
     //
@@ -146,7 +146,7 @@ fn main() -> ! {
                         Bus::Ahb1 => set_bits!(rcc.ahbenr, pmask),
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb2 | Bus::Ahb3 => {
-                            return Err(ResponseCode::BadArg)
+                            return Err(ResponseCode::BadArg);
                         }
 
                         #[cfg(feature = "stm32f4")]
@@ -164,7 +164,7 @@ fn main() -> ! {
                         Bus::Ahb1 => clear_bits!(rcc.ahbenr, pmask),
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb2 | Bus::Ahb3 => {
-                            return Err(ResponseCode::BadArg)
+                            return Err(ResponseCode::BadArg);
                         }
 
                         #[cfg(feature = "stm32f4")]
@@ -182,7 +182,7 @@ fn main() -> ! {
                         Bus::Ahb1 => set_bits!(rcc.ahbrstr, pmask),
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb2 | Bus::Ahb3 => {
-                            return Err(ResponseCode::BadArg)
+                            return Err(ResponseCode::BadArg);
                         }
 
                         #[cfg(feature = "stm32f4")]
@@ -200,7 +200,7 @@ fn main() -> ! {
                         Bus::Ahb1 => clear_bits!(rcc.ahbrstr, pmask),
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb2 | Bus::Ahb3 => {
-                            return Err(ResponseCode::BadArg)
+                            return Err(ResponseCode::BadArg);
                         }
 
                         #[cfg(feature = "stm32f4")]

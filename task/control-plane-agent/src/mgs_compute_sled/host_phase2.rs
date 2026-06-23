@@ -7,7 +7,7 @@ use heapless::Vec;
 use idol_runtime::{Leased, RequestError};
 use task_control_plane_agent_api::ControlPlaneAgentError;
 use task_net_api::{Address, Ipv6Address, UdpMetadata};
-use userlib::{sys_get_timer, sys_post, TaskId, UnwrapLite};
+use userlib::{TaskId, UnwrapLite, sys_get_timer, sys_post};
 
 const SP_TO_MGS_MULTICAST_ADDR: Address = Address::Ipv6(Ipv6Address([
     0xff, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xde, 0, 1,
@@ -98,7 +98,7 @@ impl HostPhase2Requester {
     pub(crate) fn wants_to_send_packet(&self) -> bool {
         self.current
             .as_ref()
-            .map_or(false, |c| c.state.wants_to_send_packet())
+            .is_some_and(|c| c.state.wants_to_send_packet())
     }
 
     pub(crate) fn packet_to_mgs(

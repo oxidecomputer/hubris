@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::build_notifications()?;
 
     let board = build_util::env_var("HUBRIS_BOARD")?;
-    if board != "cosmo-a" {
+    if board != "cosmo-a" && board != "cosmo-b" {
         panic!("unknown target board");
     }
 

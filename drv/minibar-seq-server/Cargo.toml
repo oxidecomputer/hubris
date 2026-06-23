@@ -1,10 +1,10 @@
 [package]
 name = "drv-minibar-seq-server"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-
+hubpack.workspace = true
 idol-runtime.workspace = true
 num-traits.workspace = true
 serde.workspace = true

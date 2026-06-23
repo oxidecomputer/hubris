@@ -39,15 +39,25 @@ mod server;
     any(target_board = "psc-b", target_board = "psc-c"),
     path = "bsp/psc_bc.rs"
 )]
+#[cfg_attr(target_board = "observer-a", path = "bsp/observer_a.rs")]
 #[cfg_attr(target_board = "gimletlet-1", path = "bsp/gimletlet_mgmt.rs")]
 #[cfg_attr(
     all(target_board = "gimletlet-2", feature = "gimletlet-nic"),
     path = "bsp/gimletlet_nic.rs"
 )]
 #[cfg_attr(target_board = "medusa-a", path = "bsp/medusa_a.rs")]
-#[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
-#[cfg_attr(target_board = "minibar", path = "bsp/minibar.rs")]
-#[cfg_attr(target_board = "cosmo-a", path = "bsp/cosmo_a.rs")]
+#[cfg_attr(
+    any(target_board = "grapefruit-a", target_board = "grapefruit-b",),
+    path = "bsp/grapefruit.rs"
+)]
+#[cfg_attr(
+    any(target_board = "minibar-a", target_board = "minibar-b"),
+    path = "bsp/minibar.rs"
+)]
+#[cfg_attr(
+    any(target_board = "cosmo-a", target_board = "cosmo-b",),
+    path = "bsp/cosmo_ab.rs"
+)]
 mod bsp;
 
 #[cfg_attr(feature = "vlan", path = "server_vlan.rs")]
@@ -161,7 +171,7 @@ enum Event {
 }
 counters!(Event);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -247,9 +257,17 @@ fn main() -> ! {
     // who was waiting to hear back on their TX queue becoming non-full will
     // snap out of it.
     //
-    // This only works because we've set waiting_to_send to true for all sockets
-    // above.
-    server.wake_sockets();
+    // Note that we don't, actually, need to check whether the TX queue is empty
+    // or not here. We just reset, so any previously buffered packets that we
+    // had in the TX queue for that socket are definitely gone and the queue
+    // will be empty.
+    //
+    // Once we have woken everyone once, we can then only wake tasks when we are
+    // sure they actually are trying to send.
+    for (task_id, notification) in generated::SOCKET_OWNERS {
+        let task_id = sys_refresh_task_id(task_id);
+        sys_post(task_id, notification);
+    }
 
     // Go!
     loop {

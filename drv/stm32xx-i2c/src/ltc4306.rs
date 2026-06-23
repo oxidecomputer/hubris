@@ -88,7 +88,6 @@ fn read_reg_u8(
     mux: &I2cMux<'_>,
     controller: &I2cController<'_>,
     reg: u8,
-    ctrl: &I2cControl,
 ) -> Result<u8, ResponseCode> {
     let mut rval = 0u8;
     let wlen = 1;
@@ -102,7 +101,6 @@ fn read_reg_u8(
             rval = byte;
             Some(())
         },
-        ctrl,
     );
     match controller_result {
         Err(code) => Err(mux.error_code(code)),
@@ -115,7 +113,6 @@ fn write_reg_u8(
     controller: &I2cController<'_>,
     reg: u8,
     val: u8,
-    ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
     match controller.write_read(
         mux.address,
@@ -123,7 +120,6 @@ fn write_reg_u8(
         |pos| Some(if pos == 0 { reg } else { val }),
         ReadLength::Fixed(0),
         |_, _| Some(()),
-        ctrl,
     ) {
         Err(code) => Err(mux.error_code(code)),
         _ => Ok(()),
@@ -136,7 +132,6 @@ impl I2cMuxDriver for Ltc4306 {
         mux: &I2cMux<'_>,
         _controller: &I2cController<'_>,
         gpio: &sys_api::Sys,
-        _ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.configure(gpio)
     }
@@ -146,7 +141,6 @@ impl I2cMuxDriver for Ltc4306 {
         mux: &I2cMux<'_>,
         controller: &I2cController<'_>,
         segment: Option<Segment>,
-        ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg3 = Register3(0);
 
@@ -170,8 +164,8 @@ impl I2cMuxDriver for Ltc4306 {
             }
         }
 
-        write_reg_u8(mux, controller, 3, reg3.0, ctrl)?;
-        let reg0 = Register0(read_reg_u8(mux, controller, 0, ctrl)?);
+        write_reg_u8(mux, controller, 3, reg3.0)?;
+        let reg0 = Register0(read_reg_u8(mux, controller, 0)?);
 
         if !reg0.not_failed() {
             Err(ResponseCode::SegmentDisconnected)

@@ -16,7 +16,7 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 352
+stacksize = 400
 notifications = ["fault", "timer"]
 
 [tasks.sys]
@@ -76,6 +76,7 @@ features = ["no-ipc-counters"]
 priority = 3
 max-sizes = {flash = 8192, ram = 8192 }
 start = true
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

@@ -74,6 +74,8 @@ pub struct DeviceDescription {
     pub device: &'static str,
     pub description: &'static str,
     pub sensors: &'static [SensorDescription],
+    pub id: &'static str,
+    pub is_pmbus: bool,
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));

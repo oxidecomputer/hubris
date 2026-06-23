@@ -7,7 +7,7 @@ use dump_agent_api::DumpAgent;
 use gateway_messages::{
     DumpCompression, DumpError, DumpSegment, DumpTask, SpError,
 };
-use userlib::{task_slot, UnwrapLite};
+use userlib::{UnwrapLite, task_slot};
 use zerocopy::{FromBytes, FromZeros, IntoBytes};
 
 task_slot!(DUMP_AGENT, dump_agent);
@@ -59,7 +59,7 @@ impl DumpState {
 
     pub(crate) fn get_task_dump_count(&mut self) -> Result<u32, SpError> {
         let mut count = 0;
-        for index in 0.. {
+        for index in 0..=u8::MAX {
             let data = self
                 .agent
                 .read_dump(index, 0)
@@ -90,7 +90,7 @@ impl DumpState {
         let mut found = None;
         let mut data = [0u8; 256];
         let mut header = humpty::DumpAreaHeader::new_zeroed();
-        for index in 0.. {
+        for index in 0..=u8::MAX {
             data = self
                 .agent
                 .read_dump(index, 0)

@@ -2,6 +2,7 @@ name = "tests-stm32h753"
 target = "thumbv7em-none-eabihf"
 board = "nucleo-h753zi"
 chip = "../../chips/stm32h7"
+default-ram = "dtcm"
 stacksize = 2048
 
 [kernel]
@@ -55,6 +56,7 @@ max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
 task-slots = ["suite", "runner"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

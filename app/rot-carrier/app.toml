@@ -6,7 +6,6 @@ stacksize = 1024
 image-names = ["a", "b"]
 epoch = 0
 version = 0
-fwid = true
 
 [kernel]
 name = "rot-carrier"
@@ -17,7 +16,6 @@ requires = {flash = 54176, ram = 3876}
 tasks = ["sprot"]
 region = "flash"
 size = 256
-default = true
 
 [tasks.jefe]
 name = "task-jefe"
@@ -90,15 +88,6 @@ pins = [
     { pin = { port = 0, pin = 30}, alt = 1}
 ]
 
-[tasks.rng_driver]
-name = "drv-lpc55-rng"
-priority = 5
-max-sizes = {flash = 16384, ram = 4096}
-uses = ["rng", "pmc"]
-start = true
-stacksize = 2200
-task-slots = ["syscon_driver"]
-
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
@@ -143,6 +132,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["gpio_driver", "update_server"]
+notifications = ["timer"]
 
 [tasks.attest]
 name = "task-attest"

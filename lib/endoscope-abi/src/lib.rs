@@ -16,8 +16,8 @@
 
 #![no_std]
 
-use sha3::digest::{core_api::OutputSizeUser, typenum::Unsigned};
 use sha3::Sha3_256;
+use sha3::digest::{core_api::OutputSizeUser, typenum::Unsigned};
 use zerocopy::*;
 
 pub const DIGEST_SIZE: usize = <Sha3_256 as OutputSizeUser>::OutputSize::USIZE;

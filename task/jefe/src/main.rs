@@ -38,7 +38,7 @@ use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
 use idol_runtime::RequestError;
 use task_jefe_api::{DumpAgentError, ResetReason};
-use userlib::{kipc, Generation, TaskId};
+use userlib::{Generation, TaskId, kipc};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum Disposition {
@@ -54,7 +54,32 @@ pub enum Disposition {
 // notification, but can otherwise be arbitrary.
 const TIMER_INTERVAL: u32 = 100;
 
-#[export_name = "main"]
+/// Minimum amount of time a task must run before being restarted
+///
+/// If a task runs for *less* than this amount of time before crashing, its
+/// restart is delayed to hit this value.  This value is in system ticks, which
+/// is the same as milliseconds; the current value of `50` limits a task to
+/// restarting at 20 Hz.
+const MIN_RUN_TIME: u64 = 50;
+
+/// Minimum amount of time to wait between a task faulting and when it is
+/// restarted, if the list of tasks to notify on faults is non-empty.
+///
+/// If other tasks are to be notified when a task faults, we always apply a
+/// delay of at least this long before restarting the task, even if it has been
+/// running for longer than `MIN_RUN_TIME`.
+///
+/// This is intended to provide time for other tasks (in practice, `packrat`) to
+/// collect diagnostic information about the fault before the task is restarted.
+/// Restarting a task clobbers potentially valuable data, such as the kernel's
+/// description of the fault and its stack trace. We provide Packrat with a 5 ms
+/// opportunity to produce a more detailed ereport before going ahead and
+/// restarting the faulted task. This way, there is a reasonable attempt to
+/// allow detailed fault reporting, but the task(s) responsible for reporting
+/// the fault cannot prevent tasks from being restarted indefinitely.
+const MIN_RESTART_DELAY: u64 = 5;
+
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
     for held_task in generated::HELD_TASKS {
@@ -66,10 +91,20 @@ fn main() -> ! {
 
     external::set_ready();
 
+    #[cfg(feature = "fault-notification")]
+    let fault_counts = {
+        use static_cell::ClaimOnceCell;
+
+        static COUNTS: ClaimOnceCell<[usize; NUM_TASKS]> =
+            ClaimOnceCell::new([0usize; NUM_TASKS]);
+        COUNTS.claim()
+    };
+
     let mut server = ServerImpl {
         state: 0,
         deadline,
         task_states: &mut task_states,
+        any_tasks_in_timeout: false,
         reset_reason: ResetReason::Unknown,
 
         #[cfg(feature = "dump")]
@@ -77,6 +112,9 @@ fn main() -> ! {
 
         #[cfg(feature = "dump")]
         last_dump_area: None,
+
+        #[cfg(feature = "fault-notification")]
+        fault_counts,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -89,7 +127,11 @@ struct ServerImpl<'s> {
     state: u32,
     task_states: &'s mut [TaskStatus; NUM_TASKS],
     deadline: u64,
+    any_tasks_in_timeout: bool,
     reset_reason: ResetReason,
+
+    #[cfg(feature = "fault-notification")]
+    fault_counts: &'s mut [usize; NUM_TASKS],
 
     /// Base address for a linked list of dump areas
     #[cfg(feature = "dump")]
@@ -144,12 +186,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         if self.state != state {
             self.state = state;
 
-            for (task, mask) in generated::MAILING_LIST {
-                let taskid =
-                    TaskId::for_index_and_gen(task as usize, Generation::ZERO);
-                let taskid = userlib::sys_refresh_task_id(taskid);
-                userlib::sys_post(taskid, mask);
-            }
+            notify_tasks(&generated::STATE_CHANGE_MAILING_LIST);
         }
         Ok(())
     }
@@ -158,13 +195,44 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         &mut self,
         msg: &userlib::RecvMessage,
     ) -> Result<(), RequestError<Infallible>> {
-        kipc::restart_task(msg.sender.index(), true);
+        kipc::reinit_task(msg.sender.index(), true);
 
         // Note: the returned value here won't go anywhere because we just
         // unblocked the caller. So this is doing a small amount of unnecessary
         // work. This is a compromise because Idol can't easily describe an IPC
         // that won't return at this time.
         Ok(())
+    }
+
+    #[cfg(feature = "fault-notification")]
+    fn read_fault_counts(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        counts: idol_runtime::Leased<
+            idol_runtime::W,
+            [usize; hubris_num_tasks::NUM_TASKS],
+        >,
+    ) -> Result<(), RequestError<Infallible>> {
+        for (i, count) in self.fault_counts.iter().enumerate() {
+            counts
+                .write_at(i, *count)
+                .map_err(|()| RequestError::went_away())?;
+        }
+        Ok(())
+    }
+
+    #[cfg(not(feature = "fault-notification"))]
+    fn read_fault_counts(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _counts: idol_runtime::Leased<
+            idol_runtime::W,
+            [usize; hubris_num_tasks::NUM_TASKS],
+        >,
+    ) -> Result<(), RequestError<Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::UnknownOperation,
+        ))
     }
 
     cfg_if::cfg_if! {
@@ -315,7 +383,25 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 #[derive(Copy, Clone, Debug, Default)]
 struct TaskStatus {
     disposition: Disposition,
-    holding_fault: bool,
+    state: TaskState,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum TaskState {
+    Running {
+        /// Time at which the task started
+        started_at: u64,
+    },
+    HoldFault,
+    Timeout {
+        restart_at: u64,
+    },
+}
+
+impl Default for TaskState {
+    fn default() -> Self {
+        TaskState::Running { started_at: 0 }
+    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
@@ -323,21 +409,42 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         notifications::FAULT_MASK | notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        // Handle any external (debugger) requests.
-        external::check(self.task_states);
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        let now = userlib::sys_get_timer().now;
 
-        if bits & notifications::TIMER_MASK != 0 {
-            // If our timer went off, we need to reestablish it
-            if userlib::sys_get_timer().now >= self.deadline {
-                self.deadline = userlib::set_timer_relative(
-                    TIMER_INTERVAL,
-                    notifications::TIMER_MASK,
-                );
+        // Handle any external (debugger) requests.
+        external::check(self.task_states, now);
+
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
+            // If our timer went off, we need to reestablish it. Compute a
+            // baseline deadline, which will be adjusted _down_ below when
+            // processing tasks, if necessary.
+            if now >= self.deadline {
+                self.deadline = now.wrapping_add(u64::from(TIMER_INTERVAL));
+            }
+
+            // Check for tasks in timeout, updating our timer deadline
+            if core::mem::take(&mut self.any_tasks_in_timeout) {
+                for (index, status) in self.task_states.iter_mut().enumerate() {
+                    if let TaskState::Timeout { restart_at } = &status.state {
+                        if *restart_at <= now {
+                            // This deadline has elapsed, go ahead and stand it
+                            // back up.
+                            kipc::reinit_task(index, true);
+                            status.state =
+                                TaskState::Running { started_at: now };
+                        } else {
+                            // This deadline remains in the future, min it into
+                            // our next wake time.
+                            self.any_tasks_in_timeout = true;
+                            self.deadline = self.deadline.min(*restart_at);
+                        }
+                    }
+                }
             }
         }
 
-        if bits & notifications::FAULT_MASK != 0 {
+        if bits.check_notification_mask(notifications::FAULT_MASK) {
             // Work out who faulted. It's theoretically possible for more than
             // one task to have faulted since we last looked, but it's somewhat
             // unlikely since a fault causes us to immediately preempt. In any
@@ -359,10 +466,24 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                 let status =
                     unsafe { self.task_states.get_unchecked_mut(fault_index) };
 
-                // If we're aware that this task is in a fault state, don't
-                // bother making a syscall to enquire.
-                if status.holding_fault {
+                // If we're aware that this task is in a fault state (or waiting
+                // in timeout), don't bother making a syscall to enquire.
+                let TaskState::Running { started_at } = &status.state else {
                     continue;
+                };
+
+                #[cfg(feature = "fault-notification")]
+                {
+                    // Increment this task's fault count.
+                    let fault_count = unsafe {
+                        // Safety: again, we trust that the kernel has not
+                        // given us an out-of-range task index.
+                        self.fault_counts.get_unchecked_mut(fault_index)
+                    };
+                    // This is explicitly wrapping, as we expect that the
+                    // caller will detect if new faults have been observed by
+                    // comparing for equality.
+                    *fault_count = fault_count.wrapping_add(1);
                 }
 
                 #[cfg(feature = "dump")]
@@ -376,15 +497,56 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                 }
 
                 if status.disposition == Disposition::Restart {
-                    // Stand it back up
-                    kipc::restart_task(fault_index, true);
+                    // Subtract the task's runtime from the minimum required
+                    // runtime between restarts to determine how long to wait
+                    // before we restart it.
+                    let dt = now.wrapping_sub(*started_at).wrapping_add(1);
+                    let mut extra_delay = MIN_RUN_TIME.checked_sub(dt);
+
+                    // If we are going to notify other tasks of the fault,
+                    // always wait at least `MIN_RESTART_DELAY` before
+                    // restarting the task, even if it has run for longer than
+                    // `MIN_RUN_TIME` since its last restart.
+                    //
+                    // Clippy doesn't like this `if` condition because it
+                    // doesn't know about codegen; this expression *should*
+                    // always evaluate either to true or false depending on
+                    // Jefe's config.
+                    #[allow(clippy::const_is_empty)]
+                    if !generated::FAULT_MAILING_LIST.is_empty() {
+                        extra_delay = extra_delay.max(Some(MIN_RESTART_DELAY));
+                    }
+
+                    if let Some(extra_delay) = extra_delay {
+                        // Put it into timeout to hit our minimum run time
+                        let restart_at = now.wrapping_add(extra_delay);
+                        status.state = TaskState::Timeout { restart_at };
+                        self.deadline = self.deadline.min(restart_at);
+                        self.any_tasks_in_timeout = true;
+                    } else {
+                        // Stand it back up immediately
+                        kipc::reinit_task(fault_index, true);
+                        status.state = TaskState::Running { started_at: now };
+                    }
                 } else {
                     // Mark this one off so we don't revisit it until
                     // requested.
-                    status.holding_fault = true;
+                    status.state = TaskState::HoldFault;
                 }
             }
+
+            notify_tasks(&generated::FAULT_MAILING_LIST);
         }
+
+        userlib::sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+    }
+}
+
+fn notify_tasks(mailing_list: &[(hubris_num_tasks::Task, u32)]) {
+    for &(task, mask) in mailing_list {
+        let taskid = TaskId::for_index_and_gen(task as usize, Generation::ZERO);
+        let taskid = userlib::sys_refresh_task_id(taskid);
+        userlib::sys_post(taskid, mask);
     }
 }
 

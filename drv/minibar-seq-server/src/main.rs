@@ -9,18 +9,18 @@
 
 use drv_auxflash_api::AuxFlash;
 use drv_fpga_api::{
-    await_fpga_ready, BitstreamType, DeviceState, Fpga, FpgaError,
-    FpgaUserDesign, FpgaUserDesignIdent, WriteOp,
+    BitstreamType, DeviceState, Fpga, FpgaError, FpgaUserDesign,
+    FpgaUserDesignIdent, WriteOp, await_fpga_ready,
 };
 use drv_minibar_seq_api::{
-    Addr, MinibarSeqError, Reg, MINIBAR_BITSTREAM_CHECKSUM,
+    Addr, MINIBAR_BITSTREAM_CHECKSUM, MinibarSeqError, Reg,
 };
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
-    sys_get_timer, sys_set_timer, task_slot, RecvMessage, UnwrapLite,
+    RecvMessage, UnwrapLite, sys_get_timer, sys_set_timer, task_slot,
 };
 
 task_slot!(I2C, i2c_driver);
@@ -48,8 +48,13 @@ enum Trace {
     ControllerSha(u32),
     FpgaInitComplete,
     FpgaWriteError(FpgaError),
+    FpgaReadError(FpgaError),
     PcieRefclkPdCleared,
     DeviceState(DeviceState),
+    SledPowerGoodTimeout,
+    SledPowerGoodLost,
+    SledPowerFault,
+    UnknownPowerStatus(u8),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -109,6 +114,60 @@ impl ServerImpl {
     ) -> bool {
         ident.checksum.get() == ServerImpl::short_bitstream_checksum()
     }
+
+    pub fn sled_power_control(&self, enable: bool) -> Result<(), FpgaError> {
+        let op = if enable {
+            WriteOp::BitSet
+        } else {
+            WriteOp::BitClear
+        };
+        self.fpga_user.write(
+            op,
+            Addr::POWER_CTRL,
+            Reg::POWER_CTRL::VBUS_SLED_EN,
+        )
+    }
+
+    pub fn get_sled_power_status(
+        &self,
+    ) -> Result<Reg::VBUS_SLED::StateEncoded, FpgaError> {
+        let raw: u8 = self.fpga_user.read(Addr::VBUS_SLED)?;
+
+        Reg::VBUS_SLED::StateEncoded::try_from(raw)
+            .map_err(|_| FpgaError::InvalidValue)
+    }
+
+    pub fn get_v12_pcie_status(
+        &self,
+    ) -> Result<Reg::V12_PCIE::StateEncoded, FpgaError> {
+        let raw: u8 = self.fpga_user.read(Addr::V12_PCIE)?;
+
+        Reg::V12_PCIE::StateEncoded::try_from(raw)
+            .map_err(|_| FpgaError::InvalidValue)
+    }
+
+    pub fn get_v3p3_pcie_status(
+        &self,
+    ) -> Result<Reg::V3P3_PCIE::StateEncoded, FpgaError> {
+        let raw: u8 = self.fpga_user.read(Addr::V3P3_PCIE)?;
+
+        Reg::V3P3_PCIE::StateEncoded::try_from(raw)
+            .map_err(|_| FpgaError::InvalidValue)
+    }
+
+    pub fn pcie_power_control(&self, enable: bool) -> Result<(), FpgaError> {
+        let op = if enable {
+            WriteOp::BitSet
+        } else {
+            WriteOp::BitClear
+        };
+        self.fpga_user.write(
+            op,
+            Addr::PCIE_POWER_CTRL,
+            Reg::PCIE_POWER_CTRL::V12_PCIE_EN
+                | Reg::PCIE_POWER_CTRL::V3P3_PCIE_EN,
+        )
+    }
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -126,6 +185,129 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
         Ok(state == DeviceState::RunningUserDesign)
     }
+
+    fn sled_power_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<Reg::VBUS_SLED::StateEncoded, RequestError<MinibarSeqError>>
+    {
+        self.get_sled_power_status()
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn sled_powered(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<bool, RequestError<MinibarSeqError>> {
+        let state = self
+            .get_sled_power_status()
+            .map_err(MinibarSeqError::from)?;
+
+        Ok(state == Reg::VBUS_SLED::StateEncoded::Enabled)
+    }
+
+    fn sled_power_enable(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<MinibarSeqError>> {
+        self.sled_power_control(true)
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn sled_power_disable(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<MinibarSeqError>> {
+        self.sled_power_control(false)
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn pcie_v12_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<Reg::V12_PCIE::StateEncoded, RequestError<MinibarSeqError>>
+    {
+        self.get_v12_pcie_status()
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn pcie_v3p3_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<Reg::V3P3_PCIE::StateEncoded, RequestError<MinibarSeqError>>
+    {
+        self.get_v3p3_pcie_status()
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn pcie_powered(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<bool, RequestError<MinibarSeqError>> {
+        let v12_state =
+            self.get_v12_pcie_status().map_err(MinibarSeqError::from)?;
+        let v3p3_state =
+            self.get_v3p3_pcie_status().map_err(MinibarSeqError::from)?;
+
+        let v12_good = v12_state == Reg::V12_PCIE::StateEncoded::Enabled;
+        let v3p3_good = v3p3_state == Reg::V3P3_PCIE::StateEncoded::Enabled;
+
+        Ok(v12_good && v3p3_good)
+    }
+
+    fn pcie_power_enable(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<MinibarSeqError>> {
+        self.pcie_power_control(true)
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn pcie_power_disable(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<MinibarSeqError>> {
+        self.pcie_power_control(false)
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn pcie_set_perst_override(
+        &mut self,
+        _: &RecvMessage,
+        assert: bool,
+    ) -> Result<(), idol_runtime::RequestError<MinibarSeqError>> {
+        let mut value = Reg::PCIE_CTRL::FPGA_PERST_OVERRIDE;
+        // PERST is an active low assertion, so deassertion sets the register
+        if !assert {
+            value |= Reg::PCIE_CTRL::FPGA_PERST_CONTROL;
+        }
+        self.fpga_user
+            .write(WriteOp::BitSet, Addr::PCIE_CTRL, value)
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn pcie_clear_perst_override(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<MinibarSeqError>> {
+        self.fpga_user
+            .write(
+                WriteOp::BitClear,
+                Addr::PCIE_CTRL,
+                Reg::PCIE_CTRL::FPGA_PERST_OVERRIDE
+                    | Reg::PCIE_CTRL::FPGA_PERST_CONTROL,
+            )
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -133,12 +315,55 @@ impl NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::TIMER_MASK) == 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if !bits.has_timer_fired(notifications::TIMER_MASK) {
             return;
         }
         let start = sys_get_timer().now;
         let finish = sys_get_timer().now;
+
+        // check for sled power problems (e.g., power good lost or a fault)
+        let byte: Result<u8, FpgaError> = self.fpga_user.read(Addr::VBUS_SLED);
+        match byte {
+            Ok(byte) => {
+                let mut power_issue = false;
+                let status = match Reg::VBUS_SLED::StateEncoded::try_from(byte)
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        ringbuf_entry!(Trace::UnknownPowerStatus(e));
+                        power_issue = true;
+                        Reg::VBUS_SLED::StateEncoded::Enabled
+                    }
+                };
+
+                use Reg::VBUS_SLED::StateEncoded::*;
+                match status {
+                    TimedOut => {
+                        ringbuf_entry!(Trace::SledPowerGoodTimeout);
+                        power_issue = true;
+                    }
+                    Aborted => {
+                        ringbuf_entry!(Trace::SledPowerGoodLost);
+                        power_issue = true;
+                    }
+                    Disabled | RampingUp | Enabled => (),
+                };
+
+                if byte & Reg::VBUS_SLED::FAULT_PIN != 0 {
+                    ringbuf_entry!(Trace::SledPowerFault);
+                    power_issue = true;
+                }
+
+                // Disable power if there is a problem.
+                if power_issue {
+                    let _ = self
+                        .sled_power_control(false)
+                        .map_err(|e| ringbuf_entry!(Trace::FpgaWriteError(e)));
+                }
+            }
+            Err(e) => ringbuf_entry!(Trace::FpgaReadError(e)),
+        }
 
         // We now know when we were notified and when any work was completed.
         // Note that the assumption here is that `start` < `finish` and that
@@ -157,7 +382,7 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     pub const DEVICE_INDEX: u8 = 0;
     pub const EXPECTED_ID: u32 = 0x01de_5bae;

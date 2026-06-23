@@ -48,7 +48,7 @@ task_config::optional_task_config! {
 const BLINK_INTERVAL: u32 = 500;
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board = "cosmo-a")] {
+    if #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))] {
         #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         #[allow(clippy::enum_variant_names)]
         enum Led {
@@ -96,7 +96,10 @@ cfg_if::cfg_if! {
         target_board = "gimlet-f",
         target_board = "psc-b",
         target_board = "psc-c",
+        target_board = "observer-a",
         target_board = "oxcon2023g0",
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
     ))] {
         #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         enum Led {
@@ -169,8 +172,8 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if bits & notifications::TIMER_MASK != 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
             let mut any_blinking = false;
             for (led, blinking) in &self.blinking {
                 if *blinking {
@@ -185,7 +188,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     enable_led_pins();
 
@@ -484,15 +487,16 @@ cfg_if::cfg_if! {
                                 target_board = "gimlet-f",
                                 target_board = "psc-b",
                                 target_board = "psc-c",
+                                target_board = "observer-a",
             ))] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::A.pin(3), false),
                 ];
-            } else if #[cfg(target_board = "grapefruit")] {
+            } else if #[cfg(any(target_board = "grapefruit-a", target_board = "grapefruit-b"))] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::C.pin(6), false),
                 ];
-            } else if #[cfg(target_board = "cosmo-a")] {
+            } else if #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::H.pin(6), true), // debug W
                     (drv_stm32xx_sys_api::Port::H.pin(10), true), // debug R

@@ -1,33 +1,35 @@
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 stacksize = 896
-memory = "memory-large.toml"
-fwid = true
+default-ram = "axi_sram"
 
 [kernel]
 name = "sidecar"
 requires = {flash = 26656, ram = 6256}
-features = ["dump"]
+features = ["dump", "measurement-handoff"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [caboose]
-tasks = ["control_plane_agent"]
+tasks = ["control_plane_agent", "packrat"]
 region = "flash"
 size = 256
-default = true
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 start = true
-features = ["dump"]
-stacksize = 1536
+features = ["dump", "fault-notification"]
+stacksize = 2328
 notifications = ["fault", "timer"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy", "control_plane_agent"]
+
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -54,13 +56,13 @@ pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.rng_driver]
-features = ["h753"]
+features = ["h753", "ereport"]
 name = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]
 start = true
 stacksize = 512
-task-slots = ["sys"]
+task-slots = ["sys", "packrat"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -88,7 +90,7 @@ task-slots = ["sys"]
 [tasks.net]
 name = "task-net"
 stacksize = 10000
-priority = 5
+priority = 6
 features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac", "use-spi-core", "spi3"]
 max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
 sections = {eth_bulk = "sram1_mac"}
@@ -104,7 +106,7 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 7
+priority = 8
 # This is a big number -- do we need to tune this?
 stacksize = 12000
 start = true
@@ -112,6 +114,7 @@ uses = []
 task-slots = [
     "auxflash",
     "dump_agent",
+    "i2c_driver",
     "ignition",
     "jefe",
     "monorail",
@@ -147,7 +150,7 @@ interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.udpecho]
 name = "task-udpecho"
-priority = 6
+priority = 8
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -157,7 +160,7 @@ notifications = ["socket"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
-priority = 6
+priority = 8
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -172,7 +175,7 @@ max-sizes = {flash = 262144, ram = 16384}
 features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
-task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
+task-slots = ["ecp5_front_io", "front_io", "sys", { seq = "sequencer" }]
 uses = ["spi2"]
 notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}
@@ -205,6 +208,7 @@ max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
 start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
+notifications = ["timer"]
 
 [tasks.sensor]
 name = "task-sensor"
@@ -241,7 +245,7 @@ interrupts = {"spi1.irq" = "spi-irq"}
 [tasks.transceivers]
 name = "drv-transceivers-server"
 features = ["vlan", "thermal-control"]
-priority = 6
+priority = 7
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
 start = true
@@ -251,17 +255,28 @@ task-slots = [
     "sensor",
     "sys",
     "thermal",
-    {front_io = "ecp5_front_io"},
+    "front_io",
+    {front_io_fpga = "ecp5_front_io"},
     {seq = "sequencer"}]
 notifications = ["socket", "timer"]
 
+[tasks.front_io]
+name = "drv-front-io-server"
+priority = 5
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
+start = true
+task-slots = ["sequencer"]
+notifications = ["timer"]
+
 [tasks.packrat]
 name = "task-packrat"
-priority = 3
-max-sizes = {flash = 8192, ram = 2048}
+priority = 1
+stacksize = 1400
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
+task-slots = ["jefe"]
+features = ["ereport"]
+notifications = ["task-faulted"]
 
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
@@ -282,7 +297,7 @@ name = "task-thermal"
 features = ["sidecar"]
 priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
-stacksize = 8096
+stacksize = 4000
 start = true
 task-slots = ["i2c_driver", "sensor", "sequencer"]
 notifications = ["timer"]
@@ -325,7 +340,7 @@ stacksize = 800
 
 [tasks.dump_agent]
 name = "task-dump-agent"
-priority = 6
+priority = 7
 max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
@@ -334,9 +349,20 @@ extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
+[tasks.snitch]
+name = "task-snitch"
+# The snitch should have a priority immediately below that of the net task,
+# to minimize the number of components that can starve it from resources.
+priority = 7
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
 [tasks.idle]
 name = "task-idle"
-priority = 8
+priority = 10
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -471,7 +497,7 @@ af = 4
 [[config.i2c.devices]]
 bus = "northeast0"
 address = 0b0010_000
-device = "adm1272"
+device = "adm127x"
 description = "Fan 1 hot swap controller"
 power = { rails = [ "V54_FAN1" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -519,7 +545,7 @@ refdes = "U92"
 [[config.i2c.devices]]
 bus = "northeast1"
 address = 0b0010_011
-device = "adm1272"
+device = "adm127x"
 description = "Fan 0 hot swap controller"
 power = { rails = [ "V54_FAN0" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -547,7 +573,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "northwest0"
 address = 0b0010_110
-device = "adm1272"
+device = "adm127x"
 description = "54V hot swap controller"
 power = { rails = [ "V54_HSC" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -604,7 +630,7 @@ refdes = "U12"
 [[config.i2c.devices]]
 bus = "northwest1"
 address = 0b0010_011
-device = "adm1272"
+device = "adm127x"
 description = "Fan 2 hot swap controller"
 power = { rails = [ "V54_FAN2" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -613,7 +639,7 @@ refdes = "U8"
 [[config.i2c.devices]]
 bus = "northwest1"
 address = 0b0010_000
-device = "adm1272"
+device = "adm127x"
 description = "Fan 3 hot swap controller"
 power = { rails = [ "V54_FAN3" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -744,6 +770,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Fan 0 FRUID"
 removable = true
+refdes = ["J75", "U1"]
 
 [[config.i2c.devices]]
 bus = "northeast0"
@@ -753,6 +780,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Fan 1 FRUID"
 removable = true
+refdes = ["J74", "U1"]
 
 [[config.i2c.devices]]
 bus = "northwest1"
@@ -762,6 +790,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Fan 2 FRUID"
 removable = true
+refdes = ["J77", "U1"]
 
 [[config.i2c.devices]]
 bus = "northwest1"
@@ -771,6 +800,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Fan 3 FRUID"
 removable = true
+refdes = ["J76", "U1"]
 
 [[config.i2c.devices]]
 bus = "front_io"
@@ -778,6 +808,10 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Front IO board FRUID"
 removable = true
+refdes = [
+    "J61",  # on front IO board
+    "U3",
+]
 
 [[config.i2c.devices]]
 bus = "front_io"
@@ -785,6 +819,10 @@ address = 0b1110_011
 device = "pca9538"
 description = "Front IO GPIO expander"
 removable = true
+refdes = [
+    "J61",  # on front IO board
+    "U4",
+]
 
 [[config.i2c.devices]]
 bus = "front_io"
@@ -793,7 +831,10 @@ device = "pca9956b"
 name = "front_leds_left"
 description = "Front IO LED driver (left)"
 removable = true
-refdes = "U5"
+refdes = [
+    "J61",  # on front IO board
+    "U5",
+]
 
 [[config.i2c.devices]]
 bus = "front_io"
@@ -802,7 +843,10 @@ device = "pca9956b"
 name = "front_leds_right"
 description = "Front IO LED driver (right)"
 removable = true
-refdes = "U6"
+refdes = [
+    "J61",  # on front IO board
+    "U6",
+]
 
 [[config.i2c.devices]]
 bus = "front_io"
@@ -812,7 +856,10 @@ description = "Front IO V3P3_SYS_A2 rail"
 removable = true
 power = {rails = ["V3P3_SYS_A2"] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
-refdes = "J61_U7" # on front IO board
+refdes = [
+    "J61",  # on front IO board
+    "U7",
+]
 
 [[config.i2c.devices]]
 bus = "front_io"
@@ -822,7 +869,10 @@ description = "Front IO V3P3_QSFP0_A0 rail"
 removable = true
 power = {rails = ["V3P3_QSFP0_A0"] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
-refdes = "J61_U15" # on front IO board
+refdes = [
+    "J61",  # on front IO board
+    "U15",
+]
 
 [[config.i2c.devices]]
 bus = "front_io"
@@ -832,7 +882,7 @@ description = "Front IO V3P3_QSFP1_A0 rail"
 removable = true
 power = {rails = ["V3P3_QSFP1_A0"] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
-refdes = "J61_U18" # on front IO board
+refdes = ["J61", "U18"]
 
 [[config.sensor.devices]]
 name = "xcvr0"
@@ -1026,6 +1076,12 @@ device = "qsfp"
 description = "QSFP transceiver 31"
 sensors.temperature = 1
 
+[[config.sensor.devices]]
+name = "fan_ctrl"
+device = "thermal_loop"
+description = "Thermal loop"
+sensors.pwm = 1
+
 [config.spi.spi1]
 controller = 1
 
@@ -1164,12 +1220,21 @@ port = 11112
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }
+
 [config.auxflash]
 memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller_rev_b_c.bit"
+file = "drv/front-io-api/sidecar_qsfp_x32_controller_rev_b_c.bit"
 compress = true
 tag = "QSFP"
 

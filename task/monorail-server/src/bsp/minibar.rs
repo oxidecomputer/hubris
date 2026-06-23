@@ -5,12 +5,12 @@
 use drv_monorail_api::MonorailError;
 use idol_runtime::RequestError;
 use ringbuf::*;
-use userlib::{hl::sleep_for, UnwrapLite};
+use userlib::{UnwrapLite, hl::sleep_for};
+use vsc85xx::{PhyRw, vsc8504::Vsc8504};
 use vsc7448::{
-    config::Speed, miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError,
+    Vsc7448, Vsc7448Rw, VscError, config::Speed, miim_phy::Vsc7448MiimPhy,
 };
 use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
-use vsc85xx::{vsc8504::Vsc8504, PhyRw};
 
 /// Interval at which `Bsp::wake()` is called by the main loop
 pub const WAKE_INTERVAL: Option<u32> = Some(500);

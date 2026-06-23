@@ -17,9 +17,12 @@ use drv_spartan7_spi_program::{BitstreamLoader, Spartan7Error};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
-use userlib::{hl, sys_recv_notification, task_slot, RecvMessage, UnwrapLite};
+use userlib::{
+    RecvMessage, UnwrapLite, hl, sys_get_timer, sys_recv_notification,
+    task_slot,
+};
 
-use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
+use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Select local vs server SPI communication
@@ -47,15 +50,16 @@ pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
+    #[count(skip)]
+    None,
     FpgaInit,
     FpgaInitFailed(#[count(children)] Spartan7Error),
     StartFailed(#[count(children)] LoaderError),
     ContinueBitstreamLoad(usize),
     WaitForDone,
-    Programmed,
-
-    #[count(skip)]
-    None,
+    Programmed {
+        load_time_ms: u64,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Count)]
@@ -82,7 +86,7 @@ counted_ringbuf!(Trace, 128, Trace::None);
 task_slot!(SYS, sys);
 task_slot!(AUXFLASH, auxflash);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     match init() {
         // Set up everything nicely, time to start serving incoming messages.
@@ -131,6 +135,7 @@ fn init() -> Result<(), LoaderError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let dev = claim_spi(&sys).device(drv_spi_api::devices::SPARTAN7_FPGA);
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
+    let start = sys_get_timer().now;
 
     // Translate from our magical task config to our desired type
     let pin_cfg = drv_spartan7_spi_program::Config {
@@ -160,7 +165,7 @@ fn init() -> Result<(), LoaderError> {
         },
     )?;
 
-    if sha_out != gen::SPARTAN7_FPGA_BITSTREAM_CHECKSUM {
+    if sha_out != generated::SPARTAN7_FPGA_BITSTREAM_CHECKSUM {
         // Reset the FPGA to clear the invalid bitstream
         sys.gpio_reset(pin_cfg.program_l);
         hl::sleep_for(1);
@@ -176,7 +181,11 @@ fn init() -> Result<(), LoaderError> {
     // to FMC-based peripherals implemented in the FPGA.  This specific delay is
     // probably overkill, but it's known to work!
     hl::sleep_for(100);
-    ringbuf_entry!(Trace::Programmed);
+
+    let now = sys_get_timer().now;
+    ringbuf_entry!(Trace::Programmed {
+        load_time_ms: now - start
+    });
 
     Ok(())
 }
@@ -216,7 +225,7 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
@@ -225,6 +234,6 @@ mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
-mod gen {
+mod generated {
     include!(concat!(env!("OUT_DIR"), "/spartan7_fpga.rs"));
 }

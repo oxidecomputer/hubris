@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use abi::ImageHeader;
-use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
+use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, Flash};
 use lpc55_pac::SYSCON;
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::ImageError;
@@ -27,7 +27,7 @@ pub struct ImageVectorsLpc55 {
     pub nxp_image_execution_address: u32,
 }
 
-extern "C" {
+unsafe extern "C" {
     // __vector size is currently defined in the linker script as
     //
     // __vector_size = SIZEOF(.vector_table);
@@ -293,7 +293,7 @@ impl Image {
         // So, check ImageHeader carefully.
         if header_required {
             let len = self.get_imageheader_total_image_len()?;
-            if (len % U32_SIZE) != 0 {
+            if !len.is_multiple_of(U32_SIZE) {
                 return Err(ImageError::UnalignedLength);
             }
             match self.span.start.checked_add(len) {

@@ -95,9 +95,6 @@ impl ServerImpl {
                         .read_id()
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
                     *self.scratch = InventoryData::W25q256jveqi {
-                        mfr_id: id.mfr_id,
-                        memory_type: id.memory_type,
-                        capacity: id.capacity,
                         unique_id: id.unique_id,
                     };
                     Ok(self.scratch)
@@ -107,7 +104,7 @@ impl ServerImpl {
             // We need to specify INVENTORY_COUNT individually here to trigger
             // an error if we've overlapped it with a previous range
             Self::INVENTORY_COUNT | Self::INVENTORY_COUNT..=u32::MAX => {
-                return Err(InventoryDataResult::InvalidIndex)
+                return Err(InventoryDataResult::InvalidIndex);
             }
         }
 

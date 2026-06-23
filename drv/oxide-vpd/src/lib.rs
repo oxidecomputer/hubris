@@ -11,7 +11,7 @@
 //! specific example of MAC addresses)
 
 use drv_i2c_devices::at24csw080::{
-    At24Csw080, Error as At24Error, EEPROM_SIZE,
+    At24Csw080, EEPROM_SIZE, Error as At24Error,
 };
 use ringbuf::*;
 use tlvc::{ChunkHandle, TlvcRead, TlvcReadError, TlvcReader};
@@ -36,9 +36,9 @@ struct EepromReader<'a> {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     EepromError(drv_i2c_devices::at24csw080::Error),
     Error(VpdError),
-    None,
 }
 
 ringbuf!(Trace, 4, Trace::None);
@@ -148,6 +148,34 @@ pub fn read_config_nested_from_into(
             Err(e)
         }
     }
+}
+
+/// Reads the entire root `FRU0` tag into the provided buffer.
+pub fn read_raw_from_into(
+    eeprom: At24Csw080,
+    out: &mut [u8],
+) -> Result<usize, VpdError> {
+    let eeprom_reader = EepromReader { eeprom: &eeprom };
+    let reader =
+        TlvcReader::begin(eeprom_reader).map_err(VpdError::ErrorOnBegin)?;
+
+    // Find the root chunk, translating from a general to specific error
+    let chunk =
+        get_chunk_for_tag(reader, *b"FRU0", 0).map_err(|e| match e {
+            VpdError::NoSuchChunk(..) => VpdError::NoRootChunk,
+            e => e,
+        })?;
+
+    // Deserialize the found chunk
+    let chunk_len = chunk.len() as usize;
+    if chunk_len > out.len() {
+        return Err(VpdError::InvalidChunkSize);
+    }
+
+    chunk
+        .read_exact(0, &mut out[..chunk_len])
+        .map_err(VpdError::ErrorOnRead)?;
+    Ok(chunk_len)
 }
 
 /// Inner function, without logging

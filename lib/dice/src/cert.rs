@@ -3,12 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    alias_cert_tmpl, deviceid_cert_tmpl, persistid_cert_tmpl,
-    spmeasure_cert_tmpl, trust_quorum_dhe_cert_tmpl, CertSerialNumber,
-    PersistIdCert,
+    CertSerialNumber, PersistIdCert, alias_cert_tmpl, deviceid_cert_tmpl,
+    persistid_cert_tmpl, spmeasure_cert_tmpl, trust_quorum_dhe_cert_tmpl,
 };
 use core::ops::Range;
-use dice_mfg_msgs::{PlatformId, SizedBlob, PLATFORM_ID_MAX_LEN};
+use dice_mfg_msgs::{PLATFORM_ID_MAX_LEN, PlatformId, SizedBlob};
 use hubpack::SerializedSize;
 use salty::constants::{
     PUBLICKEY_SERIALIZED_LENGTH, SIGNATURE_SERIALIZED_LENGTH,

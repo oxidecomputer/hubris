@@ -23,14 +23,14 @@
 mod bsp;
 
 use userlib::{
-    hl, set_timer_relative, task_slot, FromPrimitive, RecvMessage, UnwrapLite,
+    FromPrimitive, RecvMessage, UnwrapLite, hl, set_timer_relative, task_slot,
 };
 
-use drv_hf_api::{HashData, HashState, SlotHash, SECTOR_SIZE_BYTES};
+use drv_hf_api::{HashData, HashState, HfChipId, SECTOR_SIZE_BYTES, SlotHash};
 use drv_stm32h7_qspi::{Qspi, QspiError, ReadSetting};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
 use zerocopy::{FromZeros, IntoBytes};
 
@@ -43,8 +43,8 @@ use stm32h7::stm32h753 as device;
 use drv_hash_api::SHA256_SZ;
 
 use drv_hf_api::{
-    HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
-    HfRawPersistentData, HF_PERSISTENT_DATA_STRIDE, PAGE_SIZE_BYTES,
+    HF_PERSISTENT_DATA_STRIDE, HfDevSelect, HfError, HfMuxState,
+    HfPersistentData, HfProtectMode, HfRawPersistentData, PAGE_SIZE_BYTES,
 };
 
 task_slot!(SYS, sys);
@@ -88,7 +88,7 @@ impl Config {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
@@ -414,7 +414,7 @@ impl ServerImpl {
         }
         // We're about to modify our flash, stop any hash in progress
         // and say our old one is invalid.
-        self.invalidate_hash();
+        self.invalidate_write();
         Ok(())
     }
 
@@ -511,7 +511,15 @@ impl ServerImpl {
         }
     }
 
-    fn invalidate_hash(&mut self) {
+    // Write to flash invalidates the hash of the single bank
+    fn invalidate_write(&mut self) {
+        match self.hash.state {
+            // Only stop the hash for our current device
+            HashState::Hashing { dev, .. } if dev == self.dev_state => {
+                self.hash.state = HashState::NotRunning;
+            }
+            _ => (),
+        }
         match self.dev_state {
             HfDevSelect::Flash0 => {
                 self.hash.cached_hash0 = SlotHash::Recalculate;
@@ -520,7 +528,13 @@ impl ServerImpl {
                 self.hash.cached_hash1 = SlotHash::Recalculate;
             }
         }
+    }
+
+    // We switched our mux, recalculate everything
+    fn invalidate_mux_switch(&mut self) {
         self.hash.state = HashState::NotRunning;
+        self.hash.cached_hash0 = SlotHash::Recalculate;
+        self.hash.cached_hash1 = SlotHash::Recalculate;
     }
 }
 
@@ -528,12 +542,23 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read_id(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 20], RequestError<HfError>> {
+    ) -> Result<HfChipId, RequestError<HfError>> {
         self.check_muxed_to_sp()?;
 
         let mut idbuf = [0; 20];
         self.qspi.read_id(&mut idbuf).map_err(qspi_to_hf)?;
-        Ok(idbuf)
+
+        let mfr_id = idbuf[0];
+        let memory_type = idbuf[1];
+        let capacity = idbuf[2];
+
+        let unique_id: [u8; 17] = idbuf[3..].try_into().unwrap_lite();
+        Ok(HfChipId {
+            mfr_id,
+            memory_type,
+            capacity,
+            unique_id,
+        })
     }
 
     fn capacity(
@@ -604,15 +629,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         r
     }
 
-    fn bonus_page_program(
-        &mut self,
-        _: &RecvMessage,
-        _addr: u32,
-        _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
-    ) -> Result<(), RequestError<HfError>> {
-        Err(HfError::BadAddress.into())
-    }
-
     fn read(
         &mut self,
         _: &RecvMessage,
@@ -640,18 +656,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         let prev = self.dev_state;
         self.set_dev(dev)?;
-        let r = self.read(msg, addr, dest).map_err(RequestError::from);
+        let r = self.read(msg, addr, dest);
         self.set_dev(prev).unwrap(); // infallible if the earlier set_dev worked
         r
-    }
-
-    fn bonus_read(
-        &mut self,
-        _: &RecvMessage,
-        _addr: u32,
-        _dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
-    ) -> Result<(), RequestError<HfError>> {
-        Err(HfError::BadAddress.into())
     }
 
     fn sector_erase(
@@ -677,14 +684,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         r
     }
 
-    fn bonus_sector_erase(
-        &mut self,
-        _: &RecvMessage,
-        _addr: u32,
-    ) -> Result<(), RequestError<HfError>> {
-        Err(HfError::BadAddress.into())
-    }
-
     fn get_mux(
         &mut self,
         _: &RecvMessage,
@@ -708,7 +707,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // This is probably slight over kill but caching is best effort
         // and if we're swapping our mux back the host has probably
         // gone into A2...
-        self.invalidate_hash();
+        self.invalidate_mux_switch();
         Ok(())
     }
 
@@ -743,12 +742,14 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         len: u32,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         self.check_muxed_to_sp()?;
+        match self.hash.state {
+            HashState::Hashing { .. } => {
+                return Err(HfError::HashInProgress.into());
+            }
+            _ => (),
+        }
         if self.hash.task.init_sha256().is_err() {
             return Err(HfError::HashError.into());
-        }
-        match self.hash.state {
-            HashState::Hashing { .. } => return Err(HfError::HashError.into()),
-            _ => (),
         }
         let begin = addr as usize;
         let end = match begin.checked_add(len as usize) {
@@ -787,13 +788,18 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         dev: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        if self.hash.task.init_sha256().is_err() {
-            return Err(HfError::HashError.into());
+
+        // Need to check hash state before doing anything else
+        // that might mess up the hash in progress
+        match self.hash.state {
+            HashState::Hashing { .. } => {
+                return Err(HfError::HashInProgress.into());
+            }
+            _ => (),
         }
 
-        match self.hash.state {
-            HashState::Hashing { .. } => return Err(HfError::HashError.into()),
-            _ => (),
+        if self.hash.task.init_sha256().is_err() {
+            return Err(HfError::HashError.into());
         }
 
         // If we already have a valid hash for the slot don't bother
@@ -906,6 +912,59 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
 
         Ok(())
     }
+
+    fn apob_begin(
+        &mut self,
+        _: &RecvMessage,
+        _length: u32,
+        _alg: drv_hf_api::ApobHash,
+    ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
+        Err(drv_hf_api::ApobBeginError::NotImplemented.into())
+    }
+
+    fn apob_write(
+        &mut self,
+        _: &RecvMessage,
+        _offset: u32,
+        _data: Leased<R, [u8]>,
+    ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
+        Err(drv_hf_api::ApobWriteError::NotImplemented.into())
+    }
+
+    fn apob_commit(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
+        Err(drv_hf_api::ApobCommitError::NotImplemented.into())
+    }
+
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        // `apob_lock` is called by `host_sp_comms` once it receives *any*
+        // message indicating that we've reached a late phase of booting (e.g.
+        // asking the SP for MAC addresses).  The Gimlet has no APOB, so it's
+        // fine to just return `Ok(())` here; this is cleaner than
+        // special-casing `host_sp_comms` to only call `apob_lock` on Cosmo.
+        Ok(())
+    }
+
+    fn apob_read(
+        &mut self,
+        _: &RecvMessage,
+        _offset: u32,
+        _data: Leased<W, [u8]>,
+    ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
+        Err(drv_hf_api::ApobReadError::NotImplemented.into())
+    }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::NotImplemented.into())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -913,17 +972,245 @@ impl NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::TIMER_MASK) != 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
             self.step_hash();
         }
+    }
+}
+
+struct FailServer(drv_hf_api::HfError);
+
+impl NotificationHandler for FailServer {
+    fn current_notification_mask(&self) -> u32 {
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+        unreachable!()
+    }
+}
+
+impl idl::InOrderHostFlashImpl for FailServer {
+    fn read_id(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HfChipId, RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn capacity(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<usize, RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn read_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u8, RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn bulk_erase(
+        &mut self,
+        _: &RecvMessage,
+        _protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn page_program(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _protect: HfProtectMode,
+        _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn page_program_dev(
+        &mut self,
+        _msg: &RecvMessage,
+        _dev: HfDevSelect,
+        _addr: u32,
+        _protect: HfProtectMode,
+        _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn read(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn read_dev(
+        &mut self,
+        _msg: &RecvMessage,
+        _dev: HfDevSelect,
+        _addr: u32,
+        _dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn sector_erase(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn sector_erase_dev(
+        &mut self,
+        _: &RecvMessage,
+        _dev: HfDevSelect,
+        _addr: u32,
+        _protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn get_mux(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HfMuxState, RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn set_mux(
+        &mut self,
+        _: &RecvMessage,
+        _state: HfMuxState,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn get_dev(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HfDevSelect, RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn set_dev(
+        &mut self,
+        _: &RecvMessage,
+        _state: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn check_dev(
+        &mut self,
+        _: &RecvMessage,
+        _state: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn hash(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _len: u32,
+    ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn hash_significant_bits(
+        &mut self,
+        _: &RecvMessage,
+        _dev: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn get_cached_hash(
+        &mut self,
+        _: &RecvMessage,
+        _dev: HfDevSelect,
+    ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn get_persistent_data(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HfPersistentData, RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn write_persistent_data(
+        &mut self,
+        _: &RecvMessage,
+        _dev_select: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn apob_begin(
+        &mut self,
+        _: &RecvMessage,
+        _length: u32,
+        _alg: drv_hf_api::ApobHash,
+    ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
+        Err(drv_hf_api::ApobBeginError::NotImplemented.into())
+    }
+
+    fn apob_write(
+        &mut self,
+        _: &RecvMessage,
+        _offset: u32,
+        _data: Leased<R, [u8]>,
+    ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
+        Err(drv_hf_api::ApobWriteError::NotImplemented.into())
+    }
+
+    fn apob_commit(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
+        Err(drv_hf_api::ApobCommitError::NotImplemented.into())
+    }
+
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
+
+    fn apob_read(
+        &mut self,
+        _: &RecvMessage,
+        _offset: u32,
+        _data: Leased<W, [u8]>,
+    ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
+        Err(drv_hf_api::ApobReadError::NotImplemented.into())
+    }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::NotImplemented.into())
     }
 }
 
 /// Failure function, running an Idol response loop that always returns an error
 fn fail(err: drv_hf_api::HfError) -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
-    let mut server = idl::FailServer::new(err);
+    let mut server = FailServer(err);
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
@@ -931,7 +1218,12 @@ fn fail(err: drv_hf_api::HfError) -> ! {
 
 mod idl {
     use super::{
-        HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+        HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
+        HfProtectMode,
+    };
+    use drv_hf_api::{
+        ApobBeginError, ApobClearError, ApobCommitError, ApobHash,
+        ApobReadError, ApobWriteError,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

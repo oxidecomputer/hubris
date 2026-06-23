@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    i2c_config, i2c_config::sensors, Device, PowerControllerConfig, PowerState,
-    SensorId,
+    Device, PowerControllerConfig, PowerState, SensorId, i2c_config,
+    i2c_config::sensors,
 };
 
 use drv_i2c_devices::max5970::*;
@@ -29,8 +29,8 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     rail_controller!(Sys, tps546B24A, v5_sys_a2, A2),
     rail_controller!(Sys, tps546B24A, v1p8_sys_a2, A2),
     rail_controller!(Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
-    adm1272_controller!(HotSwap, v54_hs_output, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan, A2, Ohms(0.002)),
+    adm127x_controller!(HotSwap, v54_hs_output, A2, Ohms(0.001)),
+    adm127x_controller!(Fan, v54_fan, A2, Ohms(0.002)),
     max5970_controller!(HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.004)),
     max5970_controller!(HotSwapIO, v3p3_m2b_a0hp, A0, Ohms(0.004)),
     max5970_controller!(HotSwapIO, v12_u2a_a0, A0, Ohms(0.005)),
@@ -104,6 +104,7 @@ const TRACE_DEPTH: usize = 52;
 /// Tooling can then collect this ringbuf periodically and get recent events.
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     /// Written before trace records; the `u32` is the number of times the task
     /// has woken up to process its timer. This is not exactly equivalent to
     /// seconds because of the way the timer is maintained, but is approximately
@@ -134,7 +135,6 @@ enum Trace {
         crossbounce_min_vout: f32,
         crossbounce_max_vout: f32,
     },
-    None,
 }
 
 ringbuf!(Trace, TRACE_DEPTH, Trace::None);
@@ -292,7 +292,7 @@ impl State {
         //
         // Trace the detailed state every ten seconds, provided that we are in A0.
         //
-        if state == PowerState::A0 && self.fired % TRACE_SECONDS == 0 {
+        if state == PowerState::A0 && self.fired.is_multiple_of(TRACE_SECONDS) {
             ringbuf_entry!(Trace::Now(self.fired));
 
             for ((dev, sensor), peak) in CONTROLLER_CONFIG

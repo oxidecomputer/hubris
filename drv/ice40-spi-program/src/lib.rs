@@ -28,7 +28,7 @@
 
 use drv_spi_api::{self as spi_api, SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
-use userlib::{hl, UnwrapLite};
+use userlib::{UnwrapLite, hl};
 
 /// Wiring configuration for the iCE40 FPGA.
 pub struct Config {

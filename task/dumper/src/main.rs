@@ -16,6 +16,7 @@ use zerocopy::FromBytes;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     DumpInitiated(u32),
     SetupFailed(SpCtrlError),
     DumpHeader([u8; 4]),
@@ -33,7 +34,6 @@ enum Trace {
     ReinitFailed,
     ReinitSucceededButResumeFailed,
     ReinitResumed,
-    None,
 }
 
 task_slot!(SP_CTRL, swd);
@@ -188,12 +188,12 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: NotificationBits) {
         unreachable!()
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut server = ServerImpl;
     let mut buffer = [0; idl::INCOMING_SIZE];

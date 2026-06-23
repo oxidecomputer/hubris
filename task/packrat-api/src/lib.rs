@@ -12,8 +12,12 @@ use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, LittleEndian, U16,
 };
 
+pub use ereport_messages::Ena;
+pub use gateway_ereport_messages as ereport_messages;
 pub use host_sp_messages::HostStartupOptions;
-pub use oxide_barcode::VpdIdentity;
+#[cfg(feature = "microcbor")]
+use microcbor::StaticCborLen;
+pub use oxide_barcode::OxideIdentity;
 
 /// Represents a range of allocated MAC addresses, per RFD 320
 ///
@@ -50,6 +54,84 @@ pub enum CacheGetError {
 )]
 pub enum CacheSetError {
     ValueAlreadySet = 1,
+}
+
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
+pub enum EreportReadError {
+    RestartIdNotSet = 1,
+}
+
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
+pub enum EreportWriteError {
+    /// Indicates that an ereport was lost because it would not have fit in
+    /// Packrat's ereport buffer.
+    Lost = 1,
+}
+
+/// Errors returned by [`Packrat::encode_ereport`].
+#[derive(counters::Count)]
+#[cfg(feature = "microcbor")]
+pub enum EreportEncodeError {
+    /// The IPC to deliver the serialized ereport failed.
+    Packrat {
+        len: usize,
+        #[count(children)]
+        err: EreportWriteError,
+    },
+    /// Encoding the ereport failed.
+    Encoder(microcbor::encode::Error<microcbor::encode::write::EndOfSlice>),
+}
+
+/// Wrapper type defining common ereport fields.
+#[cfg(feature = "microcbor")]
+#[derive(Clone, microcbor::Encode)]
+pub struct Ereport<C, D> {
+    #[cbor(rename = "k")]
+    pub class: C,
+    #[cbor(rename = "v")]
+    pub version: u32,
+    #[cbor(flatten)]
+    pub report: D,
+}
+
+impl Packrat {
+    /// Deliver an ereport for a value that implements [`microcbor::Encode`] and
+    /// [`microcbor::StaticCborLen`].
+    ///
+    /// This method both encodes the ereport as CBOR into the provided `buf` and
+    /// then delivers the encoded ereport to `packrat`.
+    ///
+    /// `buf` should generally be a buffer constructed using the
+    /// [`microcbor::max_cbor_len_for!`] to determine the maximum length of the
+    /// buffer needed to encode any of a set of ereport types. This ensures that
+    /// it will never be too short to contain the encoded ereport.
+    ///
+    // TODO(eliza): I really want this to be able to statically check that the
+    // buffer is >= E::MAX_CBOR_LEN but unfortunately that isn't currently
+    // possible due to https://github.com/rust-lang/rust/issues/132980...
+    #[cfg(feature = "microcbor")]
+    pub fn deliver_microcbor_ereport<E: StaticCborLen>(
+        &self,
+        ereport: &E,
+        buf: &mut [u8],
+    ) -> Result<(usize, ereport_messages::Ena), EreportEncodeError> {
+        let cursor = microcbor::encode::write::Cursor::new(buf);
+        let mut encoder = microcbor::encode::Encoder::new(cursor);
+        ereport
+            .encode(&mut encoder, &mut ())
+            .map_err(EreportEncodeError::Encoder)?;
+        let cursor = encoder.into_writer();
+        let len = cursor.position();
+        let buf = cursor.into_inner();
+        let ena = self
+            .deliver_encoded_ereport(&buf[..len])
+            .map_err(|err| EreportEncodeError::Packrat { len, err })?;
+        Ok((len, ena))
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

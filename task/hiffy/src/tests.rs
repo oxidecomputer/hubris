@@ -32,7 +32,7 @@ pub(crate) fn run_a_test(
         }
     };
 
-    userlib::kipc::restart_task(TEST_TASK.get_task_index().into(), true);
+    userlib::kipc::reinit_task(TEST_TASK.get_task_index().into(), true);
 
     ringbuf_entry!(Trace::RunTest(id));
     let (rc, _len) = sys_send(
@@ -81,11 +81,11 @@ pub(crate) fn run_a_test(
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Execute((usize, hif::Op)),
     Failure(Failure),
     Success,
     RunTest(u32),
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -100,9 +100,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[run_a_test];
 // This definition forces the compiler to emit the DWARF needed for debuggers
 // to be able to know function indices, arguments and return values.
 //
-#[no_mangle]
-#[used]
-static HIFFY_FUNCTIONS: Option<&Functions> = None;
+#[unsafe(no_mangle)]
+pub static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
 pub(crate) fn trace_execute(offset: usize, op: hif::Op) {
     ringbuf_entry!(Trace::Execute((offset, op)));

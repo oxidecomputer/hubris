@@ -1,0 +1,29 @@
+[package]
+name = "task-ereportulator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+idol-runtime.workspace = true
+zerocopy.workspace = true
+zerocopy-derive.workspace = true
+task-packrat-api = { path = "../packrat-api" }
+microcbor = { path = "../../lib/microcbor" }
+num-traits.workspace = true
+ringbuf = { path = "../../lib/ringbuf", features = ["counters"] }
+counters = { path = "../../lib/counters" }
+ereports = { path = "../../lib/ereports", features = ["ereporter-macro"] }
+fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
+
+[build-dependencies]
+idol.workspace = true
+
+[[bin]]
+name = "task-ereportulator"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

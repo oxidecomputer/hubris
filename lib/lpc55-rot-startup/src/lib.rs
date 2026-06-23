@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #![no_std]
-#![feature(naked_functions)]
 
 #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
 mod dice;
@@ -286,9 +285,9 @@ pub fn get_clock_speed(peripherals: &lpc55_pac::Peripherals) -> (u32, u8) {
 ///
 /// However, if you're doing something weird with unused stack memory, be very
 /// careful.
-#[naked]
+#[unsafe(naked)]
 extern "C" fn nuke_stack() {
-    extern "C" {
+    unsafe extern "C" {
         static _stack_base: u32;
     }
 
@@ -310,25 +309,22 @@ extern "C" fn nuke_stack() {
     //
     // However, we do not use the stack ourselves, nor do we use the callee-save
     // registers, so we don't save them anywhere.
-    unsafe {
-        core::arch::asm!("
-            ldr r0, ={stack_base}   @ Get limit into r0
-            mov r1, sp              @ Get current sp into r1 for convenience
-            mov r2, #0              @ Get a zero into r2
-            mov r3, #0              @ Also zero r3 for good measure
+    core::arch::naked_asm!("
+        ldr r0, ={stack_base}   @ Get limit into r0
+        mov r1, sp              @ Get current sp into r1 for convenience
+        mov r2, #0              @ Get a zero into r2
+        mov r3, #0              @ Also zero r3 for good measure
 
-        0:  cmp r1, r0              @ are we done?
-            beq 1f                  @ if so, break
+    0:  cmp r1, r0              @ are we done?
+        beq 1f                  @ if so, break
 
-            str r2, [r1, #-4]!      @ Store a zero just below r1 and decrement
-            b 0b                    @ repeat
+        str r2, [r1, #-4]!      @ Store a zero just below r1 and decrement
+        b 0b                    @ repeat
 
-        1:  bx lr                   @ all done
-            ",
-            stack_base = sym _stack_base,
-            options(noreturn)
-        )
-    }
+    1:  bx lr                   @ all done
+        ",
+        stack_base = sym _stack_base,
+    )
 }
 
 static USE_ROM: core::sync::atomic::AtomicBool =
@@ -343,15 +339,17 @@ pub fn set_hashcrypt_rom() {
 }
 
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 // SAFETY: The atomic bool is only manipulated from the kernel pre-main context.
 // This interrupt handler re-directs to the ROM to allow pre-main to use the
 // ROM's signature checking routine. All HASHCRYPT interrupts after kernel main()
 // use the normal Hubris interrupt handling.
 pub unsafe extern "C" fn HASHCRYPT() {
     if USE_ROM.load(core::sync::atomic::Ordering::Relaxed) {
-        lpc55_romapi::skboot_hashcrypt_handler();
+        // SAFETY: we trust the ROM API
+        unsafe { lpc55_romapi::skboot_hashcrypt_handler() }
     } else {
-        kern::arch::DefaultHandler();
+        // SAFETY: we trust our default handler
+        unsafe { kern::arch::DefaultHandler() }
     }
 }

@@ -10,7 +10,6 @@ stacksize = 1024
 image-names = ["a", "b"]
 epoch = 0
 version = 0
-fwid = true
 
 [kernel]
 name = "oxide-rot-1"
@@ -21,7 +20,6 @@ features = ["dice-self"]
 tasks = ["sprot"]
 region = "flash"
 size = 256
-default = true
 
 [tasks.jefe]
 name = "task-jefe"
@@ -42,6 +40,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["gpio_driver", "swd", "update_server"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"
@@ -113,6 +112,11 @@ notifications = ["spi-irq", "timer", "sp_reset-irq", "jtag_detect-irq"]
 interrupts = {"flexcomm5.irq" = "spi-irq", "pint.irq0" = "sp_reset-irq", "pint.irq1" = "jtag_detect-irq" }
 features = ["enable_ext_sp_reset"]
 
+[[tasks.swd.bindeps]]
+name = "endoscope"
+target = "thumbv7em-none-eabihf"
+features = ["soc_stm32h753"]
+
 [tasks.swd.config]
 # MOSI = PIO0_8
 # MISO = PIO0_9
@@ -127,6 +131,18 @@ out_cfg = [
 in_cfg = [
     { pin = { port = 0, pin = 9 }, alt = 3 },
     { pin = { port = 0, pin = 8 }, alt = 0, mode = "pulldown" },
+]
+# Connected = MOSI on, MISO off, SCK on
+connected_cfg = [
+    { pin = { port = 0, pin = 8 }, alt = 3 },
+    { pin = { port = 0, pin = 9 }, alt = 0, mode = "pulldown" },
+    { pin = { port = 0, pin = 7 }, alt = 3 },
+]
+# Disconnected = MOSI off, MISO off, SCK off
+disconnected_cfg = [
+    { pin = { port = 0, pin = 8 }, alt = 0, mode = "pulldown" },
+    { pin = { port = 0, pin = 9 }, alt = 0, mode = "pulldown" },
+    { pin = { port = 0, pin = 7 }, alt = 0, mode = "pulldown" },
 ]
 pins = [
     # SCK

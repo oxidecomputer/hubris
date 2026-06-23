@@ -98,13 +98,13 @@ macro_rules! uassert {
 
 /// On ARMvx-M we have to use a global to record the current task pointer, since
 /// we don't have a scratch register.
-#[no_mangle]
+#[unsafe(no_mangle)]
 static CURRENT_TASK_PTR: AtomicPtr<task::Task> =
     AtomicPtr::new(core::ptr::null_mut());
 
 /// To allow our clock frequency to be easily determined from a debugger, we
 /// store it in memory.
-#[no_mangle]
+#[unsafe(no_mangle)]
 static CLOCK_FREQ_KHZ: AtomicU32 = AtomicU32::new(0);
 
 /// ARMvx-M volatile registers that must be saved across context switches.
@@ -304,18 +304,46 @@ pub fn reinitialize(task: &mut task::Task) {
     // arithmetic and get zero for the top word, which is outside any region and
     // causes this to be skipped. (Not that we expect zero, but we're the kernel
     // and we don't trust tasks.)
-    if let Some(region) = task
-        .region_table()
-        .iter()
-        .find(|region| region.contains(initial_stack.saturating_sub(4)))
+    if let Some((index, mut region)) =
+        task.region_table().iter().enumerate().find(|(_i, region)| {
+            region.contains(initial_stack.saturating_sub(4))
+        })
     {
+        // The stack may span multiple contiguous regions; iterate backwards
+        // through the sorted region list until we either hit the front or find
+        // a region which is discontiguous.
+        let mut okay = true;
+        for i in (0..index).rev() {
+            let prev_region = &task.region_table()[i];
+
+            // If the region table is corrupt such that a region descriptor
+            // overflows a u32, then bail out.
+            let Some(prev_region_end) =
+                prev_region.base.checked_add(prev_region.size)
+            else {
+                okay = false;
+                break;
+            };
+
+            // If these regions are contiguous, then keep going
+            if prev_region_end == region.base {
+                region = prev_region;
+            } else {
+                // We have found a discontiguous region, so we can break out of
+                // the loop (leaving `region` set to its previous value).
+                break;
+            }
+        }
+
         // If the slice doesn't fit in the region, this will fail. Should this
         // occur, don't crash the entire system, since this is a diagnostic tool
         // -- just skip filling the stack.
-        if let Ok(mut uslice) = USlice::<u32>::from_raw(
-            region.base as usize,
-            (initial_stack - frame_size - region.base as usize) >> 2,
-        ) {
+        if okay
+            && let Some(region_size) =
+                (initial_stack - frame_size).checked_sub(region.base as usize)
+            && let Ok(mut uslice) =
+                USlice::<u32>::from_raw(region.base as usize, region_size >> 2)
+        {
             // This one, we're unwrapping rather than tolerating failure. This
             // is because try_write failing would indicate an invalid region
             // descriptor for the task (read-only stack area) which would bite
@@ -759,7 +787,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
 
     CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
 
-    extern "C" {
+    unsafe extern "C" {
         // Exposed by the linker script.
         static _stack_base: u32;
     }
@@ -1036,7 +1064,7 @@ static TICKS: [AtomicU32; 2] = {
 /// Handler that gets linked into the vector table for the System Tick Timer
 /// overflow interrupt. (Name is dictated by the `cortex_m` crate.)
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn SysTick() {
     crate::profiling::event_timer_isr_enter();
     with_task_table(|tasks| {
@@ -1169,7 +1197,7 @@ cfg_if::cfg_if! {
 
 /// The Rust side of the PendSV handler, after all volatile registers have been
 /// saved somewhere predictable.
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "C" fn pendsv_entry() {
     crate::profiling::event_secondary_syscall_enter();
 
@@ -1193,7 +1221,7 @@ unsafe extern "C" fn pendsv_entry() {
 }
 
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn DefaultHandler() {
     crate::profiling::event_isr_enter();
     // We can cheaply get the identity of the interrupt that called us from the
@@ -1521,7 +1549,7 @@ bitflags::bitflags! {
 ///
 /// In brief: don't call this. This is an implementation factor of the fault
 /// handler assembly code and should not be used for other purposes.
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[cfg(armv6m)]
 unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // Who faulted?
@@ -1631,7 +1659,7 @@ pub fn reset() -> ! {
 /// - Ensure that `task` is a pointer to an initialized, aligned Task in the
 ///   task table.
 /// - Ensure that `fpsave` points to that task's floating point save area.
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[cfg(any(armv7m, armv8m))]
 unsafe extern "C" fn handle_fault(
     task: *mut task::Task,

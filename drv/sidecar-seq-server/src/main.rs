@@ -9,22 +9,24 @@
 
 use crate::clock_generator::ClockGenerator;
 use crate::front_io::FrontIOBoard;
+use crate::i2c_config::MAX_COMPONENT_ID_LEN as REFDES_LEN;
 use crate::tofino::Tofino;
 use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
+use drv_front_io_api::phy_smi::PhyOscState;
 use drv_i2c_api::{I2cDevice, ResponseCode};
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
-use drv_sidecar_front_io::phy_smi::PhyOscState;
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
+use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_mainboard_controller::fan_modules::*;
 use drv_sidecar_mainboard_controller::front_io::*;
 use drv_sidecar_mainboard_controller::tofino2::*;
-use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{
     FanModuleIndex, FanModulePresence, SeqError, TofinoSequencerPolicy,
 };
 use drv_stm32xx_sys_api as sys_api;
+use fixedstr::FixedStr;
 use idol_runtime::{
-    ClientError, Leased, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, NotificationHandler, R, RequestError, W,
 };
 use ringbuf::*;
 use userlib::*;
@@ -70,12 +72,18 @@ enum Trace {
         error: TofinoSeqError,
     },
     TofinoPowerRail(TofinoPowerRailId, PowerRailStatus),
+    TofinoVidAttempt(u8),
     TofinoVidAck,
+    TofinoNoVid,
+    TofinoNotInA0,
+    TofinoInA0,
     TofinoEepromIdCode(u32),
     TofinoBar0RegisterValue(TofinoBar0Registers, u32),
     TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
     TofinoPowerUp,
     TofinoPowerDown,
+    TofinoResequence,
+    TofinoPcieReset(bool),
     SetVddCoreVout(userlib::units::Volts),
     SetPCIePresent,
     ClearPCIePresent,
@@ -112,6 +120,7 @@ enum Trace {
 ringbuf!(Trace, 32, Trace::None);
 
 const TIMER_INTERVAL: u64 = 1000;
+const NO_PCIE_LIMIT: u8 = 120;
 
 // QSFP_2_SP_A2_PG
 const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
@@ -141,6 +150,12 @@ struct ServerImpl {
     // a piece of state to allow blinking LEDs to be in phase
     led_blink_on: bool,
     sys: sys_api::Sys,
+    // used to track how many notification loops elapsed while in A0 without a
+    // PCIe link. This will be capped at NO_PCIE_LIMIT loops and should not
+    // overflow.
+    no_pcie_count: u8,
+    // keep track if we've resequenced since we only want to try it once
+    resequenced: bool,
 }
 
 impl ServerImpl {
@@ -219,7 +234,7 @@ impl ServerImpl {
         // state or experience an FpgaError, so an open loop is safe.
         while match self.front_io_hsc.status()? {
             PowerRailStatus::GoodTimeout | PowerRailStatus::Aborted => {
-                return Err(SeqError::FrontIOBoardPowerFault)
+                return Err(SeqError::FrontIOBoardPowerFault);
             }
             PowerRailStatus::Disabled => {
                 self.front_io_hsc.set_enable(true)?;
@@ -261,50 +276,48 @@ impl ServerImpl {
     }
 
     fn actually_reset_front_io_phy(&mut self) -> Result<(), SeqError> {
-        if let Some(front_io_board) = self.front_io_board.as_mut() {
-            if front_io_board.initialized() {
-                // The board was initialized prior and this function is called
-                // by the monorail task because it is initializing the front IO
-                // PHY. Unfortunately some front IO boards have PHY oscillators
-                // which do not start reliably when their enable pin is used and
-                // the only way to resolve this is by power cycling the front IO
-                // board. But power cycling the board also bounces any QSFP
-                // transceivers which may be running, so this function attempts
-                // to determine what the monorail task wants to do.
-                //
-                // Whether or not the PHY oscillator was found to be operating
-                // nominally is recorded in the front IO board controller. Look
-                // up what this value is to determine if a power reset of the
-                // front IO board is needed.
-                match front_io_board.phy().osc_state()? {
-                    PhyOscState::Bad => {
-                        // The PHY was attempted to be initialized but its
-                        // oscillator was deemed not functional. Unfortunately
-                        // the only course of action is to power cycle the
-                        // entire front IO board, so do so now.
-                        self.front_io_hsc.set_enable(false)?;
-                        ringbuf_entry!(Trace::FrontIOBoardPowerEnable(false));
+        if let Some(front_io_board) = self.front_io_board.as_mut()
+            && front_io_board.initialized()
+        {
+            // The board was initialized prior and this function is called
+            // by the monorail task because it is initializing the front IO
+            // PHY. Unfortunately some front IO boards have PHY oscillators
+            // which do not start reliably when their enable pin is used and
+            // the only way to resolve this is by power cycling the front IO
+            // board. But power cycling the board also bounces any QSFP
+            // transceivers which may be running, so this function attempts
+            // to determine what the monorail task wants to do.
+            //
+            // Whether or not the PHY oscillator was found to be operating
+            // nominally is recorded in the front IO board controller. Look
+            // up what this value is to determine if a power reset of the
+            // front IO board is needed.
+            match front_io_board.phy().osc_state()? {
+                PhyOscState::Bad => {
+                    // The PHY was attempted to be initialized but its
+                    // oscillator was deemed not functional. Unfortunately
+                    // the only course of action is to power cycle the
+                    // entire front IO board, so do so now.
+                    self.front_io_hsc.set_enable(false)?;
+                    ringbuf_entry!(Trace::FrontIOBoardPowerEnable(false));
 
-                        // Wait some cool down period to allow caps to bleed off
-                        // etc.
-                        userlib::hl::sleep_for(1000);
-                    }
-                    PhyOscState::Good => {
-                        // The PHY was initialized properly before and its
-                        // oscillator declared operating nominally. Assume this
-                        // has not changed and only a reset the PHY itself is
-                        // desired.
-                        front_io_board.phy().set_phy_power_enabled(false)?;
-                        ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(
-                            false
-                        ));
+                    // Wait some cool down period to allow caps to bleed off
+                    // etc.
+                    userlib::hl::sleep_for(1000);
+                }
+                PhyOscState::Good => {
+                    // The PHY was initialized properly before and its
+                    // oscillator declared operating nominally. Assume this
+                    // has not changed and only a reset the PHY itself is
+                    // desired.
+                    front_io_board.phy().set_phy_power_enabled(false)?;
+                    ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(false));
 
-                        userlib::hl::sleep_for(10);
-                    }
-                    PhyOscState::Unknown => {
-                        // Do nothing (yet) since the oscillator state is
-                        // unknown.
-                    }
+                    userlib::hl::sleep_for(10);
+                }
+                PhyOscState::Unknown => {
+                    // Do nothing (yet) since the oscillator state is
+                    // unknown.
                 }
             }
         }
@@ -347,6 +360,38 @@ impl ServerImpl {
             Err(SeqError::NoFrontIOBoard) => Ok(true),
             Err(e) => Err(e),
         }
+    }
+
+    // Monitor the status of Tofino's PCIe link to the host. When a host is
+    // connected and has booted, PERST will be deasserted and link will train.
+    // This worked reliably on Gimlet, but for reasons we've not yet been able
+    // to identify it can fail on Cosmo (host thinks things are fine, Tofino
+    // does not). When this happens, resequencing the Tofino reliably
+    // establishes the link. So we will monitor if we think there should be
+    // a PCIe link or not, and if we think there should be one but the Tofino
+    // thinks it is down we will resequence the Tofino after some delay.
+    fn monitor_tofino_pcie_link(&mut self) -> Result<(), SeqError> {
+        if !self
+            .tofino
+            .sequencer
+            .is_pcie_reset()
+            .map_err(|_| SeqError::FpgaError)?
+            && !self.tofino.pcie_link_up()?
+        {
+            self.no_pcie_count += 1;
+
+            if self.no_pcie_count >= NO_PCIE_LIMIT {
+                // We have failed to establish a link, resequence.
+                ringbuf_entry!(Trace::TofinoResequence);
+                self.tofino.power_down()?;
+                self.tofino.power_up()?;
+                // The current intention is to only do this once.
+                self.resequenced = true;
+            }
+        } else {
+            self.no_pcie_count = 0;
+        }
+        Ok(())
     }
 }
 
@@ -593,12 +638,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         segment: DirectBarSegment,
         offset: u32,
-    ) -> Result<u32, RequestError<SeqError>> {
-        Ok(self
-            .tofino
-            .debug_port
-            .read_direct(segment, offset)
-            .map_err(SeqError::from)?)
+    ) -> Result<u32, RequestError<FpgaError>> {
+        Ok(self.tofino.debug_port.read_direct(segment, offset)?)
     }
 
     fn tofino_write_direct(
@@ -774,7 +815,11 @@ impl NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if !bits.has_timer_fired(notifications::TIMER_MASK) {
+            return;
+        }
+
         let start = sys_get_timer().now;
 
         // Determine if the front IO board has been initialized and no further
@@ -797,6 +842,26 @@ impl NotificationHandler for ServerImpl {
         // Fan module monitoring pulled out to keep this loop readable
         self.monitor_fan_modules();
 
+        // Monitor Tofino PCIe Link
+        if let Err(e) = self.tofino.poll_pcie_reset() {
+            ringbuf_entry!(Trace::TofinoSequencerError(e));
+        }
+
+        // Only monitor the PCIe link if we expect one to be there (i.e., we are in A0).
+        // Currently, we will only resequence a single time to resolve the problem.
+        match self.tofino.sequencer.state().unwrap_or(TofinoSeqState::A2) {
+            TofinoSeqState::A0 => {
+                if !self.resequenced
+                    && let Err(e) = self.monitor_tofino_pcie_link()
+                {
+                    ringbuf_entry!(Trace::TofinoSequencerError(e));
+                }
+            }
+            // If we're not in A0, make sure next time we go into A0 we will attempt to
+            // resequence if necessary.
+            _ => self.resequenced = false,
+        }
+
         let finish = sys_get_timer().now;
 
         // We now know when we were notified and when any work was completed.
@@ -816,7 +881,7 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
 
@@ -827,6 +892,41 @@ fn main() -> ! {
     let tofino = Tofino::new(i2c_task);
     let front_io_hsc = HotSwapController::new(MAINBOARD.get_task_id());
     let fan_modules = FanModules::new(MAINBOARD.get_task_id());
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+
+    let mut ereporter = Ereporter::claim_static_resources(packrat.clone());
+
+    // Apply the configuration mitigation on the BMR491, if required. This is an
+    // external device access and may fail. We'll attempt it thrice and then
+    // allow boot to continue.
+    {
+        use drv_i2c_devices::bmr491::{Bmr491, ExternalInputVoltageProtection};
+
+        let dev = i2c_config::devices::bmr491_u12(I2C.get_task_id());
+        let driver = Bmr491::new(&dev, 0);
+
+        // Sidecar provides external undervoltage protection that is better than
+        // what we'd get from the 491, so we rely on that.
+        let protection = ExternalInputVoltageProtection::CutoffAt40V;
+
+        let (failures, last_cause, succeeded) =
+            match driver.apply_mitigation_for_rma2402311(protection) {
+                Ok(r) => (r.failures, r.last_failure, true),
+                Err(e) => (e.retries, Some(e.last_cause), false),
+            };
+
+        if let Some(last_cause) = last_cause {
+            let ereport = ereports::pwr::Bmr491MitigationFailure {
+                refdes: FixedStr::<{ REFDES_LEN }>::from_str(
+                    dev.component_id(),
+                ),
+                failures,
+                last_cause,
+                succeeded,
+            };
+            let _ = ereporter.deliver_ereport(&ereport);
+        }
+    }
 
     let sys = sys_api::Sys::from(SYS.get_task_id());
     sys.gpio_configure_input(POWER_GOOD, sys_api::Pull::None);
@@ -840,6 +940,8 @@ fn main() -> ! {
         fan_modules,
         led_blink_on: false,
         sys,
+        no_pcie_count: 0,
+        resequenced: false,
     };
 
     ringbuf_entry!(Trace::FpgaInit);
@@ -946,7 +1048,6 @@ fn main() -> ! {
     ringbuf_entry!(Trace::FpgaInitComplete);
 
     // Populate packrat with our mac address and identity.
-    let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, i2c_task);
 
     // The sequencer for the clock generator currently does not have a feedback
@@ -1040,10 +1141,18 @@ fn main() -> ! {
     }
 }
 
+ereports::declare_ereporter! {
+    pub(crate) struct Ereporter<SeqEreport> {
+        Bmr491MitigationFailure(
+            ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>
+        ),
+    }
+}
+
 mod idl {
     use super::{
         DebugPortState, DirectBarSegment, FanModuleIndex, FanModulePresence,
-        FanModuleStatus, SeqError, TofinoPcieReset, TofinoSeqError,
+        FanModuleStatus, FpgaError, SeqError, TofinoPcieReset, TofinoSeqError,
         TofinoSeqState, TofinoSeqStep, TofinoSequencerPolicy,
     };
 

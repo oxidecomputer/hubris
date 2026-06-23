@@ -51,7 +51,6 @@ pub trait Count {
 #[macro_export]
 macro_rules! counters {
     ($name:ident, $Type:ty) => {
-        #[used]
         static $name: <$Type as $crate::Count>::Counters =
             <$Type as $crate::Count>::NEW_COUNTERS;
     };

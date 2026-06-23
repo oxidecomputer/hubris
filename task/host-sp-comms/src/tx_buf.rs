@@ -2,13 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Trace, MAX_MESSAGE_SIZE, MAX_PACKET_SIZE};
+use crate::{MAX_MESSAGE_SIZE, MAX_PACKET_SIZE, Trace};
 use core::ops::Range;
 use host_sp_messages::{
     DecodeFailureReason, Header, InventoryData, InventoryDataResult, SpToHost,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use userlib::{sys_get_timer, UnwrapLite};
+use userlib::{UnwrapLite, sys_get_timer};
 
 /// We set the high bit of the sequence number before replying to host requests.
 const SEQ_REPLY: u64 = 0x8000_0000_0000_0000;
@@ -48,12 +48,11 @@ impl StaticBufs {
 }
 
 impl TxBuf {
-    pub(crate) fn new(
-        StaticBufs {
+    pub(crate) fn new(bufs: &'static mut StaticBufs) -> Self {
+        let &mut StaticBufs {
             ref mut msg,
             ref mut pkt,
-        }: &'static mut StaticBufs,
-    ) -> Self {
+        } = bufs;
         Self {
             msg,
             pkt,
@@ -292,6 +291,40 @@ impl TxBuf {
         // packet was only partially sent (if we were `reset()`).
         let n = corncobs::encode_buf(&self.msg[..msg_len], &mut self.pkt[1..]);
         self.state = State::ToSend(0..n + 1);
+    }
+
+    // Copies a "raw" slice of bytes into the output packet buffer.
+    pub(crate) fn try_copy_raw_data(&mut self, bs: &[u8]) -> Result<usize, ()> {
+        let n = usize::min(self.pkt.len() - 2, bs.len());
+        if bs[..n].contains(&0) {
+            return Err(());
+        }
+        let end = n + 1;
+        self.pkt[0] = 0;
+        self.pkt[1..end].copy_from_slice(&bs[..n]);
+        self.pkt[end] = 0;
+        self.state = State::ToSend(0..end + 1);
+        Ok(n)
+    }
+
+    pub(crate) fn try_fill(
+        &mut self,
+        it: &mut impl Iterator<Item = u8>,
+    ) -> Result<(), ()> {
+        let max = self.pkt.len() - 2;
+        let mut idx = 0;
+        self.pkt[idx] = 0;
+        idx += 1;
+        for b in it.take(max) {
+            if b == 0 {
+                return Err(());
+            }
+            self.pkt[idx] = b;
+            idx += 1;
+        }
+        self.pkt[idx] = 0;
+        self.state = State::ToSend(0..idx + 1);
+        Ok(())
     }
 }
 

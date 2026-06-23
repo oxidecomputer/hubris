@@ -9,6 +9,7 @@
 
 use dump_agent_api::*;
 use idol_runtime::RequestError;
+#[cfg(not(feature = "no-rot"))]
 use ringbuf::*;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
@@ -30,15 +31,15 @@ struct ServerImpl {
     net: task_net_api::Net,
 }
 
+#[cfg(not(feature = "no-rot"))]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    #[cfg(not(feature = "no-rot"))]
-    SpRotDump,
-    #[cfg(not(feature = "no-rot"))]
-    SpRotDumpResult(Result<(), DumpAgentError>),
     None,
+    SpRotDump,
+    SpRotDumpResult(Result<(), DumpAgentError>),
 }
 
+#[cfg(not(feature = "no-rot"))]
 ringbuf!(Trace, 4, Trace::None);
 
 #[cfg(not(feature = "no-rot"))]
@@ -184,10 +185,8 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         notifications::SOCKET_MASK
     }
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::SOCKET_MASK) != 0 {
-            // Nothing to do here; we'll handle it in the main loop
-        }
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+        // Nothing to do here; we'll handle it in the main loop
     }
 }
 
@@ -197,7 +196,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         0
     }
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
@@ -297,7 +296,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
 

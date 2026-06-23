@@ -2,7 +2,7 @@
 name = "drv-i2c-types"
 description = "data types for the client I2C API"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 num-derive.workspace = true
