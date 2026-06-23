@@ -262,11 +262,16 @@ notifications = ["socket", "timer"]
 
 [tasks.front_io]
 name = "drv-front-io-server"
-priority = 5
+priority = 4
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
 start = true
-task-slots = ["sequencer"]
+task-slots = [
+    "auxflash",
+    "ecp5_front_io",
+    "ecp5_mainboard",
+    "i2c_driver",
+    "sys"]
 notifications = ["timer"]
 
 [tasks.packrat]
@@ -280,7 +285,7 @@ notifications = ["task-faulted"]
 
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
-priority = 4
+priority = 5
 stacksize = 4096
 start = true
 task-slots = [
@@ -288,14 +293,14 @@ task-slots = [
     "i2c_driver",
     "auxflash",
     "packrat",
-    {mainboard = "ecp5_mainboard"},
-    {front_io = "ecp5_front_io"}]
+    "front_io",
+    {mainboard = "ecp5_mainboard"}]
 notifications = ["timer"]
 
 [tasks.thermal]
 name = "task-thermal"
 features = ["sidecar"]
-priority = 5
+priority = 6
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 4000
 start = true
@@ -323,7 +328,7 @@ task-slots = ["i2c_driver"]
 [tasks.ignition]
 name = "drv-ignition-server"
 features = ["sequencer"]
-priority = 5
+priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 2048
 start = true

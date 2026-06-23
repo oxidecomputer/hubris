@@ -3,6 +3,21 @@
 Interface(
     name: "FrontIO",
     ops: {
+        "power_on": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "board_status": (
+            args: {},
+            reply: Simple("FrontIOStatus"),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+
         "board_present": (
             args: {},
             reply: Simple("bool"),

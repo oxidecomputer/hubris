@@ -19,10 +19,9 @@ drv-fpga-user-api = { path = "../fpga-user-api" }
 drv-i2c-api = { path = "../i2c-api", features = ["component-id"] }
 drv-i2c-devices = { path = "../i2c-devices" }
 drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
-drv-front-io-api = { path = "../front-io-api", features = ["controller", "phy_smi"] }
+drv-front-io-api = { path = "../front-io-api" }
 drv-sidecar-mainboard-controller = { path = "../sidecar-mainboard-controller", features = ["bitstream"] }
 drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
-drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", features = ["family-stm32h7"] }
 ereports = { path = "../../lib/ereports", features = ["ereporter-macro"] }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
