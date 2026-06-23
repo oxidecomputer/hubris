@@ -40,22 +40,22 @@ gimlet-e = {}
 gimlet-e-lab = {}
 gimlet-f = {}
 gimlet-f-lab = {}
-psc-b = {}
-psc-c = {}
-sidecar-b = {}
-sidecar-b-lab = {}
-sidecar-b-reverso = {}
-sidecar-c = {}
-sidecar-c-lab = {}
-sidecar-c-reverso = {}
-sidecar-d = {}
-sidecar-d-lab = {}
-sidecar-d-reverso = {}
+psc-b = { corim = false }
+psc-c = { corim = false }
+sidecar-b = { corim = false }
+sidecar-b-lab = { corim = false }
+sidecar-b-reverso = { corim = false, omicron = false }
+sidecar-c = { corim = false }
+sidecar-c-lab = { corim = false }
+sidecar-c-reverso = { corim = false, omicron = false }
+sidecar-d = { corim = false }
+sidecar-d-lab = { corim = false }
+sidecar-d-reverso = { corim = false, omicron = false }
 cosmo-a = {}
 cosmo-a-lab = {}
 cosmo-b = {}
 cosmo-b-lab = {}
-observer-a = {}
+observer-a = { corim = false, omicron = false }
 
 [groups.rot]
 tag-bump = "minor"
