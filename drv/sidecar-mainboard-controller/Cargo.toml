@@ -17,6 +17,7 @@ drv-fpga-api = { path = "../fpga-api" }
 drv-fpga-user-api = { path = "../fpga-user-api" }
 drv-ignition-api = { path = "../ignition-api" }
 userlib = { path = "../../sys/userlib" }
+ringbuf = { path = "../../lib/ringbuf" }
 
 [features]
 bitstream = ["dep:drv-auxflash-api", "drv-fpga-api/auxflash"]
