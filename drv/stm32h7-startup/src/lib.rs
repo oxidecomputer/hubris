@@ -394,6 +394,10 @@ pub mod rolling_timer {
     /// be reset to zero. This function may be called multiple times, modulo the
     /// safety concerns listed below.
     ///
+    /// `apb1_mhz` should be the configured frequency in MHz of the APB1 clock,
+    /// which is used as an input to TIM5, and will be used to pre-scale this
+    /// input down to a tick rate of 1MHz.
+    ///
     /// SAFETY: Calling this function will invalidate any current timer counts
     /// obtained through `get_rolling_micros_since_boot()`, as it resets our
     /// "epoch". If TIM5 is re-used for another purpose, you MUST NOT call
@@ -403,11 +407,7 @@ pub mod rolling_timer {
     /// the new frequency for timing measurements to be accurate.
     pub unsafe fn configure_tim5(p: &device::Peripherals, apb1_mhz: u16) {
         // Hand-build TIM5 as a 32-bit rolling timer at 1 MHz. Start by enabling
-        // TIM5 is on APB1, which at boot is undivided from the default 64MHz
-        // HSI clock source. This *will* change when we reconfigure clocks
-        // later!
-        //
-        // Start by enabling the peripheral in RCC and toggling reset
+        // TIM5 on APB1L in RCC and toggling reset
         p.RCC.apb1lenr.modify(|_r, w| w.tim5en().enabled());
         cortex_m::asm::dsb();
 
@@ -431,16 +431,27 @@ pub mod rolling_timer {
         p.TIM5.cr1.modify(|_r, w| w.cen().enabled());
     }
 
+    /// This function checks that TIM5 has been enabled in RCC, and is currently
+    /// counting.
     pub fn assert_tim5_running() {
         let (rcc, tim5) =
             unsafe { (&*device::RCC::ptr(), &*device::TIM5::ptr()) };
-        let rcc_en = rcc.apb1lenr.read().tim5en().is_enabled();
-        let tim_en = tim5.cr1.read().cen().is_enabled();
-        assert!(rcc_en && tim_en);
+
+        assert!(
+            rcc.apb1lenr.read().tim5en().is_enabled()
+                && tim5.cr1.read().cen().is_enabled()
+        );
     }
 
     /// Obtain the current count value of TIM5, which is a 32-bit timer that
     /// ticks at a rate of 1MHz.
+    ///
+    /// The value returned by this function "rolls over", or wraps around every
+    /// 71 minutes or so. Callers should be careful to handle potential wrapping
+    /// of the returned value when calculating elapsed time or using for delays.
+    ///
+    /// Consider using `blocking_delay_micros()`, which correctly handles this
+    /// calculation, for early boot-up delays.
     ///
     /// NOTE: This does *not* assert that the timer is currently running. If it
     /// has not ever been started using `configure_tim5`, the returned value may
