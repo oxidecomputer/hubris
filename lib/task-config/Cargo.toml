@@ -9,7 +9,7 @@ quote = { workspace = true }
 serde = { workspace = true }
 syn = { workspace = true }
 toml = { workspace = true }
-build-util = { path = "../../build/util" }
+toml-task = { path = "../../lib/toml-task" }
 
 [lib]
 proc-macro = true

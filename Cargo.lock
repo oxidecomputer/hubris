@@ -5879,12 +5879,12 @@ dependencies = [
 name = "task-config"
 version = "0.1.0"
 dependencies = [
- "build-util",
  "proc-macro2",
  "quote",
  "serde",
  "syn 2.0.106",
  "toml 1.1.2+spec-1.1.0",
+ "toml-task",
 ]
 
 [[package]]
