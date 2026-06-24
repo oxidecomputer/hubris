@@ -382,8 +382,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
 // This definition forces the compiler to emit the DWARF needed for debuggers
 // to be able to know function indices, arguments and return values.
 //
-#[used(compiler)]
-static HIFFY_FUNCTIONS: Option<&Functions> = None;
+#[unsafe(no_mangle)]
+pub static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
 pub(crate) fn trace_execute(offset: usize, op: hif::Op) {
     ringbuf_entry!(Trace::Execute((offset, op)));

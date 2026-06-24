@@ -192,11 +192,12 @@ const CPU_THERMALS: ThermalProperties = ThermalProperties {
     temperature_slew_deg_per_sec: 0.5,
 };
 
-// The T6's specifications aren't clearly detailed anywhere.
+// According to Chelsio, T_j Max is 115°C, while T_j Typical is 100° C. Let's
+// try to stay below 100°C.
 const T6_THERMALS: ThermalProperties = ThermalProperties {
-    target_temperature: Celsius(70f32),
-    critical_temperature: Celsius(80f32),
-    power_down_temperature: Celsius(85f32),
+    target_temperature: Celsius(95f32),
+    critical_temperature: Celsius(100f32),
+    power_down_temperature: Celsius(115f32),
     temperature_slew_deg_per_sec: 0.5,
 };
 

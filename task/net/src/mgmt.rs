@@ -13,7 +13,7 @@ use ringbuf::*;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::{UnwrapLite, hl::sleep_for};
+use userlib::hl::sleep_for;
 use vsc85xx::{Counter, VscError, vsc85x2::Vsc85x2};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 
@@ -34,12 +34,12 @@ enum Trace {
     #[count(skip)]
     None,
     Ksz8463Err {
-        port: KszPort,
+        port: Option<KszPort>,
         #[count(children)]
         err: KszError,
     },
     Vsc85x2Err {
-        port: u8,
+        port: Option<u8>,
         #[count(children)]
         err: VscError,
     },
@@ -103,7 +103,10 @@ impl Config {
         // VSC8552 over 100-BASE FX
         self.ksz8463
             .configure(ksz8463::Mode::Fiber, self.ksz8463_vlan_mode)
-            .unwrap_lite();
+            .inspect_err(|&err| {
+                ringbuf_entry!(Trace::Ksz8463Err { port: None, err })
+            })
+            .unwrap();
         self.ksz8463
     }
 
@@ -162,7 +165,11 @@ impl Config {
             sys.gpio_reset(coma_mode);
         }
 
-        vsc85x2.unwrap_lite() // TODO
+        vsc85x2
+            .inspect_err(|&err| {
+                ringbuf_entry!(Trace::Vsc85x2Err { port: None, err })
+            })
+            .unwrap()
     }
 }
 
@@ -232,7 +239,7 @@ impl Bsp {
                 }
                 Err(err) => {
                     ringbuf_entry!(Trace::Ksz8463Err {
-                        port: port.into(),
+                        port: Some(port.into()),
                         err
                     });
                     return Err(MgmtError::KszError);
@@ -247,7 +254,10 @@ impl Bsp {
                     s.vsc85x2_100base_fx_link_up[i] = (sr.0 & (1 << 2)) != 0
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    ringbuf_entry!(Trace::Vsc85x2Err {
+                        port: Some(port),
+                        err
+                    });
                     return Err(MgmtError::VscError);
                 }
             };
@@ -256,7 +266,10 @@ impl Bsp {
                     s.vsc85x2_sgmii_link_up[i] = status.mac_link_status() != 0
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    ringbuf_entry!(Trace::Vsc85x2Err {
+                        port: Some(port),
+                        err
+                    });
                     return Err(MgmtError::VscError);
                 }
             };
@@ -275,7 +288,10 @@ impl Bsp {
             let out = match self.ksz8463.read_mib_counter(port, reg) {
                 Ok(c) => c,
                 Err(err) => {
-                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
+                    ringbuf_entry!(Trace::Ksz8463Err {
+                        port: Some(port),
+                        err
+                    });
                     return Err(MgmtError::KszError);
                 }
             };
@@ -313,7 +329,10 @@ impl Bsp {
         let decode_tx_rx = |v, port| match v {
             Ok((tx, rx)) => Ok((decode_counter(tx), decode_counter(rx))),
             Err(err) => {
-                ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                ringbuf_entry!(Trace::Vsc85x2Err {
+                    port: Some(port),
+                    err
+                });
                 Err(MgmtError::VscError)
             }
         };

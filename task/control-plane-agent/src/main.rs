@@ -5,6 +5,7 @@
 #![no_std]
 #![no_main]
 
+use drv_i2c_api::pmbus_status::Capabilities;
 use drv_sprot_api::SprotError;
 use gateway_messages::{
     IgnitionCommand, MgsError, PowerState, SpComponent, UpdateId,
@@ -39,6 +40,7 @@ pub(crate) mod dump;
 #[cfg_attr(feature = "compute-sled", path = "mgs_compute_sled.rs")]
 #[cfg_attr(feature = "sidecar", path = "mgs_sidecar.rs")]
 #[cfg_attr(feature = "psc", path = "mgs_psc.rs")]
+#[cfg_attr(feature = "observer", path = "mgs_psc.rs")]
 #[cfg_attr(feature = "minibar", path = "mgs_minibar.rs")]
 mod mgs_handler;
 
@@ -50,6 +52,7 @@ mod ignition_controller;
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
+task_slot!(I2C, i2c_driver);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Clone, Copy, PartialEq, ringbuf::Count)]
@@ -626,3 +629,21 @@ mod idl {
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+pub(crate) mod pmbus {
+    use super::*;
+
+    /// Type returned by generated pmbus rail functions
+    pub type SummonFn =
+        fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
+
+    pub struct PmbusRailBinding {
+        pub name: &'static str,
+        pub summon_fn: SummonFn,
+        pub status_bits: Capabilities,
+    }
+
+    include!(concat!(env!("OUT_DIR"), "/pmbus_mapping.rs"));
+}

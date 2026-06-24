@@ -7,7 +7,7 @@ use crate::{
     i2c_config::{self, sensors},
 };
 
-pub(crate) const CONTROLLER_CONFIG_LEN: usize = 16;
+pub(crate) const CONTROLLER_CONFIG_LEN: usize = 19;
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     CONTROLLER_CONFIG_LEN] = [
     rail_controller!(IBC, bmr491, v12p0_sys, A2),
@@ -19,6 +19,9 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     rail_controller!(Core, raa229618, v0p8_tf2_vdd_core, A0),
     rail_controller!(Sys, tps546B24A, v3p3_sys, A2),
     rail_controller!(Sys, tps546B24A, v5p0_sys, A2),
+    rail_controller!(Sys, tps546B24A, v3p3_sys_a2, A2),
+    rail_controller!(Sys, tps546B24A, v3p3_qsfp0_a0, A0),
+    rail_controller!(Sys, tps546B24A, v3p3_qsfp1_a0, A0),
     rail_controller!(Core, raa229618, v1p5_tf2_vdda, A0),
     rail_controller!(Core, raa229618, v0p9_tf2_vddt, A0),
     rail_controller!(SerDes, isl68224, v1p8_tf2_vdda, A0),

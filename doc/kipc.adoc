@@ -260,6 +260,13 @@ the dump region index.  If the dump region index is equal to or greater
 than the number of dump regions for the specified task, `None` will
 be returned.
 
+Passing a dump region of 0 returns the task's descriptor in kernel memory, and
+will always return `Some(..)` (for a valid task).  Subsequent regions are
+guaranteed to be sorted by (ascending) base address.
+
+CAUTION: The descriptor region may not be sorted with respect to other regions;
+kernel memory may be either above or below task memory.
+
 === `read_task_dump_region` (7)
 
 For a given task and task dump region, this will read the specified region and

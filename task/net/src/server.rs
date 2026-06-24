@@ -570,9 +570,15 @@ where
 
         Self {
             eth,
-            // The 'true' here is load-bearing: it ensures that sockets receive
-            // a notification on stack restart.
-            client_waiting_to_send: [true; SOCKET_COUNT],
+            // This only gets set if a client task has *definitely* tried to
+            // send on its socket. We do one big all-call wake everyone as soon
+            // as the net task starts, in case they were previously trying to
+            // send but their queue was full. If we were to keep waking any time
+            // a task's tx queue was not full, we will spuriously wake that task
+            // over and over again until it actually decides to send something
+            // --- which, given that communication on the management network is
+            // not generally initiated by the SP, could be a while!
+            client_waiting_to_send: [false; SOCKET_COUNT],
             vlan_state: enum_map::EnumMap::from_array(
                 vlan_state.into_array().unwrap_lite(),
             ),

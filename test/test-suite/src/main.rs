@@ -18,7 +18,6 @@
 //!
 //! The Idol server, `test-idol-server`, tests Idol-mediated IPC.  It must be
 //! included in the image with the name `idol`, but its ID is immaterial.
-#![feature(used_with_arg)]
 #![no_std]
 #![no_main]
 #![forbid(clippy::wildcard_imports)]
@@ -47,15 +46,14 @@ ringbuf!(Trace, 64, Trace::None);
 /// secure fault, and a different constant will be required.)
 const BAD_ADDRESS: u32 = 0x0;
 
-/// Helper macro for building a list of functions with their names.
-/// We use the humility debug processing to get the name of each
-/// test case and the total number of tests. The #[used(linker)]
-/// is to ensure that this actually gets emitted as a symbol.
+/// Helper macro for building a list of functions with their names. We use the
+/// humility debug processing to get the name of each test case and the total
+/// number of tests. The `unsafe(no_mangle)` and `pub static mut` are to ensure
+/// that this actually gets emitted as a symbol.
 macro_rules! test_cases {
     ($($(#[$attr:meta])* $name:path,)*) => {
         #[unsafe(no_mangle)]
-        #[used(linker)]
-        static TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
+        pub static mut TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
             $(
                 $(#[$attr])*
                 (stringify!($name), &$name)
@@ -1683,7 +1681,12 @@ fn main() -> ! {
                         caller.reply(());
                         ringbuf_entry!(Trace::TestStart);
 
-                        TESTS[idx].1();
+                        // SAFETY: this is single-threaded code.  In addition,
+                        // `TESTS` is only `pub static mut` to ensure that it's
+                        // compiled into the binary; no one mutates it.
+                        unsafe {
+                            TESTS[idx].1();
+                        }
 
                         let op = RunnerOp::TestComplete as u16;
 

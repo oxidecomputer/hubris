@@ -140,7 +140,7 @@ impl ServerImpl {
                     temp_sensor: sensors.temperature.into(),
                     voltage_sensor: sensors.voltage.into(),
                     current_sensor: sensors.current.into(),
-                    power_sensor: sensors.power.into(),
+                    power_sensor: u32::MAX, // not present
                 };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::bmr491::CommandCode;

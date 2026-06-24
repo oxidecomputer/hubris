@@ -68,6 +68,7 @@ start = true
 task-slots = ["sys"]
 stacksize = 912
 features = ["stm32g0", "g031", "gpio", "micro", "send"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

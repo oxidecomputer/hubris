@@ -1,0 +1,38 @@
+// Front IO API
+
+Interface(
+    name: "FrontIO",
+    ops: {
+        "board_present": (
+            args: {},
+            reply: Simple("bool"),
+            idempotent: true,
+        ),
+
+        "board_ready": (
+            args: {},
+            reply: Result(
+                ok: "bool",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_reset": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_set_osc_state": (
+            args: {
+                "good": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+    },
+)

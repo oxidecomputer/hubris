@@ -96,6 +96,7 @@ cfg_if::cfg_if! {
         target_board = "gimlet-f",
         target_board = "psc-b",
         target_board = "psc-c",
+        target_board = "observer-a",
         target_board = "oxcon2023g0",
         target_board = "grapefruit-a",
         target_board = "grapefruit-b",
@@ -486,6 +487,7 @@ cfg_if::cfg_if! {
                                 target_board = "gimlet-f",
                                 target_board = "psc-b",
                                 target_board = "psc-c",
+                                target_board = "observer-a",
             ))] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::A.pin(3), false),

@@ -47,6 +47,7 @@ start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 912
 features = ["stm32g0", "gpio", "i2c", "g030", "micro"]
+notifications = ["timer"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"

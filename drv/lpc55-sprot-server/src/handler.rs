@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// `pack_with_cb` has large error types which trigger this lint
+#![allow(clippy::result_large_err)]
+
 use crate::Trace;
 use attest_api::Attest;
 use crc::{CRC_32_CKSUM, Crc};
@@ -118,6 +121,14 @@ impl<'a> Handler {
         tx_buf: &mut [u8; RESPONSE_BUF_SIZE],
     ) -> usize {
         let body = Err(SprotProtocolError::Desynchronized.into());
+        Response::pack(&body, tx_buf)
+    }
+
+    pub fn request_message_too_large_error(
+        &self,
+        tx_buf: &mut [u8; RESPONSE_BUF_SIZE],
+    ) -> usize {
+        let body = Err(SprotProtocolError::BadMessageLength.into());
         Response::pack(&body, tx_buf)
     }
 

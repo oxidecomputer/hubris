@@ -114,9 +114,17 @@ pub fn system_init_custom(
     // Before doing anything else, check for a measurement handoff token
     #[cfg(feature = "measurement-handoff")]
     unsafe {
+        // After each delay, we'll wait roughly 200 ms.  We double the naive
+        // cycle count because the STM32H7 may (under some circumstances)
+        // dual-issue instructions in the delay loop, which would make the loop
+        // run twice as fast as expected.  We'd rather the loop sometimes run
+        // twice as *slow*, because that just slows down SP boot in cases where
+        // the RoT is not present; if the loop is twice as fast, the SP can time
+        // out before RoT comes up at all, which is a much worse failure mode.
+        const DELAY_CYCLES: u32 = 12860000 * 2;
         const RETRY_COUNT: u32 = 20;
         measurement_handoff::check(RETRY_COUNT, || {
-            cortex_m::asm::delay(12860000); // about 200 ms
+            cortex_m::asm::delay(DELAY_CYCLES);
             cortex_m::peripheral::SCB::sys_reset()
         });
     }

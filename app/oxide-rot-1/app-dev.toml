@@ -40,6 +40,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["gpio_driver", "swd", "update_server"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"
@@ -110,6 +111,11 @@ task-slots = ["gpio_driver", "syscon_driver", "attest"]
 notifications = ["spi-irq", "timer", "sp_reset-irq", "jtag_detect-irq"]
 interrupts = {"flexcomm5.irq" = "spi-irq", "pint.irq0" = "sp_reset-irq", "pint.irq1" = "jtag_detect-irq" }
 features = ["enable_ext_sp_reset"]
+
+[[tasks.swd.bindeps]]
+name = "endoscope"
+target = "thumbv7em-none-eabihf"
+features = ["soc_stm32h753"]
 
 [tasks.swd.config]
 # MOSI = PIO0_8

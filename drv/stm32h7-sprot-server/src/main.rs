@@ -122,6 +122,7 @@ cfg_if::cfg_if! {
             target_board = "sidecar-d",
             target_board = "psc-b",
             target_board = "psc-c",
+            target_board = "observer-a",
             target_board = "gemini-bu-1",
             target_board = "grapefruit-a",
             target_board = "grapefruit-b",
@@ -285,7 +286,7 @@ impl<S: SpiServer> Io<S> {
             hl::sleep_for(PART2_DELAY);
         }
 
-        if total_size > RESPONSE_BUF_SIZE {
+        if total_size > rx_buf.len() {
             return Err(SprotProtocolError::BadMessageLength.into());
         }
 
@@ -321,13 +322,13 @@ impl<S: SpiServer> Io<S> {
             if !self.wait_rot_irq(false, TIMEOUT_QUICK) {
                 // Nope, it didn't complete. Pulse CSn.
                 ringbuf_entry!(Trace::UnexpectedRotIrq);
-                self.stats.csn_pulses += self.stats.csn_pulses.wrapping_add(1);
+                self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
                 // One sample of an LPC55S28 reacting to CSn deasserted
                 // in about 54us. So, 10ms is plenty.
                 if self.do_pulse_cs(10_u64, 10_u64)?.rot_irq_end == 1 {
                     // Did not clear ROT_IRQ
                     ringbuf_entry!(Trace::PulseFailed);
-                    self.stats.csn_pulse_failures +=
+                    self.stats.csn_pulse_failures =
                         self.stats.csn_pulse_failures.wrapping_add(1);
                     debug_set(&self.sys, false); // XXX
                     return Err(SprotProtocolError::RotIrqRemainsAsserted)?;

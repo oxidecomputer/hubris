@@ -12,13 +12,14 @@ workflow-file = ".github/workflows/release.yml"
 runner-environment = "self-hosted"
 
 [groups.all-sp]
-tag-bump = "patch"
+tag-bump = "minor"
 tag-prefix = "all-sp-v"
 hubris-app-dirs = [
     "app/sidecar/",
     "app/gimlet/",
     "app/psc/",
     "app/cosmo/",
+    "app/observer/",
 ]
 
 release-title = "SP release {version}"
@@ -43,17 +44,21 @@ psc-b = {}
 psc-c = {}
 sidecar-b = {}
 sidecar-b-lab = {}
+sidecar-b-reverso = {}
 sidecar-c = {}
 sidecar-c-lab = {}
+sidecar-c-reverso = {}
 sidecar-d = {}
 sidecar-d-lab = {}
+sidecar-d-reverso = {}
 cosmo-a = {}
 cosmo-a-lab = {}
 cosmo-b = {}
 cosmo-b-lab = {}
+observer-a = {}
 
 [groups.rot]
-tag-bump = "patch"
+tag-bump = "minor"
 tag-prefix = "oxide-rot-1-v"
 hubris-app-dirs = ["app/oxide-rot-1/"]
 

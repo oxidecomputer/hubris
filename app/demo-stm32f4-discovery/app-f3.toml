@@ -69,6 +69,7 @@ priority = 3
 max-sizes = {flash = 16384, ram = 16384 }
 stacksize = 2048
 start = true
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

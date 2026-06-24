@@ -51,9 +51,11 @@ task_slot!(PACKRAT, packrat);
 #[derive(Count, Copy, Clone)]
 enum Event {
     RecvPacket,
+    RecvError(#[count(children)] RecvError),
     RequestRejected,
     ReadError(#[count(children)] task_packrat_api::EreportReadError),
     Respond,
+    SendError(#[count(children)] SendError),
 }
 
 struct StaticBufs {
@@ -92,14 +94,19 @@ fn main() -> ! {
             &mut rx_buf[..],
         ) {
             Ok(meta) => meta,
-            Err(RecvError::QueueEmpty) => {
-                // Our incoming queue is empty. Wait for more packets.
-                sys_recv_notification(notifications::SOCKET_MASK);
-                continue;
-            }
-            Err(RecvError::ServerRestarted) => {
-                // `net` restarted; just retry.
-                continue;
+            Err(e) => {
+                count!(Event::RecvError(e));
+                match e {
+                    RecvError::QueueEmpty => {
+                        // Our incoming queue is empty. Wait for more packets.
+                        sys_recv_notification(notifications::SOCKET_MASK);
+                        continue;
+                    }
+                    RecvError::ServerRestarted => {
+                        // `net` restarted; just retry.
+                        continue;
+                    }
+                }
             }
         };
 
@@ -146,18 +153,23 @@ fn main() -> ! {
                     count!(Event::Respond);
                     break;
                 }
-                // If `net` just restarted, immediately retry our send.
-                Err(SendError::ServerRestarted) => continue,
-                // If our tx queue is full, wait for space. This is the
-                // same notification we get for incoming packets, so we
-                // might spuriously wake up due to an incoming packet
-                // (which we can't service anyway because we are still
-                // waiting to respond to a previous request); once we
-                // finally succeed in sending we'll peel any queued
-                // packets off our recv queue at the top of our main
-                // loop.
-                Err(SendError::QueueFull) => {
-                    sys_recv_notification(notifications::SOCKET_MASK);
+                Err(e) => {
+                    count!(Event::SendError(e));
+                    match e {
+                        // If `net` just restarted, immediately retry our send.
+                        SendError::ServerRestarted => continue,
+                        // If our tx queue is full, wait for space. This is the
+                        // same notification we get for incoming packets, so we
+                        // might spuriously wake up due to an incoming packet
+                        // (which we can't service anyway because we are still
+                        // waiting to respond to a previous request); once we
+                        // finally succeed in sending we'll peel any queued
+                        // packets off our recv queue at the top of our main
+                        // loop.
+                        SendError::QueueFull => {
+                            sys_recv_notification(notifications::SOCKET_MASK);
+                        }
+                    }
                 }
             }
         }

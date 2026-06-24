@@ -132,6 +132,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["gpio_driver", "update_server"]
+notifications = ["timer"]
 
 [tasks.attest]
 name = "task-attest"
