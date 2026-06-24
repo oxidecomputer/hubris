@@ -4,6 +4,21 @@
 
 //! Server for managing the PSC sequencing process.
 //!
+//! # Hardware Support
+//!
+//! The server supports both the original PSC's MWOCP68 PSU and the Observer's MWOCP67
+//! PSU, which have some annoying differences:
+//!
+//! 1) The MWOCP68 can be disabled via the `ON_L`/`ENABLE_L`/`PSKILL` signal,
+//!    but the MWOCP67 can only be disabled via PMBus commands. This doesn't
+//!    affect the fault recovery sequence much, but does affect hot-insertion.
+//!    We use this signal to hold the MWOP68 off when it's first inserted, until
+//!    the connector has had time to debounce. It's impossible to do the same
+//!    for the MWOCP67 - it's enabled by default and will immediately start
+//!    outputting power when it's inserted.
+//!
+//! 2) On the PSC, the `PRESENT_L` signals need to be polled. On the Observer,
+//!    we could use external interrupts but don't yet (see hubris#2565)
 //!
 //! # General notes on PSC power supply sequencing
 //!
@@ -11,11 +26,11 @@
 //! because glitching the power supplies here will glitch the entire rack,
 //! making you very unpopular very quickly.
 //!
-//! **`ON_L` signals to the PSUs:** we normally leave our pins high-impedance on
-//! these nets, allowing external resistors to pull them low. We only drive them
-//! to _disable_ the PSU by driving it high. To achieve this, we leave the pin
-//! configured as an input, pre-load the output value as "high," and toggle its
-//! mode register between input and output.
+//! **`ON_L` signals to the PSUs (MWOCP68 only):** we normally leave our pins
+//! high-impedance on these nets, allowing external resistors to pull them low.
+//! We only drive them to _disable_ the PSU by driving it high. To achieve this,
+//! we leave the pin configured as an input, pre-load the output value as
+//! "high," and toggle its mode register between input and output.
 //!
 //! **`PRESENT_L` signals from the PSUs:** pulled inactive-high by resistors on
 //! the board and power shelf. When these go low, assume they will bounce,
@@ -41,8 +56,10 @@
 //!
 //! When the PSC is *removed* from the system, the pull resistors on the power
 //! supply ON signals cause the power supplies to turn on. It's important that
-//! we don't override this when the PSU is reinserted. So, at startup, the PSC
-//! must leave the ON lines undriven, allowing them to float low.
+//! we don't override this when the PSC is reinserted. So, at startup, the PSC
+//! must leave the ON lines undriven, allowing them to float low. (The MWOCP67
+//! has no ON lines, so it merely needs to not send PMBus commands that disable
+//! the PSUs.)
 //!
 //! Because the PSC's connector is not designed for hot swap, we can't
 //! necessarily trust our inputs at power-on. Without a firm "all connections
@@ -54,11 +71,11 @@
 //! At that point, we can start our main management loop, which continuously
 //! does the following for each power supply separately:
 //!
-//! - Watch for the presence line to be high (PSU removed).
+//! - Watch for the presence line to be high, meaning the PSU is removed.
 //! - Record that the PSU is missing.
-//! - Start driving its ON signal high.
-//! - Wait for the presence line to be low (PSU reinserted).
-//! - Release its ON signal so it may turn on normally.
+//! - Start driving its ON signal high. (MWOCP68 only)
+//! - Wait for the presence line to be low, meaning the PSU is reinserted.
+//! - Release its ON signal so it may turn on normally. (MWOCP68 only)
 //!
 //! Simultaneously, while the PSU is not removed, we monitor the OK signal for
 //! indication of internal faults, and periodically poll PMBus status registers
@@ -67,7 +84,7 @@
 //! fault, we...
 //!
 //! - Record as much information as we can reasonably gather.
-//! - Start driving the ON signal high to force the PSU off.
+//! - Force the PSU off, using the ON signal or a PMBus command.
 //! - Wait some time to allow things to discharge.
 //! - Turn the PSU back on.
 //! - Wait some time for it to wake.
@@ -83,10 +100,10 @@
 //! happen. We can attempt to maintain glitch-free (or at least low-glitch)
 //! operation in the face of this task crashing by doing the following:
 //!
-//! At task startup, read the status of the ON output pins. If we find that one
-//! of the PSUs is off, assume that we turned it off in a previous incarnation
-//! before losing state. Begin a fault recovery sequence (above) on that PSU as
-//! if we had newly detected a fault.
+//! At task startup, try to determine whether any of the PSUs were in the middle
+//! of a fault recovery sequence (above). If a PSU appears to have been turned
+//! off by our previous incarnation, begin a fresh fault recovery sequence on
+//! that PSU as if we had newly detected a fault.
 //!
 //! Task crashes will reset the fault counter and timeout. This is unavoidable
 //! without keeping state across incarnations, which we're trying to avoid to
@@ -104,7 +121,7 @@ use drv_i2c_devices::mwocp6x;
 use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_psc_seq_api::PowerState;
 use drv_stm32xx_sys_api as sys_api;
-use sys_api::{Edge, IrqControl, OutputType, PinSet, Pull, Speed};
+use sys_api::{Edge, IrqControl, Pull};
 use task_jefe_api::Jefe;
 use userlib::{
     UnwrapLite, hl, sys_get_timer, sys_recv_notification, sys_set_timer,
@@ -153,20 +170,22 @@ enum Event {
         #[count(children)]
         psu: Slot,
     },
-    /// Emitted when we decide a power supply should be on.
-    Enabling {
+    /// Emitted after sucessfully doing an enable/disable action that was
+    /// requested by the state machine.
+    ActionSucceeded {
+        action: ActionRequired,
         now: u64,
         #[count(children)]
         psu: Slot,
     },
-    /// Emitted when we decide a power supply should be off; the `present` flag
-    /// means the PSU is being turned off despite being present (`true`) or is
-    /// being disabled because it's been removed (`false`).
-    Disabling {
+    /// Emitted after failing to do an enable/disable action that was requested
+    /// by the state machine.
+    ActionFailed {
+        action: ActionRequired,
         now: u64,
         #[count(children)]
         psu: Slot,
-        present: bool,
+        err: mwocp6x::Error,
     },
 }
 
@@ -305,9 +324,9 @@ const STARTUP_SETTLE_MS: u64 = 500; // Current value is somewhat arbitrary.
 /// How long to leave a PSU off on fault before attempting to re-enable it.
 const FAULT_OFF_MS: u64 = 5_000; // Current value is somewhat arbitrary.
 
-/// How long to wait after a PSU is inserted, before we attempt to turn it on.
-/// This does double-duty in both debouncing the presence line, and ensuring
-/// that things are firmly mated before activating anything.
+/// How long to wait after a PSU is inserted, before we attempt to turn it on
+/// (MWOCP68 only). This does double-duty in both debouncing the presence line,
+/// and ensuring that things are firmly mated before activating anything.
 const INSERT_DEBOUNCE_MS: u64 = 1_000; // Current value is somewhat arbitrary.
 
 /// How long after exiting a fault state before we require the PSU to start
@@ -324,23 +343,28 @@ const PROBATION_MS: u64 = 1000;
 /// This should be fast enough to reliably spot removed sleds.
 const POLL_MS: u64 = 500;
 
-#[derive(Copy, Clone)]
+/// An action requested by the state machine.
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[must_use]
 enum ActionRequired {
-    /// Requests that this PSU be enabled by setting the corresponding
-    /// `ENABLE_L` low.
-    EnableMe,
-    /// Requests that this PSU be disabled by setting the corresponding
-    /// `ENABLE_L` high. `attempt_snapshot` will be `true` if the PSU is
-    /// believed to still be present and recording data may be useful, or
-    /// `false` if the PSU is believed removed and isn't worth polling.
-    DisableMe { attempt_snapshot: bool },
+    /// The PSU has been hot-inserted and had time to settle, and should now be
+    /// enabled (if it wasn't already enabled by default).
+    EnableOnInsertion,
+    /// The PSU has reported a fault and should be disabled as part of the fault
+    /// recovery sequence.
+    DisableOnFault,
+    /// The PSU should now be re-enabled and any latched faults should be
+    /// cleared, so it can (hopefully) resume operation.
+    ReEnableAfterFault,
+    /// The PSU has been hot-removed. If possible, it should be disabled so that
+    /// it will not immediately turn on if re-inserted.
+    DisableOnRemoval,
 }
 
 #[derive(Copy, Clone)]
 enum PsuState {
     /// The PSU is detected as not present. In this state, we cannot trust the
-    /// OK signal, and we deassert the ENABLE signal.
+    /// OK signal.
     NotPresent,
     /// The PSU is detected as present.
     Present(PresentState),
@@ -348,7 +372,7 @@ enum PsuState {
 
 #[derive(Copy, Clone)]
 enum PresentState {
-    /// We are allowing the ON signal to float active (low).
+    /// The PSU is enabled.
     ///
     /// This is the initial state upon either detecting a new PSU, or power
     /// up/restart in cases where the PSU is not forced off.
@@ -366,23 +390,21 @@ enum PresentState {
     },
 
     /// The PSU has just appeared and we're waiting a bit to confirm that it's
-    /// stable before turning it on. (Waiting in this state provides some
-    /// debouncing for contact scrape.)
+    /// stable before turning it on (MWOCP68 only). (Waiting in this state
+    /// provides some debouncing for contact scrape.)
     NewlyInserted { settle_deadline: u64 },
     /// The PSU has unexpectedly deasserted the OK signal, or failed to assert
     /// it within a reasonable amount of time after being turned on.
     Faulted {
-        // Try to turn the PSU back on when this time is reached, but only if
-        // the fault has cleared. Otherwise, we will stay in the fault state
-        // with a "sticky fault" situation.
+        // Try to turn the PSU back on when this time is reached.
         turn_on_deadline: u64,
     },
 
-    /// We are allowing the ON signal to float active, as in the `On` state, but
-    /// we're not convinced the PSU is okay. We enter this state when bringing a
-    /// PSU out of an observed fault state, and it causes us to ignore its OK
-    /// output for a brief period (the deadline parameter, initialized as
-    /// current time plus `DEADLINE_MS`).
+    /// The PSU is enabled, as in the `On` state, but we're not convinced the
+    /// PSU is okay. We enter this state when bringing a PSU out of an observed
+    /// fault state, and it causes us to ignore its OK output for a brief period
+    /// (the deadline parameter, initialized as current time plus
+    /// `PROBATION_MS`).
     ///
     /// We do this because PSUs have been observed, in practice, taking up to
     /// ~100ms to assert OK after being enabled.
@@ -427,59 +449,6 @@ fn main() -> ! {
     // Delay to allow things to settle, in case we were hot-plugged.
     hl::sleep_for(STARTUP_SETTLE_MS);
 
-    // Check the status of the PSU ON nets, which indicate the current commanded
-    // status of the PSUs. We can use this information to seed our state
-    // machines, and also to make sure we don't glitch the PSUs.
-    //
-    // Note that, on power-on reset, these pins default to being configured
-    // Analog, preventing us from reading their state. This is okay. In Analog
-    // mode, an STM32 pin is defined as reading as 0, so we will see any such
-    // pins as "PSU is ON" and switch the pin to input below. It is only if this
-    // task has _restarted_ that we'll find pins set to input seeing 0, or
-    // output seeing 1.
-    let initial_psu_enabled: [bool; PSU_COUNT] = {
-        let bits = sys.gpio_read(bsp::ALL_PSU_ENABLE_L_PINS);
-        // ON signals are active-low, so we check for the _absence_ of the bit:
-        core::array::from_fn(|i| bits & (1 << bsp::PSU_ENABLE_L_PINS[i]) == 0)
-    };
-
-    // Since we mostly just toggle the PSU ON nets between input and output, we
-    // don't actually want to configure them at all at this stage. They're
-    // either set input (in which case the PSU is being asked to be "on") or
-    // output (in which case we're holding the PSU off, and will start a fault
-    // resume sequence shortly).
-    //
-    // Ensure that the subset of pins that are currently undriven (which is to
-    // say, ENABLE line low, PSU on) are set as inputs. Leave any pins observed
-    // as 1 configured as they are. (See the rationale for this above on the
-    // initial read.)
-    sys.gpio_configure_input(
-        {
-            let mut inpins = PinSet {
-                port: bsp::PSU_ENABLE_L_PORT,
-                pin_mask: 0,
-            };
-            for (on, pinno) in
-                initial_psu_enabled.into_iter().zip(bsp::PSU_ENABLE_L_PINS)
-            {
-                if on {
-                    inpins = inpins.and_pin(pinno);
-                }
-            }
-            // This set might be empty. That's ok; sys tolerates this.
-            inpins
-        },
-        Pull::None,
-    );
-
-    // While we are not going to explicitly configure any pins as outputs at
-    // this stage, for toggling the pins between input and output to work
-    // properly, we need to pre-arrange for the pins to be high once they _are_
-    // set to output. We do that here. If the pin is input, this has no effect;
-    // if it's output, this should be a no-op because our previous incarnation
-    // will have done this before setting it to output.
-    sys.gpio_set_to(bsp::ALL_PSU_ENABLE_L_PINS, true);
-
     // Now, configure the presence/OK detect nets. We want these to be inputs;
     // at power-on reset they're analog. Switching pins between those two modes
     // cannot glitch, and nobody would be listening if it did.
@@ -499,23 +468,32 @@ fn main() -> ! {
     // Turn on pin change notifications on all of our input nets.
     sys.gpio_irq_configure(all_pin_notifications, Edge::Both);
 
-    // Set up our state machines for each PSU. We'll need to read the presence
-    // pins to determine whether a PSU is present and if we should ask it for
-    // its serial number.
-    let present_l_bits = sys.gpio_read(bsp::ALL_PSU_PRESENT_L_PINS);
-    let start_time = sys_get_timer().now;
+    // Set up our state machines for each PSU. First we'll need to read the
+    // presence pins to determine whether a PSU is present and if we should ask
+    // it for its serial number.
+    let present = read_presence(&sys);
 
+    let mut devs: [bsp::Mwocp6x; PSU_COUNT] = core::array::from_fn(|i| {
+        let i2c = I2C.get_task_id();
+        let make_dev = bsp::PSU_PMBUS_DEVS[i];
+        let (dev, opt_rail) = make_dev(i2c);
+        let rail = opt_rail.unwrap_or(0);
+        bsp::Mwocp6x::new(&dev, rail)
+    });
+
+    // We'll also need to know whether any of the PSUs were previously disabled.
+    let start_time = sys_get_timer().now;
+    let initial_psu_enabled =
+        bsp::initialize_enable_states(&sys, &mut devs, &present, start_time);
+
+    // Create the Psu objects, picking their initial states and giving them
+    // ownership of the PMBus devices we constructed above.
+    let mut devs = devs.into_iter();
     let mut psus: [Psu; PSU_COUNT] = core::array::from_fn(|i| {
-        let dev = {
-            let i2c = I2C.get_task_id();
-            let make_dev = bsp::PSU_PMBUS_DEVS[i];
-            let (dev, opt_rail) = make_dev(i2c);
-            let rail = opt_rail.unwrap_or(0);
-            bsp::Mwocp6x::new(&dev, rail)
-        };
+        let dev = devs.next().unwrap_lite();
         let slot = PSU_SLOTS[i];
         let mut fruid = PsuFruid::default();
-        let state = if present_l_bits & (1 << bsp::PSU_PRESENT_L_PINS[i]) == 0 {
+        let state = if present[i] == Present::Yes {
             // Hello, who are you?
             fruid.refresh(&dev, slot, start_time);
             // ...and how are you doing?
@@ -561,56 +539,38 @@ fn main() -> ! {
         sys.gpio_irq_control(all_pin_notifications, IrqControl::Enable)
             .unwrap_lite();
 
-        let present_l_bits = sys.gpio_read(bsp::ALL_PSU_PRESENT_L_PINS);
-        let ok_bits = sys.gpio_read(bsp::ALL_PSU_PWR_OK_PINS);
+        let present = read_presence(&sys);
+        let ok = read_power_ok(&sys);
 
         let now = sys_get_timer().now;
         for i in 0..PSU_COUNT {
-            // Presence signals are active LOW.
-            let present =
-                if present_l_bits & (1 << bsp::PSU_PRESENT_L_PINS[i]) == 0 {
-                    Present::Yes
-                } else {
-                    Present::No
-                };
-            // PWR_OK signals are active HIGH.
-            let ok = if ok_bits & (1 << bsp::PSU_PWR_OK_PINS[i]) != 0 {
-                Status::Good
-            } else {
-                Status::NotGood
-            };
-            match psus[i].step(now, present, ok, &mut ereporter) {
-                None => (),
-
-                Some(ActionRequired::EnableMe) => {
-                    ringbuf_entry!(Event::Enabling {
-                        now,
-                        psu: PSU_SLOTS[i]
-                    });
-                    // Enable the PSU by allowing `ENABLE_L` to float low, by no
-                    // longer asserting high.
-                    sys.gpio_configure_input(
-                        bsp::PSU_ENABLE_L_PORT.pin(bsp::PSU_ENABLE_L_PINS[i]),
-                        Pull::None,
-                    );
-                }
-                Some(ActionRequired::DisableMe { attempt_snapshot }) => {
-                    if attempt_snapshot {
-                        // TODO snapshot goes here
-                    }
-                    ringbuf_entry!(Event::Disabling {
+            if let Some(action) =
+                psus[i].step(now, present[i], ok[i], &mut ereporter)
+            {
+                if let Err(err) =
+                    bsp::do_action(action, &sys, i, &mut psus[i].dev, now)
+                {
+                    // The state machine doesn't know that we failed to
+                    // enable/disable the PSU as it requested, so its state will
+                    // be out-of-sync with reality. But this should resolve
+                    // itself eventually. If we fail to disable the PSU after a
+                    // fault, then either the fault recovery sequence will work
+                    // despite that, or it won't and we'll start another fault
+                    // recovery sequence. If we fail to enable the PSU at the
+                    // end of fault recovery, the deasserted OK signal will
+                    // trigger another fault recovery sequence soon.
+                    ringbuf_entry!(Event::ActionFailed {
+                        action,
                         now,
                         psu: PSU_SLOTS[i],
-                        present: attempt_snapshot,
+                        err,
                     });
-
-                    // Pull `ENABLE_L` high to disable the PSU.
-                    sys.gpio_configure_output(
-                        bsp::PSU_ENABLE_L_PORT.pin(bsp::PSU_ENABLE_L_PINS[i]),
-                        OutputType::PushPull,
-                        Speed::Low,
-                        Pull::None,
-                    );
+                } else {
+                    ringbuf_entry!(Event::ActionSucceeded {
+                        action,
+                        now,
+                        psu: PSU_SLOTS[i],
+                    });
                 }
             }
         }
@@ -694,9 +654,7 @@ impl Psu {
                 // Clear the FRUID serial only *after* we have put it in the ereport.
                 self.fruid = PsuFruid::default();
 
-                Some(ActionRequired::DisableMe {
-                    attempt_snapshot: false,
-                })
+                Some(ActionRequired::DisableOnRemoval)
             }
 
             // In a not-present situation we have to ignore the OK line entirely
@@ -739,7 +697,7 @@ impl Psu {
                         fields: self.ereport_fields(),
                     });
 
-                    Some(ActionRequired::EnableMe)
+                    Some(ActionRequired::EnableOnInsertion)
                 } else {
                     // Remain in this state.
                     None
@@ -816,9 +774,7 @@ impl Psu {
                     );
                 };
 
-                Some(ActionRequired::DisableMe {
-                    attempt_snapshot: true,
-                })
+                Some(ActionRequired::DisableOnFault)
             }
 
             (
@@ -833,7 +789,7 @@ impl Psu {
                     self.state = PsuState::Present(PresentState::OnProbation {
                         deadline: now.saturating_add(PROBATION_MS),
                     });
-                    Some(ActionRequired::EnableMe)
+                    Some(ActionRequired::ReEnableAfterFault)
                 } else {
                     None
                 }
@@ -1048,6 +1004,32 @@ fn retry_i2c_txn<T>(
             }
         }
     }
+}
+
+// Return the state indicated by each PSU's PRESENT_L signal
+fn read_presence(sys: &sys_api::Sys) -> [Present; PSU_COUNT] {
+    let present_l_bits = sys.gpio_read(bsp::ALL_PSU_PRESENT_L_PINS);
+    core::array::from_fn(|i| {
+        // Presence signals are active LOW.
+        if present_l_bits & (1 << bsp::PSU_PRESENT_L_PINS[i]) == 0 {
+            Present::Yes
+        } else {
+            Present::No
+        }
+    })
+}
+
+// Return the state indicated by each PSU's OK signal
+fn read_power_ok(sys: &sys_api::Sys) -> [Status; PSU_COUNT] {
+    let ok_bits = sys.gpio_read(bsp::ALL_PSU_PWR_OK_PINS);
+    core::array::from_fn(|i| {
+        // PWR_OK signals are active HIGH.
+        if ok_bits & (1 << bsp::PSU_PWR_OK_PINS[i]) != 0 {
+            Status::Good
+        } else {
+            Status::NotGood
+        }
+    })
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
