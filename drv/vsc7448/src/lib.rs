@@ -1045,8 +1045,8 @@ mod sidecar {
 mod minibar {
     pub const LOCAL_SP_0: u8 = 0;
     pub const LOCAL_SP_1: u8 = 1;
-    pub const SLED_SP_0: u8 = 2;
-    pub const SLED_SP_1: u8 = 3;
+    pub const SLED_SP_1: u8 = 2;
+    pub const SLED_SP_0: u8 = 3;
     pub const REAR_IO_0: u8 = 40;
     pub const REAR_IO_1: u8 = 41;
     pub const REAR_IO_2: u8 = 42;

@@ -63,10 +63,10 @@ mod map {
 
     // See Figure 8, QSGMII Muxing in the datasheet (VMDS-10498)
     pub const PORT_MAP: PortMap = PortMap::new([
-        SGMII,     // 0  | DEV1G_0   | SERDES1G_1  |  Sled SP link 0
-        SGMII,     // 1  | DEV1G_1   | SERDES1G_2  |  Sled SP link 1
-        SGMII,     // 2  | DEV1G_2   | SERDES1G_3  | Local SP link 0
-        SGMII,     // 3  | DEV1G_3   | SERDES1G_4  | Local SP link 1
+        SGMII,     // 0  | DEV1G_0   | SERDES1G_1  | Local SP Link 0
+        SGMII,     // 1  | DEV1G_1   | SERDES1G_2  | Local SP Link 1
+        SGMII,     // 2  | DEV1G_2   | SERDES1G_3  | Sled SP Link 1
+        SGMII,     // 3  | DEV1G_3   | SERDES1G_4  | Sled SP Link 0
         None,      // 4
         None,      // 5
         None,      // 6
