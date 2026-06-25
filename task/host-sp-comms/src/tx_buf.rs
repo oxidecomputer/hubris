@@ -271,17 +271,35 @@ impl TxBuf {
             sequence: sequence | SEQ_REPLY,
         };
 
-        ringbuf_entry!(Trace::Response {
-            now: sys_get_timer().now,
-            sequence: header.sequence,
-            message: *response
-        });
+        // The caller's closure *may* change what the actual response is! The
+        // passed in `response` is only valid if `try_serialize` returns `Ok`,
+        // otherwise the new error type is returned. This closure intercepts the
+        // caller's closure, and logs *after* that closure has run, so we can
+        // accurately log what the response was.
+        let outer_fill_data = |buf: &mut [u8]| {
+            let res = fill_data(buf);
+            let msg = match &res {
+                Ok(_n) => *response,
+                Err(e) => *e,
+            };
+            ringbuf_entry!(Trace::Response {
+                now: sys_get_timer().now,
+                sequence: header.sequence,
+                message: msg
+            });
+            res
+        };
 
         // Serializing can only fail if we pass unexpected types as `response`,
         // but we're using `SpToHost` for both the response and error, so it
         // cannot fail.
-        host_sp_messages::try_serialize(self.msg, &header, response, fill_data)
-            .unwrap_lite()
+        host_sp_messages::try_serialize(
+            self.msg,
+            &header,
+            response,
+            outer_fill_data,
+        )
+        .unwrap_lite()
     }
 
     // Encodes `self.msg[..msg_len]` with corncobs.
