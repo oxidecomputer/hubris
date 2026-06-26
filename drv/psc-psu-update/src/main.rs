@@ -37,7 +37,7 @@ use drv_i2c_devices::mwocp6x::{
 };
 use ringbuf::*;
 use static_cell::ClaimOnceCell;
-use userlib::*;
+use userlib::{TaskId, hl, sys_get_timer, task_slot};
 
 use core::ops::Add;
 

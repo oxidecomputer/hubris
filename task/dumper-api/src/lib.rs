@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::*;
+use userlib::{FromPrimitive, sys_send};
 
 ///
 /// These constitute an interface between the RoT and the SP in that the

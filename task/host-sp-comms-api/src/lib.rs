@@ -7,7 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use userlib::*;
+use userlib::{FromPrimitive, sys_send};
 
 pub use host_sp_messages::{HostStartupOptions, Status};
 
