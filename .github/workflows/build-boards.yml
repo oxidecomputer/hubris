@@ -89,6 +89,10 @@ jobs:
 
       - name: Cache build output
         uses: Swatinem/rust-cache@v2
+        # See: https://github.com/oxidecomputer/hubris/issues/2535 - allow windows to still continue
+        # if cache fails. Make this conditional because we don't *think* we've observed this on
+        # linux runners yet.
+        continue-on-error: ${{ runner.os == 'Windows' }}
 
       - name: Cache vcpkg
         uses: actions/cache@v4
