@@ -928,7 +928,7 @@ impl ServerImpl {
         // Okay! Written! Return how many bytes were actually copied
         Ok(HostPanicReadOutput {
             read: max_to_copy,
-            offset: offset,
+            offset,
             index: bfs.total_count,
             total_len: length,
         })
@@ -978,7 +978,7 @@ impl ServerImpl {
             reason: bfs.reason,
             index: bfs.total_count,
             total_len: length,
-            offset: offset,
+            offset,
             _pad: [0u8; _],
         };
 
