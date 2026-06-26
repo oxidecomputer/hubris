@@ -13,16 +13,39 @@ Interface(
             idempotent: true,
         ),
         "set_state": (
+            doc: "Set the power state without providing a reason (legacy).",
+            args: {
+                "state": (
+                    type: "drv_cpu_power_state::PowerState",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: (
+                    type: "drv_cpu_seq_api::Transition",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("drv_cpu_seq_api::SeqError"),
+            ),
+        ),
+        "set_state_with_reason": (
             doc: "Set the power state",
             args: {
                 "state": (
                     type: "drv_cpu_power_state::PowerState",
                     recv: FromPrimitive("u8"),
-                )
+                ),
+                "reason": (
+                    type: "StateChangeReason",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             reply: Result(
-                ok: "()",
-                err: CLike("SeqError"),
+                ok: (
+                    type: "drv_cpu_seq_api::Transition",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("drv_cpu_seq_api::SeqError"),
             ),
         ),
         "send_hardware_nmi": (
@@ -34,9 +57,51 @@ Interface(
             ),
         ),
         "read_fpga_regs": (
-            doc: "Raw read of the FPGA registers",
+            doc: "Raw read of the FPGA registers (Gimlet only)",
             args: {},
             reply: Simple("[u8; 64]"),
+            idempotent: true,
+        ),
+        "last_post_code": (
+            doc: "Read the last POST code seen by the sequencer FPGA (Cosmo only)",
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "post_code_buffer_len": (
+            doc: "Read the number of POST codes in the FPGA's ringbuffer (Cosmo only)",
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "get_post_code": (
+            doc: "Reads a POST code from the FPGA's ringbuffer (Cosmo only)",
+            args: {
+                "index": "u32",
+            },
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "gpio_edge_count": (
+            doc: "Read the GPIO edge count from the sequencer FPGA",
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "gpio_cycle_count": (
+            doc: "Read the GPIO cycle count from the sequencer FPGA",
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "enable_console_redirect": (
+            doc: "Sends the host console to UART breakout pins instead of the FPGA (Cosmo only)",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "disable_console_redirect": (
+            doc: "Sends the host console to the FPGA instead of UART breakout pins (Cosmo only)",
+            reply: Simple("()"),
             idempotent: true,
         ),
     },

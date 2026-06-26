@@ -12,15 +12,15 @@
 
 use drv_hash_api::SHA256_SZ;
 use drv_hf_api::{
-    HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
-    PAGE_SIZE_BYTES,
+    HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
+    HfProtectMode, PAGE_SIZE_BYTES,
 };
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
-use userlib::RecvMessage;
+use userlib::{RecvMessage, UnwrapLite};
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
@@ -48,8 +48,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read_id(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 20], RequestError<HfError>> {
-        Ok(*b"mockmockmockmockmock")
+    ) -> Result<HfChipId, RequestError<HfError>> {
+        Ok(HfChipId {
+            mfr_id: 0,
+            memory_type: 1,
+            capacity: 2,
+            unique_id: *b"mockmockmockmock!",
+        })
     }
 
     fn capacity(
@@ -85,6 +90,21 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    fn page_program_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(msg, dev)?;
+        let r = self.page_program(msg, addr, protect, data);
+        self.set_dev(msg, prev).unwrap_lite();
+        r
+    }
+
     fn read(
         &mut self,
         _: &RecvMessage,
@@ -99,6 +119,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    fn read_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(msg, dev)?;
+        let r = self.read(msg, addr, dest);
+        self.set_dev(msg, prev).unwrap_lite();
+        r
+    }
+
     fn sector_erase(
         &mut self,
         _: &RecvMessage,
@@ -106,6 +140,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
         Ok(())
+    }
+
+    fn sector_erase_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(msg, dev)?;
+        let r = self.sector_erase(msg, addr, protect);
+        self.set_dev(msg, prev).unwrap();
+        r
     }
 
     fn get_mux(
@@ -140,7 +188,17 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
-    #[cfg(feature = "hash")]
+    fn check_dev(
+        &mut self,
+        _: &RecvMessage,
+        _state: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        match self.mux_state {
+            HfMuxState::SP => Ok(()),
+            HfMuxState::HostCPU => Err(HfError::NotMuxedToSP.into()),
+        }
+    }
+
     fn hash(
         &mut self,
         _: &RecvMessage,
@@ -150,14 +208,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(*b"mockmockmockmockmockmockmockmock")
     }
 
-    #[cfg(not(feature = "hash"))]
-    fn hash(
+    fn hash_significant_bits(
         &mut self,
         _: &RecvMessage,
-        _addr: u32,
-        _len: u32,
+        _slot: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        Ok(())
+    }
+
+    fn get_cached_hash(
+        &mut self,
+        _: &RecvMessage,
+        _slot: HfDevSelect,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
-        Err(HfError::HashNotConfigured.into())
+        Ok(*b"mockmockmockmockmockmockmockmock")
     }
 
     fn write_persistent_data(
@@ -174,6 +238,54 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<HfPersistentData, RequestError<HfError>> {
         Err(HfError::HashNotConfigured.into())
     }
+
+    fn apob_begin(
+        &mut self,
+        _: &RecvMessage,
+        _length: u32,
+        _alg: drv_hf_api::ApobHash,
+    ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
+        Err(drv_hf_api::ApobBeginError::NotImplemented.into())
+    }
+
+    fn apob_write(
+        &mut self,
+        _: &RecvMessage,
+        _offset: u32,
+        _data: Leased<R, [u8]>,
+    ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
+        Err(drv_hf_api::ApobWriteError::NotImplemented.into())
+    }
+
+    fn apob_commit(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
+        Err(drv_hf_api::ApobCommitError::NotImplemented.into())
+    }
+
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
+
+    fn apob_read(
+        &mut self,
+        _: &RecvMessage,
+        _offset: u32,
+        _data: Leased<W, [u8]>,
+    ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
+        Err(drv_hf_api::ApobReadError::InvalidState.into())
+    }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::NotImplemented.into())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -182,13 +294,18 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
 mod idl {
     use super::{
-        HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+        HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
+        HfProtectMode,
+    };
+    use drv_hf_api::{
+        ApobBeginError, ApobClearError, ApobCommitError, ApobHash,
+        ApobReadError, ApobWriteError,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

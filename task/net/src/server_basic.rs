@@ -11,8 +11,8 @@ use drv_stm32h7_eth as eth;
 use crate::bsp_support;
 use crate::generated;
 use crate::{
-    server::{DeviceExt, GenServerImpl, Storage},
     MacAddressBlock,
+    server::{DeviceExt, GenServerImpl, Storage},
 };
 use mutable_statics::mutable_statics;
 use task_net_api::UdpMetadata;
@@ -85,8 +85,14 @@ impl<'d> smoltcp::phy::TxToken for OurTxToken<'d> {
 }
 
 impl<'a> smoltcp::phy::Device for Smol<'a> {
-    type RxToken<'b> = OurRxToken<'b> where Self: 'b;
-    type TxToken<'b> = OurTxToken<'b> where Self: 'b;
+    type RxToken<'b>
+        = OurRxToken<'b>
+    where
+        Self: 'b;
+    type TxToken<'b>
+        = OurTxToken<'b>
+    where
+        Self: 'b;
 
     fn receive(
         &mut self,

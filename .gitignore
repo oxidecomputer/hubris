@@ -1,6 +1,7 @@
 target/
 itm.txt
 *.swp
+hubris.testout.*
 
 **/*.rs.bk
 .#*
@@ -13,3 +14,6 @@ itm.txt
 !.vscode/launch.json
 !.vscode/tasks.json
 !.vscode/extensions.json
+.nvim.lua
+.zed/settings.json
+.dir-locals.el

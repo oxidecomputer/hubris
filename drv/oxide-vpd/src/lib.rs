@@ -11,11 +11,11 @@
 //! specific example of MAC addresses)
 
 use drv_i2c_devices::at24csw080::{
-    At24Csw080, Error as At24Error, EEPROM_SIZE,
+    At24Csw080, EEPROM_SIZE, Error as At24Error,
 };
 use ringbuf::*;
 use tlvc::{ChunkHandle, TlvcRead, TlvcReadError, TlvcReader};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, IntoBytes};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum VpdError {
@@ -36,9 +36,9 @@ struct EepromReader<'a> {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     EepromError(drv_i2c_devices::at24csw080::Error),
     Error(VpdError),
-    None,
 }
 
 ringbuf!(Trace, 4, Trace::None);
@@ -79,7 +79,7 @@ impl<'a> TlvcRead for EepromReader<'a> {
 /// `read_config_from` should be called with a tag nested under `FRU0` (e.g.
 /// `TAG1` in the example above).  It will deserialize the raw byte array (shown
 /// as `[...]`) into an object of type `V`.
-pub fn read_config_from<V: AsBytes + FromBytes>(
+pub fn read_config_from<V: IntoBytes + FromBytes>(
     eeprom: At24Csw080,
     tag: [u8; 4],
 ) -> Result<V, VpdError> {
@@ -105,12 +105,12 @@ pub fn read_config_from<V: AsBytes + FromBytes>(
 /// To get the second `TAG2`, `&[(*b"TAG1", 0), (*b"TAG2", 1)]`, and so on.
 ///
 /// The `FRU0` root is mandatory, but not included in the `tags` argument.
-pub fn read_config_nested_from<V: AsBytes + FromBytes>(
+pub fn read_config_nested_from<V: IntoBytes + FromBytes>(
     eeprom: At24Csw080,
     tags: &[([u8; 4], usize)],
 ) -> Result<V, VpdError> {
     let mut out = V::new_zeroed();
-    let n = read_config_nested_from_into(eeprom, tags, out.as_bytes_mut())?;
+    let n = read_config_nested_from_into(eeprom, tags, out.as_mut_bytes())?;
 
     // `read_config_nested_from_into(..)` fails if the data is too large for
     // `out`, but will succeed if it's less than out; we want to guarantee it's
@@ -148,6 +148,34 @@ pub fn read_config_nested_from_into(
             Err(e)
         }
     }
+}
+
+/// Reads the entire root `FRU0` tag into the provided buffer.
+pub fn read_raw_from_into(
+    eeprom: At24Csw080,
+    out: &mut [u8],
+) -> Result<usize, VpdError> {
+    let eeprom_reader = EepromReader { eeprom: &eeprom };
+    let reader =
+        TlvcReader::begin(eeprom_reader).map_err(VpdError::ErrorOnBegin)?;
+
+    // Find the root chunk, translating from a general to specific error
+    let chunk =
+        get_chunk_for_tag(reader, *b"FRU0", 0).map_err(|e| match e {
+            VpdError::NoSuchChunk(..) => VpdError::NoRootChunk,
+            e => e,
+        })?;
+
+    // Deserialize the found chunk
+    let chunk_len = chunk.len() as usize;
+    if chunk_len > out.len() {
+        return Err(VpdError::InvalidChunkSize);
+    }
+
+    chunk
+        .read_exact(0, &mut out[..chunk_len])
+        .map_err(VpdError::ErrorOnRead)?;
+    Ok(chunk_len)
 }
 
 /// Inner function, without logging

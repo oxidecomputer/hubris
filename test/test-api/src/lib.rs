@@ -37,6 +37,7 @@ pub enum AssistOp {
     RefreshTaskIdOffByOne = 21,
     RefreshTaskIdOffByMany = 22,
     ReadNotifications = 23,
+    FastPanic = 24, // panic before sending a reply
 }
 
 /// Operations that are performed by the test-suite
@@ -55,6 +56,8 @@ pub enum RunnerOp {
     /// Indicates that the test suite would like the test runner to trigger an
     /// IRQ.
     SoftIrq = 1,
+    /// Enables automatic restarts for non-test-suite tasks that crash
+    AutoRestart = 2,
     /// Signals that a test is complete, and that the runner is switching back
     /// to passive mode (`() -> ()`).
     TestComplete = 0xfffe,

@@ -21,7 +21,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let task_config = build_util::task_config::<TaskConfig>()?;
 
-    println!("cargo:rerun-if-changed={:?}", task_config.binary_path);
+    println!(
+        "cargo:rerun-if-changed={}",
+        task_config.binary_path.display()
+    );
 
     // We intentionally don't error out of the binary path isn't
     // found. There's no way to have another binary available for CI

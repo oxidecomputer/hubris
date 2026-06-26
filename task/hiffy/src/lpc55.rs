@@ -18,10 +18,10 @@ task_slot!(SP_CTRL, swd);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Execute((usize, hif::Op)),
     Failure(Failure),
     Success,
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -75,6 +75,8 @@ pub enum Functions {
     ReadFromSp((u32, u32), drv_sp_ctrl_api::SpCtrlError),
     #[cfg(feature = "spctrl")]
     SpCtrlInit((), drv_sp_ctrl_api::SpCtrlError),
+    #[cfg(feature = "spctrl")]
+    DbResetSp((), drv_sp_ctrl_api::SpCtrlError),
 }
 
 #[cfg(feature = "spctrl")]
@@ -244,7 +246,9 @@ fn gpio_configure(
     let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
-    gpio.iocon_configure(pin, alt, mode, slew, invert, digimode, opendrain);
+    gpio.iocon_configure(
+        pin, alt, mode, slew, invert, digimode, opendrain, None,
+    );
 
     Ok(0)
 }
@@ -378,8 +382,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
 // This definition forces the compiler to emit the DWARF needed for debuggers
 // to be able to know function indices, arguments and return values.
 //
-#[used]
-static HIFFY_FUNCTIONS: Option<&Functions> = None;
+#[unsafe(no_mangle)]
+pub static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
 pub(crate) fn trace_execute(offset: usize, op: hif::Op) {
     ringbuf_entry!(Trace::Execute((offset, op)));

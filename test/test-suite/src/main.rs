@@ -18,7 +18,6 @@
 //!
 //! The Idol server, `test-idol-server`, tests Idol-mediated IPC.  It must be
 //! included in the image with the name `idol`, but its ID is immaterial.
-#![feature(used_with_arg)]
 #![no_std]
 #![no_main]
 #![forbid(clippy::wildcard_imports)]
@@ -27,17 +26,17 @@ use hubris_num_tasks::NUM_TASKS;
 use ringbuf::{ringbuf, ringbuf_entry};
 use test_api::{AssistOp, RunnerOp, SuiteOp};
 use userlib::{
-    hl, kipc, task_slot, FaultInfo, FaultSource, Generation, IrqStatus,
-    LeaseAttributes, ReplyFaultReason, SchedState, TaskId, TaskState,
-    UsageError,
+    FaultInfo, FaultSource, Generation, IrqStatus, LeaseAttributes,
+    ReplyFaultReason, SchedState, TaskId, TaskState, UsageError, hl, kipc,
+    task_slot,
 };
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     TestStart,
     TestFinish,
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -47,15 +46,14 @@ ringbuf!(Trace, 64, Trace::None);
 /// secure fault, and a different constant will be required.)
 const BAD_ADDRESS: u32 = 0x0;
 
-/// Helper macro for building a list of functions with their names.
-/// We use the humility debug processing to get the name of each
-/// test case and the total number of tests. The #[used(linker)]
-/// is to ensure that this actually gets emitted as a symbol.
+/// Helper macro for building a list of functions with their names. We use the
+/// humility debug processing to get the name of each test case and the total
+/// number of tests. The `unsafe(no_mangle)` and `pub static mut` are to ensure
+/// that this actually gets emitted as a symbol.
 macro_rules! test_cases {
     ($($(#[$attr:meta])* $name:path,)*) => {
-        #[no_mangle]
-        #[used(linker)]
-        static TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
+        #[unsafe(no_mangle)]
+        pub static mut TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
             $(
                 $(#[$attr])*
                 (stringify!($name), &$name)
@@ -106,6 +104,7 @@ test_cases! {
     test_panic,
     test_restart,
     test_restart_taskgen,
+    test_panic_taskgen,
     test_borrow_info,
     test_borrow_read,
     test_borrow_write,
@@ -133,6 +132,7 @@ test_cases! {
     test_irq_status,
     #[cfg(feature = "fru-id-eeprom")]
     at24csw080::test_at24csw080,
+    test_read_panic_message,
 }
 
 /// Tests that we can send a message to our assistant, and that the assistant
@@ -146,7 +146,7 @@ fn test_send() {
         assist,
         AssistOp::JustReply as u16,
         &challenge.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -165,7 +165,7 @@ fn test_recv_reply() {
         assist,
         AssistOp::SendBack as u16,
         &challenge.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -173,7 +173,7 @@ fn test_recv_reply() {
     // Don't actually care about the response in this case
 
     // Switch roles and wait for the message, blocking notifications.
-    let rm = userlib::sys_recv_open(response.as_bytes_mut(), 0);
+    let rm = userlib::sys_recv_open(response.as_mut_bytes(), 0);
     assert_eq!(rm.sender, assist);
     assert_eq!(rm.operation, 42); // assistant always sends this
 
@@ -194,7 +194,7 @@ fn test_recv_reply() {
         assist,
         AssistOp::LastReply as u16,
         &challenge.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -213,14 +213,14 @@ fn test_recv_reply_fault() {
         assist,
         AssistOp::SendBack as u16,
         &challenge.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
 
     // Now take the message. This is necessary to be able to fault the task.
-    let _rm = userlib::sys_recv_open(response.as_bytes_mut(), 0);
+    let _rm = userlib::sys_recv_open(response.as_mut_bytes(), 0);
 
     // We don't validate the message itself because the test_recv_reply above
     // covers that. We're specifically interested in what happens if we...
@@ -258,7 +258,7 @@ fn test_fault(op: AssistOp, arg: u32) -> FaultInfo {
         assist,
         op as u16,
         &arg.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -466,7 +466,7 @@ fn test_panic() {
         assist,
         AssistOp::Panic as u16,
         &0u32.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -475,13 +475,13 @@ fn test_panic() {
 
     // Read status back from the kernel and check it.
     let status = kipc::read_task_status(ASSIST.get_task_index().into());
-    assert_eq!(
+    assert!(matches!(
         status,
         TaskState::Faulted {
             fault: FaultInfo::Panic,
             original_state: SchedState::Runnable,
         },
-    );
+    ));
     restart_assistant();
 }
 
@@ -611,7 +611,7 @@ task_slot!(I2C, i2c_driver);
 // a single cfg block
 #[cfg(feature = "fru-id-eeprom")]
 mod at24csw080 {
-    use super::{i2c_config, I2C};
+    use super::{I2C, i2c_config};
     use drv_i2c_devices::at24csw080::{At24Csw080, Error, WriteProtectBlock};
 
     const EEPROM_SIZE: u16 = 1024;
@@ -879,7 +879,7 @@ fn test_restart() {
         assist,
         AssistOp::Store as u16,
         &value.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -894,7 +894,7 @@ fn test_restart() {
         assist,
         AssistOp::Store as u16,
         &value2.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -911,7 +911,7 @@ fn test_restart() {
         assist,
         AssistOp::Store as u16,
         &value.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -919,6 +919,54 @@ fn test_restart() {
 
     // Confirm that the assistant lost our old value and returned to boot state.
     assert_eq!(response, 0);
+}
+
+/// Enables or disables automatic restarting of tasks in the supervisor
+///
+/// Note that the test suite (that's us) is never automatically restarted,
+/// because it panics to indicate test failures.
+fn set_autorestart(autorestart: bool) {
+    let runner = RUNNER.get_task_id();
+    let mut response = 0u32;
+    let op = RunnerOp::AutoRestart as u16;
+    let arg = u32::from(autorestart);
+    let (rc, len) = userlib::sys_send(
+        runner,
+        op,
+        arg.as_bytes(),
+        response.as_mut_bytes(),
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 0);
+}
+
+/// Tests that when our task dies, we get an error code that consists of
+/// the new generation in the lower bits.
+fn test_panic_taskgen() {
+    set_autorestart(true);
+
+    // Ask the assistant to panic.
+    let assist = assist_task_id();
+    let initial_gen = assist.generation();
+    let mut response = 0u32;
+    let (rc, len) = userlib::sys_send(
+        assist,
+        AssistOp::FastPanic as u16,
+        &0u32.to_le_bytes(),
+        response.as_mut_bytes(),
+        &[],
+    );
+
+    // Clean up by disabling auto-restart before making our assertions
+    set_autorestart(false);
+
+    // The returned value should be a dead code indicating the new generation
+    assert_eq!(rc & 0xffff_ff00, 0xffff_ff00);
+    assert_eq!(len, 0);
+    let new_gen = Generation::from((rc & 0xff) as u8);
+    assert_ne!(initial_gen, new_gen);
+    assert_eq!(assist_task_id().generation(), new_gen);
 }
 
 /// Tests that when our task dies, we get an error code that consists of
@@ -932,7 +980,7 @@ fn test_restart_taskgen() {
         assist,
         AssistOp::Panic as u16,
         &0u32.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -940,13 +988,13 @@ fn test_restart_taskgen() {
 
     // Read status back from the kernel, check it, and bounce the assistant.
     let status = kipc::read_task_status(ASSIST.get_task_index().into());
-    assert_eq!(
+    assert!(matches!(
         status,
         TaskState::Faulted {
             fault: FaultInfo::Panic,
             original_state: SchedState::Runnable,
         },
-    );
+    ));
     restart_assistant();
 
     // Now when we make another call with the old task, this should fail
@@ -957,7 +1005,7 @@ fn test_restart_taskgen() {
         assist,
         AssistOp::SendBack as u16,
         &payload.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
 
@@ -983,7 +1031,7 @@ fn test_borrow_info() {
         assist,
         AssistOp::SendBackWithLoans as u16,
         &0u32.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -992,7 +1040,7 @@ fn test_borrow_info() {
 
     // Receive...
     hl::recv_without_notification(
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         |_op: u32, msg| -> Result<(), u32> {
             let (_msg, caller) = msg.fixed::<u32, u32>().unwrap();
 
@@ -1026,7 +1074,7 @@ fn test_borrow_read() {
         assist,
         AssistOp::SendBackWithLoans as u16,
         &0u32.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -1035,7 +1083,7 @@ fn test_borrow_read() {
 
     // Receive:
     hl::recv_without_notification(
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         |_op: u32, msg| -> Result<(), u32> {
             let (_msg, caller) = msg.fixed::<u32, u32>().unwrap();
 
@@ -1067,7 +1115,7 @@ fn test_borrow_write() {
         assist,
         AssistOp::SendBackWithLoans as u16,
         &0u32.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -1075,7 +1123,7 @@ fn test_borrow_write() {
     // Don't actually care about the response in this case
 
     hl::recv_without_notification(
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         |_op: u32, msg| -> Result<(), u32> {
             let (_msg, caller) = msg.fixed::<u32, u32>().unwrap();
 
@@ -1144,7 +1192,7 @@ fn test_supervisor_fault_notification() {
             assist,
             AssistOp::Panic as u16,
             &0u32.to_le_bytes(),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[],
         );
         assert_eq!(rc, 0);
@@ -1226,10 +1274,12 @@ fn test_timer_notify_past() {
 #[cfg(any(armv7m, armv8m))]
 fn test_floating_point(highregs: bool) {
     unsafe fn read_regs(dest: &mut [u32; 16], highregs: bool) {
-        if !highregs {
-            core::arch::asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
-        } else {
-            core::arch::asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
+        unsafe {
+            if !highregs {
+                core::arch::asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
+            } else {
+                core::arch::asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
+            }
         }
     }
 
@@ -1259,7 +1309,7 @@ fn test_floating_point(highregs: bool) {
         assist,
         AssistOp::EatSomePi as u16,
         &which.to_le_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -1310,7 +1360,7 @@ fn test_task_status() {
             assist,
             AssistOp::ReadTaskStatus as u16,
             &id.to_le_bytes(),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[],
         );
         assert_eq!(rc, 0);
@@ -1404,7 +1454,7 @@ fn test_post() {
         assist,
         AssistOp::ReadNotifications as u16,
         unused.as_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -1421,7 +1471,7 @@ fn test_post() {
         assist,
         AssistOp::ReadNotifications as u16,
         unused.as_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -1504,6 +1554,40 @@ fn test_irq_status() {
     assert_eq!(status, expected_status);
 }
 
+/// Tests that when a task panics, its panic message can be read via the `read_panic_message` kipc.
+fn test_read_panic_message() {
+    set_autorestart(false);
+
+    let mut buf = [0u8; userlib::PANIC_MESSAGE_MAX_LEN];
+
+    match kipc::read_panic_message(ASSIST.get_task_index().into(), &mut buf) {
+        Err(userlib::ReadPanicMessageError::TaskNotPanicked) => {}
+        x => panic!("expected `Err(TaskNotPanicked)`, got: {x:?}"),
+    }
+
+    // Ask the assistant to panic.
+    let assist = assist_task_id();
+    let mut response = 0u32;
+    let (_, _) = userlib::sys_send(
+        assist,
+        AssistOp::Panic as u16,
+        &0u32.to_le_bytes(),
+        response.as_mut_bytes(),
+        &[],
+    );
+
+    let mut msg_chunks =
+        kipc::read_panic_message(ASSIST.get_task_index().into(), &mut buf)
+            .unwrap();
+    // it should look kinda like a panic message (but since the line number may
+    // change, don't make assertions about the entire contents of the string...
+    let msg = msg_chunks
+        .next()
+        .expect("Utf8Chunks always has at least one chunk")
+        .valid();
+    assert!(msg.starts_with("panicked at"));
+}
+
 /// Asks the test runner (running as supervisor) to please trigger a software
 /// interrupt for `notifications::TEST_IRQ`, thank you.
 #[track_caller]
@@ -1516,7 +1600,7 @@ fn trigger_test_irq() {
         runner,
         op,
         arg.as_bytes(),
-        response.as_bytes_mut(),
+        response.as_mut_bytes(),
         &[],
     );
     assert_eq!(rc, 0);
@@ -1546,7 +1630,7 @@ fn idol_handle() -> test_idol_api::IdolTest {
 
 /// Restarts the assistant task.
 fn restart_assistant() {
-    kipc::restart_task(ASSIST.get_task_index().into(), true);
+    kipc::reinit_task(ASSIST.get_task_index().into(), true);
 }
 
 /// Contacts the runner task to read (and clear) its accumulated set of
@@ -1556,19 +1640,19 @@ fn read_runner_notifications() -> u32 {
     let mut response = 0u32;
     let op = RunnerOp::ReadAndClearNotes as u16;
     let (rc, len) =
-        userlib::sys_send(runner, op, &[], response.as_bytes_mut(), &[]);
+        userlib::sys_send(runner, op, &[], response.as_mut_bytes(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     response
 }
 
 /// Actual entry point.
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Work out the assistant generation. Restart it to ensure it's running
     // before we try talking to it. TODO: this is kind of gross, we need a way
     // to just ask.
-    kipc::restart_task(ASSIST.get_task_index().into(), true);
+    kipc::reinit_task(ASSIST.get_task_index().into(), true);
     loop {
         let assist = assist_task_id();
         let challenge = 0xDEADBEEF_u32;
@@ -1577,7 +1661,7 @@ fn main() -> ! {
             assist,
             0,
             &challenge.to_le_bytes(),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[],
         );
         if rc == 0 {
@@ -1597,7 +1681,12 @@ fn main() -> ! {
                         caller.reply(());
                         ringbuf_entry!(Trace::TestStart);
 
-                        TESTS[idx].1();
+                        // SAFETY: this is single-threaded code.  In addition,
+                        // `TESTS` is only `pub static mut` to ensure that it's
+                        // compiled into the binary; no one mutates it.
+                        unsafe {
+                            TESTS[idx].1();
+                        }
 
                         let op = RunnerOp::TestComplete as u16;
 

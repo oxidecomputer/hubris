@@ -1,7 +1,7 @@
 [package]
 name = "stage0-handoff"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 counters = { path = "../counters" }

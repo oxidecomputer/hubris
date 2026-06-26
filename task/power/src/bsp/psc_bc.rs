@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    PowerControllerConfig, PowerState,
     i2c_config::{self, sensors},
-    DeviceType, PowerControllerConfig, PowerState,
 };
 
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 12;

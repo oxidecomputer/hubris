@@ -53,26 +53,28 @@ cfg_if::cfg_if! {
 /// Embedded HAL which relies on uniqueness of peripheral access? In practice,
 /// as long as you ensure you're not doing this, you're probably ok.
 pub unsafe fn get_gpio_regs(port: Port) -> &'static dyn AnyGpioPeriph {
-    match port {
-        Port::A => &*device::GPIOA::ptr(),
-        Port::B => &*device::GPIOB::ptr(),
-        Port::C => &*device::GPIOC::ptr(),
-        Port::D => &*device::GPIOD::ptr(),
+    unsafe {
+        match port {
+            Port::A => &*device::GPIOA::ptr(),
+            Port::B => &*device::GPIOB::ptr(),
+            Port::C => &*device::GPIOC::ptr(),
+            Port::D => &*device::GPIOD::ptr(),
 
-        #[cfg(feature = "has-port-gpioe")]
-        Port::E => &*device::GPIOE::ptr(),
-        #[cfg(feature = "has-port-gpiof")]
-        Port::F => &*device::GPIOF::ptr(),
-        #[cfg(feature = "has-port-gpiog")]
-        Port::G => &*device::GPIOG::ptr(),
-        #[cfg(feature = "has-port-gpioh")]
-        Port::H => &*device::GPIOH::ptr(),
-        #[cfg(feature = "has-port-gpioi")]
-        Port::I => &*device::GPIOI::ptr(),
-        #[cfg(feature = "has-port-gpioj")]
-        Port::J => &*device::GPIOJ::ptr(),
-        #[cfg(feature = "has-port-gpiok")]
-        Port::K => &*device::GPIOK::ptr(),
+            #[cfg(feature = "has-port-gpioe")]
+            Port::E => &*device::GPIOE::ptr(),
+            #[cfg(feature = "has-port-gpiof")]
+            Port::F => &*device::GPIOF::ptr(),
+            #[cfg(feature = "has-port-gpiog")]
+            Port::G => &*device::GPIOG::ptr(),
+            #[cfg(feature = "has-port-gpioh")]
+            Port::H => &*device::GPIOH::ptr(),
+            #[cfg(feature = "has-port-gpioi")]
+            Port::I => &*device::GPIOI::ptr(),
+            #[cfg(feature = "has-port-gpioj")]
+            Port::J => &*device::GPIOJ::ptr(),
+            #[cfg(feature = "has-port-gpiok")]
+            Port::K => &*device::GPIOK::ptr(),
+        }
     }
 }
 
@@ -120,12 +122,29 @@ impl<T: GpioPeriph> AnyGpioPeriph for T {
         let mask_4l = lsbs_4l.wrapping_mul(0b1111);
         let mask_4h = lsbs_4h.wrapping_mul(0b1111);
 
-        // MODER contains 16x 2-bit fields.
-        let moder_val = u32::from(atts & 0b11);
-        self.moder().modify(|r, w| unsafe {
-            // See comment re: wrapping_mul above.
-            w.bits((r.bits() & !mask_2) | moder_val.wrapping_mul(lsbs_2))
-        });
+        // Register updates -- we do this carefully in a specific order to try
+        // to minimize glitching. Specifically, we're trying to maintain two
+        // properties:
+        //
+        // 1. The initial configuration of a pin (out of the Analog mode chosen
+        //    at reset) should appear atomic without visible glitches, with the
+        //    exception of enabling a pull up/down resistor, which if requested
+        //    cannot be done atomically.
+        //
+        // 2. _Reconfiguration_ of a pin between (input, output, alternate,
+        //    analog) modes should be atomic as long as the drive type and pull
+        //    mode are not changed.
+        //
+        // We can do this by writing registers in sequence:
+        // - OTYPER (open-drain), OSPEEDR (slew rate) in any order
+        // - PUPDR (activation of pull up/down resistor) at some point
+        // - AFRx (alternate peripheral function select)
+        // - MODER last
+        //
+        // (Because the effect of PUPDR is inherently non-atomic and separately
+        // observable, since the pullups are switched separately from everything
+        // else, the PUPDR change could be moved anywhere in that sequence
+        // without breaking the properties described above.)
 
         // OTYPER contains 16x 1-bit fields.
         let otyper_val = u32::from((atts >> 2) & 1);
@@ -145,15 +164,36 @@ impl<T: GpioPeriph> AnyGpioPeriph for T {
             // See comment re: wrapping_mul above.
             w.bits((r.bits() & !mask_2) | pupdr_val.wrapping_mul(lsbs_2))
         });
-        // AFRx contains 8x 4-bit fields.
-        let af_val = u32::from((atts >> 7) & 0b1111);
-        self.afrl().modify(|r, w| unsafe {
+
+        let moder_val = u32::from(atts & 0b11);
+
+        // Only update the alternate fields mux if the mode will be Alternate
+        // when we're done with it. This avoids a glitch in resetting the mux if
+        // switching from Alternate _to_ something else. For the other two
+        // cases:
+        // - Switching between Alternate settings is as glitch-free as is
+        //   feasible in the hardware (though you might want to consider going
+        //   through Analog anyway).
+        //
+        // - Switching _to_ Alternate from a different mode updates the mux
+        //   before MODER, so the update timing is immaterial.
+        if moder_val == T::MODER_ALTERNATE {
+            // AFRx contains 8x 4-bit fields.
+            let af_val = u32::from((atts >> 7) & 0b1111);
+            self.afrl().modify(|r, w| unsafe {
+                // See comment re: wrapping_mul above.
+                w.bits((r.bits() & !mask_4l) | af_val.wrapping_mul(lsbs_4l))
+            });
+            self.afrh().modify(|r, w| unsafe {
+                // See comment re: wrapping_mul above.
+                w.bits((r.bits() & !mask_4h) | af_val.wrapping_mul(lsbs_4h))
+            });
+        }
+
+        // MODER contains 16x 2-bit fields.
+        self.moder().modify(|r, w| unsafe {
             // See comment re: wrapping_mul above.
-            w.bits((r.bits() & !mask_4l) | af_val.wrapping_mul(lsbs_4l))
-        });
-        self.afrh().modify(|r, w| unsafe {
-            // See comment re: wrapping_mul above.
-            w.bits((r.bits() & !mask_4h) | af_val.wrapping_mul(lsbs_4h))
+            w.bits((r.bits() & !mask_2) | moder_val.wrapping_mul(lsbs_2))
         });
     }
 
@@ -194,6 +234,10 @@ pub trait GpioPeriph {
     type OdSpec: pac::RegisterSpec<Ux = u32> + pac::Readable + pac::Writable;
     type IdSpec: pac::RegisterSpec<Ux = u32> + pac::Readable;
 
+    /// Value a MODER field takes when a pin is assigned to Alternate mode,
+    /// making the AFRx registers significant.
+    const MODER_ALTERNATE: u32;
+
     fn moder(&self) -> &pac::Reg<Self::ModeSpec>;
     fn otyper(&self) -> &pac::Reg<Self::OtypeSpec>;
     fn ospeedr(&self) -> &pac::Reg<Self::OspeedSpec>;
@@ -219,6 +263,10 @@ macro_rules! impl_gpio_periph {
             type BsrSpec = device::$module::bsrr::BSRR_SPEC;
             type OdSpec = device::$module::odr::ODR_SPEC;
             type IdSpec = device::$module::idr::IDR_SPEC;
+
+            // Currently all supported chips have the same Alternate bit pattern
+            // in MODER. Yay.
+            const MODER_ALTERNATE: u32 = 0b10;
 
             fn moder(&self) -> &pac::Reg<Self::ModeSpec> {
                 &self.moder

@@ -6,7 +6,7 @@ board = "donglet-g031"
 
 [kernel]
 name = "app-donglet"
-requires = {flash = 19168, ram = 1820}
+requires = {flash = 19168, ram = 1824}
 features = ["g031"]
 stacksize = 936
 
@@ -15,8 +15,9 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 368
+stacksize = 384
 notifications = ["fault", "timer"]
+features = ["no-panic", "nano"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -67,6 +68,7 @@ start = true
 task-slots = ["sys"]
 stacksize = 912
 features = ["stm32g0", "g031", "gpio", "micro", "send"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"
@@ -95,11 +97,12 @@ address = 0x73
 [[config.i2c.devices]]
 controller = 1
 mux = 1
-segment = 1 
+segment = 1
 address = 0b1010_000
 device = "at24csw080"
 description = "Sharkfin VPD"
 removable = true
+refdes = ["J3", "J3", "U7"]
 
 [[config.i2c.devices]]
 controller = 1
@@ -109,6 +112,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Gimlet Fan VPD"
 removable = true
+refdes = ["J3", "J5", "U1"]
 
 [[config.i2c.devices]]
 controller = 1
@@ -118,6 +122,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Sidecar Fan VPD"
 removable = true
+refdes = ["J3", "J4", "U1"]
 
 [[config.i2c.devices]]
 controller = 1
@@ -128,3 +133,4 @@ device = "tmp117"
 description = "TempSense"
 sensors = { temperature = 1 }
 removable = true
+refdes = ["J3", "J2"]

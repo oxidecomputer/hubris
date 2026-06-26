@@ -7,7 +7,7 @@
 #![no_std]
 
 use userlib::FromPrimitive;
-use zerocopy::AsBytes;
+use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 #[cfg(feature = "server-support")]
 pub mod server;
@@ -15,7 +15,17 @@ pub mod server;
 /// Enumerates the GPIO ports available on this chip, from the perspective of
 /// driver software. This does not mean the GPIO port is physically available on
 /// pins of the package -- we don't model package differences.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(u8)]
 pub enum Port {
     A = 0,

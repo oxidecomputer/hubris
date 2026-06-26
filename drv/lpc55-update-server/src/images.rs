@@ -10,7 +10,7 @@ use userlib::UnwrapLite;
 
 // We shouldn't actually dereference these. The types are not correct.
 // They are just here to allow a mechanism for getting the addresses.
-extern "C" {
+unsafe extern "C" {
     static __IMAGE_A_BASE: [u32; 0];
     static __IMAGE_B_BASE: [u32; 0];
     static __IMAGE_STAGE0_BASE: [u32; 0];

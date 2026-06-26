@@ -2,20 +2,23 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// `pack_with_cb` has large error types which trigger this lint
+#![allow(clippy::result_large_err)]
+
 use crate::Trace;
 use attest_api::Attest;
-use crc::{Crc, CRC_32_CKSUM};
+use crc::{CRC_32_CKSUM, Crc};
 use drv_lpc55_update_api::{RotComponent, RotPage, SlotId, Update};
 use drv_sprot_api::{
-    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, LifecycleState,
-    ReqBody, Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus,
-    RspBody, SprocketsError, SprotError, SprotProtocolError, StateError,
-    StateReq, StateRsp, SwdReq, UpdateReq, UpdateRsp, CURRENT_VERSION,
-    MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
+    AttestReq, AttestRsp, CURRENT_VERSION, CabooseReq, CabooseRsp, DumpReq,
+    LifecycleState, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE, ReqBody,
+    Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
+    SprocketsError, SprotError, SprotProtocolError, StateError, StateReq,
+    StateRsp, SwdReq, UpdateReq, UpdateRsp,
 };
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use userlib::{task_slot, UnwrapLite};
+use userlib::{UnwrapLite, task_slot};
 
 task_slot!(UPDATE_SERVER, update_server);
 
@@ -118,6 +121,14 @@ impl<'a> Handler {
         tx_buf: &mut [u8; RESPONSE_BUF_SIZE],
     ) -> usize {
         let body = Err(SprotProtocolError::Desynchronized.into());
+        Response::pack(&body, tx_buf)
+    }
+
+    pub fn request_message_too_large_error(
+        &self,
+        tx_buf: &mut [u8; RESPONSE_BUF_SIZE],
+    ) -> usize {
+        let body = Err(SprotProtocolError::BadMessageLength.into());
         Response::pack(&body, tx_buf)
     }
 

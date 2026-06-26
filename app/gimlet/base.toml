@@ -1,8 +1,7 @@
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
-memory = "memory-large.toml"
+default-ram = "axi_sram"
 stacksize = 896
-fwid = true
 
 [kernel]
 name = "gimlet"
@@ -10,18 +9,17 @@ requires = {flash = 32768, ram = 8192}
 features = ["dump"]
 
 [caboose]
-tasks = ["control_plane_agent"]
+tasks = ["control_plane_agent", "packrat"]
 region = "flash"
 size = 256
-default = true
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 start = true
-features = ["dump"]
-stacksize = 1536
+features = ["dump", "fault-notification"]
+stacksize = 2360
 notifications = ["fault", "timer"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
@@ -29,6 +27,9 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 net = "jefe-state-change"
 host_sp_comms = "jefe-state-change"
 spd = "jefe-state-change"
+
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
 
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
@@ -108,7 +109,7 @@ notifications = ["i2c2-irq", "i2c3-irq", "i2c4-irq"]
 "i2c4.error" = "i2c4-irq"
 
 [tasks.spd]
-name = "task-spd"
+name = "task-gimlet-spd"
 features = ["h753"]
 priority = 2
 max-sizes = {flash = 16384, ram = 16384}
@@ -124,17 +125,18 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
+stacksize = 1400
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
-features = ["gimlet"]
+task-slots = ["jefe"]
+features = ["gimlet", "ereport"]
+notifications = ["task-faulted"]
 
 [tasks.thermal]
 name = "task-thermal"
 features = ["gimlet"]
 priority = 5
 max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 6000
+stacksize = 2000
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe"]
 notifications = ["timer"]
@@ -147,16 +149,17 @@ max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 3800
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
-notifications = ["timer", "external_badness"]
+notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
 start = true
 task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"]
+notifications = ["timer"]
 
 [tasks.gimlet_seq]
 name = "drv-gimlet-seq-server"
@@ -170,8 +173,8 @@ notifications = ["timer", "vcore"]
 copy-to-archive = ["register_defs"]
 
 [tasks.gimlet_seq.config]
-fpga_image = "fpga-b.bin"
-register_defs = "gimlet-regs-b.json"
+fpga_image = "fpga.bin"
+register_defs = "gimlet-regs.json"
 
 [tasks.gimlet_inspector]
 name = "task-gimlet-inspector"
@@ -195,17 +198,26 @@ interrupts = {"hash.irq" = "hash-irq"}
 task-slots = ["sys"]
 notifications = ["hash-irq"]
 
+[tasks.rng_driver]
+features = ["h753", "ereport"]
+name = "drv-stm32h7-rng"
+priority = 6
+uses = ["rng"]
+start = true
+stacksize = 512
+task-slots = ["sys", "packrat"]
+
 [tasks.hf]
 name = "drv-gimlet-hf-server"
-features = ["h753", "hash"]
+features = ["h753"]
 priority = 3
-max-sizes = {flash = 16384, ram = 4096 }
+max-sizes = {flash = 32768, ram = 4096 }
 stacksize = 3000
 start = true
 uses = ["quadspi"]
 interrupts = {"quadspi.irq" = "qspi-irq"}
 task-slots = ["sys", "hash_driver"]
-notifications = ["qspi-irq"]
+notifications = ["qspi-irq", "timer"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -230,9 +242,9 @@ name = "task-host-sp-comms"
 features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan", "gimlet"]
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
-priority = 7
-max-sizes = {flash = 65536, ram = 65536}
-stacksize = 5080
+priority = 8
+max-sizes = {flash = 72000, ram = 65536}
+stacksize = 5376
 start = true
 task-slots = ["sys", { cpu_seq = "gimlet_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot"]
 notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
@@ -259,14 +271,13 @@ notifications = ["socket"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 6
-max-sizes = {flash = 131072, ram = 32768}
-# This can probably overkill and can be tuned later
-stacksize = 6000
+priority = 7
+stacksize = 7000
 start = true
 uses = ["usart1"]
 task-slots = [
     "jefe",
+    "dump_agent",
     "net",
     "update_server",
     "sys",
@@ -338,6 +349,17 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
+[tasks.snitch]
+name = "task-snitch"
+# The snitch should have a priority immediately below that of the net task,
+# to minimize the number of components that can starve it from resources.
+priority = 6
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
 [tasks.sbrmi]
 name = "drv-sbrmi"
 priority = 4
@@ -348,7 +370,7 @@ stacksize = 800
 
 [tasks.idle]
 name = "task-idle"
-priority = 8
+priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -415,7 +437,7 @@ name = "Southwest"
 description = "Southwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J194"
+refdes = ["J194", "U1"]
 
 [[config.i2c.devices]]
 bus = "front"
@@ -425,7 +447,7 @@ name = "South"
 description = "South temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J195"
+refdes = ["J195", "U1"]
 
 [[config.i2c.devices]]
 bus = "front"
@@ -435,7 +457,7 @@ name = "Southeast"
 description = "Southeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J196"
+refdes = ["J196", "U1"]
 
 [[config.i2c.devices]]
 bus = "front"
@@ -468,7 +490,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin A VPD"
 name = "sharkfin_a_vpd"
-refdes = "J206"
+refdes = ["J206", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -481,7 +503,7 @@ description = "U.2 Sharkfin A hot swap controller"
 power = { rails = [ "V12_U2A_A0", "V3P3_U2A_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_a_hsc"
-refdes = "J206"
+refdes = ["J206", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -493,7 +515,7 @@ device = "nvme_bmc"
 description = "U.2 A NVMe Basic Management Command"
 sensors = { temperature = 1 }
 name = "U2_N0"
-refdes = "J206"
+refdes = ["J206", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -504,7 +526,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin B VPD"
 name = "sharkfin_b_vpd"
-refdes = "J207"
+refdes = ["J207", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -517,7 +539,7 @@ description = "U.2 Sharkfin B hot swap controller"
 power = { rails = [ "V12_U2B_A0", "V3P3_U2B_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_b_hsc"
-refdes = "J207"
+refdes = ["J207", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -529,7 +551,7 @@ device = "nvme_bmc"
 description = "U.2 B NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N1"
-refdes = "J207"
+refdes = ["J207", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -540,7 +562,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin C VPD"
 name = "sharkfin_c_vpd"
-refdes = "J208"
+refdes = ["J208", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -553,7 +575,7 @@ description = "U.2 Sharkfin C hot swap controller"
 power = { rails = [ "V12_U2C_A0", "V3P3_U2C_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_c_hsc"
-refdes = "J208"
+refdes = ["J208", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -565,7 +587,7 @@ device = "nvme_bmc"
 description = "U.2 C NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N2"
-refdes = "J208"
+refdes = ["J208", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -576,7 +598,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin D VPD"
 name = "sharkfin_d_vpd"
-refdes = "J209"
+refdes = ["J209", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -589,7 +611,7 @@ description = "U.2 Sharkfin D hot swap controller"
 power = { rails = [ "V12_U2D_A0", "V3P3_U2D_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_d_hsc"
-refdes = "J209"
+refdes = ["J209", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -601,7 +623,7 @@ device = "nvme_bmc"
 description = "U.2 D NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N3"
-refdes = "J209"
+refdes = ["J209", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -612,7 +634,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin E VPD"
 name = "sharkfin_e_vpd"
-refdes = "J210"
+refdes = ["J210", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -625,7 +647,7 @@ description = "U.2 Sharkfin E hot swap controller"
 power = { rails = [ "V12_U2E_A0", "V3P3_U2E_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_e_hsc"
-refdes = "J210"
+refdes = ["J210", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -637,7 +659,7 @@ device = "nvme_bmc"
 description = "U.2 E NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N4"
-refdes = "J210"
+refdes = ["J210", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -648,7 +670,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin F VPD"
 name = "sharkfin_f_vpd"
-refdes = "J211"
+refdes = ["J211", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -661,7 +683,7 @@ description = "U.2 Sharkfin F hot swap controller"
 power = { rails = [ "V12_U2F_A0", "V3P3_U2F_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_f_hsc"
-refdes = "J211"
+refdes = ["J211", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -673,7 +695,7 @@ device = "nvme_bmc"
 description = "U.2 F NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N5"
-refdes = "J211"
+refdes = ["J211", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -684,7 +706,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin G VPD"
 name = "sharkfin_g_vpd"
-refdes = "J212"
+refdes = ["J212", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -697,7 +719,7 @@ description = "U.2 Sharkfin G hot swap controller"
 power = { rails = [ "V12_U2G_A0", "V3P3_U2G_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_g_hsc"
-refdes = "J212"
+refdes = ["J212", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -709,7 +731,7 @@ device = "nvme_bmc"
 description = "U.2 G NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N6"
-refdes = "J212"
+refdes = ["J212", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -720,7 +742,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin H VPD"
 name = "sharkfin_h_vpd"
-refdes = "J213"
+refdes = ["J213", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -733,7 +755,7 @@ description = "U.2 Sharkfin H hot swap controller"
 power = { rails = [ "V12_U2H_A0", "V3P3_U2H_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_h_hsc"
-refdes = "J213"
+refdes = ["J213", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -745,7 +767,7 @@ device = "nvme_bmc"
 description = "U.2 H NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N7"
-refdes = "J213"
+refdes = ["J213", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -756,7 +778,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin I VPD"
 name = "sharkfin_i_vpd"
-refdes = "J214"
+refdes = ["J214", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -769,7 +791,7 @@ description = "U.2 Sharkfin I hot swap controller"
 power = { rails = [ "V12_U2I_A0", "V3P3_U2I_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_i_hsc"
-refdes = "J214"
+refdes = ["J214", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -781,7 +803,7 @@ device = "nvme_bmc"
 description = "U.2 I NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N8"
-refdes = "J214"
+refdes = ["J214", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -792,7 +814,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin J VPD"
 name = "sharkfin_j_vpd"
-refdes = "J215"
+refdes = ["J215", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -805,7 +827,7 @@ description = "U.2 Sharkfin J hot swap controller"
 power = { rails = [ "V12_U2J_A0", "V3P3_U2J_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_j_hsc"
-refdes = "J215"
+refdes = ["J215", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -817,7 +839,7 @@ device = "nvme_bmc"
 description = "U.2 J NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N9"
-refdes = "J215"
+refdes = ["J215", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -853,7 +875,7 @@ segment = 3
 address = 0b1010_000
 device = "at24csw080"
 description = "Fan VPD"
-refdes = "J180"
+refdes = ["J180", "U1"]
 name = "fan_vpd"
 removable = true
 
@@ -924,6 +946,7 @@ address = 0x3c
 device = "sbrmi"
 name = "RMI"
 description = "CPU via SB-RMI"
+refdes = ["P0", "SBRMI"]
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -932,6 +955,7 @@ device = "sbtsi"
 name = "CPU"
 description = "CPU temperature sensor"
 sensors = { temperature = 1 }
+refdes = ["P0", "SBTSI"]
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -967,13 +991,13 @@ device = "isl68224"
 description = "DIMM/SP3 1.8V A0 power controller"
 power.rails = [ "VPP_ABCD", "VPP_EFGH", "V1P8_SP3" ]
 power.phases = [ [ 0 ], [ 1 ], [ 2 ] ]
-sensors = { voltage = 3, current = 3 }
+sensors = { temperature = 3, voltage = 3, current = 3 }
 refdes = "U352"
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x10
-device = "adm1272"
+device = "adm127x"
 description = "Fan hot swap controller"
 power = { rails = [ "V54_FAN" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -982,7 +1006,7 @@ refdes = "U419"
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x14
-device = "adm1272"
+device = "adm127x"
 description = "Sled hot swap controller"
 power = { rails = [ "V54_HS_OUTPUT" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -1016,7 +1040,7 @@ name = "Northeast"
 description = "Northeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J197"
+refdes = ["J197", "U1"]
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -1026,7 +1050,7 @@ name = "North"
 description = "North temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J198"
+refdes = ["J198", "U1"]
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -1036,7 +1060,7 @@ name = "Northwest"
 description = "Northwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J199"
+refdes = ["J199", "U1"]
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -1045,7 +1069,7 @@ device = "bmr491"
 name = "IBC"
 description = "Intermediate bus converter"
 power = { rails = [ "V12_SYS_A2" ] }
-sensors = { temperature = 1, power = 1, voltage = 1, current = 1 }
+sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U431"
 
 ################################################################################
@@ -1212,6 +1236,14 @@ removable = true
 
 ################################################################################
 
+[[config.sensor.devices]]
+name = "fan_ctrl"
+device = "thermal_loop"
+description = "Thermal loop"
+sensors.pwm = 1
+
+################################################################################
+
 [config.spi.spi2]
 controller = 2
 
@@ -1317,6 +1349,11 @@ port = 23547
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 512 }
 
-[config.sprot]
-# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-rot_irq = { port = "E", pin = 3, af = 0}
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }

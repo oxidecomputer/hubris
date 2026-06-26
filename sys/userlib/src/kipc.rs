@@ -3,28 +3,91 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Operations implemented by IPC with the kernel task.
+//!
+//! # On checking return values
+//!
+//! All the functions in this module send IPCs to the kernel directly. It's not
+//! generally useful for us to check the return codes, except in cases where the
+//! IPC is defined as able to fail. We have no choice but to trust the kernel,
+//! since it controls everything.
+//!
+//! As a result, asserting on return codes and lengths when they can only be zero just
+//! wastes flash space in the supervisor.
 
-use abi::{Kipcnum, TaskId};
-use zerocopy::AsBytes;
+use core::num::NonZeroUsize;
+use core::str::Utf8Chunks;
 
-use crate::{sys_send, UnwrapLite};
+use abi::{Kipcnum, ReadPanicMessageError, TaskId};
+use zerocopy::IntoBytes;
+
+use crate::{PANIC_MESSAGE_MAX_LEN, UnwrapLite, sys_send};
 
 pub fn read_task_status(task: usize) -> abi::TaskState {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let task = task as u32;
     let mut response = [0; core::mem::size_of::<abi::TaskState>()];
-    let (rc, len) = sys_send(
+    let (_rc, len) = sys_send(
         TaskId::KERNEL,
         Kipcnum::ReadTaskStatus as u16,
         task.as_bytes(),
         &mut response,
         &[],
     );
-    assert_eq!(rc, 0);
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
 
+/// Scans forward from index `task` looking for a task in faulted state.
+///
+/// If no tasks at `task` or greater indices are faulted, this returns `None`.
+///
+/// If a faulted task at index `i` is found, returns `Some(i)`.
+///
+/// `task` may equal the number of tasks in the system (i.e. a one-past-the-end
+/// index). In that case, this returns `None` every time. Larger values will get
+/// you killed.
+///
+/// The return value is a `NonZeroUsize` because this can't ever return zero,
+/// since that would mean the supervisor (presumably the caller of this
+/// function!) is in faulted state.
+pub fn find_faulted_task(task: usize) -> Option<NonZeroUsize> {
+    // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
+    let task = task as u32;
+    let mut response = 0_u32;
+    let (_, _) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::FindFaultedTask as u16,
+        task.as_bytes(),
+        response.as_mut_bytes(),
+        &[],
+    );
+    NonZeroUsize::new(response as usize)
+}
+
+/// Returns a [`TaskDumpRegion`](abi::TaskDumpRegion) for this task's descriptor
+///
+/// The task descriptor is located in kernel memory.
+pub fn get_task_desc_region(task: usize) -> abi::TaskDumpRegion {
+    // It is always valid to ask the kernel for the 0th dump region
+    get_task_dump_region_inner(task, 0).unwrap_lite()
+}
+
+/// Returns the `i`'th dumpable region for the given task (or `None`)
+///
+/// Dumpable regions are located in task RAM, and are returned in sorted
+/// (ascending) order by base address.
 pub fn get_task_dump_region(
+    task: usize,
+    region: usize,
+) -> Option<abi::TaskDumpRegion> {
+    // Region 0 is the task descriptor, so we add 1 here
+    get_task_dump_region_inner(task, region.checked_add(1)?)
+}
+
+/// Access to the raw [`GetTaskDumpRegion`](Kipcnum::GetTaskDumpRegion) KIPC
+///
+/// Wrapped by [`get_task_desc_region`] or [`get_task_dump_region`] for
+/// higher-level semantics.
+fn get_task_dump_region_inner(
     task: usize,
     region: usize,
 ) -> Option<abi::TaskDumpRegion> {
@@ -33,14 +96,13 @@ pub fn get_task_dump_region(
     ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
 
     let mut response = [0; core::mem::size_of::<Option<abi::TaskDumpRegion>>()];
-    let (rc, len) = sys_send(
+    let (_rc, len) = sys_send(
         TaskId::KERNEL,
         Kipcnum::GetTaskDumpRegion as u16,
         &buf,
         &mut response,
         &[],
     );
-    assert_eq!(rc, 0);
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
 
@@ -53,61 +115,60 @@ pub fn read_task_dump_region(
     let mut buf = [0; core::mem::size_of::<(u32, abi::TaskDumpRegion)>()];
     ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
 
-    let (rc, len) = sys_send(
+    let (_rc, len) = sys_send(
         TaskId::KERNEL,
         Kipcnum::ReadTaskDumpRegion as u16,
         &buf,
         response,
         &[],
     );
-    assert_eq!(rc, 0);
     len
 }
 
-pub fn restart_task(task: usize, start: bool) {
+pub fn reinit_task(task: usize, start: bool) {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let msg = (task as u32, start);
     let mut buf = [0; core::mem::size_of::<(u32, bool)>()];
     ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
-    let (rc, _len) = sys_send(
+    let (_rc, _len) = sys_send(
         TaskId::KERNEL,
-        Kipcnum::RestartTask as u16,
+        Kipcnum::ReinitTask as u16,
         &buf,
         &mut [],
         &[],
     );
-    assert_eq!(rc, 0);
 }
 
 pub fn fault_task(task: usize) {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let task = task as u32;
-    let (rc, _len) = sys_send(
+    let (_rc, _len) = sys_send(
         TaskId::KERNEL,
         Kipcnum::FaultTask as u16,
         task.as_bytes(),
         &mut [],
         &[],
     );
-    assert_eq!(rc, 0);
 }
 
 pub fn system_restart() -> ! {
     let _ = sys_send(TaskId::KERNEL, Kipcnum::Reset as u16, &[], &mut [], &[]);
-    panic!();
+    loop {
+        core::sync::atomic::compiler_fence(
+            core::sync::atomic::Ordering::SeqCst,
+        );
+    }
 }
 
 pub fn read_image_id() -> u64 {
     let mut response = [0; core::mem::size_of::<u64>()];
-    let (rc, len) = sys_send(
+    let (_rc, len) = sys_send(
         TaskId::KERNEL,
         Kipcnum::ReadImageId as u16,
         &[],
         &mut response,
         &[],
     );
-    assert_eq!(rc, 0);
-    assert_eq!(len, 8); // we *really* expect this to be a u64
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
 
@@ -118,12 +179,67 @@ pub fn software_irq(task: usize, mask: u32) {
     let mut buf = [0; core::mem::size_of::<(u32, u32)>()];
     ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
 
-    let (rc, _len) = sys_send(
+    let (_rc, _len) = sys_send(
         TaskId::KERNEL,
         Kipcnum::SoftwareIrq as u16,
         &buf,
         &mut [],
         &[],
     );
-    assert_eq!(rc, 0);
+}
+
+/// Reads a task's panic message into the provided `buf`, if the task is
+/// panicked.
+///
+/// Note that Hubris normally only preserves the first
+/// [`PANIC_MESSAGE_MAX_LEN`] bytes of a task's panic message, and panic
+/// messages greater than that length are truncated. Thus, this function
+/// accepts a buffer of that length.
+///
+/// # Returns
+///
+/// - [`Ok`]`([`Utf8Chunks`])` if the task is panicked.
+///
+///   The returned [`Utf8Chunks`] is an iterator returning a
+///   [`core::str::Utf8Chunk`] for each contiguous chunk of valid or invalid
+///   UTF-8 bytes in the panicked task's panic message buffer. This is due to
+///   the truncation of panic messages to [`PANIC_MESSAGE_MAX_LEN`] bytes,
+///   which may occur inside of a code point. If the panic message is truncated
+///   within a code point, there will be an invalid byte sequence at the end of
+///   the buffer, and the `Utf8Chunks` iterator allows the caller to select
+///   only the valid Unicode portion of the message. Provided that the panicked
+///   task panicked using the Hubris userlib's panic handler, the iterator will
+///   contain a single valid UTF-8 chunk, which may be followed by up to one
+///   invalid chunk. However, the task may potentially have called the panic
+///   syscall through other means, and therefore, there may be multiple valid
+///   chunks interspersed with invalid bytes.
+///
+///   The total byte length of all chunks in the iterator will be at most
+///   [`PANIC_MESSAGE_MAX_LEN`] bytes. Note that the iterator may contain only
+///   a single zero-length chunk, if the task has panicked but was compiled
+///   without panic messages enabled.
+/// - [`Err`]`(`[`ReadPanicMessageError::TaskNotPanicked`]`)` if the task is
+///   not currently faulted due to a panic.
+/// - [`Err`]`(`[`ReadPanicMessageError::BadPanicMessage`]`)` if the task has
+///   panicked but the panic message buffer is invalid to read from.
+pub fn read_panic_message(
+    task: usize,
+    buf: &mut [u8; PANIC_MESSAGE_MAX_LEN],
+) -> Result<Utf8Chunks<'_>, ReadPanicMessageError> {
+    let task = task as u32;
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ReadPanicMessage as u16,
+        task.as_bytes(),
+        &mut buf[..],
+        &[],
+    );
+
+    if rc == 0 {
+        Ok(buf[..len].utf8_chunks())
+    } else {
+        // If the kernel sent us an unknown response code....i dunno, guess
+        // i'll die?
+        Err(ReadPanicMessageError::try_from(rc).unwrap_lite())
+    }
 }

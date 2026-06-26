@@ -2,7 +2,7 @@
 name = "drv-auxflash-server"
 version = "0.1.0"
 authors = ["Matt Keeter <matt@oxide.computer>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 cfg-if = { workspace = true }
@@ -11,6 +11,7 @@ num-traits = { workspace = true }
 stm32h7 = { workspace = true }
 tlvc = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-auxflash-api = { path = "../auxflash-api" }
 drv-stm32h7-qspi = { path = "../stm32h7-qspi" }
@@ -24,6 +25,7 @@ idol = { workspace = true }
 [features]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753"]
 no-ipc-counters = ["idol/no-counters"]
+fast-qspi = [] # runs in quad mode + 66 MHz, instead of single + 40 MHz
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

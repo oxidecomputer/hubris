@@ -1,13 +1,14 @@
 [package]
 name = "drv-stm32g0-usart"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 cortex-m = { workspace = true }
 num-traits = { workspace = true }
 stm32g0 = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib" }

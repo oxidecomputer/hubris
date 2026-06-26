@@ -1,0 +1,252 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use core::cell::Cell;
+
+use crate::{
+    BadValidation, CurrentSensor, TempSensor, Validate, VoltageSensor,
+    pmbus_validate,
+};
+use drv_i2c_api::*;
+use pmbus::commands::CommandCode;
+use pmbus::commands::raa229620a::*;
+use pmbus::*;
+use userlib::units::*;
+
+//
+// This is a special rail value that is issued as a PAGE command to enable
+// reading phase current via PHASE + PHASE_CURRENT
+//
+const PHASE_RAIL: u8 = 0x80;
+
+pub struct Raa229620A {
+    device: I2cDevice,
+    rail: u8,
+    mode: Cell<Option<pmbus::VOutModeCommandData>>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Error {
+    BadRead { cmd: u8, code: ResponseCode },
+    BadWrite { cmd: u8, code: ResponseCode },
+    BadData { cmd: u8 },
+    BadValidation { cmd: u8, code: ResponseCode },
+    InvalidData { err: pmbus::Error },
+}
+
+impl From<BadValidation> for Error {
+    fn from(value: BadValidation) -> Self {
+        Self::BadValidation {
+            cmd: value.cmd,
+            code: value.code,
+        }
+    }
+}
+
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadRead { code, .. } => code,
+            Error::BadWrite { code, .. } => code,
+            Error::BadValidation { code, .. } => code,
+            _ => panic!(),
+        }
+    }
+}
+
+impl From<pmbus::Error> for Error {
+    fn from(err: pmbus::Error) -> Self {
+        Error::InvalidData { err }
+    }
+}
+
+impl Raa229620A {
+    pub fn new(device: &I2cDevice, rail: u8) -> Self {
+        Raa229620A {
+            device: *device,
+            rail,
+            mode: Cell::new(None),
+        }
+    }
+
+    pub fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, Error> {
+        Ok(match self.mode.get() {
+            None => {
+                let mode = pmbus_rail_read!(
+                    self.device,
+                    self.rail,
+                    commands::VOUT_MODE
+                )?;
+                self.mode.set(Some(mode));
+                mode
+            }
+            Some(mode) => mode,
+        })
+    }
+
+    pub fn turn_off(&mut self) -> Result<(), Error> {
+        let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
+        op.set_on_off_state(OPERATION::OnOffState::Off);
+        pmbus_rail_write!(self.device, self.rail, OPERATION, op)
+    }
+
+    pub fn turn_on(&mut self) -> Result<(), Error> {
+        let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
+        op.set_on_off_state(OPERATION::OnOffState::On);
+        pmbus_rail_write!(self.device, self.rail, OPERATION, op)
+    }
+
+    pub fn set_vout(&mut self, value: Volts) -> Result<(), Error> {
+        if value > Volts(3.050) {
+            Err(Error::InvalidData {
+                err: pmbus::Error::ValueOutOfRange,
+            })
+        } else {
+            let mut vout = VOUT_COMMAND::CommandData(0);
+            vout.set(self.read_mode()?, pmbus::units::Volts(value.0))?;
+            pmbus_rail_write!(self.device, self.rail, VOUT_COMMAND, vout)
+        }
+    }
+
+    /// Clear faults on the rail that was provided when this `Raa229620A` was
+    /// constructed.
+    ///
+    /// To clear faults on *all* rails regulated by the physical RAA22960A
+    /// represented by this device handle, use
+    /// [`Self::clear_faults_on_all_rails`].
+    pub fn clear_faults_on_this_rail(&self) -> Result<(), Error> {
+        pmbus_rail_write!(self.device, self.rail, CLEAR_FAULTS)
+    }
+
+    /// Clear faults on *all* rails regulated by the physical RAA229620A
+    /// represented by this device.
+    ///
+    /// To clear faults on only the rail selected by this device handle, use
+    /// [`Self::clear_faults_on_this_rail`].
+    pub fn clear_faults_on_all_rails(&self) -> Result<(), Error> {
+        // Per the PMBus spec, `CLEAR_FAULTS` is paged. Sending an un-paged
+        // `CLEAR_FAULTS` doesn't clear all faults, you need to send page `0xff`
+        // to do that:
+        //
+        // > Commands to clear a bit are gated by the PAGE command. The
+        // > CLEAR_FAULTS can be made to clear all faults on all pages by
+        // > setting the page command to FFh.
+        // > --- PMBus Power System Mgt Protocol Specification – Part II –
+        // >     Revision 1.3.1_; section 10.3 (pp 44)
+        pmbus_rail_write!(self.device, 0xff, CLEAR_FAULTS)
+    }
+
+    pub fn set_vin_uv_warn_limit(&self, value: Volts) -> Result<(), Error> {
+        let mut vin = VIN_UV_WARN_LIMIT::CommandData(0);
+        vin.set(pmbus::units::Volts(value.0))?;
+        pmbus_rail_write!(self.device, self.rail, VIN_UV_WARN_LIMIT, vin)
+    }
+
+    /// Set the `SMBALERT_MASK` for the `STATUS_IOUT` register.
+    ///
+    /// Any bits set in `mask` will be masked, suppressing SMBus alerts when
+    /// those bits in `STATUS_IOUT` become set.
+    pub fn set_status_iout_smbalert_mask(
+        &self,
+        mask: STATUS_IOUT::CommandData,
+    ) -> Result<(), Error> {
+        pmbus_smbalert_mask_write!(self.device, self.rail, STATUS_IOUT, mask)
+    }
+
+    /// Set the `SMBALERT_MASK` for the `STATUS_CML` register, sending page
+    /// 0xFF. Though I couldn't find explicit confirmation of this in the PMBus
+    /// standard, one must kind of assume that `STATUS_CML` bits, which are not
+    /// specific to a particular output rail, are probably set on all PMBus
+    /// pages when a CML event happens, and thus we must mask them out on all
+    /// pages to stop SMBus alerts from being generated?
+    ///
+    /// Any bits set in `mask` will be masked, suppressing SMBus alerts when
+    /// those bits in `STATUS_CML` become set.
+    pub fn set_status_cml_smbalert_mask_on_all_rails(
+        &self,
+        mask: STATUS_CML::CommandData,
+    ) -> Result<(), Error> {
+        pmbus_smbalert_mask_write!(self.device, 0xff, STATUS_CML, mask)
+    }
+
+    pub fn read_vin(&self) -> Result<Volts, Error> {
+        let vin = pmbus_rail_read!(self.device, self.rail, READ_VIN)?;
+        Ok(Volts(vin.get()?.0))
+    }
+
+    pub fn read_phase_current(&self, phase: Phase) -> Result<Amperes, Error> {
+        let iout = pmbus_rail_phase_read!(
+            self.device,
+            PHASE_RAIL,
+            phase.0,
+            PHASE_CURRENT
+        )?;
+        Ok(Amperes(iout.get()?.0))
+    }
+
+    pub fn status_word(&self) -> Result<STATUS_WORD::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_WORD)
+    }
+
+    pub fn status_iout(&self) -> Result<STATUS_IOUT::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_IOUT)
+    }
+
+    pub fn status_vout(&self) -> Result<STATUS_VOUT::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_VOUT)
+    }
+
+    pub fn status_input(&self) -> Result<STATUS_INPUT::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_INPUT)
+    }
+
+    pub fn status_cml(&self) -> Result<STATUS_CML::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_CML)
+    }
+
+    pub fn status_temperature(
+        &self,
+    ) -> Result<STATUS_TEMPERATURE::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_TEMPERATURE)
+    }
+
+    pub fn status_mfr_specific(
+        &self,
+    ) -> Result<STATUS_MFR_SPECIFIC::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_MFR_SPECIFIC)
+    }
+
+    pub fn i2c_device(&self) -> &I2cDevice {
+        &self.device
+    }
+}
+
+impl Validate<Error> for Raa229620A {
+    fn validate(device: &I2cDevice) -> Result<bool, Error> {
+        let expected = &[0x00, 0x9B, 0xd2, 0x49];
+        pmbus_validate(device, CommandCode::IC_DEVICE_ID, expected)
+            .map_err(Into::into)
+    }
+}
+
+impl VoltageSensor<Error> for Raa229620A {
+    fn read_vout(&self) -> Result<Volts, Error> {
+        let vout = pmbus_rail_read!(self.device, self.rail, READ_VOUT)?;
+        Ok(Volts(vout.get(self.read_mode()?)?.0))
+    }
+}
+
+impl TempSensor<Error> for Raa229620A {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
+        let t = pmbus_rail_read!(self.device, self.rail, READ_TEMPERATURE_1)?;
+        Ok(Celsius(t.get()?.0))
+    }
+}
+
+impl CurrentSensor<Error> for Raa229620A {
+    fn read_iout(&self) -> Result<Amperes, Error> {
+        let iout = pmbus_rail_read!(self.device, self.rail, READ_IOUT)?;
+        Ok(Amperes(iout.get()?.0))
+    }
+}

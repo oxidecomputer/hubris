@@ -6,7 +6,7 @@
 
 use core::marker::PhantomData;
 use core::ops::Range;
-use zerocopy::FromBytes;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::err::InteractFault;
 use crate::task::Task;
@@ -65,7 +65,7 @@ impl<T> USlice<T> {
         uassert!(core::mem::size_of::<T>() != 0);
 
         // Alignment check:
-        if base_address % core::mem::align_of::<T>() != 0 {
+        if !base_address.is_multiple_of(core::mem::align_of::<T>()) {
             return Err(UsageError::InvalidSlice);
         }
         // Check that a slice of `length` `T`s can even exist starting at
@@ -168,11 +168,26 @@ impl<T> USlice<T> {
             _ => false,
         }
     }
+
+    /// Adjusts `a` and `b` to have the same length, which is the shorter of the
+    /// two.
+    ///
+    /// Returns the new common length.
+    ///
+    /// Shortening `a` and `b` ensures that the slices returned from `try_read`
+    /// / `try_write` have the same length, without the need for further
+    /// slicing.
+    pub fn shorten_to_match(a: &mut Self, b: &mut Self) -> usize {
+        let n = usize::min(a.length, b.length);
+        a.length = n;
+        b.length = n;
+        n
+    }
 }
 
 impl<T> USlice<T>
 where
-    T: FromBytes,
+    T: FromBytes + Immutable + KnownLayout,
 {
     /// Converts this into an _actual_ slice that can be directly read by the
     /// kernel.
@@ -188,7 +203,7 @@ where
     /// 1. That the memory region this `USlice` describes is actual memory.
     /// 2. That this memory is legally readable by whatever task you're doing
     ///    work on behalf of.
-    /// 3. That it contains bytes that are valid `T`s. (The `FromBytes`
+    /// 3. That it contains bytes that are valid `T`s. (The `FromBytes, Immutable, KnownLayout`
     ///    constraint ensures this statically.)
     /// 4. That it does not alias any slice you intend to `&mut`-reference with
     ///    `assume_writable`, or any kernel memory.
@@ -217,7 +232,7 @@ where
     /// 1. That the memory region this `USlice` describes is actual memory.
     /// 2. That this memory is legally writable by whatever task you're doing
     ///    work on behalf of.
-    /// 3. That it contains bytes that are valid `T`s. (The `FromBytes`
+    /// 3. That it contains bytes that are valid `T`s. (The `FromBytes, Immutable, KnownLayout`
     ///    constraint ensures this statically.)
     /// 4. That it does not alias any other slice you intend to access, or any
     ///    kernel memory.
@@ -246,7 +261,7 @@ where
     /// 1. That the memory region this `USlice` describes is actual memory.
     /// 2. That this memory is legally readable by whatever task you're doing
     ///    work on behalf of.
-    /// 3. That it contains bytes that are valid `T`s. (The `FromBytes`
+    /// 3. That it contains bytes that are valid `T`s. (The `FromBytes, Immutable, KnownLayout`
     ///    constraint ensures this statically.)
     /// 4. That it does not alias any slice you intend to `&mut`-reference with
     ///    `assume_writable`, or any kernel memory.
@@ -324,11 +339,17 @@ impl<T> kerncore::UserSlice for USlice<T> {
 pub fn safe_copy(
     tasks: &mut [Task],
     from_index: usize,
-    from_slice: USlice<u8>,
+    mut from_slice: USlice<u8>,
     to_index: usize,
     mut to_slice: USlice<u8>,
 ) -> Result<usize, InteractFault> {
-    let copy_len = from_slice.len().min(to_slice.len());
+    let copy_len = USlice::shorten_to_match(&mut from_slice, &mut to_slice);
+
+    if copy_len == 0 {
+        // try_read and try_write both accept _any_ empty slice, which then
+        // results in a zero-byte copy. We can skip some steps.
+        return Ok(0);
+    }
 
     let (from, to) = index2_distinct(tasks, from_index, to_index);
 
@@ -349,7 +370,7 @@ pub fn safe_copy(
         (Ok(from), Ok(to)) => {
             // We are now convinced, after querying the tasks, that these RAM
             // areas are legit.
-            to[..copy_len].copy_from_slice(&from[..copy_len]);
+            to.copy_from_slice(from);
             Ok(copy_len)
         }
         (src, dst) => Err(InteractFault {

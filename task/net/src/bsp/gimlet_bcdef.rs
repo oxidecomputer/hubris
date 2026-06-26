@@ -17,7 +17,7 @@ use task_jefe_api::Jefe;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::{sys_recv_notification, FromPrimitive};
+use userlib::{FromPrimitive, sys_recv_notification};
 use vsc7448_pac::types::PhyRegisterAddress;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -62,7 +62,6 @@ impl crate::bsp_support::Bsp for BspImpl {
             match PowerState::from_u32(jefe.get_state()) {
                 Some(PowerState::A2)
                 | Some(PowerState::A2PlusFans)
-                | Some(PowerState::A1)
                 | Some(PowerState::A0)
                 | Some(PowerState::A0PlusHP)
                 | Some(PowerState::A0Thermtrip)

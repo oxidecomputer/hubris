@@ -23,7 +23,7 @@ pub enum Register {
     DeviceID = 0x0f,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
     BadRegisterRead { reg: Register, code: ResponseCode },
 }

@@ -10,18 +10,21 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_devices::adm1272::*;
+use drv_i2c_devices::adm127x::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
+use drv_i2c_devices::lm5066::*;
+use drv_i2c_devices::lm5066i::*;
 use drv_i2c_devices::ltc4282::*;
 use drv_i2c_devices::max5970::*;
-use drv_i2c_devices::mwocp68::*;
+use drv_i2c_devices::mwocp6x::*;
 use drv_i2c_devices::raa229618::*;
+use drv_i2c_devices::raa229620a::*;
 use drv_i2c_devices::tps546b24a::*;
 use pmbus::Phase;
 use ringbuf::*;
 use task_power_api::{
-    Bmr491Event, PmbusValue, RawPmbusBlock, RenesasBlackbox, MAX_BLOCK_LEN,
+    Bmr491Event, MAX_BLOCK_LEN, PmbusValue, RawPmbusBlock, RenesasBlackbox,
 };
 use task_sensor_api as sensor_api;
 use userlib::{
@@ -29,7 +32,7 @@ use userlib::{
     units::{Amperes, Celsius, Ohms, Volts},
     TaskId,
 };
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
@@ -39,9 +42,9 @@ use drv_i2c_devices::{
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     GotVersion(u32),
     GotAddr(u32),
-    None,
 }
 
 ringbuf!(Trace, 2, Trace::None);
@@ -70,16 +73,34 @@ enum DeviceType {
     Mem,
     MemVpp,
     Sys,
-    HotSwap(Ohms),
-    Fan(Ohms),
-    HotSwapIO(Ohms),
-    HotSwapQSFP(Ohms),
+    HotSwap,
+    Fan,
+    HotSwapIO,
+    HotSwapQSFP,
     PowerShelf,
+}
+
+/// Chip used to talk to the given device
+#[allow(dead_code)]
+enum DeviceChip {
+    Bmr491,
+    Raa229618,
+    Raa229620A,
+    Isl68224,
+    Tps546B24A,
+    Adm127x(Ohms),
+    Max5970 { sense: Ohms, avg: bool },
+    Mwocp67,
+    Mwocp68,
+    Ltc4282(Ohms),
+    Lm5066(Ohms, CurrentLimitStrap),
+    Lm5066I(Ohms, CurrentLimitStrap),
 }
 
 struct PowerControllerConfig {
     state: PowerState,
     device: DeviceType,
+    chip: DeviceChip,
     builder: fn(TaskId) -> (drv_i2c_api::I2cDevice, u8), // device, rail
     voltage: SensorId,
     input_voltage: Option<SensorId>,
@@ -89,15 +110,20 @@ struct PowerControllerConfig {
     phases: Option<&'static [u8]>,
 }
 
+/// Bound device, which exposes sensor functions
 enum Device {
     Bmr491(Bmr491),
     Raa229618(Raa229618),
+    Raa229620A(Raa229620A),
     Isl68224(Isl68224),
     Tps546B24A(Tps546B24A),
-    Adm1272(Adm1272),
+    Adm127x(Adm127X),
     Max5970(Max5970),
+    Mwocp67(Mwocp67),
     Mwocp68(Mwocp68),
     Ltc4282(Ltc4282),
+    Lm5066(Lm5066),
+    Lm5066I(Lm5066I),
 }
 
 impl Device {
@@ -105,13 +131,16 @@ impl Device {
         let r = match &self {
             Device::Bmr491(dev) => dev.read_temperature()?,
             Device::Raa229618(dev) => dev.read_temperature()?,
+            Device::Raa229620A(dev) => dev.read_temperature()?,
             Device::Isl68224(dev) => dev.read_temperature()?,
             Device::Tps546B24A(dev) => dev.read_temperature()?,
-            Device::Adm1272(dev) => dev.read_temperature()?,
-            Device::Mwocp68(..) => {
-                // The MWOCP68 actually has three temperature sensors, but they
-                // aren't associated with power rails, so we don't read them
-                // here.
+            Device::Adm127x(dev) => dev.read_temperature()?,
+            Device::Lm5066(dev) => dev.read_temperature()?,
+            Device::Lm5066I(dev) => dev.read_temperature()?,
+            Device::Mwocp67(..) | Device::Mwocp68(..) => {
+                // The MWOCP67 and MWOCP68 do actually have temperature sensors,
+                // but they aren't associated with power rails, so we don't read
+                // them here.
                 return Err(ResponseCode::NoDevice);
             }
             Device::Max5970(..) | Device::Ltc4282(..) => {
@@ -125,12 +154,16 @@ impl Device {
         let r = match &self {
             Device::Bmr491(dev) => dev.read_iout()?,
             Device::Raa229618(dev) => dev.read_iout()?,
+            Device::Raa229620A(dev) => dev.read_iout()?,
             Device::Isl68224(dev) => dev.read_iout()?,
             Device::Tps546B24A(dev) => dev.read_iout()?,
-            Device::Adm1272(dev) => dev.read_iout()?,
+            Device::Adm127x(dev) => dev.read_iout()?,
             Device::Max5970(dev) => dev.read_iout()?,
+            Device::Mwocp67(dev) => dev.read_iout()?,
             Device::Mwocp68(dev) => dev.read_iout()?,
             Device::Ltc4282(dev) => dev.read_iout()?,
+            Device::Lm5066(dev) => dev.read_iout()?,
+            Device::Lm5066I(dev) => dev.read_iout()?,
         };
         Ok(r)
     }
@@ -139,12 +172,16 @@ impl Device {
         let r = match &self {
             Device::Bmr491(dev) => dev.read_vout()?,
             Device::Raa229618(dev) => dev.read_vout()?,
+            Device::Raa229620A(dev) => dev.read_vout()?,
             Device::Isl68224(dev) => dev.read_vout()?,
             Device::Tps546B24A(dev) => dev.read_vout()?,
-            Device::Adm1272(dev) => dev.read_vout()?,
+            Device::Adm127x(dev) => dev.read_vout()?,
             Device::Max5970(dev) => dev.read_vout()?,
+            Device::Mwocp67(dev) => dev.read_vout()?,
             Device::Mwocp68(dev) => dev.read_vout()?,
             Device::Ltc4282(dev) => dev.read_vout()?,
+            Device::Lm5066(dev) => dev.read_vout()?,
+            Device::Lm5066I(dev) => dev.read_vout()?,
         };
         Ok(r)
     }
@@ -155,6 +192,7 @@ impl Device {
     ) -> Result<Amperes, ResponseCode> {
         match &self {
             Device::Raa229618(dev) => Ok(dev.read_phase_current(phase)?),
+            Device::Raa229620A(dev) => Ok(dev.read_phase_current(phase)?),
             Device::Isl68224(dev) => Ok(dev.read_phase_current(phase)?),
             _ => Err(ResponseCode::OperationNotSupported),
         }
@@ -162,9 +200,9 @@ impl Device {
 
     fn read_vin(&self) -> Result<Volts, ResponseCode> {
         let r = match &self {
+            Device::Mwocp67(dev) => dev.read_vin()?,
             Device::Mwocp68(dev) => dev.read_vin()?,
-            // Do any other devices have VIN? For now we only added support to
-            // MWOCP68
+            // Do any other devices have VIN?
             _ => return Err(ResponseCode::NoDevice),
         };
         Ok(r)
@@ -172,9 +210,9 @@ impl Device {
 
     fn read_iin(&self) -> Result<Amperes, ResponseCode> {
         let r = match &self {
+            Device::Mwocp67(dev) => dev.read_iin()?,
             Device::Mwocp68(dev) => dev.read_iin()?,
-            // Do any other devices have IIN? For now we only added support to
-            // MWOCP68
+            // Do any other devices have IIN?
             _ => return Err(ResponseCode::NoDevice),
         };
         Ok(r)
@@ -185,15 +223,19 @@ impl Device {
         op: task_power_api::Operation,
     ) -> Result<PmbusValue, ResponseCode> {
         let v = match &self {
+            Device::Mwocp67(dev) => dev.pmbus_read(op)?,
             Device::Mwocp68(dev) => dev.pmbus_read(op)?,
             Device::Bmr491(_)
             | Device::Raa229618(_)
+            | Device::Raa229620A(_)
             | Device::Isl68224(_)
             | Device::Tps546B24A(_)
-            | Device::Adm1272(_)
+            | Device::Adm127x(_)
             | Device::Ltc4282(_)
+            | Device::Lm5066(_)
+            | Device::Lm5066I(_)
             | Device::Max5970(_) => {
-                return Err(ResponseCode::OperationNotSupported)
+                return Err(ResponseCode::OperationNotSupported);
             }
         };
         Ok(v)
@@ -201,13 +243,19 @@ impl Device {
 
     fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, ResponseCode> {
         let v = match &self {
+            Device::Mwocp67(dev) => dev.read_mode()?,
             Device::Mwocp68(dev) => dev.read_mode()?,
             Device::Bmr491(dev) => dev.read_mode()?,
             Device::Raa229618(dev) => dev.read_mode()?,
+            Device::Raa229620A(dev) => dev.read_mode()?,
             Device::Isl68224(dev) => dev.read_mode()?,
             Device::Tps546B24A(dev) => dev.read_mode()?,
-            Device::Adm1272(..) | Device::Ltc4282(..) | Device::Max5970(..) => {
-                return Err(ResponseCode::OperationNotSupported)
+            Device::Adm127x(..)
+            | Device::Ltc4282(..)
+            | Device::Max5970(..)
+            | Device::Lm5066(..)
+            | Device::Lm5066I(..) => {
+                return Err(ResponseCode::OperationNotSupported);
             }
         };
         Ok(v)
@@ -215,14 +263,18 @@ impl Device {
 
     fn i2c_device(&self) -> &I2cDevice {
         match &self {
+            Device::Mwocp67(dev) => dev.i2c_device(),
             Device::Mwocp68(dev) => dev.i2c_device(),
             Device::Bmr491(dev) => dev.i2c_device(),
             Device::Raa229618(dev) => dev.i2c_device(),
+            Device::Raa229620A(dev) => dev.i2c_device(),
             Device::Isl68224(dev) => dev.i2c_device(),
             Device::Tps546B24A(dev) => dev.i2c_device(),
-            Device::Adm1272(dev) => dev.i2c_device(),
+            Device::Adm127x(dev) => dev.i2c_device(),
             Device::Ltc4282(dev) => dev.i2c_device(),
             Device::Max5970(dev) => dev.i2c_device(),
+            Device::Lm5066(dev) => dev.i2c_device(),
+            Device::Lm5066I(dev) => dev.i2c_device(),
         }
     }
 }
@@ -230,24 +282,34 @@ impl Device {
 impl PowerControllerConfig {
     fn get_device(&self, task: TaskId) -> Device {
         let (dev, rail) = (self.builder)(task);
-        match &self.device {
-            DeviceType::IBC => Device::Bmr491(Bmr491::new(&dev, rail)),
-            DeviceType::Core | DeviceType::Mem => {
+        match &self.chip {
+            DeviceChip::Bmr491 => Device::Bmr491(Bmr491::new(&dev, rail)),
+            DeviceChip::Raa229618 => {
                 Device::Raa229618(Raa229618::new(&dev, rail))
             }
-            DeviceType::MemVpp | DeviceType::SerDes => {
-                Device::Isl68224(Isl68224::new(&dev, rail))
+            DeviceChip::Raa229620A => {
+                Device::Raa229620A(Raa229620A::new(&dev, rail))
             }
-            DeviceType::Sys => Device::Tps546B24A(Tps546B24A::new(&dev, rail)),
-            DeviceType::HotSwap(sense) | DeviceType::Fan(sense) => {
-                Device::Adm1272(Adm1272::new(&dev, *sense))
+            DeviceChip::Isl68224 => Device::Isl68224(Isl68224::new(&dev, rail)),
+            DeviceChip::Tps546B24A => {
+                Device::Tps546B24A(Tps546B24A::new(&dev, rail))
             }
-            DeviceType::HotSwapIO(sense) => {
-                Device::Max5970(Max5970::new(&dev, rail, *sense))
+            DeviceChip::Adm127x(sense) => {
+                Device::Adm127x(Adm127X::new(&dev, *sense))
             }
-            DeviceType::PowerShelf => Device::Mwocp68(Mwocp68::new(&dev, rail)),
-            DeviceType::HotSwapQSFP(sense) => {
+            DeviceChip::Max5970 { sense, avg } => {
+                Device::Max5970(Max5970::new(&dev, rail, *sense, *avg))
+            }
+            DeviceChip::Mwocp67 => Device::Mwocp67(Mwocp67::new(&dev, rail)),
+            DeviceChip::Mwocp68 => Device::Mwocp68(Mwocp68::new(&dev, rail)),
+            DeviceChip::Ltc4282(sense) => {
                 Device::Ltc4282(Ltc4282::new(&dev, *sense))
+            }
+            DeviceChip::Lm5066(sense, strap) => {
+                Device::Lm5066(Lm5066::new(&dev, *sense, *strap))
+            }
+            DeviceChip::Lm5066I(sense, strap) => {
+                Device::Lm5066I(Lm5066I::new(&dev, *sense, *strap))
             }
         }
     }
@@ -258,8 +320,9 @@ macro_rules! rail_controller {
     ($which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which,
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::[< $dev:camel >],
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
@@ -279,8 +342,9 @@ macro_rules! rail_controller_notemp {
     ($which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which,
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::[< $dev:camel >],
                 builder:i2c_config::pmbus::$rail,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
@@ -294,19 +358,20 @@ macro_rules! rail_controller_notemp {
 }
 
 #[allow(unused_macros)]
-macro_rules! adm1272_controller {
+macro_rules! adm127x_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which($rsense),
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Adm127x($rsense),
                 builder: i2c_config::pmbus::$rail,
-                voltage: sensors::[<ADM1272_ $rail:upper _VOLTAGE_SENSOR>],
+                voltage: sensors::[<ADM127X_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
-                current: sensors::[<ADM1272_ $rail:upper _CURRENT_SENSOR>],
+                current: sensors::[<ADM127X_ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: Some(
-                    sensors::[<ADM1272_ $rail:upper _TEMPERATURE_SENSOR>]
+                    sensors::[<ADM127X_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: None,
             }
@@ -319,8 +384,9 @@ macro_rules! ltc4282_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which($rsense),
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Ltc4282($rsense),
                 builder: i2c_config::power::$rail,
                 voltage: sensors::[<LTC4282_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
@@ -334,12 +400,60 @@ macro_rules! ltc4282_controller {
 }
 
 #[allow(unused_macros)]
-macro_rules! max5970_controller {
-    ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
+macro_rules! lm5066_controller {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $strap:expr) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which($rsense),
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Lm5066($rsense, $strap),
+                builder: i2c_config::pmbus::$rail,
+                voltage: sensors::[<LM5066_ $rail:upper _VOLTAGE_SENSOR>],
+                input_voltage: None,
+                current: sensors::[<LM5066_ $rail:upper _CURRENT_SENSOR>],
+                input_current: None,
+                temperature: Some(
+                    sensors::[<LM5066_ $rail:upper _TEMPERATURE_SENSOR>]
+                ),
+                phases: None,
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! lm5066i_controller {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $strap:expr) => {
+        paste::paste! {
+            PowerControllerConfig {
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Lm5066I($rsense, $strap),
+                builder: i2c_config::pmbus::$rail,
+                voltage: sensors::[<LM5066I_ $rail:upper _VOLTAGE_SENSOR>],
+                input_voltage: None,
+                current: sensors::[<LM5066I_ $rail:upper _CURRENT_SENSOR>],
+                input_current: None,
+                temperature: Some(
+                    sensors::[<LM5066I_ $rail:upper _TEMPERATURE_SENSOR>]
+                ),
+                phases: None,
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! max5970_controller {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
+        max5970_controller!($which, $rail, $state, $rsense, false)
+    };
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $avg:expr) => {
+        paste::paste! {
+            PowerControllerConfig {
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Max5970 { sense: $rsense, avg: $avg },
                 builder: i2c_config::power::$rail,
                 voltage: sensors::[<MAX5970_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
@@ -353,12 +467,38 @@ macro_rules! max5970_controller {
 }
 
 #[allow(unused_macros)]
+macro_rules! mwocp67_controller {
+    ($which:ident, $rail:ident, $state:ident) => {
+        paste::paste! {
+            PowerControllerConfig {
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Mwocp67,
+                builder: i2c_config::pmbus::$rail,
+                voltage: sensors::[<MWOCP67_ $rail:upper _VOLTAGE_SENSOR>],
+                input_voltage: Some(
+                    sensors::[<MWOCP67_ $rail:upper _INPUT_VOLTAGE_SENSOR>]
+                ),
+                current: sensors::[<MWOCP67_ $rail:upper _CURRENT_SENSOR>],
+                input_current: Some(
+                    sensors::[<MWOCP67_ $rail:upper _INPUT_CURRENT_SENSOR>]
+                ),
+                temperature: None, // Temperature sensors are independent of
+                                   // power rails and measured separately
+                phases: None,
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
 macro_rules! mwocp68_controller {
     ($which:ident, $rail:ident, $state:ident) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which,
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Mwocp68,
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<MWOCP68_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: Some(
@@ -393,6 +533,7 @@ macro_rules! mwocp68_controller {
     any(target_board = "psc-b", target_board = "psc-c"),
     path = "bsp/psc_bc.rs"
 )]
+#[cfg_attr(target_board = "observer-a", path = "bsp/observer_a.rs")]
 #[cfg_attr(
     any(
         target_board = "sidecar-b",
@@ -402,11 +543,19 @@ macro_rules! mwocp68_controller {
     path = "bsp/sidecar_bcd.rs"
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet_2.rs")]
+#[cfg_attr(
+    any(target_board = "minibar-a", target_board = "minibar-b"),
+    path = "bsp/minibar.rs"
+)]
+#[cfg_attr(
+    any(target_board = "cosmo-a", target_board = "cosmo-b",),
+    path = "bsp/cosmo_ab.rs"
+)]
 mod bsp;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
 
@@ -553,7 +702,7 @@ impl ServerImpl {
             .ok_or(ResponseCode::NoDevice)
     }
 
-    fn raw_pmbus_read<T: zerocopy::FromBytes + zerocopy::AsBytes>(
+    fn raw_pmbus_read<T: zerocopy::FromBytes + zerocopy::IntoBytes>(
         &mut self,
         index: u32,
         has_rail: bool,
@@ -575,7 +724,7 @@ impl ServerImpl {
         Ok(out)
     }
 
-    fn raw_pmbus_write<T: zerocopy::AsBytes>(
+    fn raw_pmbus_write<T: zerocopy::IntoBytes>(
         &mut self,
         index: u32,
         has_rail: bool,
@@ -587,7 +736,7 @@ impl ServerImpl {
             .ok_or(ResponseCode::NoDevice)?;
         let (dev, rail) = (cfg.builder)(self.i2c_task);
 
-        #[repr(packed)]
+        #[repr(C, packed)]
         #[allow(dead_code)]
         struct Args<T> {
             op: u8,
@@ -596,7 +745,7 @@ impl ServerImpl {
         let args = Args { op, value };
 
         // SAFETY: this is a packed struct and T is constrained to be
-        // AsBytes, so there should be no padding bytes
+        // IntoBytes, so there should be no padding bytes
         let args_slice = unsafe {
             core::slice::from_raw_parts(
                 (&args as *const Args<T>) as *const u8,
@@ -620,9 +769,14 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
-        self.handle_timer_fired();
-        userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
+            self.handle_timer_fired();
+            userlib::set_timer_relative(
+                TIMER_INTERVAL,
+                notifications::TIMER_MASK,
+            );
+        }
     }
 }
 
@@ -796,16 +950,15 @@ impl idl::InOrderPowerImpl for ServerImpl {
             .iter()
             .zip(self.devices.iter_mut())
             .find(|(c, _)| c.voltage == rail)
+            && let Some(phases) = c.phases
         {
-            if let Some(phases) = c.phases {
-                let phase: usize = phase as usize;
+            let phase: usize = phase as usize;
 
-                if phase < phases.len() {
-                    return match dev.read_phase_current(Phase(phases[phase])) {
-                        Err(e) => Err(e.into()),
-                        Ok(val) => Ok(val.0),
-                    };
-                }
+            if phase < phases.len() {
+                return match dev.read_phase_current(Phase(phases[phase])) {
+                    Err(e) => Err(e.into()),
+                    Ok(val) => Ok(val.0),
+                };
             }
         }
 
@@ -953,7 +1106,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
 
         // Step 1 - Verify Part Revision
         let mut id = 0u32;
-        dev.read_block(CommandCode::IC_DEVICE_REV as u8, id.as_bytes_mut())?;
+        dev.read_block(CommandCode::IC_DEVICE_REV as u8, id.as_mut_bytes())?;
         ringbuf_entry!(Trace::GotVersion(id));
 
         // Experimentally determined ID
@@ -1009,10 +1162,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
         let dev = self
             .devices
             .iter()
-            .find(|d| {
-                d.i2c_device().address == addr
-                    && matches!(d, Device::Raa229618(..) | Device::Isl68224(..))
-            })
+            .find(|d| d.i2c_device().address == addr && is_rendmp_device(d))
             .ok_or(ResponseCode::NoDevice)?
             .i2c_device();
 
@@ -1034,10 +1184,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
         let dev = self
             .devices
             .iter()
-            .find(|d| {
-                d.i2c_device().address == addr
-                    && matches!(d, Device::Raa229618(..) | Device::Isl68224(..))
-            })
+            .find(|d| d.i2c_device().address == addr && is_rendmp_device(d))
             .ok_or(ResponseCode::NoDevice)?
             .i2c_device();
 
@@ -1054,6 +1201,13 @@ impl idl::InOrderPowerImpl for ServerImpl {
         )?;
         Ok(())
     }
+}
+
+fn is_rendmp_device(device: &Device) -> bool {
+    matches!(
+        device,
+        Device::Raa229618(..) | Device::Raa229620A(..) | Device::Isl68224(..)
+    )
 }
 
 /// Claims a mutable buffer of Devices, built from CONTROLLER_CONFIG.

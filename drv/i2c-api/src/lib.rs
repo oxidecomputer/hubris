@@ -22,10 +22,10 @@
 
 #![no_std]
 
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 pub use drv_i2c_types::*;
-use userlib::{sys_send, FromPrimitive, Lease, TaskId};
+use userlib::{FromPrimitive, Lease, TaskId, sys_send};
 
 ///
 /// The 5-tuple that uniquely identifies an I2C device.  The multiplexer and
@@ -38,6 +38,8 @@ pub struct I2cDevice {
     pub port: PortIndex,
     pub segment: Option<(Mux, Segment)>,
     pub address: u8,
+    #[cfg(feature = "component-id")]
+    pub component_id: &'static str,
 }
 
 type I2cMessage = (u8, Controller, PortIndex, Option<(Mux, Segment)>);
@@ -54,7 +56,7 @@ impl Marshal<[u8; 4]> for I2cMessage {
         [
             self.0,
             self.1 as u8,
-            self.2 .0,
+            self.2.0,
             match self.3 {
                 Some((mux, seg)) => {
                     0b1000_0000 | ((mux as u8) << 4) | (seg as u8)
@@ -113,6 +115,7 @@ impl I2cDevice {
         port: PortIndex,
         segment: Option<(Mux, Segment)>,
         address: u8,
+        #[cfg(feature = "component-id")] component_id: &'static str,
     ) -> Self {
         Self {
             task,
@@ -120,7 +123,14 @@ impl I2cDevice {
             port,
             segment,
             address,
+            #[cfg(feature = "component-id")]
+            component_id,
         }
+    }
+
+    #[cfg(feature = "component-id")]
+    pub fn component_id(&self) -> &'static str {
+        self.component_id
     }
 }
 
@@ -155,10 +165,11 @@ impl I2cDevice {
     ///
     /// On failure, a [`ResponseCode`] will indicate more detail.
     ///
-    pub fn read_reg<R: AsBytes, V: AsBytes + FromBytes>(
-        &self,
-        reg: R,
-    ) -> Result<V, ResponseCode> {
+    pub fn read_reg<R, V>(&self, reg: R) -> Result<V, ResponseCode>
+    where
+        R: IntoBytes + Immutable,
+        V: IntoBytes + FromBytes,
+    {
         let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
@@ -171,8 +182,8 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
-            &[Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut())],
+            response.as_mut_bytes(),
+            &[Lease::from(reg.as_bytes()), Lease::from(val.as_mut_bytes())],
         );
 
         self.response_code(code, val)
@@ -183,7 +194,7 @@ impl I2cDevice {
     /// bytes as the device will send into a specified slice, returning the
     /// number of bytes read.
     ///
-    pub fn read_reg_into<R: AsBytes>(
+    pub fn read_reg_into<R: IntoBytes + Immutable>(
         &self,
         reg: R,
         buf: &mut [u8],
@@ -199,7 +210,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[Lease::from(reg.as_bytes()), Lease::from(buf)],
         );
 
@@ -213,7 +224,7 @@ impl I2cDevice {
     /// that the byte count is only returned from the function; it is *not*
     /// present as the payload's first byte.
     ///
-    pub fn read_block<R: AsBytes>(
+    pub fn read_block<R: IntoBytes + Immutable>(
         &self,
         reg: R,
         buf: &mut [u8],
@@ -229,7 +240,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[Lease::from(reg.as_bytes()), Lease::from(buf)],
         );
 
@@ -243,7 +254,7 @@ impl I2cDevice {
     /// (And indeed, on these devices, attempting to read a register will
     /// in fact overwrite the contents of the first two registers.)
     ///
-    pub fn read<V: AsBytes + FromBytes>(&self) -> Result<V, ResponseCode> {
+    pub fn read<V: IntoBytes + FromBytes>(&self) -> Result<V, ResponseCode> {
         let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
@@ -256,8 +267,8 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
-            &[Lease::read_only(&[]), Lease::from(val.as_bytes_mut())],
+            response.as_mut_bytes(),
+            &[Lease::read_only(&[]), Lease::from(val.as_mut_bytes())],
         );
 
         self.response_code(code, val)
@@ -280,7 +291,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[Lease::read_only(&[]), Lease::from(buf)],
         );
 
@@ -303,7 +314,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[Lease::from(buffer), Lease::read_only(&[])],
         );
 
@@ -318,11 +329,15 @@ impl I2cDevice {
     /// write can modify device state that the subsequent register read can
     /// assume).
     ///
-    pub fn write_read_reg<R: AsBytes, V: AsBytes + FromBytes>(
+    pub fn write_read_reg<R, V>(
         &self,
         reg: R,
         buffer: &[u8],
-    ) -> Result<V, ResponseCode> {
+    ) -> Result<V, ResponseCode>
+    where
+        R: IntoBytes + Immutable,
+        V: IntoBytes + FromBytes,
+    {
         let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
@@ -335,12 +350,12 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[
                 Lease::from(buffer),
                 Lease::read_only(&[]),
                 Lease::from(reg.as_bytes()),
-                Lease::from(val.as_bytes_mut()),
+                Lease::from(val.as_mut_bytes()),
             ],
         );
 
@@ -360,7 +375,7 @@ impl I2cDevice {
     /// (assuring that the write can modify device state that the subsequent
     /// read can assume).
     ///
-    pub fn write_read_block<R: AsBytes>(
+    pub fn write_read_block<R: IntoBytes + Immutable>(
         &self,
         reg: R,
         buffer: &[u8],
@@ -377,7 +392,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[
                 Lease::from(buffer),
                 Lease::read_only(&[]),
@@ -412,7 +427,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[
                 Lease::from(first),
                 Lease::read_only(&[]),
@@ -432,12 +447,16 @@ impl I2cDevice {
     /// receive.  This is to accommodate devices that have multiple axes of
     /// configuration (e.g., regulators that have both rail and phase).
     ///
-    pub fn write_write_read_reg<R: AsBytes, V: AsBytes + FromBytes>(
+    pub fn write_write_read_reg<R, V>(
         &self,
         reg: R,
         first: &[u8],
         second: &[u8],
-    ) -> Result<V, ResponseCode> {
+    ) -> Result<V, ResponseCode>
+    where
+        R: IntoBytes + Immutable,
+        V: IntoBytes + FromBytes,
+    {
         let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
@@ -450,14 +469,14 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            response.as_bytes_mut(),
+            response.as_mut_bytes(),
             &[
                 Lease::from(first),
                 Lease::read_only(&[]),
                 Lease::from(second),
                 Lease::read_only(&[]),
                 Lease::from(reg.as_bytes()),
-                Lease::from(val.as_bytes_mut()),
+                Lease::from(val.as_mut_bytes()),
             ],
         );
 

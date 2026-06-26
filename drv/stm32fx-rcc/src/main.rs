@@ -57,7 +57,7 @@ use stm32f3::stm32f303 as device;
 use stm32f4::stm32f407 as device;
 
 use userlib::{hl, FromPrimitive};
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 #[derive(FromPrimitive)]
 enum Op {
@@ -105,7 +105,7 @@ macro_rules! clear_bits {
     };
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // From thin air, pluck a pointer to the RCC register block.
     //
@@ -121,7 +121,7 @@ fn main() -> ! {
     let mut buffer = [0u32; 1];
     loop {
         hl::recv_without_notification(
-            buffer.as_bytes_mut(),
+            buffer.as_mut_bytes(),
             |op, msg| -> Result<(), ResponseCode> {
                 // Every incoming message uses the same payload type and
                 // response type: it's always u32 -> (). So we can do the
@@ -146,7 +146,7 @@ fn main() -> ! {
                         Bus::Ahb1 => set_bits!(rcc.ahbenr, pmask),
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb2 | Bus::Ahb3 => {
-                            return Err(ResponseCode::BadArg)
+                            return Err(ResponseCode::BadArg);
                         }
 
                         #[cfg(feature = "stm32f4")]
@@ -164,7 +164,7 @@ fn main() -> ! {
                         Bus::Ahb1 => clear_bits!(rcc.ahbenr, pmask),
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb2 | Bus::Ahb3 => {
-                            return Err(ResponseCode::BadArg)
+                            return Err(ResponseCode::BadArg);
                         }
 
                         #[cfg(feature = "stm32f4")]
@@ -182,7 +182,7 @@ fn main() -> ! {
                         Bus::Ahb1 => set_bits!(rcc.ahbrstr, pmask),
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb2 | Bus::Ahb3 => {
-                            return Err(ResponseCode::BadArg)
+                            return Err(ResponseCode::BadArg);
                         }
 
                         #[cfg(feature = "stm32f4")]
@@ -200,7 +200,7 @@ fn main() -> ! {
                         Bus::Ahb1 => clear_bits!(rcc.ahbrstr, pmask),
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb2 | Bus::Ahb3 => {
-                            return Err(ResponseCode::BadArg)
+                            return Err(ResponseCode::BadArg);
                         }
 
                         #[cfg(feature = "stm32f4")]

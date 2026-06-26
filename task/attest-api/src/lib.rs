@@ -34,6 +34,7 @@ pub enum AttestError {
     SerializeLog,
     SerializeSignature,
     SignatureTooBig,
+    ReservedLogSlot,
 }
 
 impl From<idol_runtime::ServerDeath> for AttestError {

@@ -2,15 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::util::detype;
 use crate::Trace;
+use crate::util::detype;
 use crate::{Phy, PhyRw};
 
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc_err::VscError;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
 
 pub struct TeslaPhy<'a, 'b, P> {
     pub phy: &'b mut Phy<'a, P>,
@@ -268,14 +268,14 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
     }
 }
 
-#[derive(Copy, Clone, AsBytes, FromBytes)]
+#[derive(Copy, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct TeslaSerdes6gPatch {
     cfg: [u8; 38],
     // There's also a status buf, but we'll skip that for now
 }
 
-#[derive(Copy, Clone, AsBytes, FromBytes)]
+#[derive(Copy, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct TeslaSerdes6gObConfig {
     pub ob_post0: u8,

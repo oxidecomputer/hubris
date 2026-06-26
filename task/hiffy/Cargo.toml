@@ -1,10 +1,9 @@
 [package]
 name = "task-hiffy"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
 drv-hf-api = { path = "../../drv/hf-api", optional = true }
 drv-hash-api = { path = "../../drv/hash-api", optional = true }
 drv-i2c-api = { path = "../../drv/i2c-api" }
@@ -14,6 +13,7 @@ drv-spi-api = { path = "../../drv/spi-api" }
 drv-sprot-api = { path = "../../drv/sprot-api", optional = true }
 drv-stm32xx-i2c = { path = "../../drv/stm32xx-i2c", optional = true  }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", optional = true }
+task-net-api = { path = "../../task/net-api", optional = true }
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 static-cell = { path = "../../lib/static-cell"  }
@@ -28,6 +28,7 @@ idol-runtime.workspace = true
 num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
@@ -55,8 +56,16 @@ h753 = ["stm32h7", "drv-stm32xx-i2c/h753", "build-i2c/h753"]
 g031 = ["stm32g0", "drv-stm32xx-i2c/g031", "build-i2c/g031"]
 g030 = ["stm32g0", "drv-stm32xx-i2c/g030", "build-i2c/g030"]
 micro = ["no-ipc-counters"]
+# enables large memory buffer to make data transfers through hiffy (e.g.
+# `humility qspi` and such) not slow. this conflicts with the "micro" feature,
+# which makes the buffer smaller for memory constrained-targets, and is off by
+# default, because it makes the buffer much larger, and you may not need that if
+# you're not using `humility qspi` etc.
+turbo = []
 panic-messages = ["userlib/panic-messages"]
 spctrl = ["drv-sp-ctrl-api"]
+net = ["task-net-api"]
+vlan = ["task-net-api?/vlan"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

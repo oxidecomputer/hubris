@@ -8,12 +8,12 @@
 #![cfg_attr(not(test), no_std)]
 
 use hubpack::SerializedSize;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use static_assertions::{const_assert, const_assert_eq};
 use unwrap_lite::UnwrapLite;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use hubpack::error::Error as HubpackError;
 
@@ -123,6 +123,28 @@ pub enum HostToSp {
         // We use a raw `u8` here for the same reason as in `KeyLookup` above.
         key: u8,
     },
+    // ApobBegin begins an APOB write
+    ApobBegin {
+        length: u64,
+        algorithm: u8,
+        // Followed by a binary blob for the hash, with length depending on
+        // algorithm
+    },
+    ApobCommit,
+    ApobData {
+        offset: u64,
+        // Followed by trailing data, implicitly sized
+    },
+    // ApobRead return `ApobReadResult` followed by trailing data
+    ApobRead {
+        offset: u64,
+        size: u64,
+    },
+    // Indication of host OS boot progress
+    BootStage {
+        version: u64,
+        stage: u64,
+    },
 }
 
 /// The order of these cases is critical! We are relying on hubpack's encoding
@@ -185,6 +207,10 @@ pub enum SpToHost {
         name: [u8; 32],
     },
     KeySetResult(#[count(children)] KeySetResult),
+    ApobBegin(#[count(children)] ApobBeginResult),
+    ApobCommit(#[count(children)] ApobCommitResult),
+    ApobData(#[count(children)] ApobDataResult),
+    ApobRead(#[count(children)] ApobReadResult),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, num_derive::FromPrimitive)]
@@ -244,6 +270,108 @@ pub enum KeySetResult {
     DataTooLong,
 }
 
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum ApobBeginResult {
+    Ok,
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// The APOB state machine does not allow a `Begin` message
+    InvalidState,
+    /// The algorithm specified is invalid
+    InvalidAlgorithm,
+    /// The hash length does not match the algorithm
+    BadHashLength,
+    /// The data length will not fit in an APOB slot
+    BadDataLength,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum ApobCommitResult {
+    Ok,
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// Committing APOB state has been disallowed for this boot
+    InvalidState,
+    /// Validating the APOB failed, e.g. due to invalid data
+    ValidationFailed,
+    /// Committing the APOB failed, e.g. due to a flash write error
+    CommitFailed,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum ApobDataResult {
+    Ok,
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// The APOB state machine does not allow a `Data` message
+    InvalidState,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash write failed
+    WriteFailed,
+    /// Flash write would change data in an unerased region
+    NotErased,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum ApobReadResult {
+    Ok,
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// The state machine is currently expecting a write or commit message
+    InvalidState,
+    /// There is no valid APOB available to read
+    NoValidApob,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash read failed
+    ReadFailed,
+}
+
 /// Results for an inventory data request
 ///
 /// These **cannot be reordered**; the host and SP must agree on them.
@@ -292,9 +420,15 @@ impl From<drv_i2c_types::ResponseCode> for InventoryDataResult {
 /// These **cannot be reordered**; the host and SP must agree on them.  New
 /// variants may be added to the end, and existing variants may be extended with
 /// new data (at the end), but no changes should be made to existing bytes.
+// Note: this type may ask you to let it derive `Copy`. DO NOT ALLOW THIS! An
+// `InventoryData` is *really big* --- over 512 bytes --- and deriving `Copy`
+// would make it easy to accidentally pass one by value on the stack, increasing
+// stack usage when it isn't necessary to do so. We would like to only allow
+// this type to be bytewise-copied explicitly by calling `.clone()`, instead.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
+#[allow(clippy::large_enum_variant)]
 pub enum InventoryData {
     /// Raw DIMM data
     DimmSpd {
@@ -337,6 +471,9 @@ pub enum InventoryData {
         mfr_firmware_data: [u8; 20],
 
         temp_sensor: SensorIndex,
+
+        /// The BRM491 doesn't actually have a power sensors; this is always set
+        /// to `u32::MAX` (but can't be removed for compatibility reasons)
         power_sensor: SensorIndex,
         voltage_sensor: SensorIndex,
         current_sensor: SensorIndex,
@@ -403,8 +540,15 @@ pub enum InventoryData {
         current_sensor: SensorIndex,
     },
 
-    /// Fan subassembly identity
-    FanIdentity {
+    /// Fan subassembly identity (legacy version).
+    ///
+    /// Unlike [`Self::FanIdentityV2`], this message can only represent the
+    /// identities of fans with barcodes in the `0XV1` and `0XV2` formats; fans
+    /// with `MPN1` barcodes will be left blank. Host software that supports it
+    /// will prefer the [`Self::FanIdentityV2`] message, which can represent all
+    /// possible fan serials, but we must still send this message for
+    /// compatibility with older host software.
+    FanIdentityV1 {
         /// Identity of the fan assembly
         identity: Identity,
         /// Identity of the VPD board within the subassembly
@@ -413,7 +557,7 @@ pub enum InventoryData {
         fans: [Identity; 3],
     },
 
-    Adm1272 {
+    Adm127x {
         /// MFR_ID (PMBus operation 0x99)
         mfr_id: [u8; 3],
         /// MFR_MODEL (PMBus operation 0x9A)
@@ -459,6 +603,78 @@ pub enum InventoryData {
 
     /// MAX31790 fan controller
     Max31790 { speed_sensors: [SensorIndex; 6] },
+
+    Raa229620a {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 4],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 4],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 4],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 4],
+        /// IC_DEVICE_ID, PMBus operation 0xAD
+        ic_device_id: [u8; 4],
+        /// IC_DEVICE_REV, PMBus operation 0xAE
+        ic_device_rev: [u8; 4],
+
+        temp_sensors: [SensorIndex; 2],
+        power_sensors: [SensorIndex; 2],
+        voltage_sensors: [SensorIndex; 2],
+        current_sensors: [SensorIndex; 2],
+    },
+
+    /// LTC4282 hot-swap controller
+    Ltc4282 {
+        voltage_sensor: SensorIndex,
+        current_sensor: SensorIndex,
+    },
+
+    /// LM5066I hot-swap controller
+    Lm5066I {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 3],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 8],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 2],
+
+        temp_sensor: SensorIndex,
+        power_sensor: SensorIndex,
+        voltage_sensor: SensorIndex,
+        current_sensor: SensorIndex,
+    },
+    /// Raw DIMM data for a DDR5 part
+    DimmDdr5Spd {
+        #[serde(with = "BigArray")]
+        id: [u8; 1024],
+        temp_sensors: [SensorIndex; 2],
+    },
+
+    /// W25Q256JVEIQ flash chip (auxiliary flash on Cosmo, Grapefruit, Sidecar)
+    W25q256jveqi { unique_id: [u8; 8] },
+
+    /// Cosmo host flash
+    W25q01jvzeiq {
+        /// 64-bit unique ID for die 0
+        die0_unique_id: [u8; 8],
+
+        /// 64-bit unique ID for die 1
+        die1_unique_id: [u8; 8],
+    },
+
+    /// Fan subassembly identity, version 2.
+    ///
+    /// Unlike `FanIdentity`, this message may contain fan barcodes in either
+    /// the `OXV1`/`OXV2` barcode format *or* the `MPN1` barcode format.
+    FanIdentityV2 {
+        /// Identity of the fan assembly
+        identity: Barcode,
+        /// Identity of the VPD board within the subassembly
+        vpd_identity: Barcode,
+        /// Identity of the individual fans
+        fans: [Barcode; 3],
+    },
 }
 
 #[derive(
@@ -472,22 +688,49 @@ pub struct Identity {
     pub serial: [u8; Identity::SERIAL_LEN],
 }
 
-impl From<oxide_barcode::VpdIdentity> for Identity {
-    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+impl From<oxide_barcode::OxideIdentity> for Identity {
+    fn from(id: oxide_barcode::OxideIdentity) -> Self {
         // The Host/SP protocol has larger fields for model/serial than we
         // use currently; statically assert that we haven't outgrown them.
         const_assert!(
-            oxide_barcode::VpdIdentity::PART_NUMBER_LEN <= Identity::MODEL_LEN
+            oxide_barcode::OxideIdentity::PART_NUMBER_LEN
+                <= Identity::MODEL_LEN
         );
         const_assert!(
-            oxide_barcode::VpdIdentity::SERIAL_LEN <= Identity::SERIAL_LEN
+            oxide_barcode::OxideIdentity::SERIAL_LEN <= Identity::SERIAL_LEN
         );
 
         let mut new_id = Self::default();
+        // The incoming part number and serial are already nul-padded if they're
+        // shorter than the allocated space in VpdIdentity, so we can merely
+        // copy them into the start of our fields and the result is still
+        // nul-padded.
         new_id.model[..id.part_number.len()].copy_from_slice(&id.part_number);
         new_id.revision = id.revision;
         new_id.serial[..id.serial.len()].copy_from_slice(&id.serial);
         new_id
+    }
+}
+
+/// Error indicating that the VPD identity was not an Oxide barcode
+pub struct NotOxideBarcode;
+
+impl From<oxide_barcode::Mpn1Identity> for Identity {
+    fn from(_: oxide_barcode::Mpn1Identity) -> Self {
+        // Oh no! MPN1 barcodes cannot be represented by this message type.
+        // Guess I'll just give up...
+        Self::default()
+    }
+}
+
+impl TryFrom<oxide_barcode::VpdIdentity> for Identity {
+    type Error = NotOxideBarcode;
+
+    fn try_from(id: oxide_barcode::VpdIdentity) -> Result<Self, Self::Error> {
+        match id {
+            oxide_barcode::VpdIdentity::Mpn1(_) => Err(NotOxideBarcode),
+            oxide_barcode::VpdIdentity::Oxide(id) => Ok(Self::from(id)),
+        }
     }
 }
 
@@ -504,6 +747,59 @@ impl Default for Identity {
 impl Identity {
     pub const MODEL_LEN: usize = 51;
     pub const SERIAL_LEN: usize = 51;
+}
+
+/// A VPD identity represented as a barcode string.
+///
+/// This message type exists in order to represent VPD identities that may be
+/// Oxide-issued serial numbers (the `0XV1`/`0XV2` barcode formats) *or*
+/// manufacturer-issued serial numbers (the `MPN1` barcode format). The
+/// [`Identity`] message, on the other hand, provides a more structured
+/// representation of an identity, but cannot represent the MPN1 format, as
+/// there are no length limits on individual components of the barcode (so the
+/// model number, serial number, and revision could all be up to 114 bytes in
+/// length).
+///
+/// This message should be used for identities which may be in either format,
+/// such as fan barcodes.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub struct Barcode(#[serde(with = "BigArray")] [u8; Self::LEN]);
+
+impl Barcode {
+    pub const LEN: usize = oxide_barcode::Mpn1Identity::MAX_LEN;
+}
+
+impl Default for Barcode {
+    fn default() -> Self {
+        Self([0; Self::LEN])
+    }
+}
+
+impl From<oxide_barcode::Mpn1Identity> for Barcode {
+    fn from(id: oxide_barcode::Mpn1Identity) -> Self {
+        Self(id.buf)
+    }
+}
+
+impl From<oxide_barcode::OxideIdentity> for Barcode {
+    fn from(id: oxide_barcode::OxideIdentity) -> Self {
+        let mut this = Self::default();
+        id.encode_oxv2(&mut this.0[..])
+            // A 128-byte buffer should always fit a 32-byte OXV2 identity...
+            .unwrap_lite();
+        this
+    }
+}
+
+impl From<oxide_barcode::VpdIdentity> for Barcode {
+    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+        match id {
+            oxide_barcode::VpdIdentity::Mpn1(id) => Self::from(id),
+            oxide_barcode::VpdIdentity::Oxide(id) => Self::from(id),
+        }
+    }
 }
 
 // See RFD 316 for values.
@@ -568,7 +864,9 @@ impl From<HubpackError> for DecodeFailureReason {
     Deserialize,
     SerializedSize,
     FromBytes,
-    AsBytes,
+    Immutable,
+    KnownLayout,
+    IntoBytes,
 )]
 #[repr(transparent)]
 pub struct Status(u64);
@@ -583,7 +881,9 @@ pub struct Status(u64);
     Deserialize,
     SerializedSize,
     FromBytes,
-    AsBytes,
+    Immutable,
+    KnownLayout,
+    IntoBytes,
 )]
 #[repr(transparent)]
 pub struct HostStartupOptions(u64);
@@ -829,6 +1129,23 @@ mod tests {
             ),
             (0x0f, HostToSp::GetInventoryData { index: 0 }),
             (0x10, HostToSp::KeySet { key: 0 }),
+            (
+                0x11,
+                HostToSp::ApobBegin {
+                    length: 0,
+                    algorithm: 0,
+                },
+            ),
+            (0x12, HostToSp::ApobCommit),
+            (0x13, HostToSp::ApobData { offset: 0 }),
+            (0x14, HostToSp::ApobRead { offset: 0, size: 0 }),
+            (
+                0x15,
+                HostToSp::BootStage {
+                    version: 0,
+                    stage: 0,
+                },
+            ),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
@@ -1108,7 +1425,7 @@ mod tests {
                 0, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
         };
-        let d = InventoryData::FanIdentity {
+        let d = InventoryData::FanIdentityV1 {
             identity: i,
             vpd_identity: i,
             fans: [i; 3],
@@ -1124,7 +1441,7 @@ mod tests {
             b = &b[106..];
         }
 
-        let d = InventoryData::Adm1272 {
+        let d = InventoryData::Adm127x {
             mfr_id: [1, 2, 3],
             mfr_model: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
             mfr_revision: [0, 10],
@@ -1222,7 +1539,7 @@ mod tests {
             sequence: 456,
         };
         let host_to_sp = HostToSp::HostPanic;
-        let data_blob = (0_u32..)
+        let data_blob = (0..)
             .into_iter()
             .map(|x| x as u8)
             .take(MAX_MESSAGE_SIZE)

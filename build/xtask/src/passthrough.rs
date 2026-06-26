@@ -1,0 +1,146 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use std::path::PathBuf;
+
+use anyhow::{Result, bail};
+
+use crate::dist::PackageConfig;
+
+/// A passthrough function for plumbing basic `cargo ...` commands in the
+/// context of a hubris build.
+///
+/// ## Arguments
+///
+/// * `cargo_cmd`: The cargo subcommand, e.g. `doc` or `clippy`
+/// * `verbose`: Toggles verbosity
+/// * `cfg`: Path to the `app.toml`
+/// * `tasks`: List of task names to run this command on, will run cargo
+///   subcommand on EACH specified task
+/// * `direct_opts`: Arguments to be passed BEFORE the `--` of the command
+///   invocation, e.g. `cargo subcommand $DIRECT_OPTS`
+/// * `post_opts`: Arguments to be passed AFTER the `--` of the command
+///   invocation, e.g. `cargo subcommand -- $POST_OPTS`
+pub fn run(
+    cargo_cmd: &str,
+    verbose: bool,
+    cfg: PathBuf,
+    tasks: &[String],
+    direct_opts: &[String],
+    post_opts: &[String],
+) -> Result<()> {
+    let cfg = PackageConfig::new(&cfg, verbose, false)?;
+    let toml = &cfg.toml;
+
+    let mut tasks = tasks.to_vec();
+
+    if tasks.is_empty() {
+        tasks.extend(toml.tasks.keys().cloned());
+        tasks.push("kernel".to_string());
+    }
+
+    for name in &tasks {
+        if !toml.tasks.contains_key(name) && name != "kernel" {
+            bail!("{}", toml.task_name_suggestion(name));
+        }
+    }
+
+    for (i, name) in tasks.iter().enumerate() {
+        let crate_name = if name == "kernel" {
+            "kernel"
+        } else {
+            let task_toml = &toml.tasks[name];
+            task_toml.name.as_str()
+        };
+        if tasks.len() > 1 {
+            if i > 0 {
+                println!();
+            }
+            println!(
+                "================== {name} [{crate_name}] ==================",
+            );
+        }
+
+        let build_config = if name == "kernel" {
+            // Build dummy allocations for each task
+            let task_sizes = toml
+                .tasks
+                .keys()
+                .map(|name| {
+                    (
+                        name.as_str(),
+                        crate::dist::TaskRequest {
+                            memory: [
+                                ("flash", 64),
+                                (toml.task_ram_region(name), 64),
+                            ]
+                            .into_iter()
+                            .collect(),
+                            spare_regions: 0,
+                        },
+                    )
+                })
+                .collect();
+
+            let allocated = crate::dist::allocate_all(
+                toml,
+                &task_sizes,
+                toml.caboose.as_ref(),
+            )?;
+
+            let (allocs, _) = allocated
+                .get(&toml.image_names[0])
+                .ok_or_else(|| anyhow::anyhow!("Failed to get image name"))?;
+
+            // Pick dummy entry points for each task
+            let mut entry_points: std::collections::HashMap<_, _> = allocs
+                .tasks
+                .iter()
+                .map(|(k, v)| (k.clone(), v["flash"].start()))
+                .collect();
+
+            // add a dummy caboose point
+            entry_points.insert("caboose".to_string(), 0x0);
+
+            let kconfig = crate::dist::make_kconfig(
+                toml,
+                &allocs.tasks,
+                &entry_points,
+                &toml.image_names[0],
+            )?;
+            let kconfig = ron::ser::to_string(&kconfig)?;
+
+            let flash_outputs = if let Some(o) = toml.outputs.get("flash") {
+                ron::ser::to_string(o)?
+            } else {
+                bail!("no 'flash' output regions defined in config toml");
+            };
+
+            cfg.kernel_build_config(&[
+                ("HUBRIS_KCONFIG", &kconfig),
+                ("HUBRIS_IMAGE_ID", "1234"), // dummy image ID
+                ("HUBRIS_FLASH_OUTPUTS", &flash_outputs),
+            ])
+        } else {
+            cfg.task_build_config(name).unwrap()
+        };
+        let mut cmd = build_config.cmd(cargo_cmd);
+
+        for opt in direct_opts {
+            cmd.arg(opt);
+        }
+
+        cmd.arg("--");
+
+        for opt in post_opts {
+            cmd.arg(opt);
+        }
+
+        let status = cmd.status()?;
+        if !status.success() {
+            bail!("`cargo {cargo_cmd}` failed, see output for details");
+        }
+    }
+    Ok(())
+}

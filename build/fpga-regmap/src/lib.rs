@@ -2,17 +2,22 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use anyhow::{Context, bail};
 use convert_case::{Case, Casing};
 use serde::Deserialize;
-use std::fmt::Write;
+use serde_with::{DefaultOnNull, serde_as};
+use std::{fmt::Write, path::PathBuf};
 
+#[serde_as]
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
-enum Node {
+pub enum Node {
     Addrmap {
         inst_name: String,
         addr_offset: usize,
         children: Vec<Node>,
+        orig_type_name: Option<String>,
+        addr_span_bytes: Option<usize>,
     },
     Reg {
         inst_name: String,
@@ -25,17 +30,42 @@ enum Node {
         lsb: usize,
         msb: usize,
         encode: Option<Vec<EnumEncode>>,
+        sw_access: SwAccess,
+        #[serde_as(as = "DefaultOnNull")]
+        desc: String,
     },
     Mem {
         inst_name: String,
         addr_offset: usize,
+        memwidth: usize,
+        mementries: usize,
     },
 }
 
 #[derive(Debug, Deserialize)]
-struct EnumEncode {
+pub struct EnumEncode {
     name: String,
     value: u8,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SwAccess {
+    #[serde(alias = "r")]
+    Read,
+    #[serde(alias = "w")]
+    Write,
+    #[serde(alias = "rw")]
+    ReadWrite,
+}
+
+impl SwAccess {
+    fn is_read(&self) -> bool {
+        matches!(self, SwAccess::Read | SwAccess::ReadWrite)
+    }
+    fn is_write(&self) -> bool {
+        matches!(self, SwAccess::Write | SwAccess::ReadWrite)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,6 +94,7 @@ fn recurse_addr_map(
                 inst_name,
                 addr_offset,
                 children,
+                ..
             } => {
                 recurse_addr_map(
                     children,
@@ -84,12 +115,12 @@ fn recurse_addr_map(
                 )
                 .unwrap();
             }
-            _ => panic!("unexpected child {:?}", child),
+            _ => panic!("unexpected child {child:?}"),
         }
     }
 }
 
-fn build_addr_map(node: &Node, output: &mut String) {
+pub fn build_addr_map(node: &Node, output: &mut String) {
     let children = if let Node::Addrmap { children, .. } = node {
         children
     } else {
@@ -152,6 +183,7 @@ fn write_reg_fields(
             lsb,
             msb,
             encode,
+            ..
         } = child
         {
             let nbits = *msb - *lsb + 1;
@@ -172,8 +204,11 @@ fn write_reg_fields(
                 writeln!(
                     output,
                     "
-{prefix}        #[derive(Copy, Clone, Eq, PartialEq)]
+{prefix}        use hubpack::SerializedSize;
+{prefix}        use serde::{{Deserialize, Serialize}};
+
 {prefix}        #[allow(dead_code)]
+{prefix}        #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, SerializedSize)]
 {prefix}        pub enum {encode_name} {{"
                 )
                 .unwrap();
@@ -200,10 +235,11 @@ fn write_reg_fields(
                     output,
                     "
 {prefix}        impl TryFrom<u8> for {encode_name} {{
-{prefix}            type Error = ();
+{prefix}            type Error = u8;
 {prefix}            fn try_from(x: u8) -> Result<Self, Self::Error> {{
 {prefix}                use crate::{parent_chain}::{encode_name}::*;
-{prefix}                let x_masked = x & {inst_name};
+{prefix}                let position = {inst_name}.trailing_zeros();
+{prefix}                let x_masked = (x & {inst_name}) >> position;
 {prefix}                match x_masked {{"
                 )
                 .unwrap();
@@ -218,7 +254,7 @@ fn write_reg_fields(
                 }
                 writeln!(
                     output,
-                    "{prefix}                    _ => Err(()),
+                    "{prefix}                    _ => Err(x),
 {prefix}                }}
 {prefix}            }}
 {prefix}        }}\n"
@@ -317,7 +353,7 @@ fn recurse_reg_map(
     }
 }
 
-fn build_reg_map(node: &Node, output: &mut String) {
+pub fn build_reg_map(node: &Node, output: &mut String) {
     let children = if let Node::Addrmap { children, .. } = node {
         children
     } else {
@@ -354,4 +390,495 @@ pub fn fpga_regs(
     build_reg_map(&node, &mut output);
 
     Ok(output)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn build_peripheral(
+    node: &Node,
+    top: &Node,
+    peripheral: &str,
+    base_addr: u32,
+    token: Option<&str>,
+) -> anyhow::Result<String> {
+    use heck::{ToSnakeCase, ToUpperCamelCase};
+    use quote::quote;
+
+    let periph_offset = match top {
+        Node::Addrmap { children, .. } => {
+            let Some(offset) = children.iter().find_map(|c| match c {
+                Node::Addrmap {
+                    inst_name,
+                    addr_offset,
+                    ..
+                } if inst_name == peripheral => Some(addr_offset),
+                _ => None,
+            }) else {
+                panic!("could not find '{peripheral}' in top map");
+            };
+            offset
+        }
+        _ => panic!("top node must be an addrmap"),
+    };
+
+    let Node::Addrmap { children, .. } = node else {
+        panic!("peripheral node must be an addrmap");
+    };
+    let mut reg_definitions = vec![];
+    let mut reg_types = vec![];
+    let mut reg_decls = vec![];
+    for c in children {
+        match c {
+            Node::Reg {
+                inst_name,
+                addr_offset,
+                regwidth,
+                children,
+            } => {
+                assert_eq!(
+                    *regwidth, 32,
+                    "only 32-bit registers are supported"
+                );
+                let mut struct_fns = vec![];
+                let mut view_values = vec![];
+                let mut view_names = vec![];
+                let mut view_types = vec![];
+                let mut encode_types = vec![];
+
+                let reg_name: syn::Ident =
+                    syn::parse_str(&inst_name.to_snake_case()).unwrap();
+                for c in children {
+                    let Node::Field {
+                        inst_name,
+                        lsb,
+                        msb,
+                        encode,
+                        sw_access,
+                        desc,
+                    } = c
+                    else {
+                        panic!(
+                            "nodes within register must be fields, not {c:?}"
+                        );
+                    };
+                    let desc = Some(desc.as_str()).filter(|s| !s.is_empty());
+                    let msb = u32::try_from(*msb).unwrap();
+                    let lsb = u32::try_from(*lsb).unwrap();
+                    let setter: syn::Ident = syn::parse_str(&format!(
+                        "set_{}",
+                        inst_name.to_snake_case()
+                    ))
+                    .unwrap();
+                    let getter: syn::Ident =
+                        syn::parse_str(&inst_name.to_snake_case()).unwrap();
+                    if lsb == msb {
+                        if sw_access.is_write() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #setter(&self, t: bool) {
+                                    let mut d = self.get_raw();
+                                    if t {
+                                        d |= 1 << #msb;
+                                    } else {
+                                        d &= !(1 << #msb);
+                                    }
+                                    self.set_raw(d);
+                                }
+                            });
+                        }
+                        if sw_access.is_read() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #getter(&self) -> bool {
+                                    let d = self.get_raw();
+                                    (d & (1 << #msb)) != 0
+                                }
+                            });
+                            view_values.push(quote! {
+                                let #getter = (d & (1 << #msb)) != 0;
+                            });
+                            view_names.push(quote! { #getter });
+                            view_types.push(quote! { pub #getter: bool });
+                        }
+                    } else if let Some(encode) = encode {
+                        let ty: syn::Ident =
+                            syn::parse_str(&inst_name.to_upper_camel_case())
+                                .unwrap();
+                        let width = msb - lsb + 1;
+                        let mask = u32::try_from((1u64 << width) - 1).unwrap();
+                        let raw_ty = match width {
+                            1 => unreachable!("1-bit integers should be bools"),
+                            2..=8 => "u8",
+                            9..=16 => "u16",
+                            17..=32 => "u32",
+                            _ => panic!("invalid width {width}"),
+                        };
+                        assert!(width <= 8, "EnumEncode must be <=8 bits wide");
+                        let quoted = encode
+                            .iter()
+                            .map(|e| {
+                                let v: syn::Ident = syn::parse_str(
+                                    &e.name.to_upper_camel_case(),
+                                )
+                                .unwrap();
+                                let i: syn::LitInt = syn::parse_str(&format!(
+                                    "{}{raw_ty}",
+                                    e.value
+                                ))
+                                .unwrap();
+                                (v, i)
+                            })
+                            .collect::<Vec<_>>();
+
+                        let variants =
+                            quoted.iter().map(|(v, i)| quote! { #v = #i });
+                        let matches = quoted
+                            .iter()
+                            .map(|(v, i)| quote! { #i => Ok(Self::#v), });
+                        let raw_ty: syn::Ident =
+                            syn::parse_str(raw_ty).unwrap();
+                        encode_types.push(quote! {
+                            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+                            #[repr(#raw_ty)]
+                            pub enum #ty {
+                                #(#variants),*
+                            }
+
+                            impl core::convert::TryFrom<#raw_ty> for #ty {
+                                type Error = #raw_ty;
+                                fn try_from(t: #raw_ty)
+                                    -> Result<Self, Self::Error>
+                                {
+                                    match t {
+                                        #(#matches)*
+                                        _ => Err(t),
+                                    }
+                                }
+                            }
+                        });
+                        if sw_access.is_write() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #setter(&self, t: #reg_name::#ty) {
+                                    let mut d = self.get_raw();
+                                    d &= !(#mask << #lsb);
+                                    d |= (u32::from(t as #raw_ty) & #mask)
+                                        << #lsb;
+                                    self.set_raw(d);
+                                }
+                            });
+                        }
+                        if sw_access.is_read() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #getter(&self) -> Result<#reg_name::#ty, #raw_ty> {
+                                    let d = self.get_raw();
+                                    let t = ((d >> #lsb) & #mask) as #raw_ty;
+                                    #reg_name::#ty::try_from(t)
+                                }
+                            });
+                            view_values.push(quote! {
+                                let t = ((d >> #lsb) & #mask) as #raw_ty;
+                                let #getter = #reg_name::#ty::try_from(t);
+                            });
+                            view_names.push(quote! { #getter });
+                            view_types.push(
+                                quote! { pub #getter: Result<#reg_name::#ty, #raw_ty> },
+                            );
+                        }
+                    } else {
+                        let width = msb - lsb + 1;
+                        let mask = u32::try_from((1u64 << width) - 1).unwrap();
+                        let ty = match width {
+                            1 => unreachable!("1-bit integers should be bools"),
+                            2..=8 => "u8",
+                            9..=16 => "u16",
+                            17..=32 => "u32",
+                            _ => panic!("invalid width {width}"),
+                        };
+                        let ty: syn::Ident = syn::parse_str(ty).unwrap();
+                        if sw_access.is_write() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #setter(&self, t: #ty) {
+                                    let mut d = self.get_raw();
+                                    d &= !(#mask << #lsb);
+                                    d |= (u32::from(t) & #mask) << #lsb;
+                                    self.set_raw(d);
+                                }
+                            });
+                        }
+                        if sw_access.is_read() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #getter(&self) -> #ty {
+                                    let d = self.get_raw();
+                                    ((d >> #lsb) & #mask) as #ty
+                                }
+                            });
+                            view_values.push(quote! {
+                                let #getter = ((d >> #lsb) & #mask) as #ty;
+                            });
+                            view_names.push(quote! { #getter });
+                            view_types.push(quote! { pub #getter: #ty });
+                        }
+                    }
+                }
+
+                let inst_name = inst_name.to_upper_camel_case();
+                let struct_name: syn::Ident =
+                    syn::parse_str(&inst_name).unwrap();
+                let handle_name: syn::Ident =
+                    quote::format_ident!("{inst_name}Handle");
+                let view_name: syn::Ident =
+                    quote::format_ident!("{inst_name}View");
+                let reg_addr = base_addr
+                    + u32::try_from(*periph_offset).unwrap()
+                    + u32::try_from(*addr_offset).unwrap();
+                let struct_def = quote! {
+                    pub struct #struct_name;
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    impl #struct_name {
+                        const ADDR: *mut u32 = #reg_addr as *mut u32;
+                        fn new() -> Self {
+                            #struct_name
+                        }
+                        fn get_raw(&self) -> u32 {
+                            unsafe {
+                                Self::ADDR.read_volatile()
+                            }
+                        }
+                        fn set_raw(&self, v: u32) {
+                            unsafe {
+                                Self::ADDR.write_volatile(v)
+                            }
+                        }
+                        #[inline]
+                        pub fn modify<F: Fn(&mut #handle_name)>(&self, f: F) {
+                            let mut v = #handle_name(
+                                core::cell::Cell::new(self.get_raw())
+                            );
+                            f(&mut v);
+                            self.set_raw(v.0.get());
+                        }
+                        #[inline]
+                        pub fn view(&self) -> #view_name {
+                            #view_name::from(self)
+                        }
+
+                        #(#struct_fns)*
+                    }
+
+                    pub struct #handle_name(core::cell::Cell<u32>);
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    impl #handle_name {
+                        fn get_raw(&self) -> u32 {
+                            self.0.get()
+                        }
+                        fn set_raw(&self, v: u32) {
+                            self.0.set(v)
+                        }
+                        #(#struct_fns)*
+                    }
+
+                    #[derive(Copy, Clone, Eq, PartialEq)]
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    pub struct #view_name {
+                        #(#view_types),*
+                    }
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    impl<'a> From<&'a #struct_name> for #view_name {
+                        #[inline]
+                        fn from(s: &'a #struct_name) -> #view_name {
+                            #[allow(unused_variables)]
+                            let d = s.get_raw();
+                            #(#view_values)*
+                            #view_name {
+                                #(#view_names),*
+                            }
+                        }
+                    }
+                    pub mod #reg_name {
+                        #(#encode_types)*
+                    }
+                };
+                reg_definitions.push(struct_def);
+                reg_types.push(quote! {
+                    pub #reg_name: #struct_name
+                });
+                reg_decls.push(quote! {
+                    #reg_name: #struct_name::new()
+                });
+            }
+            Node::Mem {
+                inst_name,
+                addr_offset,
+                memwidth,
+                mementries,
+            } => {
+                let inst_name = inst_name.to_upper_camel_case();
+                let struct_name: syn::Ident =
+                    syn::parse_str(&inst_name).unwrap();
+                let reg_addr = base_addr
+                    + u32::try_from(*periph_offset).unwrap()
+                    + u32::try_from(*addr_offset).unwrap();
+                assert_eq!(*memwidth, 32, "only 32-bit memories are supported");
+                let struct_def = quote! {
+                    pub struct #struct_name;
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    impl #struct_name {
+                        const ADDR: *mut u32 = #reg_addr as *mut u32;
+                        fn new() -> Self {
+                            #struct_name
+                        }
+                        pub fn get(&self, i: usize) -> Option<u32> {
+                            if i < #mementries {
+                                Some(unsafe {
+                                    Self::ADDR.add(i).read_volatile()
+                                })
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                };
+
+                reg_definitions.push(struct_def);
+                let reg_name: syn::Ident =
+                    syn::parse_str(&inst_name.to_snake_case()).unwrap();
+                reg_types.push(quote! {
+                    pub #reg_name: #struct_name
+                });
+                reg_decls.push(quote! {
+                    #reg_name: #struct_name::new()
+                });
+                // TODO
+            }
+            n => panic!("unsupported node type {n:?}"),
+        }
+    }
+
+    let periph_name: syn::Ident =
+        syn::parse_str(&peripheral.to_upper_camel_case()).unwrap();
+    let peripheral_def = if let Some(token) = token {
+        let token_ty: syn::Path = syn::parse_str(token).unwrap();
+        quote! {
+            #[allow(dead_code)]
+            pub struct #periph_name {
+                #(#reg_types),*
+            }
+            #[allow(dead_code)]
+            impl #periph_name {
+                pub fn new(_token: #token_ty) -> Self {
+                    Self {
+                        #(#reg_decls),*
+                    }
+                }
+            }
+            #(#reg_definitions)*
+        }
+    } else {
+        quote! {
+            #[allow(dead_code)]
+            pub struct #periph_name {
+                #(#reg_types),*
+            }
+            #[allow(dead_code)]
+            impl #periph_name {
+                pub fn new() -> Self {
+                    Self {
+                        #(#reg_decls),*
+                    }
+                }
+            }
+            #(#reg_definitions)*
+        }
+    };
+
+    let f: syn::File = syn::parse2(peripheral_def).unwrap();
+    Ok(prettyplease::unparse(&f))
+}
+
+/// Read and parse a JSON file containing a `Node`
+pub fn read_parse(p: &std::path::Path) -> anyhow::Result<Node> {
+    use std::io::Read;
+    let mut data = vec![];
+    std::fs::File::open(p)
+        .with_context(|| format!("failed to open {p:?}"))?
+        .read_to_end(&mut data)?;
+    println!("cargo::rerun-if-changed={}", p.display());
+    let src = std::str::from_utf8(&data)?;
+    let node: Node = serde_json::from_str(src)?;
+    Ok(node)
+}
+
+/// Generates an FPGA peripheral for the given node
+///
+/// The register map and base address are loaded from environmental variables,
+/// so this must be called in the context of a Hubris task build.
+pub fn fpga_peripheral(name: &str, token: &str) -> anyhow::Result<String> {
+    let base_addr: u32 = build_util::env_var("HUBRIS_MMIO_BASE_ADDRESS")?
+        .parse()
+        .context("parsing base address")?;
+    let reg_map =
+        PathBuf::from(build_util::env_var("HUBRIS_MMIO_REGISTER_MAP")?);
+
+    let top = read_parse(&reg_map)?;
+
+    let Node::Addrmap { children, .. } = &top else {
+        bail!("expected addrmap for top, got {top:?}");
+    };
+    let Some(orig_type_name) = children.iter().find_map(|c| match c {
+        Node::Addrmap {
+            inst_name,
+            orig_type_name,
+            ..
+        } if inst_name == name => {
+            assert!(orig_type_name.is_some(), "must provide orig_type_name");
+            orig_type_name.as_deref()
+        }
+        _ => None,
+    }) else {
+        bail!("could not find peripheral with `inst_name` of {name}");
+    };
+
+    let node_name = reg_map
+        .parent()
+        .unwrap()
+        .join(format!("{orig_type_name}.json"));
+    let node = read_parse(&node_name)?;
+
+    build_peripheral(&node, &top, name, base_addr, Some(token))
 }

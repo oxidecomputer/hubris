@@ -13,7 +13,7 @@ pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
-use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
+use userlib::{TaskId, UnwrapLite, task_slot, units::Celsius};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
@@ -57,11 +57,12 @@ bitflags::bitflags! {
 
 #[allow(dead_code)]
 pub(crate) struct Bsp {
-    pub inputs: &'static [InputChannel],
-    pub dynamic_inputs: &'static [SensorId],
+    /// Controlled sensors
+    pub inputs: &'static [InputChannel; NUM_TEMPERATURE_INPUTS],
+    pub dynamic_inputs: &'static [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS],
 
     /// Monitored sensors
-    pub misc_sensors: &'static [TemperatureSensor],
+    pub misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
     /// Our two fan controllers: east for 0/1 and west for 1/2
     fctrl_east: Max31790State,
@@ -166,6 +167,10 @@ impl Bsp {
             }
         }
         Ok(next)
+    }
+
+    pub fn fan_sensor_id(&self, i: usize) -> SensorId {
+        sensors::MAX31790_SPEED_SENSORS[i]
     }
 
     pub fn new(i2c_task: TaskId) -> Self {

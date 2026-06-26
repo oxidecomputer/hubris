@@ -21,7 +21,7 @@ The repo is laid out as follows.
 
 - `build/` contains the build system and supporting crates.
 
-- `chip/` contains peripheral definitions and debugging support files for
+- `chips/` contains peripheral definitions and debugging support files for
   individual microcontrollers.
 
 - `doc/` contains developer documentation.
@@ -37,8 +37,6 @@ The repo is laid out as follows.
 - `lib/` contains assorted utility libraries we've written. If you need to make
   a reusable crate that doesn't fit into one of the other directories, it
   probably belongs here.
-
-- `stage0/` is the bootloader/hypovisor, primarily for LPC55.
 
 - `support/` contains some interface and programming support files, like fake
   certificates and programmer firmware images.
@@ -59,10 +57,12 @@ The repo is laid out as follows.
 
 # Developing
 
-We currently support Linux and Windows as first-tier platforms. macOS is also
-used on a daily basis by Oxide employees, but is not tested in CI.  The build
-probably also works on Illumos; if anyone would like to step up to maintain
-support and a continuous build for Illumos or macOS, we'd love the help.
+We currently support Linux and Windows as first-tier platforms. Because of some
+inconsistency in linker behavior across platforms, images may not match across
+platforms, so we recommend choosing one as your "official" build platform for
+producing blessed images. macOS and Illumos are both used as informal build
+platforms by Oxide employees, though they are not currently tested in CI. (Oxide
+blessed images are produced on Linux.)
 
 To submit changes for review, push them to a branch in a fork and submit a pull
 request to merge that branch into `master`. For details, see
@@ -76,21 +76,10 @@ You will need:
   installing our pinned toolchain version, and the cross-compilation targets,
   when you first try to build.
 
-- `openocd` (ideally 0.11) or (if using the LPC55) `pyocd` (0.27 or later).
-  Note that the 0.10 release of OpenOCD predates the STLink v3. People are using
-  various post-0.10, pre-0.11 builds provided by system package managers, with
-  some success, but if your system isn't packaging 0.11 yet, pester them. If
-  you're going to use Homebrew on macOS to install OpenOCD, you need to use
-  `brew install --head openocd` to build the tip of the main branch rather than
-  using the latest binary release. If you need to build from source, you can
-  find [OpenOCD v0.11.0 here](https://sourceforge.net/projects/openocd/files/openocd/0.11.0/).
-  When running `./configure`, make sure that you see that the
-  `ST-Link Programmer` is set enabled (which should be the default).
-
 - [libusb](https://libusb.info/), typically found from your system's package
   manager as `libusb-1.0.0` or similar.
 
-- [libfdti1](https://www.intra2net.com/en/developer/libftdi/), found
+- [libftdi1](https://www.intra2net.com/en/developer/libftdi/), found
   as `libftdi1-dev` or similar.
 
 - If you will be running GDB, you should install `arm-none-eabi-gdb`.  This is
@@ -103,7 +92,7 @@ You will need:
   Note that `cargo install` interacts strangely with the `rust-toolchain.toml`
   file present in the root of this repository; if you run the following command
   verbatim to install Humility, do so from a different directory:
-  - `cargo install --git https://github.com/oxidecomputer/humility.git --locked humility`
+  - `cargo install --git https://github.com/oxidecomputer/humility.git --locked humility-bin`
     - Requires `cargo-readme` as a dependency: `cargo install cargo-readme`
 
 ### Windows
@@ -182,8 +171,52 @@ $ cargo xtask clippy app/gimletlet/app.toml ping pong
 ## Integrating with `rust-analyzer`
 The Hubris build system will not work with `rust-analyzer` out of the box.
 
-However, `cargo xtask lsp` is here to help: it takes as its argument a Rust
-file, and returns JSON-encoded configuration for how to set up `rust-analyzer`.
+There are two strategies:
+
+- `cargo xtask rust-analyzer` is a shim that pretends to be `rust-analyzer` but
+  intercepts setup messages to apply configuration specific to a
+  `(manifest,task)` tuple.  This is easy to use but somewhat limited.
+- `cargo xtask lsp` accepts a file path and emits config information that can be
+  used when setting up `rust-analyzer`.  It can be tightly integrated (if you
+  write a bunch of editor-specific code) to automatically find a manifest and
+  task when a file is edited, then launch an appropriate `rust-analyzer`
+  instance.
+
+Right now, you should probably use `cargo xtask rust-analyzer`; the instructions
+below for `cargo xtask lsp` have rotted as Neovim's configuration has changed.
+
+### Using `cargo xtask rust-analyzer`
+Configure your editor to use a custom `rust-analyzer`:
+```
+cargo run -pxtask -- rust-analyzer PATH/TO/APP.TOML:TASK_NAME
+```
+
+#### Example Neovim integration
+If you're using Neovim, you can enable project-specific `.nvim.lua` files in
+your global configuration:
+```lua
+-- Enable project-specific `.nvim.lua` files
+vim.o.exrc = true
+```
+
+Then add `.nvim.lua` to this repo which reads from a `HUBRIS_TASK` variable:
+```lua
+local project_root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h")
+
+vim.lsp.config("rust_analyzer", {
+  cmd = { "cargo", "run", "-pxtask", "--", "rust-analyzer", vim.env.HUBRIS_TASK },
+  cmd_cwd = project_root,
+})
+```
+
+Finally, launch your editor with an appropriate `HUBRIS_TASK`:
+```console
+$ HUBRIS_TASK=app/cosmo/rev-a.toml:control_plane_agent nvim
+```
+
+### Using `cargo xtask lsp`
+`cargo xtask lsp` takes as its argument a Rust file, and returns JSON-encoded
+configuration for how to set up `rust-analyzer`.
 
 To use this data, some editor configuration is required!
 
@@ -308,7 +341,7 @@ require'rust-tools'.setup{
 end
 ```
 
-### What's going on here?
+#### What's going on here?
 When a new LSP configuration is created (`on_new_config`), we run `cargo
 xtask lsp` on the target file.  The JSON configuration includes a hash of
 the configuration; we use that hash to modify the name of the client from
@@ -522,19 +555,17 @@ and details.
 
 ## LPCXpresso55S69 board
 
-To use the LPCXpresso55S69, you will need [pyOCD](https://github.com/mbedmicro/pyOCD), version 0.27.0 or later.
-
 The LPCXpresso55S69 is somewhat of a mess because the built-on on-chip
 debugger, LPC-Link2, [does not correctly support SWO/SWV](https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442)
 
-If you have the stock LPC-Link2, it will report itself this way via `pyocd list`:
+If you have the stock LPC-Link2, it will report itself this way via 
+[`probe-rs list`](https://probe.rs/docs/tools/probe-rs/) or `humility lsusb`:
 
 
 ```console
-$ pyocd list
-  #   Probe                                           Unique ID
------------------------------------------------------------------
-  0   NXP Semiconductors LPC-LINK2 CMSIS-DAP V5.361   JSAQCQIQ
+$ probe-rs list
+The following debug probes were found:
+[0]: MCU-LINK (r0FF) CMSIS-DAP V3.153 -- 1fc9:0143:U2VLC0GBANWF1 (CMSIS-DAP)
 ```
 
 It's also possible that you have the Segger J-Link firmware -- firmware
@@ -667,13 +698,14 @@ $
 
 10. Unplug and replug the USB cable.
 
-Verify that you are on the new firmware by running `pyocd list`:
+Verify that you are on the new firmware by running `pyocd list` or 
+`probe-rs list`:
 
 ```console
 $ pyocd list
   #   Probe                        Unique ID                                         
 -------------------------------------------------------------------------------------
-  0   LPCXpresso55S69 [lpc55s69]   02360b000d96e4fc00000000000000000000000097969905  
+  0   LPCXpresso55S69 [lpc55s69]   02360b000d96e4fc00000000000000000000000097969905
 ```
 
 ## LPC55S28 on Gemini carrier board

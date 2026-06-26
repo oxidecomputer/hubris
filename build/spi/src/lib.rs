@@ -85,24 +85,19 @@ pub struct DeviceDescriptorConfig {
     pub cs: Vec<GpioPinConfig>,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Default, Debug, Deserialize)]
 pub enum ClockDivider {
     DIV2,
     DIV4,
     DIV8,
     DIV16,
     DIV32,
+    // When this config mechanism was introduced, we had everything set at
+    // DIV64 for a ~1.5625 MHz SCK rate.
+    #[default]
     DIV64,
     DIV128,
     DIV256,
-}
-
-impl Default for ClockDivider {
-    fn default() -> ClockDivider {
-        // When this config mechanism was introduced, we had everything set at
-        // DIV64 for a ~1.5625 MHz SCK rate.
-        Self::DIV64
-    }
 }
 
 impl ToTokens for SpiConfig {
@@ -187,7 +182,7 @@ impl ToTokens for SpiMuxOptionConfig {
 
 impl ToTokens for ConfigPort {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let port: syn::Ident = syn::parse_str(&format!("{:?}", self)).unwrap();
+        let port: syn::Ident = syn::parse_str(&format!("{self:?}")).unwrap();
         tokens.append_all(quote::quote! {
             sys_api::Port::#port
         });

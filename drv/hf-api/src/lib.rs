@@ -9,8 +9,8 @@
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive};
-use zerocopy::{AsBytes, FromBytes};
+use userlib::{FromPrimitive, TaskId, sys_send};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 
@@ -26,20 +26,35 @@ pub enum HfError {
     HashBadRange,
     HashError,
     HashNotConfigured,
-    NoDevSelect,
     NotMuxedToSP,
     Sector0IsReserved,
     NoPersistentData,
     MonotonicCounterOverflow,
-    FpgaNotConfigured,
     BadChipId,
+    BadAddress,
+    QspiTimeout,
+    QspiTransferError,
+    HashUncalculated,
+    RecalculateHash,
+    HashInProgress,
+    BadCapacity,
 
     #[idol(server_death)]
     ServerRestarted,
 }
 
 /// Controls whether the SP or host CPU has access to flash
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(u8)]
 pub enum HfMuxState {
     SP = 1,
@@ -55,7 +70,9 @@ pub enum HfMuxState {
     FromPrimitive,
     Eq,
     PartialEq,
-    AsBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
     Serialize,
     Deserialize,
     SerializedSize,
@@ -84,7 +101,9 @@ impl core::ops::Not for HfDevSelect {
     FromPrimitive,
     Eq,
     PartialEq,
-    AsBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
     Serialize,
     Deserialize,
     SerializedSize,
@@ -115,7 +134,9 @@ pub struct HfPersistentData {
 ///
 /// When writing new data, we increment the monotonic counter and write to both
 /// ICs, one by one.  This ensures robustness in case of power loss.
-#[derive(Copy, Clone, Eq, PartialEq, AsBytes, FromBytes)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout,
+)]
 #[repr(C)]
 pub struct HfRawPersistentData {
     /// Reserved field, because this is placed at address 0, which PSP firmware
@@ -188,5 +209,202 @@ impl HfRawPersistentData {
 pub const HF_PERSISTENT_DATA_MAGIC: u32 = 0x1dea_bcde;
 pub const HF_PERSISTENT_DATA_STRIDE: usize = 128;
 pub const HF_PERSISTENT_DATA_HEADER_VERSION: u32 = 1;
+
+pub struct HashData {
+    pub task: drv_hash_api::Hash,
+    pub cached_hash0: SlotHash,
+    pub cached_hash1: SlotHash,
+    pub state: HashState,
+}
+
+impl HashData {
+    pub fn new(hash: TaskId) -> Self {
+        Self {
+            task: drv_hash_api::Hash::from(hash),
+            cached_hash0: SlotHash::Uncalculated,
+            cached_hash1: SlotHash::Uncalculated,
+            state: HashState::NotRunning,
+        }
+    }
+}
+
+/// The state of our async hash
+pub enum HashState {
+    Done,
+    Hashing {
+        dev: HfDevSelect,
+        addr: usize,
+        end: usize,
+    },
+    NotRunning,
+}
+
+/// Hash status for each of the hash banks
+pub enum SlotHash {
+    /// Nothing has requested a hash of this slot yet
+    Uncalculated,
+    /// Something has modified this slot
+    Recalculate,
+    /// In progress calculation
+    HashInProgress,
+    /// A valid hash
+    Hash([u8; drv_hash_api::SHA256_SZ]),
+}
+
+impl SlotHash {
+    pub fn get_hash(&self) -> Result<[u8; drv_hash_api::SHA256_SZ], HfError> {
+        match self {
+            SlotHash::Uncalculated => Err(HfError::HashUncalculated),
+            SlotHash::Recalculate => Err(HfError::RecalculateHash),
+            SlotHash::HashInProgress => Err(HfError::HashInProgress),
+            SlotHash::Hash(h) => Ok(*h),
+        }
+    }
+}
+
+#[derive(Copy, Clone, FromBytes, IntoBytes, Immutable, KnownLayout)]
+pub struct HfChipId {
+    pub mfr_id: u8,
+    pub memory_type: u8,
+    pub capacity: u8,
+    /// Varies depending on chip type
+    pub unique_id: [u8; 17],
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// APOB types are below!
+
+/// Hash type used when writing an APOB to bonus flash
+#[derive(
+    Copy, Clone, Debug, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
+#[repr(u8)]
+pub enum ApobHash {
+    Sha256([u8; 32]),
+}
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    IdolError,
+    FromPrimitive,
+    counters::Count,
+)]
+pub enum ApobBeginError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// The APOB state machine does not allow a `Begin` message
+    InvalidState,
+    /// The data length will not fit in an APOB slot
+    BadDataLength,
+}
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    IdolError,
+    FromPrimitive,
+    counters::Count,
+)]
+pub enum ApobWriteError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// The APOB state machine does not allow a `Data` message
+    InvalidState,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash write failed
+    WriteFailed,
+    /// Flash write would change data in an unerased region
+    NotErased,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    FromPrimitive,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobReadError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// The state machine is currently expecting a write or commit message
+    InvalidState,
+    /// There is no valid APOB available to read
+    NoValidApob,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash read failed
+    ReadFailed,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    FromPrimitive,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobCommitError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// Committing APOB state has been disallowed for this boot
+    InvalidState,
+    /// Validating the APOB failed, e.g. due to invalid data
+    ValidationFailed,
+    /// Committing the APOB failed, e.g. due to a flash write error
+    CommitFailed,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    FromPrimitive,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobClearError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// Host flash is not muxed to the SP
+    NotMuxedToSp,
+    /// The APOB state machine is in an invalid state
+    InvalidState,
+}
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

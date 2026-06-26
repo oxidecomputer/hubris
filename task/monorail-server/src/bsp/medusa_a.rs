@@ -2,17 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_front_io_api::phy_smi::PhySmi;
 use drv_medusa_seq_api::Sequencer;
 use drv_monorail_api::MonorailError;
-use drv_sidecar_front_io::phy_smi::PhySmi;
 use idol_runtime::{ClientError, RequestError};
 use ringbuf::*;
-use userlib::{task_slot, UnwrapLite};
+use userlib::{UnwrapLite, task_slot};
+use vsc85xx::{PhyRw, vsc8504::Vsc8504, vsc8562::Vsc8562Phy};
 use vsc7448::{
-    config::Speed, miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError,
+    Vsc7448, Vsc7448Rw, VscError, config::Speed, miim_phy::Vsc7448MiimPhy,
 };
 use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
-use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);
@@ -210,7 +210,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.phy_vsc8504_init()?;
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
-        self.vsc7448.configure_vlan_sidecar_unlocked()?;
+        self.vsc7448
+            .configure_vlan_sidecar_unlocked(vsc7448::VlanTargets::EverySp)?;
         self.vsc7448_postconfig()?;
 
         // Some front IO boards have a faulty oscillator driving the PHY,
@@ -356,9 +357,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         // Initialize the PHY
         let rw = &mut Vsc7448MiimPhy::new(self.vsc7448, 0);
-        self.vsc8504 = Vsc8504::init(4, rw)?;
+        self.vsc8504 = Vsc8504::init_qsgmii_protocol_xfer(4, rw)?;
         for p in 5..8 {
-            Vsc8504::init(p, rw)?;
+            Vsc8504::init_qsgmii_protocol_xfer(p, rw)?;
         }
 
         // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,

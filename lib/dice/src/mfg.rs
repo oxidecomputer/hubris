@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    cert::PersistIdSelfCertBuilder, csr::PersistIdCsrBuilder, CertSerialNumber,
-    IntermediateCert, PersistIdCert, SeedBuf,
+    CertSerialNumber, IntermediateCert, PersistIdCert, SeedBuf,
+    cert::PersistIdSelfCertBuilder, csr::PersistIdCsrBuilder,
 };
 use core::mem::size_of;
 use dice_mfg_msgs::{
@@ -13,9 +13,9 @@ use dice_mfg_msgs::{
 use lib_lpc55_usart::{Read, Usart, Write};
 use lpc55_pac::SYSCON;
 use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
-use sha3::{digest::FixedOutputReset, Digest, Sha3_256};
+use sha3::{Digest, Sha3_256, digest::FixedOutputReset};
 use unwrap_lite::UnwrapLite;
-use zerocopy::FromBytes;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub enum Error {
@@ -309,7 +309,7 @@ impl DiceMfg for SerialMfg<'_> {
                     /// is no longer 512 bytes, it will not compromise security, but bootleby will
                     /// panic while checking the persistent settings (and with any luck the static
                     /// assertion below will fire before you hit the panic).
-                    #[derive(FromBytes)]
+                    #[derive(FromBytes, Immutable, KnownLayout)]
                     #[repr(C)]
                     struct CfpaPage {
                         // Fields defined by NXP:
@@ -334,7 +334,8 @@ impl DiceMfg for SerialMfg<'_> {
                     let cfpa_ping: &[u8] = unsafe {
                         core::slice::from_raw_parts(0x9_e000 as *const u8, 512)
                     };
-                    let Some(cfpa_ping) = CfpaPage::read_from(cfpa_ping) else {
+                    let Ok(cfpa_ping) = CfpaPage::read_from_bytes(cfpa_ping)
+                    else {
                         let _ = self.send_nak();
                         continue;
                     };
@@ -342,7 +343,8 @@ impl DiceMfg for SerialMfg<'_> {
                     let cfpa_pong: &[u8] = unsafe {
                         core::slice::from_raw_parts(0x9_e200 as *const u8, 512)
                     };
-                    let Some(cfpa_pong) = CfpaPage::read_from(cfpa_pong) else {
+                    let Ok(cfpa_pong) = CfpaPage::read_from_bytes(cfpa_pong)
+                    else {
                         let _ = self.send_nak();
                         continue;
                     };

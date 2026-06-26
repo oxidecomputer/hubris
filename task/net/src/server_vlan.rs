@@ -11,13 +11,13 @@ use drv_stm32h7_eth as eth;
 
 use enum_map::Enum;
 use mutable_statics::mutable_statics;
-use task_net_api::{UdpMetadata, VLanId, VLAN_VIDS};
+use task_net_api::{UdpMetadata, VLAN_VIDS, VLanId};
 
 use crate::bsp_support;
 use crate::generated::{self};
 use crate::{
-    server::{DeviceExt, GenServerImpl, Storage},
     MacAddressBlock,
+    server::{DeviceExt, GenServerImpl, Storage},
 };
 
 /// Grabs references to the server storage arrays.  Can only be called once!
@@ -35,8 +35,14 @@ pub struct VLanEthernet<'a> {
 }
 
 impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
-    type RxToken<'b> = VLanRxToken<'a> where Self: 'b;
-    type TxToken<'b> = VLanTxToken<'a> where Self: 'b;
+    type RxToken<'b>
+        = VLanRxToken<'a>
+    where
+        Self: 'b;
+    type TxToken<'b>
+        = VLanTxToken<'a>
+    where
+        Self: 'b;
 
     fn receive(
         &mut self,

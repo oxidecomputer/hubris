@@ -6,6 +6,12 @@ name = "gimlet-d"
 board = "gimlet-d"
 inherit = "base.toml"
 
+# Rev D supports measurement token handoff.  Rev B does not, so we can't put
+# this into `base.toml`; subsequent revisions inherit from `rev-d.toml`
+[kernel]
+features = ["measurement-handoff"]
+extern-regions = [{ region = "dtcm", shared = true }]
+
 ################################################################################
 #
 # I2C2: Front/M.2 bus
@@ -25,7 +31,7 @@ sda.pin = 11
 af = 4
 
 [[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x73
 nreset = { port = "E", pin = 15 } # SP_TO_I2C_SW_M2_A2_V3P3
 
@@ -44,17 +50,17 @@ af = 4
 # Shark fin muxes
 #
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x70
 nreset = { port = "E", pin = 12 } # SP_TO_I2C_SW_CEMABCD_A2_V3P3
 
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x71
 nreset = { port = "E", pin = 14 } # SP_TO_I2C_SW_CEMEFGH_A2_V3P3
 
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x72
 nreset = { port = "E" , pin = 13 } # SP_TO_I2C_SW_CEMIJ_FRU_A2_V3P3
 
@@ -66,6 +72,7 @@ address = 0b110_1010
 device = "nvme_bmc"
 description = "M.2 A NVMe Basic Management Command"
 name = "M2_A"
+refdes = "P1"
 sensors = { temperature = 1 }
 removable = true
 
@@ -77,5 +84,6 @@ address = 0b110_1010
 device = "nvme_bmc"
 description = "M.2 B NVMe Basic Management Command"
 name = "M2_B"
+refdes = "P2"
 sensors = { temperature = 1 }
 removable = true

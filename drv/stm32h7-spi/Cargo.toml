@@ -1,13 +1,14 @@
 [package]
 name = "drv-stm32h7-spi"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 num-traits = { workspace = true }
 stm32h7 = { workspace = true }
 vcell = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 ringbuf = { path = "../../lib/ringbuf" }
 

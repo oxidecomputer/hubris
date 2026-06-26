@@ -12,9 +12,9 @@ features = ["stm32f4"]
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 8192, ram = 4096}
 start = true
-stacksize = 1536
+stacksize = 2200
 notifications = ["fault", "timer"]
 
 [tasks.rcc_driver]
@@ -69,6 +69,7 @@ priority = 3
 max-sizes = {flash = 16384, ram = 16384 }
 stacksize = 2048
 start = true
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

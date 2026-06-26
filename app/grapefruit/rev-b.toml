@@ -1,0 +1,19 @@
+name = "grapefruit-b"
+board = "grapefruit-b"
+inherit = "standalone.toml"
+
+[tasks.vpd]
+name = "task-vpd"
+priority = 3
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+
+[[config.i2c.devices]]
+bus = "i2c1"
+address = 0b1010_000
+device = "at24csw080"
+name = "fruid_vpd"
+description = "FRU ID EEPROM"
+refdes = "U32"

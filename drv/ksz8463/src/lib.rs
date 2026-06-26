@@ -12,7 +12,7 @@ pub use registers::{MIBCounter, Register};
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count, Debug)]
 pub enum Error {
     SpiError(#[count(children)] SpiError),
     WrongChipId(u16),
@@ -113,17 +113,12 @@ ringbuf!(Trace, 16, Trace::None);
 
 /// Data from a management information base (MIB) counter on the chip,
 /// used to monitor port activity for network management.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub enum MIBCounterValue {
+    #[default]
     None,
     Count(u32),
     CountOverflow(u32),
-}
-
-impl Default for MIBCounterValue {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

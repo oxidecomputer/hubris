@@ -6,7 +6,7 @@ use hif::{Failure, Fault};
 use hubris_num_tasks::NUM_TASKS;
 #[allow(unused_imports)]
 use userlib::task_slot;
-use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
+use userlib::{Generation, TaskId, sys_refresh_task_id, sys_send};
 
 /// We allow dead code on this because the functions below are optional.
 ///
@@ -683,7 +683,10 @@ pub(crate) fn qspi_read_id(
 
     let server = drv_hf_api::HostFlash::from(HF.get_task_id());
     let id = func_err(server.read_id())?;
-    rval[..20].copy_from_slice(&id);
+    rval[0] = id.mfr_id;
+    rval[1] = id.memory_type;
+    rval[2] = id.capacity;
+    rval[3..20].copy_from_slice(&id.unique_id);
     Ok(20)
 }
 

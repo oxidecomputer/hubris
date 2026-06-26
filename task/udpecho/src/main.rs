@@ -10,7 +10,7 @@ use userlib::{sys_recv_notification, task_slot};
 
 task_slot!(NET, net);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let net = NET.get_task_id();
     let net = Net::from(net);

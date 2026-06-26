@@ -2,16 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque, hash_map::DefaultHasher};
 use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
+use crate::auxflash::{AuxFlash, AuxFlashData, build_auxflash};
 
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
@@ -23,13 +23,14 @@ struct RawConfig {
     target: String,
     board: String,
     chip: String,
+    mmio: Option<MmioConfig>,
     #[serde(default)]
     epoch: u32,
     #[serde(default)]
     version: u32,
-    #[serde(default)]
-    fwid: bool,
     memory: Option<String>,
+    #[serde(default = "default_ram_name")]
+    default_ram: String,
     #[serde(default)]
     image_names: Vec<String>,
     #[serde(default)]
@@ -44,6 +45,24 @@ struct RawConfig {
     caboose: Option<CabooseConfig>,
 }
 
+pub const DEFAULT_RAM_NAME: &str = "ram";
+fn default_ram_name() -> String {
+    DEFAULT_RAM_NAME.to_owned()
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct MmioConfig {
+    pub peripheral_region: String,
+    pub register_map: PathBuf,
+}
+
+#[derive(Clone, Debug)]
+pub struct MmioData {
+    pub base_address: u32,
+    pub register_map: PathBuf,
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub name: String,
@@ -51,11 +70,12 @@ pub struct Config {
     pub board: String,
     pub chip: String,
     pub epoch: u32,
+    pub mmio: Option<MmioData>,
     pub version: u32,
-    pub fwid: bool,
     pub image_names: Vec<String>,
     pub signing: Option<RoTMfgSettings>,
     pub stacksize: Option<u32>,
+    pub default_ram: String,
     pub kernel: Kernel,
     pub outputs: IndexMap<String, Vec<Output>>,
     pub tasks: IndexMap<String, Task>,
@@ -97,10 +117,6 @@ pub struct CabooseConfig {
     /// The system reserves two words (8 bytes) for the size and marker, so the
     /// user-accessible space is 8 bytes less than this value.
     pub size: u32,
-
-    /// If `true`, populates the caboose with default values using `hubtools`
-    #[serde(default)]
-    pub default: bool,
 }
 
 impl Config {
@@ -122,7 +138,7 @@ impl Config {
         }
 
         for (name, size) in &toml.kernel.requires {
-            if (size % 4) != 0 {
+            if !size.is_multiple_of(4) {
                 bail!("kernel region '{name}' not a multiple of 4: {size}");
             }
         }
@@ -130,12 +146,86 @@ impl Config {
         // The app.toml must include a `chip` key, which defines the peripheral
         // register map in a separate file.  We load it then accumulate that
         // file in the buildhash.
-        let peripherals = {
+        let mut peripherals: IndexMap<String, Peripheral> = {
             let chip_file =
                 cfg.parent().unwrap().join(&toml.chip).join("chip.toml");
             let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
             toml::from_str(std::str::from_utf8(&chip_contents)?)?
+        };
+
+        // The manifest may also include a `mmio` key, which defines extra
+        // memory-mapped peripherals attached over a memory bus
+        let mmio = if let Some(mmio) = &toml.mmio {
+            let Some(p) = peripherals.get(&mmio.peripheral_region) else {
+                bail!(
+                    "could not find peripheral region '{}'",
+                    mmio.peripheral_region
+                );
+            };
+            let base_address = p.address;
+            use build_fpga_regmap::Node;
+
+            let mmio_file = cfg.parent().unwrap().join(&mmio.register_map);
+            let mmio_contents = std::fs::read(&mmio_file)?;
+            hasher.write(&mmio_contents);
+
+            let root: Node =
+                serde_json::from_str(std::str::from_utf8(&mmio_contents)?)
+                    .with_context(|| {
+                        format!(
+                            "failed to read MMIO register map at {:?}",
+                            mmio.register_map
+                        )
+                    })?;
+
+            let Node::Addrmap { children, .. } = root else {
+                bail!("top-level node is not addrmap");
+            };
+            for p in children.iter() {
+                let Node::Addrmap {
+                    inst_name,
+                    addr_offset,
+                    addr_span_bytes,
+                    ..
+                } = &p
+                else {
+                    bail!("second-level node must be Addrmap");
+                };
+                let address = *addr_offset as u32 + base_address;
+                let size: u32 = addr_span_bytes
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "mmio peripheral {inst_name} must \
+                             include `addr_span_bytes`"
+                        )
+                    })?
+                    .next_power_of_two()
+                    .try_into()
+                    .unwrap();
+                let size = size.max(32); // min MPU size for STM32H7
+                if !address.is_multiple_of(size) {
+                    bail!(
+                        "address of mmio peripheral `{inst_name}` \
+                         ({address:#x}) is not a multiple of its size \
+                         ({size:#x})"
+                    );
+                }
+                peripherals.insert(
+                    format!("mmio_{inst_name}"),
+                    Peripheral {
+                        address,
+                        size,
+                        interrupts: BTreeMap::new(),
+                    },
+                );
+            }
+            Some(MmioData {
+                base_address,
+                register_map: mmio_file.canonicalize()?,
+            })
+        } else {
+            None
         };
 
         let outputs: IndexMap<String, Vec<Output>> = {
@@ -168,20 +258,52 @@ impl Config {
             None => None,
         };
 
+        // Remap from "ram" to a specific region in `kernel.requires` and task
+        // `max-sizes` maps.
+        let mut kernel = toml.kernel;
+        let remap = |regions: &mut IndexMap<String, u32>,
+                     ram_region: &str,
+                     desc: &str| {
+            if let Some(ram_allot) = regions.remove(DEFAULT_RAM_NAME) {
+                let conflict = regions.insert(ram_region.to_owned(), ram_allot);
+                if conflict.is_some() {
+                    bail!(
+                        "cannot include both `{DEFAULT_RAM_NAME}` and default \
+                         ram region `{ram_region}` in {desc}"
+                    );
+                }
+            }
+            Ok(())
+        };
+        let kernel_ram_region =
+            kernel.default_ram.as_ref().unwrap_or(&toml.default_ram);
+        remap(&mut kernel.requires, kernel_ram_region, "kernel `requires`")?;
+        let mut tasks = toml.tasks;
+        for (name, task) in tasks.iter_mut() {
+            let task_ram_region =
+                task.default_ram.as_ref().unwrap_or(&toml.default_ram);
+            remap(
+                &mut task.max_sizes,
+                task_ram_region,
+                &format!("`max-sizes` for {name}"),
+            )?;
+        }
+
         Ok(Config {
             name: toml.name,
             target: toml.target,
             board: toml.board,
             image_names: img_names,
             chip: toml.chip,
+            mmio,
             epoch: toml.epoch,
             version: toml.version,
-            fwid: toml.fwid,
             signing: toml.signing,
             stacksize: toml.stacksize,
-            kernel: toml.kernel,
+            default_ram: toml.default_ram,
+            kernel,
             outputs,
-            tasks: toml.tasks,
+            tasks,
             peripherals,
             extratext: toml.extratext,
             config: toml.config,
@@ -211,173 +333,11 @@ impl Config {
             })
             .collect();
         scored.sort();
-        let mut out = format!("'{}' is not a valid task name.", name);
+        let mut out = format!("'{name}' is not a valid task name.");
         if let Some((_, s)) = scored.first() {
-            out.push_str(&format!(" Did you mean '{}'?", s));
+            out.push_str(&format!(" Did you mean '{s}'?"));
         }
         out
-    }
-
-    fn common_build_config<'a>(
-        &self,
-        verbose: bool,
-        crate_name: &str,
-        no_default_features: bool,
-        features: &[String],
-        sysroot: Option<&'a Path>,
-    ) -> BuildConfig<'a> {
-        let mut args = vec!["--target".to_string(), self.target.to_string()];
-        if no_default_features {
-            args.push("--no-default-features".to_string());
-        }
-        if verbose {
-            args.push("-v".to_string());
-        }
-
-        if !features.is_empty() {
-            args.push("--features".to_string());
-            args.push(features.join(","));
-        }
-
-        let mut env = BTreeMap::new();
-
-        // We include the path to the configuration TOML file so that proc macros
-        // that use it can easily force a rebuild (using include_bytes!)
-        //
-        // This doesn't matter now, because we rebuild _everything_ on app.toml
-        // changes, but once #240 is closed, this will be important.
-        let app_toml_path = self
-            .app_toml_path
-            .canonicalize()
-            .expect("Could not canonicalize path to app TOML file");
-
-        let task_names =
-            self.tasks.keys().cloned().collect::<Vec<_>>().join(",");
-        env.insert("HUBRIS_TASKS".to_string(), task_names);
-        env.insert(
-            "HUBRIS_BUILD_VERSION".to_string(),
-            format!("{}", self.version),
-        );
-        env.insert("HUBRIS_BUILD_EPOCH".to_string(), format!("{}", self.epoch));
-        env.insert("HUBRIS_BOARD".to_string(), self.board.to_string());
-        env.insert(
-            "HUBRIS_APP_TOML".to_string(),
-            app_toml_path.to_str().unwrap().to_string(),
-        );
-        if let Some(aux) = &self.auxflash {
-            env.insert(
-                "HUBRIS_AUXFLASH_CHECKSUM".to_string(),
-                format!("{:?}", aux.chck),
-            );
-            for (name, checksum) in aux.checksums.iter() {
-                env.insert(
-                    format!("HUBRIS_AUXFLASH_CHECKSUM_{}", name),
-                    format!("{:?}", checksum),
-                );
-            }
-        }
-
-        if let Some(app_config) = &self.config {
-            let app_config = toml::to_string(&app_config).unwrap();
-            env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
-        }
-
-        let out_path = Path::new("")
-            .join(&self.target)
-            .join("release")
-            .join(crate_name);
-
-        BuildConfig {
-            args,
-            env,
-            crate_name: crate_name.to_string(),
-            sysroot,
-            out_path,
-        }
-    }
-
-    pub fn kernel_build_config<'a>(
-        &self,
-        verbose: bool,
-        extra_env: &[(&str, &str)],
-        sysroot: Option<&'a Path>,
-    ) -> BuildConfig<'a> {
-        let mut out = self.common_build_config(
-            verbose,
-            &self.kernel.name,
-            self.kernel.no_default_features,
-            &self.kernel.features,
-            sysroot,
-        );
-        for (var, value) in extra_env {
-            out.env.insert(var.to_string(), value.to_string());
-        }
-        out
-    }
-
-    pub fn task_build_config<'a>(
-        &self,
-        task_name: &str,
-        verbose: bool,
-        sysroot: Option<&'a Path>,
-    ) -> Result<BuildConfig<'a>, String> {
-        let task_toml = self
-            .tasks
-            .get(task_name)
-            .ok_or_else(|| self.task_name_suggestion(task_name))?;
-        let mut out = self.common_build_config(
-            verbose,
-            &task_toml.name,
-            task_toml.no_default_features,
-            &task_toml.features,
-            sysroot,
-        );
-
-        //
-        // We allow for task- and app-specific configuration to be passed
-        // via environment variables to build.rs scripts that may choose to
-        // incorporate configuration into compilation.
-        //
-        let task_config = toml::to_string(&task_toml).unwrap();
-        out.env
-            .insert("HUBRIS_TASK_CONFIG".to_string(), task_config);
-
-        let all_task_config = toml::to_string(&self.tasks).unwrap();
-        out.env
-            .insert("HUBRIS_ALL_TASK_CONFIGS".to_string(), all_task_config);
-
-        // Expose the current task's name to allow for better error messages if
-        // a required configuration section is missing
-        out.env
-            .insert("HUBRIS_TASK_NAME".to_string(), task_name.to_string());
-
-        //
-        // Expose any external memories that a task is using should the
-        // task wish to generate code around them.
-        //
-        let mut extern_regions = IndexMap::new();
-
-        for name in &task_toml.extern_regions {
-            if let Some(r) = self.outputs.get(name) {
-                let region = (r[0].address, r[0].size);
-
-                if !r.iter().all(|r| (r.address, r.size) == region) {
-                    return Err(format!(
-                        "extern region {name} has inconsistent \
-                        address/size across images: {r:?}"
-                    ));
-                }
-
-                extern_regions.insert(name, region);
-            }
-        }
-
-        out.env.insert(
-            "HUBRIS_TASK_EXTERN_REGIONS".to_string(),
-            toml::to_string(&extern_regions).unwrap(),
-        );
-
-        Ok(out)
     }
 
     /// Returns a map of memory name -> range for a specific image name
@@ -425,7 +385,7 @@ impl Config {
         let outputs: &Vec<Output> = self
             .outputs
             .get(&region)
-            .ok_or_else(|| anyhow!("couldn't find region {}", region))?;
+            .ok_or_else(|| anyhow!("couldn't find region {region}"))?;
         let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
 
         for o in outputs {
@@ -455,7 +415,7 @@ impl Config {
             "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
                 MpuAlignment::PowerOfTwo
             }
-            t => panic!("Unknown mpu requirements for target '{}'", t),
+            t => panic!("Unknown mpu requirements for target '{t}'"),
         }
     }
 
@@ -478,7 +438,7 @@ impl Config {
         match name {
             "kernel" => {
                 // Nearest chunk of 16
-                [((size + 15) / 16) * 16].into_iter().collect()
+                [size.next_multiple_of(16)].into_iter().collect()
             }
             _ => self
                 .mpu_alignment()
@@ -501,10 +461,33 @@ impl Config {
         task: &str,
         image_name: &str,
     ) -> Result<IndexMap<String, Range<u32>>> {
-        self.tasks
+        let extern_regions = &self
+            .tasks
             .get(task)
             .ok_or_else(|| anyhow!("no such task {task}"))?
+            .extern_regions;
+        self.get_extern_regions(extern_regions, image_name)
+    }
+
+    pub fn kernel_extern_regions(
+        &self,
+        image_name: &str,
+    ) -> Result<IndexMap<String, Range<u32>>> {
+        let extern_regions = self
+            .kernel
             .extern_regions
+            .iter()
+            .map(|r| r.region.clone())
+            .collect::<Vec<_>>();
+        self.get_extern_regions(&extern_regions, image_name)
+    }
+
+    fn get_extern_regions(
+        &self,
+        extern_regions: &[String],
+        image_name: &str,
+    ) -> Result<IndexMap<String, Range<u32>>> {
+        extern_regions
             .iter()
             .map(|r| {
                 let mut regions = self
@@ -515,15 +498,27 @@ impl Config {
                     .filter(|o| o.name == image_name);
                 let out = regions.next().expect("no extern region for name");
                 if regions.next().is_some() {
-                    bail!(
-                        "multiple extern {} regions for name {}",
-                        r,
-                        image_name
-                    );
+                    bail!("multiple extern {r} regions for name {image_name}");
                 }
                 Ok((r.to_owned(), out.address..out.address + out.size))
             })
             .collect::<Result<IndexMap<String, Range<u32>>>>()
+    }
+
+    /// Returns the default RAM region for the kernel
+    pub fn kernel_ram_region(&self) -> &str {
+        self.kernel
+            .default_ram
+            .as_ref()
+            .unwrap_or(&self.default_ram)
+    }
+
+    /// Returns the default RAM region for a task
+    pub fn task_ram_region(&self, task: &str) -> &str {
+        self.tasks[task]
+            .default_ram
+            .as_ref()
+            .unwrap_or(&self.default_ram)
     }
 }
 
@@ -598,7 +593,7 @@ impl MpuAlignment {
                 out
             }
             MpuAlignment::Chunk(c) => {
-                [((size + c - 1) / c) * c].into_iter().collect()
+                [size.next_multiple_of(*c)].into_iter().collect()
             }
         }
     }
@@ -630,6 +625,17 @@ pub struct Kernel {
     pub features: Vec<String>,
     #[serde(default)]
     pub no_default_features: bool,
+    #[serde(default)]
+    pub extern_regions: Vec<KernelExternRegion>,
+    #[serde(default)]
+    pub default_ram: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct KernelExternRegion {
+    pub region: String,
+    pub shared: bool,
 }
 
 fn default_name() -> String {
@@ -674,11 +680,12 @@ pub struct BuildConfig<'a> {
     pub args: Vec<String>,
     pub env: BTreeMap<String, String>,
 
-    /// Optional sysroot to a specific Rust installation.  If this is
-    /// specified, then `cargo` is called from the sysroot instead of using
-    /// the system façade (which may go through `rustup`).  This saves a few
-    /// hundred milliseconds per `cargo` invocation.
-    sysroot: Option<&'a Path>,
+    /// Sysroot to a specific Rust installation
+    ///
+    /// `cargo` is called from the sysroot instead of using the system façade
+    /// (which may go through `rustup`).  This saves a few hundred milliseconds
+    /// per `cargo` invocation.
+    pub sysroot: &'a Path,
 }
 
 impl BuildConfig<'_> {
@@ -693,29 +700,8 @@ impl BuildConfig<'_> {
         // We are not including a path in the binary name, so everything is
         // peachy. If you change this line below, make sure to canonicalize
         // path.
-        let mut cmd = std::process::Command::new(match self.sysroot.as_ref() {
-            Some(sysroot) => sysroot.join("bin").join("cargo"),
-            None => PathBuf::from("cargo"),
-        });
-
-        let mut nightly_features = vec![];
-        // nightly features that we use:
-        nightly_features.extend([
-            "asm_const",
-            "emit_stack_sizes",
-            "naked_functions",
-            "used_with_arg",
-        ]);
-        // nightly features that our dependencies use:
-        nightly_features.extend([
-            "backtrace",
-            "error_generic_member_access",
-            "proc_macro_span",
-            "proc_macro_span_shrink",
-            "provide_any",
-        ]);
-
-        cmd.arg(format!("-Zallow-features={}", nightly_features.join(",")));
+        let mut cmd =
+            std::process::Command::new(self.sysroot.join("bin").join("cargo"));
 
         cmd.arg(subcommand);
         cmd.arg("-p").arg(&self.crate_name);
@@ -735,7 +721,7 @@ fn read_and_flatten_toml(
     cfg: &Path,
     hasher: &mut DefaultHasher,
     seen: &mut BTreeSet<PathBuf>,
-) -> Result<toml_edit::Document> {
+) -> Result<toml_edit::DocumentMut> {
     use toml_patch::merge_toml_documents;
 
     // Prevent diamond inheritance
@@ -757,7 +743,7 @@ fn read_and_flatten_toml(
 
     // Additive TOML file inheritance
     let mut doc = cfg_contents
-        .parse::<toml_edit::Document>()
+        .parse::<toml_edit::DocumentMut>()
         .context("failed to parse TOML file")?;
     let Some(inherited_from) = doc.remove("inherit") else {
         // No further inheritance, so return the current document
@@ -774,11 +760,11 @@ fn read_and_flatten_toml(
         }
         // Multiple inheritance, applied sequentially
         Item::Value(Value::Array(a)) => {
-            let mut doc: Option<toml_edit::Document> = None;
+            let mut doc: Option<toml_edit::DocumentMut> = None;
             for a in a.iter() {
                 if let Value::String(s) = a {
                     let file = cfg.parent().unwrap().join(s.value());
-                    let next: toml_edit::Document =
+                    let next: toml_edit::DocumentMut =
                         read_and_flatten_toml(&file, hasher, seen)
                             .with_context(|| {
                                 format!("Could not load {file:?}")

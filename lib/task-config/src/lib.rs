@@ -3,10 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{parse_macro_input, Field, Result, Token};
+use syn::{Field, Result, Token, parse_macro_input};
 
 struct Config {
     items: Punctuated<Field, Token![,]>,
@@ -14,7 +14,8 @@ struct Config {
 impl Parse for Config {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         Ok(Self {
-            items: input.parse_terminated(Field::parse_named)?,
+            items: input
+                .parse_terminated(Field::parse_named, syn::Token![,])?,
         })
     }
 }
@@ -34,9 +35,8 @@ fn config_to_token(
                 .as_array()
                 .unwrap_or_else(|| {
                     panic!(
-                        "Expected TOML array for tuple type {}; got {}",
+                        "Expected TOML array for tuple type {}; got {v}",
                         ty.to_token_stream(),
-                        v
                     )
                 })
                 .iter()
@@ -50,9 +50,8 @@ fn config_to_token(
                 .as_array()
                 .unwrap_or_else(|| {
                     panic!(
-                        "Expected TOML array for array type {}; got {}",
+                        "Expected TOML array for array type {}; got {v}",
                         ty.to_token_stream(),
-                        v
                     )
                 })
                 .iter()
@@ -65,9 +64,8 @@ fn config_to_token(
                 .as_array()
                 .unwrap_or_else(|| {
                     panic!(
-                        "Expected TOML array for slice type {}; got {}",
+                        "Expected TOML array for slice type {}; got {v}",
                         ty.to_token_stream(),
-                        v
                     )
                 })
                 .iter()
@@ -89,8 +87,7 @@ fn config_to_token(
             } else {
                 v.to_string()
             };
-            v.parse()
-                .unwrap_or_else(|_| panic!("Could not parse {}", v))
+            v.parse().unwrap_or_else(|_| panic!("Could not parse {v}"))
         }
         _ => {
             panic!("Got unhandled type {}", ty.to_token_stream())
@@ -156,7 +153,7 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
         .map(|f| {
             let ident = f.ident.as_ref().expect("Missing ident");
             let v = config.get(ident.to_string()).unwrap_or_else(|| {
-                panic!("Missing config parameter in TOML file: {}", ident)
+                panic!("Missing config parameter in TOML file: {ident}")
             });
             let vs = config_to_token(&f.ty, v);
             quote! { #ident: #vs }
@@ -198,7 +195,7 @@ pub fn optional_task_config(tokens: TokenStream) -> TokenStream {
             .map(|f| {
                 let ident = f.ident.as_ref().expect("Missing ident");
                 let v = config.get(ident.to_string()).unwrap_or_else(|| {
-                    panic!("Missing config parameter in TOML file: {}", ident)
+                    panic!("Missing config parameter in TOML file: {ident}")
                 });
                 let vs = config_to_token(&f.ty, v);
                 quote! { #ident: #vs }

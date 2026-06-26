@@ -6,8 +6,8 @@
 
 use crate::Validate;
 use drv_i2c_api::*;
-use userlib::{hl::sleep_for, FromPrimitive, ToPrimitive};
-use zerocopy::{AsBytes, FromBytes};
+use userlib::{FromPrimitive, ToPrimitive, hl::sleep_for};
+use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 /// Number of bytes stored in the EEPROM
 pub const EEPROM_SIZE: u16 = 1024;
@@ -106,19 +106,20 @@ impl At24Csw080 {
     ///
     /// `addr` and `addr + sizeof(V)` must be below `EEPROM_SIZE`; otherwise
     /// this function will return an error.
-    pub fn read<V: AsBytes + FromBytes>(&self, addr: u16) -> Result<V, Error> {
+    pub fn read<V: IntoBytes + FromBytes>(
+        &self,
+        addr: u16,
+    ) -> Result<V, Error> {
         // Address validation
         if addr >= EEPROM_SIZE {
             return Err(Error::InvalidAddress(addr));
         }
         let obj_size = core::mem::size_of::<V>();
-        let end_addr = addr
-            .checked_add(
-                obj_size
-                    .try_into()
-                    .map_err(|_| Error::InvalidObjectSize(obj_size))?,
-            )
-            .unwrap_or(u16::MAX);
+        let end_addr = addr.saturating_add(
+            obj_size
+                .try_into()
+                .map_err(|_| Error::InvalidObjectSize(obj_size))?,
+        );
         if end_addr > EEPROM_SIZE {
             return Err(Error::InvalidEndAddress(end_addr));
         }
@@ -138,7 +139,7 @@ impl At24Csw080 {
         if addr >= EEPROM_SIZE || buf.len() >= u16::MAX as usize {
             return Err(Error::InvalidAddress(addr));
         }
-        let end_addr = addr.checked_add(buf.len() as u16).unwrap_or(u16::MAX);
+        let end_addr = addr.saturating_add(buf.len() as u16);
         if end_addr > EEPROM_SIZE {
             return Err(Error::InvalidEndAddress(end_addr));
         }
@@ -207,13 +208,11 @@ impl At24Csw080 {
         if addr >= EEPROM_SIZE {
             return Err(Error::InvalidAddress(addr));
         }
-        let end_addr = addr
-            .checked_add(
-                buf.len()
-                    .try_into()
-                    .map_err(|_| Error::InvalidObjectSize(buf.len()))?,
-            )
-            .unwrap_or(u16::MAX);
+        let end_addr = addr.saturating_add(
+            buf.len()
+                .try_into()
+                .map_err(|_| Error::InvalidObjectSize(buf.len()))?,
+        );
         if end_addr > EEPROM_SIZE {
             return Err(Error::InvalidEndAddress(end_addr));
         }
@@ -244,7 +243,11 @@ impl At24Csw080 {
     ///
     /// **Be careful** when using this value with integer literals:
     /// `write(addr, 0x01)` will write a 4-byte value!
-    pub fn write<V: AsBytes>(&self, addr: u16, val: V) -> Result<(), Error> {
+    pub fn write<V: IntoBytes + Immutable>(
+        &self,
+        addr: u16,
+        val: V,
+    ) -> Result<(), Error> {
         self.write_buffer(addr, val.as_bytes())
     }
 

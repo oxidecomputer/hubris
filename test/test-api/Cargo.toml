@@ -1,12 +1,13 @@
 [package]
 name = "test-api"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 userlib = { path = "../../sys/userlib" }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

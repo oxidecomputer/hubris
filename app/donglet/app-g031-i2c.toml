@@ -49,6 +49,7 @@ start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 912
 features = ["stm32g0", "g031", "i2c", "gpio", "send", "no-ipc-counters"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"
@@ -71,7 +72,7 @@ af = 6
 # This presumes that the VPD board is plugged into Donglet
 #
 [[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x73
 
 [[config.i2c.devices]]

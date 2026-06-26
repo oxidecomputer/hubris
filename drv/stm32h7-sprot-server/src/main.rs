@@ -125,8 +125,14 @@ cfg_if::cfg_if! {
             target_board = "sidecar-d",
             target_board = "psc-b",
             target_board = "psc-c",
+            target_board = "observer-a",
             target_board = "gemini-bu-1",
-            target_board = "grapefruit",
+            target_board = "grapefruit-a",
+            target_board = "grapefruit-b",
+            target_board = "minibar-a",
+            target_board = "minibar-b",
+            target_board = "cosmo-a",
+            target_board = "cosmo-b",
             ))] {
         const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::ROT;
         fn debug_config(_sys: &sys_api::Sys) { }
@@ -170,7 +176,7 @@ pub struct ServerImpl<S: SpiServer> {
     rx_buf: &'static mut [u8; RESPONSE_BUF_SIZE],
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys).device(ROT_SPI_DEVICE);
@@ -283,7 +289,7 @@ impl<S: SpiServer> Io<S> {
             hl::sleep_for(PART2_DELAY);
         }
 
-        if total_size > RESPONSE_BUF_SIZE {
+        if total_size > rx_buf.len() {
             return Err(SprotProtocolError::BadMessageLength.into());
         }
 
@@ -319,13 +325,13 @@ impl<S: SpiServer> Io<S> {
             if !self.wait_rot_irq(false, TIMEOUT_QUICK) {
                 // Nope, it didn't complete. Pulse CSn.
                 ringbuf_entry!(Trace::UnexpectedRotIrq);
-                self.stats.csn_pulses += self.stats.csn_pulses.wrapping_add(1);
+                self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
                 // One sample of an LPC55S28 reacting to CSn deasserted
                 // in about 54us. So, 10ms is plenty.
                 if self.do_pulse_cs(10_u64, 10_u64)?.rot_irq_end == 1 {
                     // Did not clear ROT_IRQ
                     ringbuf_entry!(Trace::PulseFailed);
-                    self.stats.csn_pulse_failures +=
+                    self.stats.csn_pulse_failures =
                         self.stats.csn_pulse_failures.wrapping_add(1);
                     debug_set(&self.sys, false); // XXX
                     return Err(SprotProtocolError::RotIrqRemainsAsserted)?;
@@ -372,7 +378,7 @@ impl<S: SpiServer> Io<S> {
     // state changes (using EXTI), and waiting for either that or timeout
     // determined based on `max_sleep`.
     fn wait_rot_irq(&mut self, desired: bool, max_sleep: u32) -> bool {
-        use notifications::{sprot::TIMER_MASK, ROT_IRQ_MASK};
+        use notifications::{ROT_IRQ_MASK, sprot::TIMER_MASK};
         // Determine our edge sensitivity for the interrupt. The ROT_IRQ line is
         // active low, so if we want to wait for it to be asserted, wait for the
         // falling edge. If the line is currently asserted, and we're waiting
@@ -390,7 +396,7 @@ impl<S: SpiServer> Io<S> {
             .unwrap_lite();
 
         // Determine the deadline after which we'll give up, and start the clock.
-        let expected_wake = set_timer_relative(max_sleep, TIMER_MASK);
+        set_timer_relative(max_sleep, TIMER_MASK);
 
         let mut irq_fired = false;
         while self.is_rot_irq_asserted() != desired {
@@ -407,21 +413,21 @@ impl<S: SpiServer> Io<S> {
             // notification bit, because it's possible *both* notifications were
             // posted before we were scheduled again, and if the IRQ did fire,
             // we'd prefer to honor that.
-            irq_fired = notif & ROT_IRQ_MASK != 0
-                && self
-                    .sys
+            irq_fired = notif.check_condition(ROT_IRQ_MASK, || {
+                self.sys
                     // If the IRQ hasn't fired, leave it enabled, otherwise,
                     // if it has fired, don't re-enable the IRQ.
                     .gpio_irq_control(ROT_IRQ_MASK, IrqControl::Check)
                     // Sys task shouldn't panic.
-                    .unwrap_lite();
+                    .unwrap_lite()
+            });
             if irq_fired {
                 break;
             }
 
             // If the timer notification was posted, and the GPIO IRQ
             // notification wasn't, we've waited for the timeout. Too bad!
-            if notif & TIMER_MASK != 0 && sys_get_timer().now >= expected_wake {
+            if notif.has_timer_fired(TIMER_MASK) {
                 // Disable the IRQ, so that we don't get the notification later
                 // while in `recv`.
                 self.sys
@@ -478,7 +484,7 @@ impl<S: SpiServer> ServerImpl<S> {
         //
         // Our buffers must always be large enough to contain our data plus an
         // extra byte. Otherwise, this is a programmer error.
-        if tx_size % 2 != 0 {
+        if !tx_size.is_multiple_of(2) {
             tx_size += 1;
         }
 
@@ -1539,7 +1545,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }

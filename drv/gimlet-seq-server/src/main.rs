@@ -11,21 +11,25 @@ mod seq_spi;
 mod vcore;
 
 use counters::*;
+use fixedstr::FixedStr;
 use ringbuf::*;
 use userlib::{
-    hl, set_timer_relative, sys_get_timer, sys_recv_notification,
-    sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
+    RecvMessage, TaskId, UnwrapLite, hl, set_timer_relative, sys_get_timer,
+    sys_recv_notification, sys_set_timer, task_slot, units,
 };
+use zerocopy::IntoBytes;
 
-use drv_cpu_seq_api::{PowerState, SeqError};
+use crate::i2c_config::MAX_COMPONENT_ID_LEN as REFDES_LEN;
+use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
 use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
+use spd::ee1004 as spd; // DDR4 SPD types
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
 
@@ -50,6 +54,10 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 )]
 mod payload;
 
+/// Types for more ergonomic access to FPGA generated types
+pub type A1SmStatus = Reg::A1SMSTATUS::A1SmEncoded;
+pub type A0SmStatus = Reg::A0SMSTATUS::A0SmEncoded;
+
 #[derive(Copy, Clone, PartialEq, Count)]
 enum I2cTxn {
     SpdLoad(u8, u8),
@@ -57,12 +65,16 @@ enum I2cTxn {
     VCoreOn,
     VCoreOff,
     VCoreUndervoltageInitialize,
+    VCorePmbusStatus,
+    VCoreClearFaults,
     SocOn,
     SocOff,
 }
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
+    #[count(skip)]
+    None,
     Ice40Rails(bool, bool),
     IdentValid(#[count(children)] bool),
     ChecksumValid(#[count(children)] bool),
@@ -77,20 +89,28 @@ enum Trace {
     A2,
     A0FailureDetails(Addr, u8),
     A0Failed(#[count(children)] SeqError),
-    A1Status(u8),
+    A1Status(Result<A1SmStatus, u8>),
+    A1Readbacks(u8),
+    A1OutStatus(u8),
     CPUPresent(#[count(children)] bool),
     Coretype {
         coretype: bool,
         sp3r1: bool,
         sp3r2: bool,
     },
-    A0Status(u8),
+    A0Status(Result<A0SmStatus, u8>),
     A0Power(u8),
     NICPowerEnableLow(bool),
     RailsOn,
     UartEnabled,
     A0(u16),
-    SetState(PowerState, PowerState, u64),
+    SetState {
+        prev: PowerState,
+        next: PowerState,
+        #[count(children)]
+        why: StateChangeReason,
+        now: u64,
+    },
     UpdateState(#[count(children)] PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
@@ -106,8 +126,8 @@ enum Trace {
         nic: u8,
     },
     SMStatus {
-        a1: u8,
-        a0: u8,
+        a1: Result<A1SmStatus, u8>,
+        a0: Result<A0SmStatus, u8>,
     },
     NICStatus {
         nic_ctrl: u8,
@@ -138,13 +158,11 @@ enum Trace {
         retries_remaining: u8,
     },
     StartFailed(#[count(children)] SeqError),
-    #[count(skip)]
-    None,
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let jefe = Jefe::from(JEFE.get_task_id());
@@ -182,12 +200,15 @@ fn main() -> ! {
 
 struct ServerImpl<S: SpiServer> {
     state: PowerState,
+    /// The Hubris tick at which we transitioned to the current state.
+    since: u64,
     sys: sys_api::Sys,
     seq: seq_spi::SequencerFpga<S>,
     jefe: Jefe,
     hf: hf_api::HostFlash,
     vcore: vcore::VCore,
     deadline: u64,
+    ereporter: Ereporter,
 }
 
 const TIMER_INTERVAL: u32 = 10;
@@ -427,6 +448,46 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             hl::sleep_for(1);
         }
 
+        let packrat = Packrat::from(PACKRAT.get_task_id());
+        let mut ereporter = Ereporter::claim_static_resources(packrat.clone());
+
+        //
+        // Apply the configuration mitigation on the BMR491, if required. This
+        // is an external device access and may fail. We'll attempt it thrice
+        // and then allow boot to continue.
+        //
+        {
+            use drv_i2c_devices::bmr491::{
+                Bmr491, ExternalInputVoltageProtection,
+            };
+
+            let dev = i2c_config::devices::bmr491_u431(I2C.get_task_id());
+            let driver = Bmr491::new(&dev, 0);
+
+            // Gimlet provides external undervoltage protection that is better
+            // than what we'd get from the 491, so we rely on that.
+            let protection = ExternalInputVoltageProtection::CutoffAt40V;
+
+            let (failures, last_cause, succeeded) =
+                match driver.apply_mitigation_for_rma2402311(protection) {
+                    Ok(r) => (r.failures, r.last_failure, true),
+                    Err(e) => (e.retries, Some(e.last_cause), false),
+                };
+
+            if let Some(last_cause) = last_cause {
+                // Report the failure even if we eventually succeeded.
+                let ereport = ereports::pwr::Bmr491MitigationFailure {
+                    refdes: FixedStr::<{ REFDES_LEN }>::from_str(
+                        dev.component_id(),
+                    ),
+                    failures,
+                    last_cause,
+                    succeeded,
+                };
+                let _ = ereporter.deliver_ereport(&ereport);
+            }
+        }
+
         //
         // If our clock generator is configured to load from external EEPROM,
         // we need to wait for up to 150 ms here (!).
@@ -447,7 +508,6 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         })?;
 
         // Populate packrat with our mac address and identity.
-        let packrat = Packrat::from(PACKRAT.get_task_id());
         read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
         jefe.set_state(PowerState::A2 as u32);
@@ -472,17 +532,22 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
         let mut server = Self {
             state: PowerState::A2,
+            since: 0, // we have been in A2 since we booted :)
             sys: sys.clone(),
             seq,
             jefe,
             hf,
             deadline: 0,
             vcore: vcore::VCore::new(sys, &device, rail),
+            ereporter,
         };
 
         // Power on, unless suppressed by the `stay-in-a2` feature
         if !cfg!(feature = "stay-in-a2") {
-            _ = server.set_state_internal(PowerState::A0);
+            _ = server.set_state_internal(
+                PowerState::A0,
+                StateChangeReason::InitialPowerOn,
+            );
         }
 
         //
@@ -512,12 +577,12 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
         notifications::TIMER_MASK | self.vcore.mask()
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & self.vcore.mask()) != 0 {
-            self.vcore.handle_notification();
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.check_notification_mask(self.vcore.mask()) {
+            self.vcore.handle_notification(&mut self.ereporter);
         }
 
-        if (bits & notifications::TIMER_MASK) == 0 {
+        if !bits.has_timer_fired(notifications::TIMER_MASK) {
             return;
         }
 
@@ -530,6 +595,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
         });
 
         if self.state == PowerState::A0 || self.state == PowerState::A0PlusHP {
+            let now = sys_get_timer().now;
             //
             // The first order of business is to check if sequencer saw a
             // falling edge on PWROK (denoting a reset) or a THERMTRIP.  If it
@@ -537,8 +603,8 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
             // if both are indicated, we will clear both conditions -- but
             // land in A0Thermtrip).
             //
-            self.check_reset(ifr);
-            self.check_thermtrip(ifr);
+            self.check_reset(ifr, now);
+            self.check_thermtrip(ifr, now);
 
             //
             // Now we need to check NIC_PWREN_L to assure that our power state
@@ -556,7 +622,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     self.seq
                         .clear_bytes(Addr::NIC_CTRL, &[cld_rst])
                         .unwrap_lite();
-                    self.update_state_internal(PowerState::A0PlusHP);
+                    self.update_state_internal(PowerState::A0PlusHP, now);
                 }
 
                 (PowerState::A0PlusHP, true) => {
@@ -588,7 +654,10 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     self.seq
                         .set_bytes(Addr::NIC_CTRL, &[cld_rst])
                         .unwrap_lite();
-                    self.update_state_internal(PowerState::A0);
+                    self.update_state_internal(
+                        PowerState::A0,
+                        sys_get_timer().now,
+                    );
                 }
 
                 (PowerState::A0, true) | (PowerState::A0PlusHP, false) => {
@@ -603,9 +672,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     //
                 }
 
-                (PowerState::A2, _)
-                | (PowerState::A2PlusFans, _)
-                | (PowerState::A1, _) => {
+                (PowerState::A2, _) | (PowerState::A2PlusFans, _) => {
                     //
                     // We can only be in this larger block if the state is A0
                     // or A0PlusHP; we must have matched one of the arms above.
@@ -615,6 +682,10 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     unreachable!();
                 }
             }
+        }
+
+        if self.vcore.is_faulted() {
+            self.vcore.try_to_clear_faults();
         }
 
         if let Some(interval) = self.poll_interval() {
@@ -657,8 +728,9 @@ where
 }
 
 impl<S: SpiServer> ServerImpl<S> {
-    fn update_state_internal(&mut self, state: PowerState) {
+    fn update_state_internal(&mut self, state: PowerState, now: u64) {
         ringbuf_entry!(Trace::UpdateState(state));
+        self.since = now;
         self.state = state;
         self.jefe.set_state(state as u32);
     }
@@ -666,11 +738,17 @@ impl<S: SpiServer> ServerImpl<S> {
     fn set_state_internal(
         &mut self,
         state: PowerState,
-    ) -> Result<(), SeqError> {
+        why: StateChangeReason,
+    ) -> Result<Transition, SeqError> {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
         let now = sys_get_timer().now;
-        ringbuf_entry!(Trace::SetState(self.state, state, now));
+        ringbuf_entry!(Trace::SetState {
+            prev: self.state,
+            next: state,
+            why,
+            now
+        });
 
         ringbuf_entry_v3p3_sys_a0_vout();
 
@@ -680,9 +758,11 @@ impl<S: SpiServer> ServerImpl<S> {
             nic: self.seq.read_byte(Addr::NIC_STATUS).unwrap_lite(),
         });
 
+        let a1: u8 = self.seq.read_byte(Addr::A1SMSTATUS).unwrap_lite();
+        let a0: u8 = self.seq.read_byte(Addr::A0SMSTATUS).unwrap_lite();
         ringbuf_entry!(Trace::SMStatus {
-            a1: self.seq.read_byte(Addr::A1SMSTATUS).unwrap_lite(),
-            a0: self.seq.read_byte(Addr::A0SMSTATUS).unwrap_lite(),
+            a1: A1SmStatus::try_from(a1),
+            a0: A0SmStatus::try_from(a0),
         });
 
         ringbuf_entry!(Trace::PowerControl(
@@ -723,17 +803,33 @@ impl<S: SpiServer> ServerImpl<S> {
                 // failing to sequence.
                 //
                 let a1 = Reg::PWR_CTRL::A1PWREN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a1]).unwrap_lite();
+                self.seq.set_bytes(Addr::PWR_CTRL, &[a1]).unwrap_lite();
 
                 loop {
+                    let mut readbacks = [0u8];
+
+                    self.seq
+                        .read_bytes(Addr::A1_READBACKS, &mut readbacks)
+                        .unwrap_lite();
+                    ringbuf_entry!(Trace::A1Readbacks(readbacks[0]));
+
+                    let mut out_status = [0u8];
+
+                    self.seq
+                        .read_bytes(Addr::A1_OUT_STATUS, &mut out_status)
+                        .unwrap_lite();
+                    ringbuf_entry!(Trace::A1OutStatus(out_status[0]));
+
                     let mut status = [0u8];
 
                     self.seq
                         .read_bytes(Addr::A1SMSTATUS, &mut status)
                         .unwrap_lite();
-                    ringbuf_entry!(Trace::A1Status(status[0]));
 
-                    if status[0] == Reg::A1SMSTATUS::A1SmEncoded::Done as u8 {
+                    let a1sm = A1SmStatus::try_from(status[0]);
+                    ringbuf_entry!(Trace::A1Status(a1sm));
+
+                    if a1sm == Ok(A1SmStatus::Done) {
                         break;
                     }
 
@@ -752,6 +848,11 @@ impl<S: SpiServer> ServerImpl<S> {
                 ringbuf_entry!(Trace::CPUPresent(present));
 
                 if !present {
+                    let _ = self.ereporter.deliver_ereport(
+                        &ereports::cpu::CpuMissing {
+                            cpu: &HOST_CPU_REFDES,
+                        },
+                    );
                     return Err(self.a0_failure(SeqError::CPUNotPresent));
                 }
 
@@ -771,7 +872,21 @@ impl<S: SpiServer> ServerImpl<S> {
                 // be high (not connected on Type-0/Type-1/Type-2), and SP3R2
                 // to be low (VSS on Type-0/Type-1/Type-2).
                 //
-                if !coretype || !sp3r1 || sp3r2 {
+                let rev_ok = sp3r1 && !sp3r2;
+                if !coretype || !rev_ok {
+                    let _ = self.ereporter.deliver_ereport(
+                        &ereports::cpu::UnsupportedCpu {
+                            cpu: &HOST_CPU_REFDES,
+                            coretype: ereports::cpu::CpuTypeBits {
+                                bits: [coretype],
+                                ok: coretype,
+                            },
+                            rev: ereports::cpu::CpuTypeBits {
+                                bits: [sp3r1, sp3r2],
+                                ok: rev_ok,
+                            },
+                        },
+                    );
                     return Err(self.a0_failure(SeqError::UnrecognizedCPU));
                 }
 
@@ -779,7 +894,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // Onward to A0!
                 //
                 let a0 = Reg::PWR_CTRL::A0A_EN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a0]).unwrap_lite();
+                self.seq.set_bytes(Addr::PWR_CTRL, &[a0]).unwrap_lite();
 
                 loop {
                     let mut status = [0u8];
@@ -787,10 +902,11 @@ impl<S: SpiServer> ServerImpl<S> {
                     self.seq
                         .read_bytes(Addr::A0SMSTATUS, &mut status)
                         .unwrap_lite();
-                    ringbuf_entry!(Trace::A0Status(status[0]));
 
-                    if status[0] == Reg::A0SMSTATUS::A0SmEncoded::GroupcPg as u8
-                    {
+                    let a0sm = A0SmStatus::try_from(status[0]);
+                    ringbuf_entry!(Trace::A0Status(a0sm));
+
+                    if a0sm == Ok(A0SmStatus::GroupcPg) {
                         break;
                     }
 
@@ -813,6 +929,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
                 //
                 // Now wait for the end of Group C.
+
                 //
                 loop {
                     let mut status = [0u8];
@@ -849,12 +966,11 @@ impl<S: SpiServer> ServerImpl<S> {
                 // Using wrapping_sub here because the timer is monotonic, so
                 // we, the programmers, know that now > start. rustc, the
                 // compiler, is not aware of this.
-                ringbuf_entry!(Trace::A0(
-                    (sys_get_timer().now.wrapping_sub(start)) as u16
-                ));
+                let now = sys_get_timer().now;
+                ringbuf_entry!(Trace::A0((now.wrapping_sub(start)) as u16));
 
-                self.update_state_internal(PowerState::A0);
-                Ok(())
+                self.update_state_internal(PowerState::A0, now);
+                Ok(Transition::Changed)
             }
 
             (PowerState::A0, PowerState::A2)
@@ -899,7 +1015,7 @@ impl<S: SpiServer> ServerImpl<S> {
                     return Err(SeqError::MuxToSPFailed);
                 }
 
-                self.update_state_internal(PowerState::A2);
+                self.update_state_internal(PowerState::A2, sys_get_timer().now);
                 ringbuf_entry_v3p3_sys_a0_vout();
                 ringbuf_entry!(Trace::A2);
 
@@ -912,10 +1028,26 @@ impl<S: SpiServer> ServerImpl<S> {
                     ringbuf_entry_v3p3_sys_a0_vout();
                 }
 
-                Ok(())
+                Ok(Transition::Changed)
             }
-
-            _ => Err(SeqError::IllegalTransition),
+            //
+            // A0PlusHP is a substate of A0; if we are in A0PlusHP and we are
+            // asked to go to A0, return `Unchanged`, because `A0PlusHP` means
+            // we are already in A0.
+            // Similarly, A2PlusFans "counts as" A2 for the purpose of
+            // externally-requested transitions.
+            //
+            (PowerState::A0PlusHP, PowerState::A0)
+            | (PowerState::A2PlusFans, PowerState::A2) => {
+                Ok(Transition::Unchanged)
+            }
+            //
+            // If we are already in the requested state, return `Unchanged`.
+            //
+            (current, requested) if current == requested => {
+                Ok(Transition::Unchanged)
+            }
+            (_, _) => Err(SeqError::IllegalTransition),
         }
     }
 
@@ -960,12 +1092,16 @@ impl<S: SpiServer> ServerImpl<S> {
     // seen it (and knowing that the FPGA has already taken care of the
     // time-critical bits to assure that we don't melt!).
     //
-    fn check_thermtrip(&mut self, ifr: u8) {
+    fn check_thermtrip(&mut self, ifr: u8, now: u64) {
         let thermtrip = Reg::IFR::THERMTRIP;
 
         if ifr & thermtrip != 0 {
             self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap_lite();
-            self.update_state_internal(PowerState::A0Thermtrip);
+            let _ = self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
+                cpu: &HOST_CPU_REFDES,
+                state: self.ereport_current_state(),
+            });
+            self.update_state_internal(PowerState::A0Thermtrip, now);
         }
     }
 
@@ -977,7 +1113,7 @@ impl<S: SpiServer> ServerImpl<S> {
     // of RESET_L.  If we have seen a host reset, we send ourselves to
     // A0Reset.
     //
-    fn check_reset(&mut self, ifr: u8) {
+    fn check_reset(&mut self, ifr: u8, now: u64) {
         let pwrok_fedge = Reg::IFR::AMD_PWROK_FEDGE;
 
         if ifr & pwrok_fedge != 0 {
@@ -1001,7 +1137,7 @@ impl<S: SpiServer> ServerImpl<S> {
             let mask = pwrok_fedge | Reg::IFR::AMD_RSTN_FEDGE;
             self.seq.clear_bytes(Addr::IFR, &[mask]).unwrap_lite();
 
-            self.update_state_internal(PowerState::A0Reset);
+            self.update_state_internal(PowerState::A0Reset, now);
         }
     }
 
@@ -1011,11 +1147,22 @@ impl<S: SpiServer> ServerImpl<S> {
     // for a thermtrip or for someone disabling NIC_PWREN_L.  If we are in
     // any other state, we don't need to poll.
     //
+    // If the Vcore VRM has a PMBus alert, we must try to clear its faults
+    // periodically, regardless of the current power state.
+    //
     fn poll_interval(&self) -> Option<u64> {
         match self.state {
             PowerState::A0 => Some(10),
             PowerState::A0PlusHP => Some(100),
+            _ if self.vcore.is_faulted() => Some(100),
             _ => None,
+        }
+    }
+
+    fn ereport_current_state(&self) -> ereports::pwr::CurrentState {
+        ereports::pwr::CurrentState {
+            cur: self.state,
+            since_ms: self.since,
         }
     }
 }
@@ -1032,8 +1179,19 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-    ) -> Result<(), RequestError<SeqError>> {
-        self.set_state_internal(state).map_err(RequestError::from)
+    ) -> Result<Transition, RequestError<SeqError>> {
+        self.set_state_internal(state, StateChangeReason::Other)
+            .map_err(RequestError::from)
+    }
+
+    fn set_state_with_reason(
+        &mut self,
+        _: &RecvMessage,
+        state: PowerState,
+        reason: StateChangeReason,
+    ) -> Result<Transition, RequestError<SeqError>> {
+        self.set_state_internal(state, reason)
+            .map_err(RequestError::from)
     }
 
     fn send_hardware_nmi(
@@ -1069,6 +1227,74 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         }
 
         Ok(buf)
+    }
+
+    fn last_post_code(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn post_code_buffer_len(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn get_post_code(
+        &mut self,
+        _: &RecvMessage,
+        _index: u32,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn gpio_edge_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        let mut out = zerocopy::byteorder::big_endian::U32::new(0);
+        self.seq
+            .read_bytes(Addr::GPIO_EDGE_CNT_3, out.as_mut_bytes())
+            .unwrap_lite();
+        Ok(out.get())
+    }
+
+    fn gpio_cycle_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        let mut out = zerocopy::byteorder::big_endian::U32::new(0);
+        self.seq
+            .read_bytes(Addr::GPIO_CYCLE_CNT_3, out.as_mut_bytes())
+            .unwrap_lite();
+        Ok(out.get())
+    }
+
+    fn enable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn disable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
     }
 }
 
@@ -1117,10 +1343,11 @@ fn read_spd_data_and_load_packrat(
     for nbank in 0..BANKS.len() as u8 {
         let (controller, port, mux) = BANKS[nbank as usize];
 
-        let addr = spd::Function::PageAddress(spd::Page(0))
+        let addr = spd::Function::PageAddress(spd::Page::Page0)
             .to_device_code()
             .unwrap_lite();
-        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+        let page =
+            I2cDevice::new(i2c_task, controller, port, None, addr, "SPD");
 
         if page.write(&[0]).is_err() {
             // If our operation fails, we are going to assume that there
@@ -1131,7 +1358,8 @@ fn read_spd_data_and_load_packrat(
 
         for i in 0..spd::MAX_DEVICES {
             let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
-            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+            let spd =
+                I2cDevice::new(i2c_task, controller, port, mux, mem, "SPD");
             let ndx = (nbank * spd::MAX_DEVICES) + i;
 
             // Try reading the first byte; if this fails, we will assume
@@ -1166,14 +1394,15 @@ fn read_spd_data_and_load_packrat(
                 spd.read_into(&mut tmp[1..])
             })?;
 
-            packrat.set_spd_eeprom(ndx, false, 0, &tmp);
+            packrat.set_spd_eeprom(ndx, 0, &tmp);
         }
 
         // Now flip over to the top page.
-        let addr = spd::Function::PageAddress(spd::Page(1))
+        let addr = spd::Function::PageAddress(spd::Page::Page1)
             .to_device_code()
             .unwrap_lite();
-        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+        let page =
+            I2cDevice::new(i2c_task, controller, port, None, addr, "SPD");
 
         // We really don't expect this to fail, and if it does, tossing here
         // seems to be best option:  things are pretty wrong.
@@ -1188,7 +1417,8 @@ fn read_spd_data_and_load_packrat(
             }
 
             let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
-            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+            let spd =
+                I2cDevice::new(i2c_task, controller, port, mux, mem, "SPD");
 
             let chunk = 128;
 
@@ -1202,7 +1432,7 @@ fn read_spd_data_and_load_packrat(
                 spd.read_into(&mut tmp[chunk..])
             })?;
 
-            packrat.set_spd_eeprom(ndx, true, 0, &tmp);
+            packrat.set_spd_eeprom(ndx, spd::PAGE_SIZE, &tmp);
         }
     }
 
@@ -1402,8 +1632,35 @@ cfg_if::cfg_if! {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+ereports::declare_ereporter! {
+    pub(crate) struct Ereporter<SeqEreport> {
+        PmbusAlert(
+            ereports::pwr::PmbusAlert<
+                FixedStr<'static, 9>,
+                { REFDES_LEN },
+            >,
+        ),
+        Bmr491MitigationFailure(
+            ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>
+        ),
+        Thermtrip(ereports::cpu::Thermtrip),
+        UnsupportedCpu(ereports::cpu::UnsupportedCpu<1, 2>),
+        CpuMissing(ereports::cpu::CpuMissing),
+    }
+}
+
+static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
+    ereports::cpu::HostCpuRefdes {
+        refdes: fixedstr::FixedString::from_str("P0"),
+        dev_id: fixedstr::FixedString::from_str("sp3-host-cpu"),
+    };
+
+////////////////////////////////////////////////////////////////////////////////
+
 mod idl {
-    use super::SeqError;
+    use super::StateChangeReason;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

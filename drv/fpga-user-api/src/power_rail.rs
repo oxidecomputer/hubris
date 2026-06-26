@@ -4,7 +4,7 @@
 
 use drv_fpga_api::FpgaError;
 use userlib::FromPrimitive;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// This module implements state primitives matching the generic power
 /// rail/voltage regulator as implemented in
@@ -20,12 +20,24 @@ use zerocopy::{AsBytes, FromBytes};
     PartialEq,
     FromBytes,
     FromPrimitive,
-    AsBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(C)]
 pub struct RawPowerRailState(u8);
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(C)]
 pub struct PowerRail {
     pub status: PowerRailStatus,
@@ -47,7 +59,16 @@ impl TryFrom<RawPowerRailState> for PowerRail {
 /// https://github.com/oxidecomputer/quartz/blob/main/hdl/PowerRail.bsv
 /// and should be kept in sync.
 #[derive(
-    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(u8)]
 pub enum PowerRailStatus {
@@ -70,7 +91,17 @@ impl TryFrom<RawPowerRailState> for PowerRailStatus {
 /// Type representing the pin state of a generic voltage regulator. This struct
 /// and the `TryFrom` implementation should be kept in sync with
 /// https://github.com/oxidecomputer/quartz/blob/main/hdl/power_rail.rdl.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(C)]
 pub struct PowerRailPinState {
     pub enable: bool,

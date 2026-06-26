@@ -5,10 +5,11 @@
 #![no_std]
 #![no_main]
 
+use drv_i2c_api::pmbus_status::Capabilities;
 use drv_sprot_api::SprotError;
 use gateway_messages::{
-    sp_impl::{self, Sender},
     IgnitionCommand, MgsError, PowerState, SpComponent, UpdateId,
+    sp_impl::{self, Sender},
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{
@@ -18,7 +19,7 @@ use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::MAX_INSTALLINATOR_IMAGE_ID_LEN;
 use task_control_plane_agent_api::{
-    BarcodeParseError, ControlPlaneAgentError, UartClient, VpdIdentity,
+    BarcodeParseError, ControlPlaneAgentError, OxideIdentity, UartClient,
 };
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
@@ -30,20 +31,28 @@ mod inventory;
 mod mgs_common;
 mod update;
 
-// If the build system enables multiple of the gimlet/sidecar/psc features, this
+pub(crate) mod dump;
+
+// If the build system enables multiple of the gimlet/sidecar/psc/minibar features, this
 // sequence of `cfg_attr`s will trigger an unused_attributes warning.  We build
 // everything with -Dunused_attributes, which will catch any such build system
 // misconfiguration.
 #[cfg_attr(feature = "compute-sled", path = "mgs_compute_sled.rs")]
 #[cfg_attr(feature = "sidecar", path = "mgs_sidecar.rs")]
 #[cfg_attr(feature = "psc", path = "mgs_psc.rs")]
+#[cfg_attr(feature = "observer", path = "mgs_psc.rs")]
+#[cfg_attr(feature = "minibar", path = "mgs_minibar.rs")]
 mod mgs_handler;
 
 use self::mgs_handler::MgsHandler;
 
+#[cfg(any(feature = "sidecar", feature = "minibar"))]
+mod ignition_controller;
+
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
+task_slot!(I2C, i2c_driver);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Clone, Copy, PartialEq, ringbuf::Count)]
@@ -157,6 +166,9 @@ enum MgsMessage {
         slot: u16,
         persist: bool,
     },
+    ComponentGetPersistentSlot {
+        component: SpComponent,
+    },
     SerialConsoleBreak,
     SendHostNmi,
     SetIpccKeyValue {
@@ -167,6 +179,15 @@ enum MgsMessage {
     VpdLockStatus,
     VersionedRotBootInfo {
         version: u8,
+    },
+    ReadHostFlash {
+        addr: u32,
+    },
+    StartHostFlashHash {
+        slot: u16,
+    },
+    GetHostFlashHash {
+        slot: u16,
     },
 }
 
@@ -212,7 +233,7 @@ counted_ringbuf!(CRITICAL, CriticalEvent, 16, CriticalEvent::Empty);
 
 const SOCKET: SocketName = SocketName::control_plane_agent;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() {
     let mut server = ServerImpl::claim_static_resources();
 
@@ -245,21 +266,30 @@ impl ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        notifications::SOCKET_MASK
+        #[cfg(not(feature = "minibar"))]
+        let mask = notifications::SOCKET_MASK
             | notifications::USART_IRQ_MASK
-            | notifications::TIMER_MASK
+            | notifications::TIMER_MASK;
+
+        // Minibar does not configure USART for serial console, so omit it
+        // from the mask.
+        #[cfg(feature = "minibar")]
+        let mask = notifications::SOCKET_MASK | notifications::TIMER_MASK;
+
+        mask
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::USART_IRQ_MASK) != 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        #[cfg(not(feature = "minibar"))]
+        if bits.check_notification_mask(notifications::USART_IRQ_MASK) {
             self.mgs_handler.drive_usart();
         }
 
-        if (bits & notifications::TIMER_MASK) != 0 {
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
             self.mgs_handler.handle_timer_fired();
         }
 
-        if (bits & notifications::SOCKET_MASK) != 0
+        if bits.check_notification_mask(notifications::SOCKET_MASK)
             || self.net_handler.packet_to_send.is_some()
             || self.mgs_handler.wants_to_send_packet_to_mgs()
         {
@@ -321,7 +351,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
     fn identity(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<VpdIdentity, RequestError<core::convert::Infallible>> {
+    ) -> Result<OxideIdentity, RequestError<core::convert::Infallible>> {
         ringbuf_entry!(Log::IpcRequest(IpcRequest::Identity));
         Ok(self.mgs_handler.identity())
     }
@@ -588,18 +618,32 @@ impl NetHandler {
 
 #[allow(dead_code)]
 const fn usize_max(a: usize, b: usize) -> usize {
-    if a > b {
-        a
-    } else {
-        b
-    }
+    if a > b { a } else { b }
 }
 
 mod idl {
     use task_control_plane_agent_api::{
-        ControlPlaneAgentError, HostStartupOptions, UartClient, VpdIdentity,
+        ControlPlaneAgentError, HostStartupOptions, OxideIdentity, UartClient,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+pub(crate) mod pmbus {
+    use super::*;
+
+    /// Type returned by generated pmbus rail functions
+    pub type SummonFn =
+        fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
+
+    pub struct PmbusRailBinding {
+        pub name: &'static str,
+        pub summon_fn: SummonFn,
+        pub status_bits: Capabilities,
+    }
+
+    include!(concat!(env!("OUT_DIR"), "/pmbus_mapping.rs"));
+}

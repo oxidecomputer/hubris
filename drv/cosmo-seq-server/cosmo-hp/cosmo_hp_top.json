@@ -1,0 +1,33 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 660,
+    "inst_name": "cosmo_hp_top",
+    "orig_type_name": "cosmo_hp_top",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 20,
+            "inst_name": "info",
+            "orig_type_name": "info_regs",
+            "addr_offset": 0,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 148,
+            "inst_name": "cemAtoE_hotplug",
+            "orig_type_name": "pca9506_axi_regs",
+            "addr_offset": 256,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 148,
+            "inst_name": "cemFtoJ_hotplug",
+            "orig_type_name": "pca9506_axi_regs",
+            "addr_offset": 512,
+            "children": []
+        }
+    ]
+}

@@ -12,8 +12,8 @@
 use counters::*;
 use drv_cpu_seq_api::Sequencer;
 use gimlet_inspector_protocol::{
-    QueryV0, Request, SequencerRegistersResponseV0, ANY_RESPONSE_V0_MAX_SIZE,
-    REQUEST_TRAILER,
+    ANY_RESPONSE_V0_MAX_SIZE, QueryV0, REQUEST_TRAILER, Request,
+    SequencerRegistersResponseV0,
 };
 use hubpack::SerializedSize;
 use task_net_api::*;
@@ -31,7 +31,7 @@ enum Event {
 
 counters!(Event);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Look up our peer task IDs and make clients.
     let net = Net::from(NET.get_task_id());

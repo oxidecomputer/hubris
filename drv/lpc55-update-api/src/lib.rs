@@ -7,7 +7,7 @@
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 
 /// Minimal error type for caboose actions
 ///
@@ -160,6 +160,9 @@ pub struct RotBootInfoV2 {
 pub enum VersionedRotBootInfo {
     V1(RotBootInfo),
     V2(RotBootInfoV2),
+}
+impl VersionedRotBootInfo {
+    pub const HIGHEST_KNOWN_VERSION: u8 = 2;
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, SerializedSize)]

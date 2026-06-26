@@ -12,10 +12,18 @@ use drv_spi_api::SpiServer;
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
 userlib::task_slot!(SPI, spi_driver);
+userlib::task_slot!(AUXFLASH, auxflash);
+
+// the CPU interrupt is not connected on grapefruit, so pick an
+// unconnected GPIO
+pub(crate) const SP_TO_HOST_CPU_INT_L: drv_stm32xx_sys_api::PinSet =
+    drv_stm32xx_sys_api::Port::B.pin(1);
+pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
+    drv_stm32xx_sys_api::OutputType::OpenDrain;
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 2;
+    pub(crate) const INVENTORY_COUNT: u32 = 3;
 
     /// Look up a device in our inventory, by index
     ///
@@ -53,35 +61,50 @@ impl ServerImpl {
                 let idc = drv_stm32h7_dbgmcu::read_idc();
                 let dbgmcu_rev_id = (idc >> 16) as u16;
                 let dbgmcu_dev_id = (idc & 4095) as u16;
-                let data = InventoryData::Stm32H7 {
+                *self.scratch = InventoryData::Stm32H7 {
                     uid,
                     dbgmcu_rev_id,
                     dbgmcu_dev_id,
                 };
-                self.tx_buf
-                    .try_encode_inventory(sequence, b"U12", || Ok(&data));
+                self.tx_buf.try_encode_inventory(sequence, b"U12", || {
+                    Ok(self.scratch)
+                });
             }
 
             1 => {
                 let spi = drv_spi_api::Spi::from(SPI.get_task_id());
                 let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
                 let ksz8463 = ksz8463::Ksz8463::new(ksz8463_dev);
-                let mut data = InventoryData::Ksz8463 { cider: 0 };
+                *self.scratch = InventoryData::Ksz8463 { cider: 0 };
                 self.tx_buf.try_encode_inventory(sequence, b"U401", || {
-                    let InventoryData::Ksz8463 { cider } = &mut data else {
+                    let InventoryData::Ksz8463 { cider } = self.scratch else {
                         unreachable!();
                     };
                     *cider = ksz8463
                         .read(ksz8463::Register::CIDER)
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
-                    Ok(&data)
+                    Ok(self.scratch)
+                });
+            }
+
+            2 => {
+                let aux =
+                    drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
+                self.tx_buf.try_encode_inventory(sequence, b"U10", || {
+                    let id = aux
+                        .read_id()
+                        .map_err(|_| InventoryDataResult::DeviceFailed)?;
+                    *self.scratch = InventoryData::W25q256jveqi {
+                        unique_id: id.unique_id,
+                    };
+                    Ok(self.scratch)
                 });
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
             // an error if we've overlapped it with a previous range
             Self::INVENTORY_COUNT | Self::INVENTORY_COUNT..=u32::MAX => {
-                return Err(InventoryDataResult::InvalidIndex)
+                return Err(InventoryDataResult::InvalidIndex);
             }
         }
 

@@ -31,7 +31,18 @@
     path = "bsp/sidecar_bcd.rs"
 )]
 #[cfg_attr(any(target_board = "medusa-a"), path = "bsp/medusa_a.rs")]
-#[cfg_attr(any(target_board = "grapefruit"), path = "bsp/grapefruit.rs")]
+#[cfg_attr(
+    any(target_board = "grapefruit-a", target_board = "grapefruit-b",),
+    path = "bsp/grapefruit.rs"
+)]
+#[cfg_attr(
+    any(target_board = "minibar-a", target_board = "minibar-b"),
+    path = "bsp/minibar.rs"
+)]
+#[cfg_attr(
+    any(target_board = "cosmo-a", target_board = "cosmo-b"),
+    path = "bsp/cosmo_ab.rs"
+)]
 mod bsp;
 mod control;
 
@@ -67,13 +78,67 @@ impl From<usize> for Fan {
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
-#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
     Start,
     ThermalMode(#[count(children)] ThermalMode),
     AutoState(#[count(children)] ThermalAutoState),
+    PowerDownDueTo {
+        sensor_id: SensorId,
+        /// The thermal model's worst-case temperature projection for this
+        /// sensor.
+        ///
+        /// Note that this may not be an *actual temperature measurement*
+        /// from this sensor. Instead, it is projected from the last successful
+        /// temperature reading, the lag since that measurement was received,
+        /// and the thermal model's slew rate for the component.
+        ///
+        /// This ringbuf entry is always followed by a [`LastActualTemperature`]
+        /// entry, which records the last actual temperature measurement
+        /// reported by the sensor.
+        worst_case_temp: units::Celsius,
+    },
+    CriticalDueTo {
+        sensor_id: SensorId,
+        /// The thermal model's worst-case temperature projection for this
+        /// sensor.
+        ///
+        /// Note that this may not be an *actual temperature measurement*
+        /// from this sensor. Instead, it is projected from the last successful
+        /// temperature reading, the lag since that measurement was received,
+        /// and the thermal model's slew rate for the component.
+        ///
+        /// This ringbuf entry is always followed by a [`LastActualTemperature`]
+        /// entry, which records the last actual temperature measurement
+        /// reported by the sensor.
+        worst_case_temp: units::Celsius,
+    },
+    /// The last actual temperature measurement reported by a sensor.
+    ///
+    /// This is recorded after every [`CriticalDueTo`] or [`PowerDownDueTo`]
+    /// entry so that the last known real life temperature can be compared to
+    /// the worst-case temperature projection that caused a thermal loop state
+    /// transition.
+    #[count(skip)]
+    LastRealTemperature {
+        sensor_id: SensorId,
+        /// The most recent real life (not fake) temperature measurement from
+        /// the sensor.
+        temperature: units::Celsius,
+        /// The (approximate) time, in seconds, since the real life temperature
+        /// measurement was received.
+        age_s: f32,
+    },
+    /// Total duration spent in the overheated control regime.
+    #[count(skip)]
+    OverheatedFor(u64),
+    /// Duration in the overheated control regime for which at least one sensor
+    /// was over a critical threshold. These are separate ringbuf entries
+    /// because an entry with two u64s doubles the size of the ringbuf.
+    #[count(skip)]
+    CriticalFor(u64),
     FanReadFailed(SensorId, SensorReadError),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
@@ -119,7 +184,7 @@ impl<'a> ServerImpl<'a> {
         initial_pwm: PWMDuty,
     ) -> Result<(), ThermalError> {
         self.set_mode(ThermalMode::Manual);
-        self.control.set_pwm(initial_pwm)
+        self.control.set_pwm(Ok(initial_pwm), sys_get_timer().now)
     }
 
     /// Configures the control loop to run in automatic mode.
@@ -165,27 +230,6 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
             return Err(ThermalError::NotInAutoMode.into());
         }
         Ok(self.control.get_state())
-    }
-
-    fn set_fan_pwm(
-        &mut self,
-        _: &RecvMessage,
-        index: u8,
-        pwm: u8,
-    ) -> Result<(), RequestError<ThermalError>> {
-        if self.mode != ThermalMode::Manual {
-            return Err(ThermalError::NotInManualMode.into());
-        }
-        let pwm =
-            PWMDuty::try_from(pwm).map_err(|_| ThermalError::InvalidPWM)?;
-
-        if let Some(fan) = self.control.fan(index) {
-            self.control
-                .set_fan_pwm(fan, pwm)
-                .map_err(|_| ThermalError::DeviceError.into())
-        } else {
-            Err(ThermalError::InvalidFan.into())
-        }
     }
 
     fn set_mode_manual(
@@ -305,9 +349,9 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         let now = sys_get_timer().now;
-        if now >= self.deadline {
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
             // See if any fans were removed or added since last iteration
             self.control.update_fan_presence();
 
@@ -348,7 +392,7 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
     let sensor_api = SensorApi::from(SENSOR.get_task_id());

@@ -9,7 +9,7 @@
 
 use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 
 #[derive(
     Copy, Clone, Debug, Eq, PartialEq, FromPrimitive, IdolError, counters::Count,

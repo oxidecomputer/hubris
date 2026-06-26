@@ -1,7 +1,7 @@
 [package]
 name = "task-sensor-api"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 hubpack.workspace = true
@@ -10,6 +10,7 @@ num-derive.workspace = true
 num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 counters = { path = "../../lib/counters" }
 drv-i2c-api.path = "../../drv/i2c-api"
@@ -34,6 +35,9 @@ build-util = { path = "../../build/util" }
 [features]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
+# Include component ID strings in I2cDevice structs. This is necessary if
+# `drv-i2c-api` is built with the `component-id` feature.
+component-id = ["drv-i2c-api/component-id"]
 
 [lints]
 workspace = true

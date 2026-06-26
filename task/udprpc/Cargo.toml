@@ -1,10 +1,11 @@
 [package]
 name = "task-udprpc"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 task-net-api = { path = "../net-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

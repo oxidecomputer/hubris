@@ -13,35 +13,37 @@ use static_cell::ClaimOnceCell;
 use userlib::{sys_get_timer, task_slot, units::Celsius};
 
 use drv_fpga_api::FpgaError;
-use drv_i2c_devices::pca9956b::Error;
-use drv_sidecar_front_io::{
+use drv_front_io_api::{
+    FrontIO, FrontIOError, Reg,
     leds::{FullErrorSummary, Leds},
     transceivers::{
         FpgaI2CFailure, LogicalPort, LogicalPortMask, Transceivers,
     },
-    Reg,
 };
-use drv_sidecar_seq_api::{SeqError, Sequencer};
+use drv_i2c_devices::pca9956b::Error;
+use drv_sidecar_seq_api::{SeqError, Sequencer, TofinoSeqState};
 use drv_transceivers_api::{
-    ModuleStatus, TransceiversError, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS,
+    ModuleStatus, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS, TransceiversError,
 };
 use enum_map::Enum;
 use task_sensor_api::{NoData, Sensor};
 #[allow(unused_imports)]
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
-    message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
+    MAX_PACKET_SIZE, message::LedState, mgmt::ManagementInterface,
 };
 
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, FromZeros, IntoBytes};
 
 mod udp; // UDP API is implemented in a separate file
 
 task_slot!(I2C, i2c_driver);
+// front-io-server, which does not yet own the fpga
 task_slot!(FRONT_IO, front_io);
-task_slot!(SEQ, seq);
+task_slot!(FRONT_IO_FPGA, front_io_fpga);
 task_slot!(NET, net);
 task_slot!(SENSOR, sensor);
+task_slot!(SEQ, seq);
 
 #[cfg(feature = "thermal-control")]
 task_slot!(THERMAL, thermal);
@@ -54,7 +56,7 @@ enum Trace {
     #[count(skip)]
     None,
     FrontIOBoardReady(#[count(children)] bool),
-    FrontIOSeqErr(SeqError),
+    FrontIOErr(FrontIOError),
     LEDInit,
     LEDInitComplete,
     LEDInitError(Error),
@@ -78,6 +80,7 @@ enum Trace {
     DisablingPorts(LogicalPortMask),
     DisableFailed(usize, LogicalPortMask),
     ClearDisabledPorts(LogicalPortMask),
+    SeqError(SeqError),
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
@@ -193,21 +196,26 @@ impl ServerImpl {
         self.system_led_state
     }
 
-    fn update_leds(&mut self) {
-        // handle port LEDs
+    fn update_leds(&mut self, seq_state: TofinoSeqState) {
         let mut next_state = LogicalPortMask(0);
-        for (i, state) in self.led_states.0.into_iter().enumerate() {
-            let i = LogicalPort(i as u8);
-            match state {
-                LedState::On => next_state.set(i),
-                LedState::Blink => {
-                    if self.blink_on {
-                        next_state.set(i)
+
+        // We only turn transceiver LEDs on when Sidecar is in A0, since that is when there can be
+        // meaningful link activity happening. When outside of A0, we default the LEDs to off.
+        if seq_state == TofinoSeqState::A0 {
+            for (i, state) in self.led_states.0.into_iter().enumerate() {
+                let i = LogicalPort(i as u8);
+                match state {
+                    LedState::On => next_state.set(i),
+                    LedState::Blink => {
+                        if self.blink_on {
+                            next_state.set(i)
+                        }
                     }
+                    LedState::Off => (),
                 }
-                LedState::Off => (),
             }
         }
+
         if let Err(e) = self.leds.update_led_state(next_state) {
             ringbuf_entry!(Trace::LEDUpdateError(e));
         }
@@ -258,7 +266,7 @@ impl ServerImpl {
             return Err(FpgaError::CommsError);
         }
 
-        #[derive(Copy, Clone, FromBytes, AsBytes)]
+        #[derive(Copy, Clone, FromBytes, IntoBytes)]
         #[repr(C)]
         struct Temperature {
             temperature: zerocopy::I16<zerocopy::BigEndian>,
@@ -267,7 +275,7 @@ impl ServerImpl {
         let mut out = Temperature::new_zeroed();
         let status = self
             .transceivers
-            .get_i2c_status_and_read_buffer(port, out.as_bytes_mut())?;
+            .get_i2c_status_and_read_buffer(port, out.as_mut_bytes())?;
 
         if status.error == FpgaI2CFailure::NoError {
             // "Internally measured free side device temperatures are
@@ -512,9 +520,9 @@ impl ServerImpl {
         // the `sensors` and `thermal` tasks.
     }
 
-    fn handle_i2c_loop(&mut self) {
+    fn handle_i2c_loop(&mut self, seq_state: TofinoSeqState) {
         if self.leds_initialized {
-            self.update_leds();
+            self.update_leds(seq_state);
             let errors = match self.leds.error_summary() {
                 Ok(errs) => errs,
                 Err(e) => {
@@ -603,20 +611,21 @@ impl NotificationHandler for ServerImpl {
         notifications::SOCKET_MASK | notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         // Nothing to do here; notifications are just to wake up this task, and
         // all of the actual work is handled in the main loop
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // This is a temporary workaround that makes sure the FPGAs are up
     // before we start doing things with them. A more sophisticated
     // notification system will be put in place.
     let seq = Sequencer::from(SEQ.get_task_id());
+    let front_io = FrontIO::from(FRONT_IO.get_task_id());
 
-    let transceivers = Transceivers::new(FRONT_IO.get_task_id());
+    let transceivers = Transceivers::new(FRONT_IO_FPGA.get_task_id());
     let leds = Leds::new(
         &i2c_config::devices::pca9956b_front_leds_left(I2C.get_task_id()),
         &i2c_config::devices::pca9956b_front_leds_right(I2C.get_task_id()),
@@ -685,15 +694,13 @@ fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
         if server.front_io_board_present == FrontIOStatus::NotReady {
-            server.front_io_board_present = match seq.front_io_board_ready() {
+            server.front_io_board_present = match front_io.board_ready() {
                 Ok(true) => {
                     ringbuf_entry!(Trace::FrontIOBoardReady(true));
                     FrontIOStatus::Ready
                 }
-                Err(SeqError::NoFrontIOBoard) => {
-                    ringbuf_entry!(Trace::FrontIOSeqErr(
-                        SeqError::NoFrontIOBoard
-                    ));
+                Err(FrontIOError::NotPresent) => {
+                    ringbuf_entry!(Trace::FrontIOErr(FrontIOError::NotPresent));
                     FrontIOStatus::NotPresent
                 }
                 _ => {
@@ -719,10 +726,23 @@ fn main() -> ! {
         for t in multitimer.iter_fired() {
             match t {
                 Timers::I2C => {
+                    // Check what power state we are in since that can impact LED state which is
+                    // part of the I2C loop.
+                    let seq_state =
+                        seq.tofino_seq_state().unwrap_or_else(|e| {
+                            // The failure path here is that we cannot get the state from the FPGA.
+                            // If we cannot communicate with the FPGA then something has likely went
+                            // rather wrong, and we are probably not in A0. For handling the error
+                            // we will assume to be in the Init state, since that is what the main
+                            // sequencer does as well.
+                            ringbuf_entry!(Trace::SeqError(e));
+                            TofinoSeqState::Init
+                        });
+
                     // Handle the Front IO status checking as part of this
                     // loop because the frequency is what we had before and
                     // the server itself has no knowledge of the sequencer.
-                    server.handle_i2c_loop();
+                    server.handle_i2c_loop(seq_state);
                 }
                 Timers::SPI => {
                     if server.front_io_board_present == FrontIOStatus::Ready {

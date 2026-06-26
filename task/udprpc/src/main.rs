@@ -10,7 +10,7 @@ use userlib::{
     kipc, sys_recv_notification, sys_refresh_task_id, sys_send, task_slot,
     TaskId, UnwrapLite,
 };
-use zerocopy::{AsBytes, FromBytes, LittleEndian, U16, U64};
+use zerocopy::{FromBytes, IntoBytes, LittleEndian, U16, U64};
 
 task_slot!(NET, net);
 
@@ -42,7 +42,7 @@ struct RpcHeader {
     nbytes: U16<LittleEndian>,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let net = NET.get_task_id();
     let net = Net::from(net);
@@ -82,7 +82,7 @@ fn main() -> ! {
                 } else {
                     // We can always read the header, since it's raw data
                     let header =
-                        RpcHeader::read_from(&rx_data_buf[..HEADER_SIZE])
+                        RpcHeader::read_from_bytes(&rx_data_buf[..HEADER_SIZE])
                             .unwrap_lite();
 
                     let nbytes = header.nbytes.get() as usize;

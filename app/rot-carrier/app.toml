@@ -6,7 +6,6 @@ stacksize = 1024
 image-names = ["a", "b"]
 epoch = 0
 version = 0
-fwid = true
 
 [kernel]
 name = "rot-carrier"
@@ -14,10 +13,9 @@ features = ["dice-self"]
 requires = {flash = 54176, ram = 3876}
 
 [caboose]
-tasks = ["caboose_reader", "sprot"]
+tasks = ["sprot"]
 region = "flash"
 size = 256
-default = true
 
 [tasks.jefe]
 name = "task-jefe"
@@ -29,12 +27,6 @@ notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
 request_reset = ["update_server"]
-
-[tasks.caboose_reader]
-name = "task-caboose-reader"
-priority = 2
-max-sizes = {flash = 16384, ram = 2048}
-start = true
 
 [tasks.idle]
 name = "task-idle"
@@ -67,7 +59,7 @@ task-slots = ["jefe"]
 name = "drv-lpc55-gpio"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
-uses = ["gpio", "iocon"]
+uses = ["gpio", "iocon", "pint", "inputmux"]
 start = true
 task-slots = ["syscon_driver"]
 
@@ -75,7 +67,7 @@ task-slots = ["syscon_driver"]
 name = "drv-user-leds"
 features = ["lpc55"]
 priority = 6
-max-sizes = {flash = 8192, ram = 1056}
+max-sizes = {flash = 8192, ram = 1120}
 start = true
 task-slots = ["gpio_driver"]
 notifications = ["timer"]
@@ -95,15 +87,6 @@ pins = [
     { pin = { port = 0, pin = 29}, alt = 1},
     { pin = { port = 0, pin = 30}, alt = 1}
 ]
-
-[tasks.rng_driver]
-name = "drv-lpc55-rng"
-priority = 5
-max-sizes = {flash = 16384, ram = 4096}
-uses = ["rng", "pmc"]
-start = true
-stacksize = 2200
-task-slots = ["syscon_driver"]
 
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
@@ -149,6 +132,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["gpio_driver", "update_server"]
+notifications = ["timer"]
 
 [tasks.attest]
 name = "task-attest"

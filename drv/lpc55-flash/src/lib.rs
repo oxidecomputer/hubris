@@ -228,7 +228,7 @@ impl<'a> Flash<'a> {
     /// On success, the word is returned as an array of `u32`s in ascending
     /// address order. To turn this into the bytes you'd read at the direct bus
     /// interface, convert each `u32` to little-endian bytes (or reinterpret it
-    /// in place using `zerocopy::AsBytes`).
+    /// in place using `zerocopy::IntoBytes`).
     pub fn poll_read_result(&self) -> Option<Result<[u32; 4], ReadError>> {
         let s = self.read_completion_status()?;
         // The manual's definition of the status bits for READ_SINGLE_WORD is a

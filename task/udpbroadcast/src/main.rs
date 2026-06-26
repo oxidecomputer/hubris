@@ -8,7 +8,7 @@
 use hubpack::SerializedSize;
 use serde::Serialize;
 use task_net_api::*;
-use task_packrat_api::{Packrat, VpdIdentity};
+use task_packrat_api::{OxideIdentity, Packrat};
 use userlib::{hl, kipc, task_slot, UnwrapLite};
 
 #[cfg(feature = "vlan")]
@@ -31,9 +31,9 @@ struct BroadcastData {
     // are populated. If false, we have no VPD or failed to read it, and the
     // following three fields will be all zero.
     identity_valid: bool,
-    part_number: [u8; VpdIdentity::PART_NUMBER_LEN],
+    part_number: [u8; OxideIdentity::PART_NUMBER_LEN],
     revision: u32,
-    serial: [u8; VpdIdentity::SERIAL_LEN],
+    serial: [u8; OxideIdentity::SERIAL_LEN],
 }
 
 impl BroadcastData {
@@ -54,7 +54,7 @@ impl BroadcastData {
 // serial (11)
 static_assertions::const_assert_eq!(BroadcastData::MAX_SIZE, 45);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let net = NET.get_task_id();
     let net = Net::from(net);

@@ -9,6 +9,7 @@
 
 use dump_agent_api::*;
 use idol_runtime::RequestError;
+#[cfg(not(feature = "no-rot"))]
 use ringbuf::*;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
@@ -30,15 +31,15 @@ struct ServerImpl {
     net: task_net_api::Net,
 }
 
+#[cfg(not(feature = "no-rot"))]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    #[cfg(not(feature = "no-rot"))]
-    SpRotDump,
-    #[cfg(not(feature = "no-rot"))]
-    SpRotDumpResult(Result<(), DumpAgentError>),
     None,
+    SpRotDump,
+    SpRotDumpResult(Result<(), DumpAgentError>),
 }
 
+#[cfg(not(feature = "no-rot"))]
 ringbuf!(Trace, 4, Trace::None);
 
 #[cfg(not(feature = "no-rot"))]
@@ -95,38 +96,33 @@ impl ServerImpl {
         .map_err(|_| DumpAgentError::BadSegmentAdd)
     }
 
-    fn read_dump(
+    fn read_dump<'b, B: idol_runtime::BufWriter<'b>>(
         &mut self,
         index: u8,
         offset: u32,
-    ) -> Result<[u8; DUMP_READ_SIZE], DumpAgentError> {
-        let mut rval = [0u8; DUMP_READ_SIZE];
-
-        if offset & ((rval.len() as u32) - 1) != 0 {
-            return Err(DumpAgentError::UnalignedOffset);
-        }
+        mut rval: B,
+    ) -> Result<usize, DumpAgentError> {
+        let offset = offset as usize;
+        let read_size = rval.remaining_size();
 
         let area = self.dump_area(index)?;
 
         let written = unsafe {
             let header = area.region.address as *mut DumpAreaHeader;
             core::ptr::read_volatile(header).written
-        };
+        } as usize;
 
         if written > offset {
-            let to_read = written - offset;
             let base = area.region.address as *const u8;
-            let base = unsafe { base.add(offset as usize) };
+            let base = unsafe { base.add(offset) };
 
-            for (i, entry) in rval
-                .iter_mut()
-                .enumerate()
-                .take(usize::min(to_read as usize, DUMP_READ_SIZE))
-            {
-                *entry = unsafe { core::ptr::read_volatile(base.add(i)) };
+            let read_count = (written - offset).min(read_size);
+            for i in 0..read_count {
+                rval.write(unsafe { core::ptr::read_volatile(base.add(i)) })
+                    .map_err(|_| DumpAgentError::LeaseWriteFailed)?;
             }
 
-            Ok(rval)
+            Ok(read_count)
         } else {
             Err(DumpAgentError::BadOffset)
         }
@@ -189,10 +185,8 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         notifications::SOCKET_MASK
     }
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::SOCKET_MASK) != 0 {
-            // Nothing to do here; we'll handle it in the main loop
-        }
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+        // Nothing to do here; we'll handle it in the main loop
     }
 }
 
@@ -202,7 +196,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         0
     }
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
@@ -250,7 +244,28 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         index: u8,
         offset: u32,
     ) -> Result<[u8; DUMP_READ_SIZE], RequestError<DumpAgentError>> {
-        self.read_dump(index, offset).map_err(|e| e.into())
+        let mut out = [0u8; DUMP_READ_SIZE];
+        if offset & (out.len() as u32 - 1) != 0 {
+            return Err(DumpAgentError::UnalignedOffset.into());
+        }
+        self.read_dump(index, offset, out.as_mut_slice())
+            .map_err(RequestError::from)?;
+        Ok(out)
+    }
+
+    fn read_dump_into(
+        &mut self,
+        _msg: &RecvMessage,
+        index: u8,
+        offset: u32,
+        out: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<DumpAgentError>> {
+        self.read_dump(
+            index,
+            offset,
+            idol_runtime::LeaseBufWriter::<_, 16>::from(out),
+        )
+        .map_err(|e| e.into())
     }
 
     fn dump_task(
@@ -281,7 +296,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
 

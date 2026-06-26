@@ -22,6 +22,7 @@ pub const PAGE_SIZE_BYTES: usize = 256;
 /// will need to change to something more flexible.
 pub const SECTOR_SIZE_BYTES: usize = 65_536;
 
+#[derive(Copy, Clone)]
 pub enum Command {
     ReadStatusReg = 0x05,
     WriteEnable = 0x06,
@@ -34,8 +35,17 @@ pub enum Command {
     // TODO: Proper flash chip quirk support.
     ReadId = 0x9F,
 
+    /// Reads a 8-byte unique ID from Winbond parts
+    WinbondReadUniqueId = 0x4B,
+
     BulkErase = 0xC7,
     SectorErase = 0xDC,
+    // 4-BYTE QUAD OUTPUT FAST READ
+    QuadRead = 0x6C,
+    // 4-BYTE DTR QUAD INPUT/OUTPUT FAST READ
+    // Does not work at the moment
+    QuadDdrRead = 0xEE,
+    DdrRead = 0x0E,
 }
 
 impl From<Command> for u8 {

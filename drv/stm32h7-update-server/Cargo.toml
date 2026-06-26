@@ -1,7 +1,7 @@
 [package]
 name = "stm32h7-update-server"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 hubpack = { workspace = true }
@@ -10,6 +10,7 @@ num-traits = { workspace = true }
 serde = { workspace = true }
 stm32h7 = { workspace = true, features = ["stm32h753"] }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-caboose.path = "../../drv/caboose"
 drv-stm32h7-update-api.path = "../stm32h7-update-api/"

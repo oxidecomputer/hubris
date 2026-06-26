@@ -26,7 +26,7 @@ enum Trace {
 
 ringbuf!(Trace, { TEXT.len() + 8 }, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let spi_device = spi.device(drv_spi_api::devices::MB86RS64T);

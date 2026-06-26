@@ -9,8 +9,8 @@ use bitfield::bitfield;
 use drv_i2c_api::*;
 use ringbuf::*;
 use userlib::{
-    units::{PWMDuty, Rpm},
     FromPrimitive,
+    units::{PWMDuty, Rpm},
 };
 
 #[allow(dead_code)]
@@ -254,8 +254,8 @@ fn write_reg16(
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    ZeroTach(Fan),
     None,
+    ZeroTach(Fan),
 }
 
 ringbuf!(Trace, 6, Trace::None);

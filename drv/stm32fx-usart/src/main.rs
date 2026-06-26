@@ -20,7 +20,7 @@ use stm32f4::stm32f407 as device;
 use stm32f3::stm32f303 as device;
 
 use userlib::{hl, sys_irq_control, task_slot, FromPrimitive, LeaseAttributes};
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 task_slot!(RCC, rcc_driver);
 
@@ -49,7 +49,7 @@ struct Transmit {
     pos: usize,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_usart();

@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::elf;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use scroll::Pread;
 use std::path::Path;
 
@@ -68,19 +68,19 @@ pub fn get_task_slot_table_entries<'a>(
     let task_slot_table_section =
         match elf::get_section_by_name(elf, TASK_SLOT_TABLE_SECTION) {
             Some(task_slot_table_section) => task_slot_table_section,
-            _ => bail!("No {} section", TASK_SLOT_TABLE_SECTION),
+            _ => bail!("No {TASK_SLOT_TABLE_SECTION} section"),
         };
 
     let task_slot_table = &src[task_slot_table_section.sh_offset as usize
         ..(task_slot_table_section.sh_offset + task_slot_table_section.sh_size)
             as usize];
 
-    let mut entries = Vec::<TaskSlotTableEntry>::new();
+    let mut entries = Vec::<TaskSlotTableEntry<'_>>::new();
     let cur_offset = &mut 0;
 
     while *cur_offset < task_slot_table.len() {
         let x = task_slot_table
-            .gread_with::<TaskSlotTableEntry>(cur_offset, elf)?;
+            .gread_with::<TaskSlotTableEntry<'_>>(cur_offset, elf)?;
         entries.push(x);
     }
 

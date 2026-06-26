@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::ecp5::{Command, Ecp5Driver};
 use crate::FpgaUserDesign;
+use crate::ecp5::{Command, Ecp5Driver};
 use drv_fpga_api::FpgaError;
 use drv_spi_api::{self as spi_api, SpiDevice, SpiError, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
@@ -11,7 +11,6 @@ use drv_stm32xx_sys_api::{self as sys_api, Sys};
 /// `Ecp5UsingSpi` is the simplest implementation of the Ecp5Impl interface using
 /// the SPI and Sys APIs. It assumes the PROGRAM_N, INIT_N and DONE signals are
 /// directly connected to GPIO pins.
-
 pub struct Ecp5UsingSpi<S: SpiServer> {
     pub sys: Sys,
     pub configuration_port: SpiDevice<S>,
@@ -136,7 +135,7 @@ impl<S: SpiServer> FpgaUserDesign for Ecp5UsingSpi<S> {
     }
 
     fn set_user_design_enabled(&self, enabled: bool) -> Result<(), FpgaError> {
-        use crate::ecp5::{ecp5_trace, Trace};
+        use crate::ecp5::{Trace, ecp5_trace};
 
         self.set_user_design_reset_n(enabled)?;
 

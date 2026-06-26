@@ -1,0 +1,17 @@
+[package]
+name = "microcbor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+minicbor.workspace = true
+microcbor-derive = { path = "../microcbor-derive" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+minicbor = { workspace = true, features = ["alloc", "half"]}
+fixedstr = { path = "../fixedstr", features = ["microcbor"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 pub use task_sensor_api::SensorId;
 use userlib::sys_send;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, SerializedSize)]
 pub enum Device {
@@ -52,6 +52,8 @@ pub enum Operation {
     ReadTemperature1,
     ReadTemperature2,
     ReadTemperature3,
+    ReadTempClipP,
+    ReadTempClipN,
     ReadFanSpeed1,
     ReadFanSpeed2,
     ReadPout,
@@ -107,8 +109,10 @@ pub enum PmbusValue {
     Deserialize,
     Serialize,
     SerializedSize,
-    AsBytes,
+    IntoBytes,
     FromBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(C)]
 pub struct RawPmbusBlock {
@@ -164,8 +168,10 @@ impl From<pmbus::units::Percent> for PmbusValue {
     Deserialize,
     Serialize,
     SerializedSize,
-    AsBytes,
+    IntoBytes,
     FromBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(C)]
 pub struct Bmr491Event([u8; 24]);

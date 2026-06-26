@@ -25,7 +25,7 @@ Interface(
         "get_identity": (
             doc: "Get the cached board identity",
             reply: Result(
-                ok: "VpdIdentity",
+                ok: "OxideIdentity",
                 err: CLike("CacheGetError"),
             ),
             idempotent: true,
@@ -33,7 +33,7 @@ Interface(
         "set_identity": (
             doc: "Set the cached board identity",
             args: {
-                "macs": "VpdIdentity",
+                "macs": "OxideIdentity",
             },
             reply: Result(
                 ok: "()",
@@ -54,12 +54,19 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "remove_spd": (
+            doc: "Mark an SPD as absent",
+            args: {
+                "index": "u8",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
         "set_spd_eeprom": (
             doc: "Record SPD EEPROM data",
             args: {
                 "index": "u8",
-                "page1": "bool",
-                "offset": "u8",
+                "offset": "usize",
             },
             leases: {
                 "data": (type: "[u8]", read: true, max_len: Some(256)),
@@ -70,30 +77,72 @@ Interface(
         "get_spd_present": (
             doc: "Return whether the device at `index` is present. Return value is dependent on prior calls to `set_spd_eeprom`.",
             args: {
-                "index": "usize",
+                "index": "u8",
             },
             reply: Simple("bool"),
             idempotent: true,
         ),
         "get_spd_data": (
-            doc: "Return the value of the SPD data byte at `index`. Return value is dependent on prior calls to `set_spd_eeprom`.",
+            doc: "Return the value of the SPD data byte from device `index` at offset `offset`. Return value is dependent on prior calls to `set_spd_eeprom`.",
             args: {
-                "index": "usize",
+                "index": "u8",
+                "offset": "usize",
             },
             reply: Simple("u8"),
             idempotent: true,
         ),
         "get_full_spd_data": (
-            doc: "Read an entire SPD EEPROM (512 bytes) for the given device",
+            doc: "Read an entire SPD EEPROM for the given device",
             args: {
-                "dev": "usize",
+                "index": "u8",
             },
             leases: {
-                "data": (type: "[u8]", write: true, max_len: Some(512)),
+                "data": (type: "[u8]", write: true),
             },
             reply: Simple("()"),
             idempotent: true,
         ),
+        "set_ereport_restart_id": (
+            doc: "Set the restart ID for ereports",
+            args: {
+                "restart_id": "u128",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("CacheSetError"),
+            ),
+            idempotent: true,
+        ),
+        "deliver_encoded_ereport": (
+            doc: "Hand an encoded ereport to packrat for buffering.",
+            args: {
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(1024)),
+            },
+            reply: Result(
+                ok: "ereport_messages::Ena",
+                err: CLike("EreportWriteError"),
+            ),
+            idempotent: true,
+        ),
+        "read_ereports": (
+            doc: "Read ereports starting with a watermark (ENA) value",
+            args: {
+                "request_id": "ereport_messages::RequestIdV0",
+                "restart_id": "ereport_messages::RestartId",
+                "start_ena": "ereport_messages::Ena",
+                "limit": "u8",
+                "committed_ena": "ereport_messages::Ena",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("EreportReadError"),
+            ),
+            idempotent: true,
+        ),
     },
 )
-

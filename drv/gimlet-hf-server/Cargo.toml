@@ -1,7 +1,7 @@
 [package]
 name = "drv-gimlet-hf-server"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 hubpack.workspace = true
@@ -10,6 +10,7 @@ num-traits.workspace = true
 serde.workspace = true
 stm32h7.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 drv-hf-api = { path = "../hf-api" }
 drv-hash-api = { path = "../hash-api" }
@@ -22,8 +23,6 @@ build-util = {path = "../../build/util"}
 idol = { workspace = true }
 
 [features]
-host_access = []
-hash = []
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-qspi/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753"]
 no-ipc-counters = ["idol/no-counters"]

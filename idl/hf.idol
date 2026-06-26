@@ -6,7 +6,7 @@ Interface(
         "read_id": (
             args: {},
             reply: Result(
-                ok: "[u8; 20]",
+                ok: "HfChipId",
                 err: CLike("HfError"),
             ),
         ),
@@ -53,6 +53,27 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "page_program_dev": (
+            description: "programs a page of flash on the specific dev, restoring the previous dev before returning",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+                "address": "u32",
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
         "read": (
             args: {
                 "address": "u32",
@@ -65,8 +86,43 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "read_dev": (
+            description: "read from the specific dev, restoring the previous dev before returning",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
         "sector_erase": (
             args: {
+                "address": "u32",
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "sector_erase_dev": (
+            description: "erases a sector of flash on the specific dev, restoring the previous dev before returning",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
                 "address": "u32",
                 "protect": (
                     type: "HfProtectMode",
@@ -124,10 +180,50 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "check_dev": (
+            doc: "Check whether the given dev is valid",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
         "hash": (
+            doc: "sha256 of the specified flash range",
             args: {
                 "address": "u32",
                 "len": "u32",
+            },
+            reply: Result(
+                ok: "[u8; drv_hash_api::SHA256_SZ]",
+                err: CLike("HfError"),
+            ),
+        ),
+        "hash_significant_bits": (
+            doc: "async sha256 of the entire flash chip with sector zero replaced by `0xff`",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "get_cached_hash": (
+            doc: "sha256 of the entire flash chip with sector zero replaced by `0xff`",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             reply: Result(
                 ok: "[u8; drv_hash_api::SHA256_SZ]",
@@ -154,6 +250,68 @@ Interface(
                 ok: "()",
                 err: CLike("HfError"),
             ),
+        ),
+        "apob_begin": (
+            description: "begin writing APOB data to bonus flash",
+            args: {
+                "length": "u32",
+                "algorithm": "ApobHash",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ApobBeginError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "apob_write": (
+            description: "writes to the current APOB slot",
+            args: {
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ApobWriteError"),
+            ),
+            idempotent: true,
+        ),
+        "apob_commit": (
+            description: "commits the written APOB slot",
+            reply: Result(
+                ok: "()",
+                err: CLike("ApobCommitError"),
+            ),
+            idempotent: true,
+        ),
+        "apob_lock": (
+            description: "locks the APOB state machine",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "apob_read": (
+            description: "reads from the current APOB slot",
+            args: {
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("ApobReadError"),
+            ),
+            idempotent: true,
+        ),
+        "apob_clear": (
+            description: "clears the APOB",
+            reply: Result(
+                ok: "()",
+                err: CLike("ApobClearError"),
+            ),
+            idempotent: true,
         ),
     },
 )

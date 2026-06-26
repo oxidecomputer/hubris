@@ -77,6 +77,7 @@ impl From<Error> for ResponseCode {
         match err {
             Error::BadRegisterRead { code, .. } => code,
             Error::BadCpuidRead { code } => code,
+            Error::BadRdmsr { code } => code,
             _ => ResponseCode::BadResponse,
         }
     }
@@ -333,7 +334,7 @@ impl Sbrmi {
             return Err(Error::RdmsrFailed { code });
         }
 
-        Ok(<V>::read_from(&result[2..2 + size as usize]).unwrap())
+        Ok(<V>::read_from_bytes(&result[2..2 + size as usize]).unwrap())
     }
 }
 
@@ -342,6 +343,8 @@ impl Validate<Error> for Sbrmi {
         let sbrmi = Sbrmi::new(device);
         let rev = sbrmi.read_reg(Register::Revision)?;
 
-        Ok(rev == 0x10)
+        // Support either Gimlet or Cosmo CPUs, documented in the AMD PPR docs
+        // (e.g. "PPR Vol 5 for AMD Family 1Ah Model 02h C1", which lists 0x21)
+        Ok(rev == 0x10 || rev == 0x21)
     }
 }

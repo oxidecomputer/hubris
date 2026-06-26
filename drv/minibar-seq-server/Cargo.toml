@@ -1,0 +1,44 @@
+[package]
+name = "drv-minibar-seq-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hubpack.workspace = true
+idol-runtime.workspace = true
+num-traits.workspace = true
+serde.workspace = true
+zerocopy.workspace = true
+zerocopy-derive.workspace = true
+
+counters = { path = "../../lib/counters" }
+drv-auxflash-api = { path = "../auxflash-api" }
+drv-fpga-api = { path = "../fpga-api", features = ["auxflash"] }
+drv-fpga-user-api = { path = "../fpga-user-api" }
+drv-i2c-api = { path = "../i2c-api" }
+drv-i2c-devices = { path = "../i2c-devices" }
+drv-minibar-seq-api = { path = "../minibar-seq-api" }
+drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[features]
+h753 = ["build-i2c/h753"]
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+build-i2c = { path = "../../build/i2c" }
+idol = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-minibar-seq-server"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

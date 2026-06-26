@@ -39,7 +39,7 @@ impl From<Error> for ResponseCode {
         match err {
             Error::BadValidate { code } => code,
             Error::BadTempRead { code } => code,
-            _ => panic!(),
+            Error::BadID { .. } => ResponseCode::BadDeviceState,
         }
     }
 }

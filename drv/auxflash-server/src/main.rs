@@ -6,20 +6,19 @@
 #![no_main]
 
 use drv_auxflash_api::{
-    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
-    TlvcReadAuxFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, SLOT_COUNT,
-    SLOT_SIZE,
+    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId, PAGE_SIZE_BYTES,
+    SECTOR_SIZE_BYTES, SLOT_COUNT, SLOT_SIZE, TlvcReadAuxFlash,
 };
 use idol_runtime::{
-    ClientError, Leased, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, NotificationHandler, R, RequestError, W,
 };
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
-use userlib::{hl, task_slot, RecvMessage, UnwrapLite};
+use userlib::{RecvMessage, UnwrapLite, hl, task_slot};
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use drv_stm32h7_qspi::Qspi;
+use drv_stm32h7_qspi::{Qspi, QspiError, ReadSetting};
 use drv_stm32xx_sys_api as sys_api;
 
 task_slot!(SYS, sys);
@@ -34,7 +33,7 @@ struct SlotReader<'a> {
 }
 
 impl<'a> TlvcRead for SlotReader<'a> {
-    type Error = core::convert::Infallible;
+    type Error = AuxFlashError;
 
     fn extent(&self) -> Result<u64, TlvcReadError<Self::Error>> {
         // Hard-coded slot size, on a per-board basis
@@ -46,14 +45,24 @@ impl<'a> TlvcRead for SlotReader<'a> {
         dest: &mut [u8],
     ) -> Result<(), TlvcReadError<Self::Error>> {
         let addr: u32 = self.base + u32::try_from(offset).unwrap_lite();
-        self.qspi.read_memory(addr, dest);
+        self.qspi
+            .read_memory(addr, dest)
+            .map_err(|x| TlvcReadError::User(qspi_to_auxflash(x)))?;
         Ok(())
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[export_name = "main"]
+// There isn't a great crate to do `From` implementation so do this manually
+fn qspi_to_auxflash(val: QspiError) -> AuxFlashError {
+    match val {
+        QspiError::Timeout => AuxFlashError::QspiTimeout,
+        QspiError::TransferError => AuxFlashError::QspiTransferError,
+    }
+}
+
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
@@ -61,17 +70,29 @@ fn main() -> ! {
     sys.leave_reset(sys_api::Peripheral::QuadSpi);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
-    let qspi = Qspi::new(reg, notifications::QSPI_IRQ_MASK);
+    let qspi = Qspi::new(
+        reg,
+        notifications::QSPI_IRQ_MASK,
+        if cfg!(feature = "fast-qspi") {
+            ReadSetting::Quad
+        } else {
+            ReadSetting::Single
+        },
+    );
 
-    let clock = 5; // 200MHz kernel / 5 = 40MHz clock
+    let clock = if cfg!(feature = "fast-qspi") {
+        3 // 200MHz kernel / 3 = 66MHz clock
+    } else {
+        5 // 200MHz kernel / 5 = 40MHz clock
+    };
     const MEMORY_SIZE: usize = SLOT_COUNT as usize * SLOT_SIZE;
     assert!(MEMORY_SIZE.is_power_of_two());
     let memory_size_log2 = MEMORY_SIZE.trailing_zeros().try_into().unwrap();
     qspi.configure(clock, memory_size_log2);
 
-    // Sidecar-only for now!
-    //
-    // This is mostly copied from `gimlet-hf-server`, with a few pin adjustments
+    // This driver is compatible with Sidecar, Cosmo, and Grapefruit; Gimlet
+    // uses its QSPI peripheral for host flash, and would have to be handled
+    // differently.
     //
     // SP_QSPI_RESET_L     PF5     GPIO
     // SP_QSPI_CLK         PF10    QUADSPI_CLK
@@ -108,8 +129,12 @@ fn main() -> ! {
 
     // TODO: check the ID and make sure it's what we expect
     //
-    // Gimlet is  MT25QU256ABA8E12
-    // Sidecar is S25FL128SAGMFIR01
+    // Board      | Part number       | Designator | QSPI | Used
+    // -----------|-------------------|------------|------|------
+    // Gimlet     | W25N01GVZEIG      | U557       | No   | No
+    // Sidecar    | W25Q256JVEIQ      | U63        | Yes  | Yes
+    // Cosmo      | W25Q256JVEIQ      | U21        | Yes  | Yes
+    // Grapefruit | W25Q256JVEIQ      | U10        | Yes  | Yes
     let mut buffer = [0; idl::INCOMING_SIZE];
     let active_slot = scan_for_active_slot(&qspi);
     let mut server = ServerImpl { qspi, active_slot };
@@ -133,9 +158,12 @@ impl ServerImpl {
     ///
     /// Sleep times are in ticks (typically milliseconds) and are somewhat
     /// experimentally determined, see hubris#753 for details.
-    fn poll_for_write_complete(&self, sleep: Option<u64>) {
+    fn poll_for_write_complete(
+        &self,
+        sleep: Option<u64>,
+    ) -> Result<(), AuxFlashError> {
         loop {
-            let status = self.qspi.read_status();
+            let status = self.qspi.read_status().map_err(qspi_to_auxflash)?;
             if status & 1 == 0 {
                 // ooh we're done
                 break;
@@ -144,11 +172,12 @@ impl ServerImpl {
                 hl::sleep_for(sleep);
             }
         }
+        Ok(())
     }
 
     fn set_and_check_write_enable(&self) -> Result<(), AuxFlashError> {
-        self.qspi.write_enable();
-        let status = self.qspi.read_status();
+        self.qspi.write_enable().map_err(qspi_to_auxflash)?;
+        let status = self.qspi.read_status().map_err(qspi_to_auxflash)?;
 
         if status & 0b10 == 0 {
             // oh oh
@@ -161,7 +190,7 @@ impl ServerImpl {
         &self,
         slot: u32,
     ) -> Result<AuxFlashChecksum, AuxFlashError> {
-        read_slot_checksum(&self.qspi, slot)
+        read_and_check_slot_checksum(&self.qspi, slot)
     }
 
     /// Checks that the matched slot in this even/odd pair also has valid data.
@@ -197,20 +226,26 @@ impl ServerImpl {
             let amount = (read_end - read_addr).min(buf.len());
 
             // Read from the active slot
-            self.qspi.read_memory(read_addr as u32, &mut buf[..amount]);
+            self.qspi
+                .read_memory(read_addr as u32, &mut buf[..amount])
+                .map_err(qspi_to_auxflash)?;
 
             // If we're at the start of a sector, erase it before we start
             // writing the copy.
-            if write_addr % SECTOR_SIZE_BYTES == 0 {
+            if write_addr.is_multiple_of(SECTOR_SIZE_BYTES) {
                 self.set_and_check_write_enable()?;
-                self.qspi.sector_erase(write_addr as u32);
-                self.poll_for_write_complete(Some(1));
+                self.qspi
+                    .sector_erase(write_addr as u32)
+                    .map_err(qspi_to_auxflash)?;
+                self.poll_for_write_complete(Some(1))?;
             }
 
             // Write back to the redundant slot
             self.set_and_check_write_enable()?;
-            self.qspi.page_program(write_addr as u32, &buf[..amount]);
-            self.poll_for_write_complete(None);
+            self.qspi
+                .page_program(write_addr as u32, &buf[..amount])
+                .map_err(qspi_to_auxflash)?;
+            self.poll_for_write_complete(None)?;
 
             read_addr += amount;
             write_addr += amount;
@@ -232,15 +267,28 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<AuxFlashId, RequestError<AuxFlashError>> {
         let mut idbuf = [0; 20];
-        self.qspi.read_id(&mut idbuf);
-        Ok(AuxFlashId(idbuf))
+        self.qspi.read_id(&mut idbuf).map_err(qspi_to_auxflash)?;
+        let mfr_id = idbuf[0];
+        let memory_type = idbuf[1];
+        let capacity = idbuf[2];
+
+        let unique_id = self
+            .qspi
+            .read_winbond_unique_id()
+            .map_err(qspi_to_auxflash)?;
+        Ok(AuxFlashId {
+            mfr_id,
+            memory_type,
+            capacity,
+            unique_id,
+        })
     }
 
     fn read_status(
         &mut self,
         _: &RecvMessage,
     ) -> Result<u8, RequestError<AuxFlashError>> {
-        Ok(self.qspi.read_status())
+        Ok(self.qspi.read_status().map_err(qspi_to_auxflash)?)
     }
 
     fn slot_count(
@@ -282,9 +330,11 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let mut addr = mem_start;
         while addr < mem_end {
             self.set_and_check_write_enable()?;
-            self.qspi.sector_erase(addr as u32);
+            self.qspi
+                .sector_erase(addr as u32)
+                .map_err(qspi_to_auxflash)?;
             addr += SECTOR_SIZE_BYTES;
-            self.poll_for_write_complete(Some(1));
+            self.poll_for_write_complete(Some(1))?;
         }
         Ok(())
     }
@@ -307,8 +357,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         }
 
         self.set_and_check_write_enable()?;
-        self.qspi.sector_erase(addr as u32);
-        self.poll_for_write_complete(Some(1));
+        self.qspi
+            .sector_erase(addr as u32)
+            .map_err(qspi_to_auxflash)?;
+        self.poll_for_write_complete(Some(1))?;
         Ok(())
     }
 
@@ -319,10 +371,13 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
         if Some(slot) == self.active_slot {
             return Err(AuxFlashError::SlotActive.into());
         }
-        if offset as usize % PAGE_SIZE_BYTES != 0 {
+        if !(offset as usize).is_multiple_of(PAGE_SIZE_BYTES) {
             return Err(AuxFlashError::UnalignedAddress.into());
         } else if offset as usize + data.len() > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());
@@ -343,8 +398,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
             self.set_and_check_write_enable()?;
-            self.qspi.page_program(addr as u32, &buf[..amount]);
-            self.poll_for_write_complete(None);
+            self.qspi
+                .page_program(addr as u32, &buf[..amount])
+                .map_err(qspi_to_auxflash)?;
+            self.poll_for_write_complete(None)?;
             addr += amount;
             read += amount;
         }
@@ -358,6 +415,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
         if offset as usize + dest.len() > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());
         }
@@ -369,7 +429,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let mut buf = [0u8; 256];
         while addr < end {
             let amount = (end - addr).min(buf.len());
-            self.qspi.read_memory(addr as u32, &mut buf[..amount]);
+            self.qspi
+                .read_memory(addr as u32, &mut buf[..amount])
+                .map_err(qspi_to_auxflash)?;
             dest.write_range(write..(write + amount), &buf[..amount])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             write += amount;
@@ -427,23 +489,43 @@ impl NotificationHandler for ServerImpl {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
 
 fn scan_for_active_slot(qspi: &Qspi) -> Option<u32> {
     for i in 0..SLOT_COUNT {
-        if let Ok(chck) = read_slot_checksum(qspi, i) {
-            if chck.0 == AUXI_CHECKSUM {
-                return Some(i);
-            }
+        let handle = SlotReader {
+            qspi,
+            base: i * SLOT_SIZE as u32,
+        };
+
+        let Ok(chck) = handle.read_stored_checksum() else {
+            // Just skip to the next slot if it's empty or invalid.
+            continue;
+        };
+
+        if chck.0 != AUXI_CHECKSUM {
+            // If it's not the chunk we're interested in, don't bother hashing
+            // it.
+            continue;
+        }
+
+        let Ok(actual) = handle.calculate_checksum() else {
+            // TODO: this ignores I/O errors, but, this is how the code has
+            // always been structured...
+            continue;
+        };
+
+        if chck == actual {
+            return Some(i);
         }
     }
     None
 }
 
-fn read_slot_checksum(
+fn read_and_check_slot_checksum(
     qspi: &Qspi,
     slot: u32,
 ) -> Result<AuxFlashChecksum, AuxFlashError> {
@@ -454,7 +536,13 @@ fn read_slot_checksum(
         qspi,
         base: slot * SLOT_SIZE as u32,
     };
-    handle.read_checksum()
+    let claimed = handle.read_stored_checksum()?;
+    let actual = handle.calculate_checksum()?;
+    if claimed == actual {
+        Ok(actual)
+    } else {
+        Err(AuxFlashError::ChckMismatch)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

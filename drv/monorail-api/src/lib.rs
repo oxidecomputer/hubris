@@ -15,8 +15,8 @@ pub use vsc85xx::{
 };
 
 pub use vsc7448::{
-    config::{PortConfig, PortDev, PortMode, PortSerdes, Speed},
     VscError,
+    config::{PortConfig, PortDev, PortMode, PortSerdes, Speed},
 };
 
 /// Maximum number of ports
@@ -130,6 +130,9 @@ pub enum MonorailError {
     /// The given port does not have a PHY associated with it
     NoPhy,
 
+    /// The given operation is not supported
+    NotSupported,
+
     #[idol(server_death)]
     ServerDied,
 }
@@ -241,7 +244,15 @@ pub struct PhyStatus {
     pub media_link_up: LinkStatus,
 }
 
-#[derive(Copy, Clone, Debug, zerocopy::AsBytes, zerocopy::FromBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    zerocopy::IntoBytes,
+    zerocopy::FromBytes,
+    zerocopy::Immutable,
+    zerocopy::KnownLayout,
+)]
 #[repr(C)]
 pub struct MacTableEntry {
     pub mac: [u8; 6],

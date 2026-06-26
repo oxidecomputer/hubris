@@ -8,20 +8,31 @@
 #![no_std]
 
 use userlib::FromPrimitive;
-use zerocopy::AsBytes;
+use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, PartialEq, Eq, AsBytes, counters::Count,
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    PartialEq,
+    Eq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    counters::Count,
 )]
+#[cfg_attr(feature = "microcbor", derive(microcbor::Encode))]
 #[repr(u8)]
 pub enum PowerState {
     /// Initial A2 state where the SP and most associated circuitry is powered.
     A2 = 1,
     /// A2 substate where we've turned on the fan hotplug controller.
     A2PlusFans = 3,
-    /// Intermediate A1 state on the way toward A0. This corresponds to the
-    /// system-wide notion of A1 and currently has no substates.
-    A1 = 4,
+    // Intermediate A1 state on the way toward A0. This corresponds to the
+    // system-wide notion of A1 and currently has no substates. We never
+    // broadcast this state outside of the sequencer.
+    // A1 = 4,
     /// Initial A0 state: the system-wide A0 domain is on, but we have not
     /// turned on any of the subdomains within A0 (below).
     A0 = 5,

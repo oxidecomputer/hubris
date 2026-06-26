@@ -39,6 +39,8 @@ pub enum DumpAgentError {
     DumpFailedUnknown,
     DumpFailedUnknownError,
 
+    LeaseWriteFailed,
+
     #[idol(server_death)]
     ServerRestarted,
 }
@@ -91,9 +93,8 @@ impl From<DumpAgentError> for humpty::udp::Error {
             DumpAgentError::DumpFailedWrite => Error::DumpFailedWrite,
             DumpAgentError::DumpFailedControl => Error::DumpFailedControl,
             DumpAgentError::DumpFailedUnknown => Error::DumpFailedUnknown,
-            DumpAgentError::DumpFailedUnknownError => {
-                Error::DumpFailedUnknownError
-            }
+            DumpAgentError::DumpFailedUnknownError
+            | DumpAgentError::LeaseWriteFailed => Error::DumpFailedUnknownError,
         }
     }
 }

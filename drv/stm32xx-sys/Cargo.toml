@@ -1,7 +1,7 @@
 [package]
 name = "drv-stm32xx-sys"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 drv-stm32xx-gpio-common = { path = "../stm32xx-gpio-common", features = ["server-support"] }
@@ -19,6 +19,7 @@ num-traits = { workspace = true }
 stm32g0 = { workspace = true, optional = true }
 stm32h7 = { workspace = true, optional = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 [build-dependencies]
 idol = { workspace = true }

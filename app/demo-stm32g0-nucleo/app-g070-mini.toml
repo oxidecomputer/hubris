@@ -1,5 +1,5 @@
 # Tiny G0 image, useful for making small Humility archives
-name = "demo-stm32g070-nucleo"
+name = "demo-stm32g070-nucleo-mini"
 target = "thumbv6m-none-eabi"
 chip = "../../chips/stm32g0"
 memory = "memory-g070.toml"
@@ -21,7 +21,7 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 352
+stacksize = 400
 notifications = ["fault", "timer"]
 
 [tasks.idle]

@@ -3,11 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::dist::PackageConfig;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use cargo_metadata::DependencyKind;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, hash_map::DefaultHasher},
     hash::{Hash, Hasher},
     io::Read,
     path::PathBuf,
@@ -59,7 +59,7 @@ impl PackageGraph {
         let packages = metadata
             .packages
             .into_iter()
-            .map(|p| (p.name.clone(), p))
+            .map(|p| (p.name.as_str().to_string(), p))
             .collect::<BTreeMap<_, _>>();
         Self(packages)
     }
@@ -236,11 +236,8 @@ fn check_task(
     // desired crate.  Let's do some stuff with it.
     if dependencies.contains_key(package_name) {
         let build_cfg = app_cfg
-            .toml
-            .task_build_config(task_name, false, None)
-            .map_err(|_| {
-                anyhow!("could not get build config for {}", task_name)
-            })
+            .task_build_config(task_name)
+            .map_err(|_| anyhow!("could not get build config for {task_name}"))
             .unwrap();
 
         let mut iter = build_cfg.args.iter();
@@ -337,7 +334,7 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
         // TODO: we parse the PackageConfig multiple times here, which may be
         // slow (but probably not slower than `cargo metadata` above)
         let file = root.join(&c.toml);
-        let app_cfg = PackageConfig::new(&file, false, false)
+        let app_cfg = PackageConfig::new(file.as_std_path(), false, false)
             .context(format!("could not open {file:?}"))?;
         if let Some(out) =
             check_task(&package_name, &c.task, &c.toml, &app_cfg, &packages)
@@ -358,7 +355,7 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
     let preferred_task = std::env::var("HUBRIS_TASK").ok();
     for app_name in &preferred_apps {
         let file = root.join(app_name);
-        let app_cfg = PackageConfig::new(&file, false, false)
+        let app_cfg = PackageConfig::new(file.as_std_path(), false, false)
             .context(format!("could not open {file:?}"))?;
 
         // See if we can find a valid task within this app_cfg
@@ -366,30 +363,28 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
             if let Some(lspconfig) = check_task(
                 &package_name,
                 task_name,
-                &app_name,
+                app_name,
                 &app_cfg,
                 &packages,
             ) {
                 return Ok(lspconfig);
             }
-        } else {
-            if let Some(out) = app_cfg
-                .toml
-                .tasks
-                .keys()
-                .flat_map(|task_name| {
-                    check_task(
-                        &package_name,
-                        task_name,
-                        &app_name,
-                        &app_cfg,
-                        &packages,
-                    )
-                })
-                .next()
-            {
-                return Ok(out);
-            }
+        } else if let Some(out) = app_cfg
+            .toml
+            .tasks
+            .keys()
+            .flat_map(|task_name| {
+                check_task(
+                    &package_name,
+                    task_name,
+                    app_name,
+                    &app_cfg,
+                    &packages,
+                )
+            })
+            .next()
+        {
+            return Ok(out);
         }
     }
 

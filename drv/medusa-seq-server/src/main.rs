@@ -10,8 +10,8 @@
 use crate::front_io::FrontIOBoard;
 use crate::power_control::PowerControl;
 use core::convert::Infallible;
+use drv_front_io_api::phy_smi::PhyOscState;
 use drv_medusa_seq_api::{MedusaError, RailName};
-use drv_sidecar_front_io::phy_smi::PhyOscState;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
@@ -64,8 +64,6 @@ enum Trace {
 
 ringbuf!(Trace, 32, Trace::None);
 
-const TIMER_INTERVAL: u64 = 1000;
-
 struct ServerImpl {
     power_control: PowerControl,
     front_io_board: Option<FrontIOBoard>,
@@ -91,53 +89,51 @@ impl ServerImpl {
     }
 
     fn actually_reset_front_io_phy(&mut self) -> Result<(), MedusaError> {
-        if let Some(front_io_board) = self.front_io_board.as_mut() {
-            if front_io_board.initialized() {
-                // The board was initialized prior and this function is called
-                // by the monorail task because it is initializing the front IO
-                // PHY. Unfortunately some front IO boards have PHY oscillators
-                // which do not start reliably when their enable pin is used and
-                // the only way to resolve this is by power cycling the front IO
-                // board. But power cycling the board also bounces any QSFP
-                // transceivers which may be running, so this function attempts
-                // to determine what the monorail task wants to do.
-                //
-                // Whether or not the PHY oscillator was found to be operating
-                // nominally is recorded in the front IO board controller. Look
-                // up what this value is to determine if a power reset of the
-                // front IO board is needed.
-                match front_io_board.phy().osc_state()? {
-                    PhyOscState::Bad => {
-                        // The PHY was attempted to be initialized but its
-                        // oscillator was deemed not functional. Unfortunately
-                        // the only course of action is to power cycle the
-                        // entire front IO board, so do so now.
-                        self.power_control.v12_qsfp_out.set_enable(false);
-                        ringbuf_entry!(Trace::FrontIOBoardPowerEnable(false));
+        if let Some(front_io_board) = self.front_io_board.as_mut()
+            && front_io_board.initialized()
+        {
+            // The board was initialized prior and this function is called
+            // by the monorail task because it is initializing the front IO
+            // PHY. Unfortunately some front IO boards have PHY oscillators
+            // which do not start reliably when their enable pin is used and
+            // the only way to resolve this is by power cycling the front IO
+            // board. But power cycling the board also bounces any QSFP
+            // transceivers which may be running, so this function attempts
+            // to determine what the monorail task wants to do.
+            //
+            // Whether or not the PHY oscillator was found to be operating
+            // nominally is recorded in the front IO board controller. Look
+            // up what this value is to determine if a power reset of the
+            // front IO board is needed.
+            match front_io_board.phy().osc_state()? {
+                PhyOscState::Bad => {
+                    // The PHY was attempted to be initialized but its
+                    // oscillator was deemed not functional. Unfortunately
+                    // the only course of action is to power cycle the
+                    // entire front IO board, so do so now.
+                    self.power_control.v12_qsfp_out.set_enable(false);
+                    ringbuf_entry!(Trace::FrontIOBoardPowerEnable(false));
 
-                        // Wait some cool down period to allow caps to bleed off
-                        // etc.
-                        userlib::hl::sleep_for(1000);
-                    }
-                    PhyOscState::Good => {
-                        // The PHY was initialized properly before and its
-                        // oscillator declared operating nominally. Assume this
-                        // has not changed and only a reset the PHY itself is
-                        // desired.
-                        front_io_board
-                            .phy()
-                            .set_phy_power_enabled(false)
-                            .map_err(MedusaError::from)?;
-                        ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(
-                            false
-                        ));
+                    // Wait some cool down period to allow caps to bleed off
+                    // etc.
+                    userlib::hl::sleep_for(1000);
+                }
+                PhyOscState::Good => {
+                    // The PHY was initialized properly before and its
+                    // oscillator declared operating nominally. Assume this
+                    // has not changed and only a reset the PHY itself is
+                    // desired.
+                    front_io_board
+                        .phy()
+                        .set_phy_power_enabled(false)
+                        .map_err(MedusaError::from)?;
+                    ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(false));
 
-                        userlib::hl::sleep_for(10);
-                    }
-                    PhyOscState::Unknown => {
-                        // Do nothing (yet) since the oscillator state is
-                        // unknown.
-                    }
+                    userlib::hl::sleep_for(10);
+                }
+                PhyOscState::Unknown => {
+                    // Do nothing (yet) since the oscillator state is
+                    // unknown.
                 }
             }
         }
@@ -281,17 +277,15 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK
+        0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
-        let next_deadline = sys_get_timer().now + TIMER_INTERVAL;
-
-        sys_set_timer(Some(next_deadline), notifications::TIMER_MASK);
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+        unreachable!()
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
 
@@ -341,10 +335,6 @@ fn main() -> ! {
         ringbuf_entry!(Trace::PhyPowerGood);
     }
 
-    // This will put our timer in the past, and should immediately kick us.
-    let deadline = sys_get_timer().now;
-    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
-
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
@@ -355,5 +345,3 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
-
-include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

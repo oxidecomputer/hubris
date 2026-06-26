@@ -1,0 +1,16 @@
+[package]
+name = "endoscope-abi"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+zerocopy = { workspace = true, features = ["derive"] }
+sha3 = { workspace = true }
+
+[lints]
+workspace = true

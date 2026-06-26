@@ -687,9 +687,8 @@ impl Config {
                 ((1u64 << (2 * cal_clk_div))
                     * (cal_num_iterations + 1)
                     * 156500
-                    * self.if_width as u64
-                    + (self.f_pll_khz_plain as u64 - 1))
-                    / (self.f_pll_khz_plain as u64),
+                    * self.if_width as u64)
+                    .div_ceil(self.f_pll_khz_plain as u64),
             );
             // TODO: why is this needed?  It's not in the SDK, but the system
             // doesn't configure without this pause.

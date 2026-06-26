@@ -53,7 +53,15 @@ impl From<SpiError> for GwSpiError {
 }
 
 #[derive(
-    Copy, Clone, Debug, Eq, PartialEq, zerocopy::AsBytes, FromPrimitive,
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    zerocopy::IntoBytes,
+    zerocopy::Immutable,
+    zerocopy::KnownLayout,
+    FromPrimitive,
 )]
 #[repr(u8)]
 pub enum CsState {

@@ -1,0 +1,2696 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 63,
+    "inst_name": "gimlet_seq_fpga",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "ID0",
+            "addr_offset": 0,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0x1"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID1",
+            "addr_offset": 1,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 222,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "de"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "VER0",
+            "addr_offset": 2,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "version[31..24]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "VER1",
+            "addr_offset": 3,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "version[23..16]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "VER2",
+            "addr_offset": 4,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "version[15..8]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "VER3",
+            "addr_offset": 5,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "version[7..0]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SHA0",
+            "addr_offset": 6,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sha[31..24]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SHA1",
+            "addr_offset": 7,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sha[23..16]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SHA2",
+            "addr_offset": 8,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sha[15..8]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SHA3",
+            "addr_offset": 9,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sha[7..0]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CS0",
+            "addr_offset": 10,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CS0",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Scribble Register for read-write use"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CS1",
+            "addr_offset": 11,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CS1",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Scribble Register for read-write use"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CS2",
+            "addr_offset": 12,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CS2",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Scribble Register for read-write use"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CS3",
+            "addr_offset": 13,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CS3",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Scribble Register for read-write use"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SCRTCHPAD",
+            "addr_offset": 14,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "TBD",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Scribble Register for read-write use"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IFR",
+            "addr_offset": 15,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "FANFAULT",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan Fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "THERMTRIP",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Thermtrip"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "A1MAPO",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A1 MAPO"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "A0MAPO",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A0 MAPO"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NICMAPO",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic MAPO"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "AMD_PWROK_FEDGE",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD PWROK fedge while in >=A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "AMD_RSTN_FEDGE",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD RESET fedge while in >=A0"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IER",
+            "addr_offset": 16,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "FANFAULT",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan Fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "THERMTRIP",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Thermtrip"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "A1MAPO",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A1 MAPO"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "A0MAPO",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A0 MAPO"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NICMAPO",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic MAPO"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "AMD_PWROK_FEDGE",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD PWROK fedge while in >=A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "AMD_RSTN_FEDGE",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD RESET fedge while in >=A0"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "STATUS",
+            "addr_offset": 17,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "FANPWROK",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan power OK"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "A1PWROK",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A1 power OK"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "A0PWROK",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A0 power OK"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NICPWROK",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC power OK"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "INT_PEND",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Interrupt Pending Status"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "EARLY_POWER_CTRL",
+            "addr_offset": 18,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "FANPWREN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan power enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ABCD_SPD_EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V2P5_DIMM_ABCD_SPD_A0 rail (SEQ_TO_DIMM_ABCD_V2P5_EN net)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "EFGH_SPD_EN",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V2P5_DIMM_EFGH_SPD_A0 rail. (SEQ_TO_DIMM_EFGH_V2P5_EN net)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FANHP_RESTART",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "External pull-up give SP control of restarting. \nFalling edge triggers restart function which tags 2-25sec \n(default 10s) set by PMBus registers. 10us glitch filter at ADM1272.\nWriting to this will cause a strobe that exceeds the glitch filter\ntiming and will self-clear (note actual output is inverted to meet\ncircuit's active low requirement"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PWR_CTRL",
+            "addr_offset": 19,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "A1PWREN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A1 power enable (starts state machine)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "A0A_EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A0 Group power enable (starts state machine)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "NIC_CTRL",
+            "addr_offset": 20,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CLD_RST",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC CLD_RST control. Controls CLD_RST_N (inverted). Defaults to reset asserted to be\ncleared by software when SP3 hotplug indicates enable"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "A1SMSTATUS",
+            "addr_offset": 21,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "A1SM",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State Machine enum",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "ENABLE",
+                            "value": 1
+                        },
+                        {
+                            "name": "WAITPG",
+                            "value": 2
+                        },
+                        {
+                            "name": "DELAY",
+                            "value": 3
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 5
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "A0SMSTATUS",
+            "addr_offset": 22,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "A0SM",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State Machine enum",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "PBTN",
+                            "value": 1
+                        },
+                        {
+                            "name": "WAITSLP",
+                            "value": 2
+                        },
+                        {
+                            "name": "GROUPB1_EN",
+                            "value": 3
+                        },
+                        {
+                            "name": "GROUPB1_PG",
+                            "value": 4
+                        },
+                        {
+                            "name": "GROUPB2_EN",
+                            "value": 5
+                        },
+                        {
+                            "name": "GROUPB2_PG",
+                            "value": 6
+                        },
+                        {
+                            "name": "GROUPC_PG",
+                            "value": 7
+                        },
+                        {
+                            "name": "DELAY_1MS",
+                            "value": 8
+                        },
+                        {
+                            "name": "ASSERT_PG",
+                            "value": 9
+                        },
+                        {
+                            "name": "WAIT_PWROK",
+                            "value": 10
+                        },
+                        {
+                            "name": "WAIT_RESET_L",
+                            "value": 11
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 12
+                        },
+                        {
+                            "name": "SAFE_DISABLE",
+                            "value": 13
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "NICSMSTATUS",
+            "addr_offset": 23,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "NicSM",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic SM Status",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "PS_PG",
+                            "value": 1
+                        },
+                        {
+                            "name": "PG_DELAY",
+                            "value": 2
+                        },
+                        {
+                            "name": "EARLY_RESET",
+                            "value": 3
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 4
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "BOARD_REV",
+            "addr_offset": 24,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID",
+                    "lsb": 0,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0x7 or 0x0 = A. 0x1 = B, 0x2 = C, 0x3 = D, 0x4 = E"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "EARLY_RBKS",
+            "addr_offset": 25,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "FANHP_TO_SEQ_FAULT",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Input from ADM1272. Rising edge enable PMBus OPERATION on\ncommand or PMBus POWER_CYCLE required to clear, assuming all\nfaults are clear. (Inverted to active high in register)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FANHP_TO_SEQ_PWRGD",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "From ADUM1272. Asserted when PWGIN > thresh, enable pin is\nhigh and UVx and OV pins are in-range, no actuive fault conditons \nand mosfet is fully enhanced (Vgs > 10V)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FAN_TO_SEQ_FAN_FAIL",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Input from ADM1272. Rising edge enable PMBus OPERATION on \ncommand or PMBus POWER_CYCLE required to clear, assuming all faults \nare clear."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ABCD_V2P5_SPD_PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V2P5_DIMM_ABCD_SPD_A0 rail (DIMM_TO_SEQ_ABCD_V2P5_PG net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "EFGH_V2P5_SPD_PG",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V2P5_DIMM_EFGH_SPD_A0 rail (DIMM_TO_SEQ_EFGH_V2P5_PG net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "A1_READBACKS",
+            "addr_offset": 26,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "V1P5_RTC_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V1P5_SP_VDD_RTC_A1 rail from U494 (SP3_TO_SEQ_RTC_V1P5_PG net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V3P3_S5_PG",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V3P3_SP3_VDD_33_S5_A1 rail from U483 (SP3_TO_SEQ_V3P3_S5_PG net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P8_S5_PG",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V1P8_SP3_VDD_18_S5_A rail from U486 (SP3_TO_SEQ_V1P8_S5_PG net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V0P9_VDD_SOC_S5_PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V0P9_SP3_VDD_SOC_S5_A1 rail from U490 (SP3_TO_SEQ_V0P9_VDD_SOC_S5_PG net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "AMD_A0",
+            "addr_offset": 27,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "SLP_S3",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "SP3_TO_SEQ_SLP_S3_L inversion of signal from AMD CPU, Used\nat beginning of GroupB state machine"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "SLP_S5",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "SP3_TO_SEQ_SLP_S5_L inversion of signal from AMD CPU, Used \nat beginning of GroupB state machine"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PWROK",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Asserted by AMD after PWR_GOOD is asserted by sequencer \nshould be here in: min 15ms, max of 20.4ms (SP3_TO_SEQ_PWROK_V3P3 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RESET",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Asserted (and inverted) from AMD's RESET_L pin. 10Ms minimum assertion time, \nremains asserted for minimum of 1ms after PWROK assertion\n(SP3_TO_SEQ_RESET_V3P3_L net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GROUPB_PG",
+            "addr_offset": 28,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VPP_ABCD_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_ABCD_A0 rail from UP36. As indicated by PWR_CONT_DIMM_PG0 from U352."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VPP_EFGH_PG",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_EFGH_A0 rail from UP37. As indicated by PWR_CONT_DIMM_PG1 from U352."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_ABCD_PG",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_ABCD_A0 rail (PWR_CONT1_SP3_PG1)\nPower good 1 for RA229618 (U350) is configured for \nVDD_MEM_ABCD_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_EFGH_PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_EFGH_A0 rail (PWR_CONT2_SP3_PG1)\nPower good 1 for RA229618 (U351) is configured for \nVDD_MEM_EFGH_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_ABCD_PG",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_AB_A0 and VTT_CD_A0 rails. This is a logical AND of VTT_AB_A0_TO_SEQ_PG (U432) and VTT_CD_A0_TO_SEQ_PG (U563)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_EFGH_PG",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_EF_A0 and VTT_GH_A0 rails. This is a logical AND of VTT_EF_A0_TO_SEQ_PG (U445) and VTT_GH_A0_TO_SEQ_PG (U564)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P8_SP3_PG",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail from UP38. As indicated by SEQ_V1P8_SP3_VDD_PG from U352."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V3P3_SYS_PG",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from V3P3_SYS_A0 rail from U360 (V3P3_SYS_TO_SEQ_PG net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GROUPB_UNUSED",
+            "addr_offset": 29,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ABCD_PG2",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "From ISL68224 U352. PWR_CONT_DIMM_ABCD_PG2 net. No defined function."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "EFGH_PG1",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "From ISL68224 U418. PWR_CONT_DIMM_EFGH_PG1 net. No defined function."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "EFGH_PG2",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "From ISL68224 U418. PWR_CONT_DIMM_EFGH_PG2 net. No defined function."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GROUPBC_FLTS",
+            "addr_offset": 30,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CONT1_NVRHOT",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set high (inverted from board) when rail reaches OT_WARN threshold, \nonly valid after configuration (PWR_CONT1_SP3_NVRHOT net).\nfrom RAA229618 U350 controlling SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0 rails"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "CONT1_CFP",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Catastrophic fault protection output from RAA229618 U350 controlling \nSP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0 rails"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "CONT2_NVRHOT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set high (inverted from board) when rail reaches OT_WARN threshold, only valid \nafter configuration. From RAA229618 U351 driving rails SP3_VDDCR_SOC_A0 and \nVDD_MEM_EFGH_A0 (PWR_CONT2_SP3_NVRHOT net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "CONT2_CFP",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Catastrophic fault protection output from RAA229618 U351 controlling \nSP3_VDDCR_SOC_A0 and VDD_MEM_EFGH_A0 rails (PWR_CONT2_SP3_CFP net)."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GROUPC_PG",
+            "addr_offset": 31,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VDDCR_SOC_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 for RA229618 (U351) is configured for \nSP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_VCORE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 from RA229618 (U350) is configured for\nSP3_VDD_VCORE_A0 (PWR_CONT1_SP3_PG0 net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "NIC_STATUS",
+            "addr_offset": 32,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V0P96_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good for V0P96_NIC_VDD_A0HP from U565 (PWR_CONT_NIC_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P1_PG",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good for V1P1_NIC_ETH_IO_A0HP from U630 (inverted NIC_TO_SEQ_V1P1_PG_L net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P2_PG",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good for V1P2_NIC_MDIO_A0HP from U424 (inverted NIC_TO_SEQ_V1P2_PG_L net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P2_ENET_PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good for V1P2_NIC_ENET_A0HP from U424 (NIC_TO_SEQ_V1P2_ENET_PG net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P5A_PG",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good for V1P5_NIC_AVDD_A0HP from U360 (NIC_TO_SEQ_V1P5A_PG net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P5D_PG",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good for V1P5_NIC_PCIE_MEM_A0HP from U360 (NIC_TO_SEQ_V1P5D_PG net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_3V3_PG",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good for LDO_V3P3"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CLKGEN_STATUS",
+            "addr_offset": 33,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "GPIO1",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GPIO1"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "GPIO2",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GPIO2"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "GPIO3",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GPIO3"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "GPIO4",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GPIO4"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "GPIO5",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GPIO5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "GPIO8",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GPIO8"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "GPIO9",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GPIO9"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "AMD_STATUS",
+            "addr_offset": 34,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "THERMTRIP",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "inverted CPU's thermtrip_L, 500ms to shut down power planes into S5 state. De-assertion of PWROK resets THERMTRIP_L"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FSR_REQ",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Inverted FSR_REQ_L net. We do not use this GPIO, so it has been repurposed. See quartz#415."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PWRGD_OUT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Output from the AMD processor that it has effectively acknowledged that power is itself\ngood.  This  is  connected  from  the  BSP  to  the  AP's  PWR_GOOD  input  in  a  two  socket\nsystem.  The  FCH  may  actually  control  this  being  generated  via  the\nFCH::PM::RESETCONTROL2 register."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_PWREN",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC_PWREN (inversion of net SP3_TO_SP_NIC_PWREN_L), available on C and newer Gimlets.\nWhen Asserted high in this register, the net is active low, and NIC power is expected to\nbe commanded on by Hubris (see NIC_CTRL register).  This is a readback-only view, no \nautonomous FPGA action occurs on the status of this pin, Hubris also monitors and takes\naction.  Only valid in A0 and higher power states but is a simple pass-through in the\nFPGA, no gating logic"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FANOUTSTATUS",
+            "addr_offset": 35,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "FAN_HP_EN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enable for fan ADUM1272. (1us glitch filter at ADUM1272)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FANHP_RESTART",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "FANHP_RESTART pin (note actual output is inverted to meet\ncircuit's active low requirement, so a 1 here means a 0 on the board)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "EARLY_PWR_STATUS",
+            "addr_offset": 36,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "FANPWREN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan power enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ABCD_SPD_EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V2P5_DIMM_ABCD_SPD_A0 rail (SEQ_TO_DIMM_ABCD_V2P5_EN net)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "EFGH_SPD_EN",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V2P5_DIMM_EFGH_SPD_A0 rail. (SEQ_TO_DIMM_EFGH_V2P5_EN net)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FANHP_RESTART",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "External pull-up give SP control of restarting. \nFalling edge triggers restart function which tags 2-25sec \n(default 10s) set by PMBus registers. 10us glitch filter at ADM1272.\nWriting to this will cause a strobe that exceeds the glitch filter\ntiming and will self-clear (note actual output is inverted to meet\ncircuit's active low requirement"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "A1_OUT_STATUS",
+            "addr_offset": 37,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "V3P3_S5_EN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V3P3_SP3_VDD_33_S5_A1 rail (SEQ_TO_SP3_V3P3_S5_EN pin)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P5_RTC_EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V1P5_SP3_VDD_RTC_A1 rail (SEQ_TO_SP3_V1P5_RTC_EN pin)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P8_S5_EN",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V1P8_SP3_VDD_18_S5_A1 rail (SEQ_TO_SP3_V1P8_S5_EN pin)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V0P9_S5_EN",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V0P9_SP3_VDD_SOC_S5_A1 rail (SEQ_TO_SP3_V0P9_S5_EN pin)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RSMRST",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "De-asserted to processor after GroupA supplies are stable (10ms after S5 rails minimum) \n(SEQ_TO_SP3_RSMRST_V3P3_L net inverted from this register)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "A0_OUT_STATUS_1",
+            "addr_offset": 38,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VPP_ABCD_EN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GroupB1: Drives VPP_ABCD_A0 rail (pwr_cont_dimm_en0 net RevB)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VPP_EFGH_EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GroupB1: Drives VPP_EFGH_A0 rail (pwr_cont_dimm_en1 net RevB)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V3P3_SYS_EN",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GroupB1: Enables V3P3_SYS_A0 rail (seq_to_v3p3_sys_en net RevB)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P8_SP3_VDD_EN",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GroupB1: Enables V1P8_SP3_VDD_18_A0 rail (seq_to_sp3_v1p8_en net RevB)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_ABCD_EN",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GroupB2: Enables VDD_MEM_ABCD_A0 rail (pwr_cont1_sp3_en net RevB)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_EFGH_EN",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GroupB2: Enables VDD_MEM_EFGH_A0 rail (pwr_cont2_sp3_en net RevB)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_ABCD_EN",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GroupB2: Enables VTT_ABCD_A0 rail (seq_to_vtt_abcd_en net RevB)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_EFGH_EN",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "GroupB2: Enables VTT_EFGH_A0 rail (seq_to_vtt_efgh_en net RevB)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "A0_OUT_STATUS_2",
+            "addr_offset": 39,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "U350_PWROK",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Strap High, no definition yet. PWROK pin to RAA229618 U350 driving \nSP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "U351_PWROK",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Strap High, no definition yet. PWROK pin to RAA229618 U351 driving\nSP3_VDDCR_SOC_A0 and VDD_MEM_EFGH_A0 (PWR_CONT2_SP3_PWROK net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P8_SP3_EN",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V1P8_SP3_VDD_18_A0 rail (SEQ_TO_SP3_V1P8_EN net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "CONT1_EN",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enable for RAA229618 (U350) VDD_MEM_ABCD_A0 (PWR_CONT1_SP3_EN net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "CONT2_EN",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enable for RAA229618 (U35) VDD_MEM_EFGH_A0 (and gates SP3_VDDCR_SOC_A0) \n(PWR_CONT2_SP3_EN net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PWR_BTN",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Pulsed according to AMD's EDS min 15ms (SP_TO_SP3_PWR_BTN_L net, inverted from this register)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PWR_GOOD",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "This is asserted to CPU, 1ms before asserting. Set when A0 rails are good. (SEQ_TO_SP3_PWR_GOOD net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "OUT_STATUS_NIC1",
+            "addr_offset": 40,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V0P9_A0_EN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enable (U565), V0P96_NIC_VDD_A0HP rail (SEQ_TO_NIC_V0P9_A0HP_EN net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P2_ETH_EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Turns on V1P2_NIC_ENET_A0HP, no readback (SEQ_TO_NIC_V1P2_ENET_EN net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P5A_EN",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "En for V1P5_NIC_AVDD_A0HP rail (SEQ_TO_NIC_V1P5A_EN net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P5D_EN",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "En for V1P5_NIC_PCIE_MEM_A0HP rail (SEQ_TO_NIC_V1P5D_EN net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P2_EN",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enable for V1P2_NIC_MDIO_A0HP rail (SEQ_TO_NIC_V1P2_EN net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P1_EN",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Turns on V1P1_NIC_ETH_IO_A0HP rail (SEQ_TO_NIC_V1P1_EN net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V3P3_EN",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enables V3PV_NIC_A0HP rail (SEQ_TO_NIC_LDO_V3P3_EN net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "OUT_STATUS_NIC2",
+            "addr_offset": 41,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "SP3_PERST",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Input to FPGA from SP3 I/O expander (inverted)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_COMB_PG",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Becomes clock enable for clk_100M_TO_RSW (SEQ_TO_NIC_COMB_PG net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_CLD_RST",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "CLD Reset to Chelsio. De-asserted after NIC power stable (SEQ_TO_NIC_CLD_RST_L net inverted)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PWRFLT",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Alert SP3 of a NIC power fault (NIC_TO_SP3_PWRFLT_L inverted net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_PERST",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "PERST outptut (PERST_L inverted net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_EXT_RST",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC's EXT_RST_L output (inverted).  Active when NIC internals in reset"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CLKGEN_OUT_STATUS",
+            "addr_offset": 42,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "SEQ_NMR",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "CLK_TO_SEQ_NMR_L inverted to clk generator"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "AMD_OUT_STATUS",
+            "addr_offset": 43,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "SYS_RESET",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "CPU's `SYS_RESET_L`, see EDS. 10ms assertion time, would traditionally be wired to a PC reset button"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DBG_CTRL",
+            "addr_offset": 44,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ignore_sp",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Debug ONLY. Setting this allows the A0 state machine to ingore SP3 handshakes.\nThis is potentially useful for power bringup but should not be used when a CPU is actually\ninstalled"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "REG_CTRL_EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Un-used"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_CLD_RST_OVERRIDE",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic debug control only. Seeting will force CLD_RST assert until cleared. When cleared,\nCLD_RST will normally be controlled by state machine and NIC Control register"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_PERST_OVERRIDE",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic debug control only. Setting will force Perst_L assert until cleared. When\ncleared, PERST will normally be controlled by SP3 I/O expander. Set next bit PERST_FORCE_SOLO to\nignore all SP3 control and have this register directly control I/O regardless of SP3's PERST state"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_PERST_SOLO",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic debug control only. Make PERST ignore any SP3 I/O and drive directly from previous bit"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "AMD_DBG_OUT",
+            "addr_offset": 45,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "SYS_RESET",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "CPU's `SYS_RESET_L`, see EDS. 10ms assertion time, would traditionally be wired to a PC reset button"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "AMD_RSTN_CNTS",
+            "addr_offset": 46,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RESET_CNTS",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": "wclr",
+                    "desc": "Falling edge counter of AMD's reset output while in A0/A0HP. Saturates at 255. Any write clears"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "AMD_PWROKN_CNTS",
+            "addr_offset": 47,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RESET_CNTS",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": "wclr",
+                    "desc": "Falling edge counter of AMD's PowerOK output while in A0/A0HP. Saturates at 255.  Any write clears"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DBG_MAX_A0SMSTATUS",
+            "addr_offset": 48,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "A0SM",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State Machine enum",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "PBTN",
+                            "value": 1
+                        },
+                        {
+                            "name": "WAITSLP",
+                            "value": 2
+                        },
+                        {
+                            "name": "GROUPB1_EN",
+                            "value": 3
+                        },
+                        {
+                            "name": "GROUPB1_PG",
+                            "value": 4
+                        },
+                        {
+                            "name": "GROUPB2_EN",
+                            "value": 5
+                        },
+                        {
+                            "name": "GROUPB2_PG",
+                            "value": 6
+                        },
+                        {
+                            "name": "GROUPC_PG",
+                            "value": 7
+                        },
+                        {
+                            "name": "DELAY_1MS",
+                            "value": 8
+                        },
+                        {
+                            "name": "ASSERT_PG",
+                            "value": 9
+                        },
+                        {
+                            "name": "WAIT_PWROK",
+                            "value": 10
+                        },
+                        {
+                            "name": "WAIT_RESET_L",
+                            "value": 11
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 12
+                        },
+                        {
+                            "name": "SAFE_DISABLE",
+                            "value": 13
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "MAX_GROUPB_PG",
+            "addr_offset": 49,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VPP_ABCD_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_ABCD_A0 rail from UP36. As indicated by PWR_CONT_DIMM_PG0 from U352."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VPP_EFGH_PG",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_EFGH_A0 rail from UP37. As indicated by PWR_CONT_DIMM_PG1 from U352."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_ABCD_PG",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_ABCD_A0 rail (PWR_CONT1_SP3_PG1)\nPower good 1 for RA229618 (U350) is configured for \nVDD_MEM_ABCD_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_EFGH_PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_EFGH_A0 rail (PWR_CONT2_SP3_PG1)\nPower good 1 for RA229618 (U351) is configured for \nVDD_MEM_EFGH_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_ABCD_PG",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_AB_A0 and VTT_CD_A0 rails. This is a logical AND of VTT_AB_A0_TO_SEQ_PG (U432) and VTT_CD_A0_TO_SEQ_PG (U563)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_EFGH_PG",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_EF_A0 and VTT_GH_A0 rails. This is a logical AND of VTT_EF_A0_TO_SEQ_PG (U445) and VTT_GH_A0_TO_SEQ_PG (U564)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P8_SP3_PG",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail from UP38. As indicated by SEQ_V1P8_SP3_VDD_PG from U352."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V3P3_SYS_PG",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from V3P3_SYS_A0 rail from U360 (V3P3_SYS_TO_SEQ_PG net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "MAX_GROUPC_PG",
+            "addr_offset": 50,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VDDCR_SOC_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 for RA229618 (U351) is configured for \nSP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_VCORE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 from RA229618 (U350) is configured for\nSP3_VDD_VCORE_A0 (PWR_CONT1_SP3_PG0 net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FLT_A0_SMSTATUS",
+            "addr_offset": 51,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "A0SM",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State Machine enum",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "PBTN",
+                            "value": 1
+                        },
+                        {
+                            "name": "WAITSLP",
+                            "value": 2
+                        },
+                        {
+                            "name": "GROUPB1_EN",
+                            "value": 3
+                        },
+                        {
+                            "name": "GROUPB1_PG",
+                            "value": 4
+                        },
+                        {
+                            "name": "GROUPB2_EN",
+                            "value": 5
+                        },
+                        {
+                            "name": "GROUPB2_PG",
+                            "value": 6
+                        },
+                        {
+                            "name": "GROUPC_PG",
+                            "value": 7
+                        },
+                        {
+                            "name": "DELAY_1MS",
+                            "value": 8
+                        },
+                        {
+                            "name": "ASSERT_PG",
+                            "value": 9
+                        },
+                        {
+                            "name": "WAIT_PWROK",
+                            "value": 10
+                        },
+                        {
+                            "name": "WAIT_RESET_L",
+                            "value": 11
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 12
+                        },
+                        {
+                            "name": "SAFE_DISABLE",
+                            "value": 13
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FLT_GROUPB_PG",
+            "addr_offset": 52,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VPP_ABCD_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_ABCD_A0 rail from UP36. As indicated by PWR_CONT_DIMM_PG0 from U352."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VPP_EFGH_PG",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_EFGH_A0 rail from UP37. As indicated by PWR_CONT_DIMM_PG1 from U352."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_ABCD_PG",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_ABCD_A0 rail (PWR_CONT1_SP3_PG1)\nPower good 1 for RA229618 (U350) is configured for \nVDD_MEM_ABCD_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_EFGH_PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_EFGH_A0 rail (PWR_CONT2_SP3_PG1)\nPower good 1 for RA229618 (U351) is configured for \nVDD_MEM_EFGH_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_ABCD_PG",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_AB_A0 and VTT_CD_A0 rails. This is a logical AND of VTT_AB_A0_TO_SEQ_PG (U432) and VTT_CD_A0_TO_SEQ_PG (U563)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_EFGH_PG",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_EF_A0 and VTT_GH_A0 rails. This is a logical AND of VTT_EF_A0_TO_SEQ_PG (U445) and VTT_GH_A0_TO_SEQ_PG (U564)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P8_SP3_PG",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail from UP38. As indicated by SEQ_V1P8_SP3_VDD_PG from U352."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V3P3_SYS_PG",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from V3P3_SYS_A0 rail from U360 (V3P3_SYS_TO_SEQ_PG net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FLT_GROUPC_PG",
+            "addr_offset": 53,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VDDCR_SOC_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 for RA229618 (U351) is configured for \nSP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_VCORE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 from RA229618 (U350) is configured for\nSP3_VDD_VCORE_A0 (PWR_CONT1_SP3_PG0 net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "MISC_CTRL",
+            "addr_offset": 54,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RSW_PWREN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Control of the seq_proxy_sp3_to_rsw_pwren_l pin (inverted by FPGA, so a '1' here will drive the pin low)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_EDGE_CNT_3",
+            "addr_offset": 55,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "MSB of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_EDGE_CNT_2",
+            "addr_offset": 56,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "MSB-1 of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_EDGE_CNT_1",
+            "addr_offset": 57,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LSB+1 of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_EDGE_CNT_0",
+            "addr_offset": 58,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LSB of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_CYCLE_CNT_3",
+            "addr_offset": 59,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "MSB of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_CYCLE_CNT_2",
+            "addr_offset": 60,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "MSB-1 of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_CYCLE_CNT_1",
+            "addr_offset": 61,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LSB+1 of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_CYCLE_CNT_0",
+            "addr_offset": 62,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LSB of the 32-bit gpio edge counter register"
+                }
+            ]
+        }
+    ]
+}

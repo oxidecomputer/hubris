@@ -8,8 +8,8 @@ use crate::{CurrentSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
 use userlib::{
-    units::{Amperes, Ohms, Volts},
     FromPrimitive,
+    units::{Amperes, Ohms, Volts},
 };
 
 #[allow(dead_code, non_camel_case_types)]
@@ -154,7 +154,8 @@ pub enum Register {
     oithr_chx_lsb_ch2 = 0x2d,
 
     /// Fast-comparator threshold DAC setting
-    dac_chx_fast = 0x2e,
+    dac_ch0_fast = 0x2e,
+    dac_ch1_fast = 0x2f,
 
     /// Current threshold fast-to-slow ratio setting
     ifast2slow = 0x30,
@@ -213,11 +214,17 @@ pub enum Register {
     /// Hold control bits for peak-detection registers
     peak_log_hold = 0x42,
 
-    /// Base address for block read of 50-sample voltage-signal data buffer
-    cubf_ba_chx_v = 0x46,
+    /// Channel 0 block read of 50-sample voltage-signal data buffer
+    cbuf_ba_ch0_v = 0x46,
 
-    /// Base address for block read of 50-sample current-signal data buffer
-    cubf_ba_chx_i = 0x47,
+    /// Channel 0 block read of 50-sample current-signal data buffer
+    cbuf_ba_ch0_i = 0x47,
+
+    /// Channel 1 block read of 50-sample voltage-signal data buffer
+    cbuf_ba_ch1_v = 0x48,
+
+    /// Channel 1 block read of 50-sample current-signal data buffer
+    cbuf_ba_ch1_i = 0x49,
 }
 
 /// A newtype for the MON input range setting register
@@ -242,6 +249,7 @@ impl MonRange {
 }
 
 /// A newtype for the fast-trip threshold maximum range register
+#[derive(Copy, Clone)]
 struct Status2(u8);
 
 impl Status2 {
@@ -276,14 +284,32 @@ pub struct Max5970 {
     device: I2cDevice,
     rail: u8,
     rsense: i32,
+
+    /// If enabled, then current readings return an averaged value
+    read_averaged_current: bool,
+
+    /// Indicates that 10-bit mode is enabled for averaging
+    ///
+    /// When the chip turns on, its internal ringbuf stores temperatures as
+    /// single-byte values.  We want to get the full 10-bit (2-byte) values,
+    /// which requires changing a register.  This flag tells us whether we've
+    /// made that change; it's a `Cell` because current reading takes `&self`.
+    avg_config_done: core::cell::Cell<bool>,
 }
 
 impl Max5970 {
-    pub fn new(device: &I2cDevice, rail: u8, rsense: Ohms) -> Self {
+    pub fn new(
+        device: &I2cDevice,
+        rail: u8,
+        rsense: Ohms,
+        read_averaged_current: bool,
+    ) -> Self {
         Self {
             device: *device,
             rail,
             rsense: (rsense.0 * 1000.0).round() as i32,
+            read_averaged_current,
+            avg_config_done: core::cell::Cell::new(false),
         }
     }
 
@@ -407,11 +433,69 @@ impl Max5970 {
         self.write_reg(Register::peak_log_rst, rst)?;
         self.write_reg(Register::peak_log_rst, 0)
     }
+
+    pub fn set_dac_fast(&self, v: u8) -> Result<(), ResponseCode> {
+        if self.rail == 0 {
+            self.write_reg(Register::dac_ch0_fast, v)
+        } else {
+            self.write_reg(Register::dac_ch1_fast, v)
+        }
+    }
+
+    fn read_iout_direct(&self) -> Result<Amperes, ResponseCode> {
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::adc_chx_cs_msb_ch1, Register::adc_chx_cs_lsb_ch1)
+        } else {
+            (Register::adc_chx_cs_msb_ch2, Register::adc_chx_cs_lsb_ch2)
+        };
+
+        self.convert_current(
+            Status2(self.read_reg(Register::status2)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        )
+    }
+
+    fn read_iout_ringbuf(&self) -> Result<Amperes, ResponseCode> {
+        // If we don't have a power-good signal for this rail, then fall back to
+        // the instantaneous reading (because the ringbuf stops rolling after
+        // the rail is faulted).
+        let pg = self.read_reg(Register::status3)?;
+        if pg & (1 << self.rail) == 0 {
+            return self.read_iout_direct();
+        }
+
+        // If we haven't enabled 10-bit mode, then do so.  This configuration is
+        // idempotent, so it's harmless if multiple rails all do it.
+        let status = Status2(self.read_reg(Register::status2)?);
+        if !self.avg_config_done.get() {
+            self.write_reg(Register::cbufrd_hibyonly, 0x0)?;
+            self.avg_config_done.set(true);
+        }
+
+        // Temperature values are stored in a 50-item ringbuf
+        let reg = if self.rail == 0 {
+            Register::cbuf_ba_ch0_i
+        } else {
+            Register::cbuf_ba_ch1_i
+        };
+        let mut buf = [0u8; 100];
+        self.device.read_reg_into(reg as u8, &mut buf)?;
+
+        // 50x 10-bit values can't overflow a u16
+        let mut sum = 0u16;
+        for c in buf.chunks_exact(2) {
+            sum += ((c[0] as u16) << 2) | (c[1] as u16);
+        }
+        let mean = sum / 50;
+        let [msb, lsb] = mean.to_be_bytes();
+        self.convert_current(status, msb, lsb)
+    }
 }
 
 impl Validate<ResponseCode> for Max5970 {
     fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
-        let val = Max5970::new(device, 0, Ohms(0.0))
+        let val = Max5970::new(device, 0, Ohms(0.0), false)
             .read_reg(Register::cbuf_dly_stop)?;
         Ok(val == 0x19)
     }
@@ -435,16 +519,10 @@ impl VoltageSensor<ResponseCode> for Max5970 {
 
 impl CurrentSensor<ResponseCode> for Max5970 {
     fn read_iout(&self) -> Result<Amperes, ResponseCode> {
-        let (msb_reg, lsb_reg) = if self.rail == 0 {
-            (Register::adc_chx_cs_msb_ch1, Register::adc_chx_cs_lsb_ch1)
+        if !self.read_averaged_current {
+            self.read_iout_direct()
         } else {
-            (Register::adc_chx_cs_msb_ch2, Register::adc_chx_cs_lsb_ch2)
-        };
-
-        self.convert_current(
-            Status2(self.read_reg(Register::status2)?),
-            self.read_reg(msb_reg)?,
-            self.read_reg(lsb_reg)?,
-        )
+            self.read_iout_ringbuf()
+        }
     }
 }

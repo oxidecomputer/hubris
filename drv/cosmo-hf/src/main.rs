@@ -4,7 +4,7 @@
 
 //! Minimal driver for FMC-attached NOR flash, implementing the `hf` API
 //!
-//! The NOR flash chip is a W25Q01JVZEIQ, which is a 1 GiB NOR flash.  It is
+//! The NOR flash chip is a W25Q01JVZEIQ, which is a 1 GBit NOR flash.  It is
 //! connected to the FPGA over SPI / QSPI.
 //!
 //! # References
@@ -14,68 +14,70 @@
 #![no_main]
 
 use ringbuf::{counted_ringbuf, ringbuf_entry};
-use userlib::{hl::sleep_for, task_slot};
+use userlib::{UnwrapLite, hl::sleep_for, task_slot};
 
-mod hf; // implementation of `HostFlash` API
+mod apob; // Details for APOB structs
+mod hf; // Implementation of `HostFlash` API
 
-task_slot!(SEQ, grapefruit_seq);
+task_slot!(LOADER, spartan7_loader);
 
 #[derive(Debug, Clone, Copy, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
 
-    FpgaBusy {
-        spi_sr: u32,
-    },
+    FpgaBusy,
     SectorEraseBusy,
     WriteBusy,
 
     HashInitError(drv_hash_api::HashError),
     HashUpdateError(drv_hash_api::HashError),
     HashFinalizeError(drv_hash_api::HashError),
+
+    ApobFound(apob::ApobLocation),
+    ApobAbl0Mismatch {
+        stored_version: Option<u32>,
+        current_version: Option<u32>,
+    },
+    ApobError(apob::ApobError),
+
+    PrevAbl0VersionNotUsed(u32),
+    Abl0VersionFound(u32),
+    Abl0VersionError(apob::ApobError),
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);
 
-/// Size in bytes of a single page of data (i.e., the max length of slice we
-/// accept for `page_program()` and `read_memory()`).
-///
-/// This value is really a property of the flash we're talking to and not this
-/// driver, but it's correct for all our current parts. If that changes, this
-/// will need to change to something more flexible.
-pub const PAGE_SIZE_BYTES: usize = 256;
+// Re-export constants from the generic host flash API
+pub use drv_hf_api::PAGE_SIZE_BYTES;
+pub const SECTOR_SIZE_BYTES: u32 = drv_hf_api::SECTOR_SIZE_BYTES as u32;
 
-/// Size in bytes of a single sector of data (i.e., the size of the data erased
-/// by a call to `sector_erase()`).
-///
-/// This value is really a property of the flash we're talking to and not this
-/// driver, but it's correct for all our current parts. If that changes, this
-/// will need to change to something more flexible.
-///
-/// **Note:** the datasheet refers to a "sector" as a 4K block, but also
-/// supports 64K block erases, so we call the latter a sector to match the
-/// behavior of the Gimlet host flash driver.
-pub const SECTOR_SIZE_BYTES: u32 = 65_536;
+/// Total flash size is 128 MiB
+pub const FLASH_SIZE_BYTES: u32 = 128 * 1024 * 1024;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Wait for the FPGA to be configured; the sequencer task only starts its
     // Idol loop after the FPGA has been brought up.
-    let seq = drv_cpu_seq_api::Sequencer::from(SEQ.get_task_id());
-    let _ = seq.get_state();
+    let seq =
+        drv_spartan7_loader_api::Spartan7Loader::from(LOADER.get_task_id());
 
-    let id = unsafe { reg::BASE.read_volatile() };
-    if id != 0x1de {
-        fail(drv_hf_api::HfError::FpgaNotConfigured);
-    }
-
-    let drv = FlashDriver;
+    let mut drv = FlashDriver {
+        drv: fmc_periph::SpiNor::new(seq.get_token()),
+    };
     drv.flash_set_quad_enable();
 
-    // Check the flash chip's ID against Table 7.3.1 in the datasheet
+    // Check the flash chip's ID against Table 7.3.1 in the W25Q01JV datasheet
+    // (revision B1, published November 13, 2019)
     let id = drv.flash_read_id();
-    if id[0..3] != [0xef, 0x40, 0x21] {
+    const WINBOND_MFR_ID: u8 = 0xef;
+    const EXPECTED_TYPE: u8 = 0x40;
+    const EXPECTED_CAPACITY: u8 = 0x21;
+
+    if id.mfr_id != WINBOND_MFR_ID
+        || id.memory_type != EXPECTED_TYPE
+        || id.capacity != EXPECTED_CAPACITY
+    {
         fail(drv_hf_api::HfError::BadChipId);
     }
 
@@ -86,63 +88,103 @@ fn main() -> ! {
     }
 }
 
+/// Absolute memory address
+#[derive(Copy, Clone, PartialEq, Debug)]
+struct FlashAddr(u32);
+
+impl FlashAddr {
+    fn new(v: u32) -> Option<Self> {
+        if v < FLASH_SIZE_BYTES {
+            Some(FlashAddr(v))
+        } else {
+            None
+        }
+    }
+}
+
 /// Driver for a QSPI NOR flash controlled by an FPGA over FMC
-struct FlashDriver;
-
-#[allow(unused)]
-mod reg {
-    pub const BASE: *mut u32 = 0x60000000 as *mut _;
-
-    pub const NOR: *mut u32 = BASE.wrapping_add(0x40);
-    pub const SPICR: *mut u32 = NOR.wrapping_add(0x0);
-    pub mod spisr {
-        pub const RX_EMPTY_BIT: u32 = 1 << 6;
-    }
-    pub const SPISR: *mut u32 = NOR.wrapping_add(0x1);
-    pub mod spicr {
-        pub const SP5_OWNS_FLASH: u32 = 1 << 31;
-        pub const RX_FIFO_RESET: u32 = 1 << 15;
-        pub const TX_FIFO_RESET: u32 = 1 << 7;
-    }
-    pub const ADDR: *mut u32 = NOR.wrapping_add(0x2);
-    pub const DUMMY_CYCLES: *mut u32 = NOR.wrapping_add(0x3);
-    pub const DATA_BYTES: *mut u32 = NOR.wrapping_add(0x4);
-    pub const INSTR: *mut u32 = NOR.wrapping_add(0x5);
-    pub const TX_FIFO: *mut u32 = NOR.wrapping_add(0x6);
-    pub const RX_FIFO: *mut u32 = NOR.wrapping_add(0x7);
-    pub const SP5_FLASH_OFFSET: *mut u32 = NOR.wrapping_add(0x8);
+struct FlashDriver {
+    drv: fmc_periph::SpiNor,
 }
 
 #[allow(unused)]
 mod instr {
-    pub const PAGE_PROGRAM: u32 = 0x02;
-    pub const READ: u32 = 0x03;
-    pub const READ_STATUS_1: u32 = 0x05;
-    pub const READ_STATUS_2: u32 = 0x35;
-    pub const READ_STATUS_3: u32 = 0x15;
-    pub const WRITE_STATUS_2: u32 = 0x31;
-    pub const WRITE_ENABLE: u32 = 0x06;
-    pub const FAST_READ_QUAD: u32 = 0x6b;
-    pub const FAST_READ_QUAD_OUTPUT_4B: u32 = 0x6c;
-    pub const SECTOR_ERASE: u32 = 0x20;
-    pub const READ_JEDEC_ID: u32 = 0x9f;
-    pub const BLOCK_ERASE_64KB: u32 = 0xd8;
-    pub const BLOCK_ERASE_64KB_4B: u32 = 0xdc;
-    pub const QUAD_INPUT_PAGE_PROGRAM: u32 = 0x32;
-    pub const QUAD_INPUT_PAGE_PROGRAM_4B: u32 = 0x34;
+    pub const PAGE_PROGRAM: u8 = 0x02;
+    pub const READ: u8 = 0x03;
+    pub const READ_STATUS_1: u8 = 0x05;
+    pub const READ_STATUS_2: u8 = 0x35;
+    pub const READ_STATUS_3: u8 = 0x15;
+    pub const WRITE_STATUS_2: u8 = 0x31;
+    pub const WRITE_ENABLE: u8 = 0x06;
+    pub const FAST_READ_QUAD: u8 = 0x6b;
+    pub const FAST_READ_QUAD_OUTPUT_4B: u8 = 0x6c;
+    pub const SECTOR_ERASE: u8 = 0x20;
+    pub const READ_JEDEC_ID: u8 = 0x9f;
+    pub const READ_UNIQUE_ID: u8 = 0x4b;
+    pub const BLOCK_ERASE_64KB: u8 = 0xd8;
+    pub const BLOCK_ERASE_64KB_4B: u8 = 0xdc;
+    pub const QUAD_INPUT_PAGE_PROGRAM: u8 = 0x32;
+    pub const QUAD_INPUT_PAGE_PROGRAM_4B: u8 = 0x34;
 }
 
 impl FlashDriver {
-    fn flash_read_id(&self) -> [u8; 20] {
+    // The SP5 does all of its reads from a particular base address (found
+    // by sniffing the SPI bus), so we have to subtract that out when
+    // calculating the flash offset used by the FPGA
+    const SP5_BASE: u32 = 0x3000000;
+
+    fn flash_read_id(&mut self) -> drv_hf_api::HfChipId {
         self.clear_fifos();
-        self.write_reg(reg::DATA_BYTES, 20);
-        self.write_reg(reg::ADDR, 0);
-        self.write_reg(reg::DUMMY_CYCLES, 0);
-        self.write_reg(reg::INSTR, instr::READ_JEDEC_ID);
+        self.drv.data_bytes.set_count(3);
+        self.drv.addr.set_addr(0);
+        self.drv.dummy_cycles.set_count(0);
+        self.drv.instr.set_opcode(instr::READ_JEDEC_ID);
         self.wait_fpga_busy();
-        let mut out = [0u8; 20];
-        for i in 0..out.len() / 4 {
-            let v = self.read_reg(reg::RX_FIFO);
+        let v = self.drv.rx_fifo_rdata.fifo_data();
+        let bytes = v.to_le_bytes();
+        let mfr_id = bytes[0];
+        let memory_type = bytes[1];
+        let capacity = bytes[2];
+
+        // Make sure die 0 is selected with a dummy read, because the
+        // READ_UNIQUE_ID command is die-specific.
+        let mut buf = [0u8; 4];
+        self.flash_read_slice(FlashAddr(0), buf.as_mut_slice());
+        let die0_id = self.read_unique_id();
+
+        // Then read the top die's unique ID
+        self.flash_read_slice(FlashAddr(0x04000000), buf.as_mut_slice());
+        let die1_id = self.read_unique_id();
+
+        let mut unique_id = [0u8; 17];
+        unique_id[0..8].copy_from_slice(&die0_id);
+        unique_id[8..16].copy_from_slice(&die1_id);
+
+        drv_hf_api::HfChipId {
+            mfr_id,
+            memory_type,
+            capacity,
+            unique_id,
+        }
+    }
+
+    /// Reads the unique id (`READ_UNIQUE_ID`, `4Bh`) from the selected die
+    ///
+    /// The selected die depends on previous commands; see "W25Q01JV SpiFlash
+    /// Stacked Die Usage" for details (available in Drive).
+    fn read_unique_id(&mut self) -> [u8; 8] {
+        // We are running with 3-byte addresses, so we need to skip 4 bytes (32
+        // clocks) of dummy data.  The datasheet indicates that the DO line is
+        // high-Z when this happens, but experimentally, it's just clocking out
+        // parts of the unique ID.  Regardless, we'll skip those bytes.
+        self.drv.data_bytes.set_count(8);
+        self.drv.addr.set_addr(0);
+        self.drv.dummy_cycles.set_count(32);
+        self.drv.instr.set_opcode(instr::READ_UNIQUE_ID);
+        self.wait_fpga_busy();
+        let mut out = [0u8; 8];
+        for i in 0..2 {
+            let v = self.drv.rx_fifo_rdata.fifo_data();
             for (j, byte) in v.to_le_bytes().iter().enumerate() {
                 out[i * 4 + j] = *byte;
             }
@@ -150,93 +192,138 @@ impl FlashDriver {
         out
     }
 
-    fn read_reg(&self, reg: *mut u32) -> u32 {
-        unsafe { reg.read_volatile() }
-    }
-
-    fn write_reg(&self, reg: *mut u32, v: u32) {
-        unsafe { reg.write_volatile(v) };
-    }
-
-    fn modify_reg<F: Fn(u32) -> u32>(&self, reg: *mut u32, f: F) {
-        let prev = self.read_reg(reg);
-        self.write_reg(reg, f(prev));
-    }
-
     /// Wait until the FPGA is idle
     fn wait_fpga_busy(&self) {
-        loop {
-            let spi_sr = self.read_reg(reg::SPISR);
-            if (spi_sr & 1) == 0 {
-                break;
-            }
-            ringbuf_entry!(Trace::FpgaBusy { spi_sr });
-            sleep_for(1);
-        }
+        self.poll_wait(|this| !this.drv.spisr.busy(), Trace::FpgaBusy)
     }
 
     /// Wait until a word is available in the FPGA's RX buffer
     fn wait_fpga_rx(&self) {
-        for i in 0.. {
-            let spi_sr = self.read_reg(reg::SPISR);
-            if spi_sr & reg::spisr::RX_EMPTY_BIT == 0 {
-                break;
-            }
-            ringbuf_entry!(Trace::FpgaBusy { spi_sr });
-            // Initial busy-loop for faster response
-            if i >= 32 {
-                sleep_for(1);
-            }
-        }
+        self.poll_wait(|this| !this.drv.spisr.rx_empty(), Trace::FpgaBusy)
     }
 
     /// Clears the FPGA's internal FIFOs
     fn clear_fifos(&self) {
-        self.modify_reg(reg::SPICR, |v| {
-            v | reg::spicr::RX_FIFO_RESET | reg::spicr::TX_FIFO_RESET
+        // TODO make this a single `modify` operation?
+        self.drv.spicr.modify(|r| {
+            r.set_rx_fifo_reset(true);
+            r.set_tx_fifo_reset(true);
         });
+    }
+
+    /// Wait for a condition represented by the provided `poll` function.
+    ///
+    /// The driver will wait until the `poll` function returns `true`. Each time
+    /// `poll` returns `false`, the provided `trace` will be recorded in the
+    /// ring buffer.
+    #[inline]
+    fn poll_wait(&self, mut poll: impl FnMut(&Self) -> bool, trace: Trace) {
+        // When polling the FPGA or flash chips, this number of polls are
+        // attempted *without* sleeping between polls. If the FPGA/flash's
+        // status has not changed after this number of polls, the driver will
+        // begin to sleep for a short period between subsequent polls.
+        //
+        // This is intended to improve copy performance for operations where the
+        // desired status transition occurs in less than 1ms, avoiding a 1-2ms
+        // sleep and round-trip through the scheduler. status transitions
+        // quickly.
+        //
+        // Initial tests show that waiting on the FPGA takes ~50 polls when
+        // page programming. Waiting even 1 tick is still more costly than
+        // just waiting for the poll to finish.
+        const MAX_BUSY_POLLS: u32 = 100;
+
+        let mut busy_polls = 0;
+        while !poll(self) {
+            ringbuf_entry!(trace);
+
+            if busy_polls > MAX_BUSY_POLLS {
+                // If we've exhausted all of our busy polls, sleep for a bit
+                // before polling again.
+                sleep_for(1);
+            } else {
+                // Only increment the counter while we are busy-polling.
+                // Otherwise, if we incremented it unconditionally, we might
+                // overflow and start busy-polling again. Of course, we won't do
+                // that unless we are stuck waiting for 4,294,967,295ms, which
+                // is a little under 50 days, so things would probably have gone
+                // very wrong if that happened. But, still...
+                busy_polls += 1;
+            }
+        }
     }
 
     /// Wait until the SPI flash is idle
     fn wait_flash_busy(&self, t: Trace) {
         // Wait for the busy flag to be unset
-        while (self.read_flash_status() & 1) != 0 {
-            ringbuf_entry!(t);
-            sleep_for(1);
-        }
+        self.poll_wait(|this| this.read_flash_status() & 1 == 0, t);
     }
 
     /// Reads the STATUS1 register from flash
     fn read_flash_status(&self) -> u8 {
         self.clear_fifos();
-        self.write_reg(reg::DATA_BYTES, 1);
-        self.write_reg(reg::ADDR, 0);
-        self.write_reg(reg::DUMMY_CYCLES, 0);
-        self.write_reg(reg::INSTR, instr::READ_STATUS_1);
+        self.drv.data_bytes.set_count(1);
+        self.drv.addr.set_addr(0);
+        self.drv.dummy_cycles.set_count(0);
+        self.drv.instr.set_opcode(instr::READ_STATUS_1);
         self.wait_fpga_busy();
-        self.read_reg(reg::RX_FIFO).to_le_bytes()[0]
+        self.drv.rx_fifo_rdata.fifo_data().to_le_bytes()[0]
     }
 
     /// Sets the write enable flag in flash
     fn flash_write_enable(&self) {
-        self.write_reg(reg::DATA_BYTES, 0);
-        self.write_reg(reg::ADDR, 0);
-        self.write_reg(reg::DUMMY_CYCLES, 0);
-        self.write_reg(reg::INSTR, instr::WRITE_ENABLE);
+        self.drv.data_bytes.set_count(0);
+        self.drv.addr.set_addr(0);
+        self.drv.dummy_cycles.set_count(0);
+        self.drv.instr.set_opcode(instr::WRITE_ENABLE);
         self.wait_fpga_busy();
     }
 
     /// Erases the 64KiB flash sector containing the given address
-    fn flash_sector_erase(&mut self, addr: u32) {
+    fn flash_sector_erase(&mut self, addr: FlashAddr) {
+        if self.flash_is_sector_erased(addr) {
+            return;
+        }
         self.flash_write_enable();
-        self.write_reg(reg::DATA_BYTES, 0);
-        self.write_reg(reg::ADDR, addr);
-        self.write_reg(reg::DUMMY_CYCLES, 0);
-        self.write_reg(reg::INSTR, instr::BLOCK_ERASE_64KB_4B);
+        self.drv.data_bytes.set_count(0);
+        self.drv.addr.set_addr(addr.0);
+        self.drv.dummy_cycles.set_count(0);
+        self.drv.instr.set_opcode(instr::BLOCK_ERASE_64KB_4B);
         self.wait_fpga_busy();
 
         // Wait for the busy flag to be unset
         self.wait_flash_busy(Trace::SectorEraseBusy);
+    }
+
+    /// Returns true if the full 64KB sector is erased
+    /// (all bits are set to `1`)
+    fn flash_is_sector_erased(&mut self, addr: FlashAddr) -> bool {
+        let cnt = SECTOR_SIZE_BYTES / (PAGE_SIZE_BYTES as u32);
+        for i in 0..cnt {
+            let addr = addr.0 + i * (PAGE_SIZE_BYTES as u32);
+            self.clear_fifos();
+            self.drv.data_bytes.set_count(PAGE_SIZE_BYTES as u16);
+            self.drv.addr.set_addr(addr);
+            self.drv.dummy_cycles.set_count(8);
+            self.drv.instr.set_opcode(instr::FAST_READ_QUAD_OUTPUT_4B);
+            let mut erased = true;
+            // Technically we could terminate this loop early when
+            // we find the first non-erased byte but we still have
+            // to drain the FIFOs and wait for the FPGA which means
+            // there's no performance gain vs just reading everything
+            // in a loop here.
+            for _ in 0..PAGE_SIZE_BYTES.div_ceil(4) {
+                self.wait_fpga_rx();
+                let v = self.drv.rx_fifo_rdata.fifo_data();
+                if v != u32::MAX {
+                    erased = false;
+                }
+            }
+            if !erased {
+                return false;
+            }
+        }
+        true
     }
 
     /// Reads data from the given address into a `BufWriter`
@@ -245,7 +332,7 @@ impl FlashDriver {
     /// provided lease; when given a slice, it is infallible.
     fn flash_read(
         &mut self,
-        offset: u32,
+        offset: FlashAddr,
         dest: &mut dyn idol_runtime::BufWriter<'_>,
     ) -> Result<(), ()> {
         loop {
@@ -254,14 +341,13 @@ impl FlashDriver {
                 break;
             }
             self.clear_fifos();
-            self.write_reg(reg::DATA_BYTES, len as u32);
-            self.write_reg(reg::ADDR, offset);
-            self.write_reg(reg::DUMMY_CYCLES, 8);
-            self.write_reg(reg::INSTR, instr::FAST_READ_QUAD_OUTPUT_4B);
+            self.drv.data_bytes.set_count(len as u16);
+            self.drv.addr.set_addr(offset.0);
+            self.drv.dummy_cycles.set_count(8);
+            self.drv.instr.set_opcode(instr::FAST_READ_QUAD_OUTPUT_4B);
             for i in 0..len.div_ceil(4) {
                 self.wait_fpga_rx();
-                let v = self.read_reg(reg::RX_FIFO);
-                let v = v.to_le_bytes();
+                let v = self.drv.rx_fifo_rdata.fifo_data().to_le_bytes();
                 for (j, byte) in v.iter().enumerate() {
                     let k = i * 4 + j;
                     if k < len {
@@ -273,46 +359,45 @@ impl FlashDriver {
         Ok(())
     }
 
-    /// Writes data from a `BufReader` into the flash
-    ///
-    /// This function will only return an error if it fails to write to a
-    /// provided lease; when given a slice, it is infallible.
-    fn flash_write(
-        &mut self,
-        addr: u32,
-        data: &mut dyn idol_runtime::BufReader<'_>,
-    ) -> Result<(), ()> {
-        loop {
-            let len = data.remaining_size().min(PAGE_SIZE_BYTES);
-            if len == 0 {
-                break;
-            }
+    /// Read data from flash into a slice
+    fn flash_read_slice(&mut self, offset: FlashAddr, mut dest: &mut [u8]) {
+        // This is infallible, per the docstring on `flash_read`, so we'll
+        // unwrap it here (which lets this function not return an error)
+        self.flash_read(offset, &mut dest).unwrap_lite()
+    }
 
+    /// Writes data from a slice into the flash
+    fn flash_write(&mut self, addr: FlashAddr, data: &[u8]) {
+        // Don't bother writing erased pages
+        if data.iter().all(|x| *x == 0xff) {
+            return;
+        }
+
+        let mut addr = addr.0;
+        for page_chunk in data.chunks(PAGE_SIZE_BYTES) {
             self.flash_write_enable();
-            self.write_reg(reg::DATA_BYTES, len as u32);
-            self.write_reg(reg::ADDR, addr);
-            self.write_reg(reg::DUMMY_CYCLES, 0);
-            for i in 0..len.div_ceil(4) {
+            self.drv.data_bytes.set_count(page_chunk.len() as u16);
+            self.drv.addr.set_addr(addr);
+            self.drv.dummy_cycles.set_count(0);
+
+            for chunk in page_chunk.chunks(4) {
+                // Manually construct the u32 instad of just `try_into`
+                // just in case this slice was an odd number of bytes
                 let mut v = [0u8; 4];
-                for (j, byte) in v.iter_mut().enumerate() {
-                    let k = i * 4 + j;
-                    if k < len {
-                        let Some(d) = data.read() else {
-                            return Err(());
-                        };
-                        *byte = d;
-                    }
+                for (b, v_i) in chunk.iter().zip(v.iter_mut()) {
+                    *v_i = *b;
                 }
                 let v = u32::from_le_bytes(v);
-                self.write_reg(reg::TX_FIFO, v);
+                self.drv.tx_fifo_wdata.set_fifo_data(v);
             }
-            self.write_reg(reg::INSTR, instr::QUAD_INPUT_PAGE_PROGRAM_4B);
+
+            self.drv.instr.set_opcode(instr::QUAD_INPUT_PAGE_PROGRAM_4B);
             self.wait_fpga_busy();
 
             // Wait for the busy flag to be unset
             self.wait_flash_busy(Trace::WriteBusy);
+            addr += page_chunk.len() as u32;
         }
-        Ok(())
     }
 
     /// Enable the quad enable bit in flash
@@ -324,27 +409,28 @@ impl FlashDriver {
 
     fn read_flash_status_2(&self) -> u8 {
         self.clear_fifos();
-        self.write_reg(reg::DATA_BYTES, 1);
-        self.write_reg(reg::ADDR, 0);
-        self.write_reg(reg::DUMMY_CYCLES, 0);
-        self.write_reg(reg::INSTR, instr::READ_STATUS_2);
+        self.drv.data_bytes.set_count(1);
+        self.drv.addr.set_addr(0);
+        self.drv.dummy_cycles.set_count(0);
+        self.drv.instr.set_opcode(instr::READ_STATUS_2);
         self.wait_fpga_busy();
-        self.read_reg(reg::RX_FIFO).to_le_bytes()[0]
+        self.drv.rx_fifo_rdata.fifo_data().to_le_bytes()[0]
     }
 
     fn write_flash_status_2(&self, v: u8) {
         self.clear_fifos();
-        self.write_reg(reg::DATA_BYTES, 1);
-        self.write_reg(reg::ADDR, 0);
-        self.write_reg(reg::DUMMY_CYCLES, 0);
-        self.write_reg(reg::TX_FIFO, u32::from_le_bytes([v, 0, 0, 0]));
-        self.write_reg(reg::INSTR, instr::WRITE_STATUS_2);
+        self.drv.data_bytes.set_count(1);
+        self.drv.addr.set_addr(0);
+        self.drv.dummy_cycles.set_count(0);
+        self.drv
+            .tx_fifo_wdata
+            .set_fifo_data(u32::from_le_bytes([v, 0, 0, 0]));
+        self.drv.instr.set_opcode(instr::WRITE_STATUS_2);
         self.wait_fpga_busy();
     }
 
     fn get_flash_mux_state(&self) -> drv_hf_api::HfMuxState {
-        let v = self.read_reg(reg::SPICR);
-        if v & reg::spicr::SP5_OWNS_FLASH != 0 {
+        if self.drv.spicr.sp5_owns_flash() {
             drv_hf_api::HfMuxState::HostCPU
         } else {
             drv_hf_api::HfMuxState::SP
@@ -362,24 +448,46 @@ impl FlashDriver {
     }
 
     fn set_flash_mux_state(&self, ms: drv_hf_api::HfMuxState) {
-        self.modify_reg(reg::SPICR, |v| match ms {
-            drv_hf_api::HfMuxState::SP => v & !reg::spicr::SP5_OWNS_FLASH,
-            drv_hf_api::HfMuxState::HostCPU => v | reg::spicr::SP5_OWNS_FLASH,
+        self.drv.spicr.modify(|v| match ms {
+            drv_hf_api::HfMuxState::SP => v.set_sp5_owns_flash(false),
+            drv_hf_api::HfMuxState::HostCPU => v.set_sp5_owns_flash(true),
         });
     }
 
-    fn set_espi_addr_offset(&self, v: u32) {
-        self.write_reg(reg::SP5_FLASH_OFFSET, v);
+    fn set_espi_addr_offset(&self, v: FlashAddr) {
+        self.drv
+            .sp5_flash_offset
+            .set_offset(v.0.wrapping_sub(Self::SP5_BASE));
+    }
+
+    pub(crate) fn set_apob_pos(&self, pos: apob::ApobLocation) {
+        self.drv
+            .apob_flash_addr
+            .set_offset(pos.start.wrapping_add(Self::SP5_BASE));
+        self.drv.apob_flash_len.set_offset(pos.size);
+    }
+
+    pub(crate) fn set_apob_offset(&self, addr: FlashAddr) {
+        self.drv.apob_flash_offset.set_offset(addr.0);
+    }
+
+    pub(crate) fn clear_apob_pos(&self) {
+        self.drv.apob_flash_addr.set_offset(0);
+        self.drv.apob_flash_len.set_offset(0);
     }
 }
 
 /// Failure function, running an Idol response loop that always returns an error
 fn fail(err: drv_hf_api::HfError) {
     let mut buffer = [0; hf::idl::INCOMING_SIZE];
-    let mut server = hf::FailServer { err };
+    let mut server = hf::FailServer(err);
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+
+mod fmc_periph {
+    include!(concat!(env!("OUT_DIR"), "/fmc_periph.rs"));
+}

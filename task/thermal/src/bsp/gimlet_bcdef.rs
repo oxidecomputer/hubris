@@ -12,10 +12,10 @@ use crate::{
     i2c_config::{devices, sensors},
 };
 pub use drv_cpu_seq_api::SeqError;
-use drv_cpu_seq_api::{PowerState, Sequencer};
+use drv_cpu_seq_api::{PowerState, Sequencer, StateChangeReason};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
-use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
+use userlib::{TaskId, UnwrapLite, task_slot, units::Celsius};
 
 task_slot!(SEQ, gimlet_seq);
 
@@ -54,11 +54,11 @@ pub const USE_CONTROLLER: bool = true;
 
 pub(crate) struct Bsp {
     /// Controlled sensors
-    pub inputs: &'static [InputChannel],
-    pub dynamic_inputs: &'static [SensorId],
+    pub inputs: &'static [InputChannel; NUM_TEMPERATURE_INPUTS],
+    pub dynamic_inputs: &'static [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS],
 
     /// Monitored sensors
-    pub misc_sensors: &'static [TemperatureSensor],
+    pub misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
     /// Fan control IC
     fctrl: Max31790State,
@@ -81,6 +81,9 @@ bitflags::bitflags! {
         const A2 = 0b00000001;
         const A0 = 0b00000010;
         const A0_OR_A2 = Self::A0.bits() | Self::A2.bits();
+        // Note that Gimlet does *not* need a separate flag for the A0+HP
+        // power domain (like Cosmo does), as the T6 is powered in the A0
+        // domain on Gimlet.
 
         // Bonus bits for M.2 power, which is switched separately.  We *cannot*
         // read the M.2 drives when they are unpowered; otherwise, we risk
@@ -109,15 +112,16 @@ impl Bsp {
     }
 
     pub fn power_down(&self) -> Result<(), SeqError> {
-        self.seq.set_state(PowerState::A2)
+        self.seq.set_state_with_reason(
+            PowerState::A2,
+            StateChangeReason::Overheat,
+        )?;
+        Ok(())
     }
 
     pub fn power_mode(&self) -> PowerBitmask {
         match self.seq.get_state() {
-            PowerState::A0PlusHP
-            | PowerState::A0
-            | PowerState::A1
-            | PowerState::A0Reset => {
+            PowerState::A0PlusHP | PowerState::A0 | PowerState::A0Reset => {
                 use drv_i2c_devices::max5970;
                 use userlib::units::Ohms;
 
@@ -128,7 +132,7 @@ impl Bsp {
                 // passing in the correct value of the current-sense resistor,
                 // but we are in fact not using it here.)
                 let dev = devices::max5970_m2(self.i2c_task);
-                let m = max5970::Max5970::new(&dev, 0, Ohms(0.004));
+                let m = max5970::Max5970::new(&dev, 0, Ohms(0.004), false);
                 let mut out = PowerBitmask::A0;
                 match m.read_reg(max5970::Register::status3) {
                     Ok(s) => {
@@ -157,10 +161,14 @@ impl Bsp {
         // Awkwardly build the fan array, because there's not a great way to
         // build a fixed-size array from a function
         let mut fans = Fans::new();
-        for i in 0..fans.len() {
+        for i in 0..NUM_FANS {
             fans[i] = Some(sensors::MAX31790_SPEED_SENSORS[i]);
         }
         Ok(fans)
+    }
+
+    pub fn fan_sensor_id(&self, i: usize) -> SensorId {
+        sensors::MAX31790_SPEED_SENSORS[i]
     }
 
     pub fn new(i2c_task: TaskId) -> Self {
@@ -243,11 +251,12 @@ const CPU_THERMALS: ThermalProperties = ThermalProperties {
     temperature_slew_deg_per_sec: 0.5,
 };
 
-// The T6's specifications aren't clearly detailed anywhere.
+// According to Chelsio, T_j Max is 115°C, while T_j Typical is 100° C. Let's
+// try to stay below 100°C.
 const T6_THERMALS: ThermalProperties = ThermalProperties {
-    target_temperature: Celsius(70f32),
-    critical_temperature: Celsius(80f32),
-    power_down_temperature: Celsius(85f32),
+    target_temperature: Celsius(95f32),
+    critical_temperature: Celsius(100f32),
+    power_down_temperature: Celsius(115f32),
     temperature_slew_deg_per_sec: 0.5,
 };
 

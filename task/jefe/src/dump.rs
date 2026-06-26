@@ -8,7 +8,7 @@ use crate::generated::{DUMP_ADDRESS_MAX, DUMP_ADDRESS_MIN, DUMP_AREAS};
 use humpty::{DumpArea, DumpContents};
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::DumpAgentError;
-use userlib::{kipc, TaskDumpRegion, UnwrapLite};
+use userlib::{TaskDumpRegion, UnwrapLite, kipc};
 
 #[cfg(all(
     armv8m,
@@ -247,42 +247,48 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
 
     let area = dump_task_setup(base, DumpTaskContents::SingleTask)?;
 
-    for ndx in 0.. {
-        //
-        // We need to ask the kernel which regions we should dump for this
-        // task, which we do by asking for each dump region by index.  Note
-        // that get_task_dump_region is O(#regions) -- which makes this loop
-        // quadratic: O(#regions * #dumpable).  Fortunately, these numbers are
-        // very small: the number of regions is generally 3 or less (and -- as
-        // of this writing -- tops out at 7), and the number of dumpable
-        // regions is generally just one (two when including the task TCB, but
-        // that's constant time to extract).  So this isn't as bad as it
-        // potentially looks (and boils down to two iterations over all
-        // regions in a task) -- but could become so if these numbers become
-        // larger.
-        //
-        match kipc::get_task_dump_region(task, ndx) {
-            None => break,
-            Some(region) if !in_dump_area(region.base, region.size) => {
-                ringbuf_entry!(Trace::DumpRegion(region));
-
-                // SAFETY: we have configured memory so that humpty
-                // should only read headers which are properly initialized and
-                // readable by this task, and should only write memory which is
-                // writeable by this task (i.e. the dump areas).
-                if let Err(e) = humpty::add_dump_segment_header(
-                    area.region.address,
-                    region.base,
-                    region.size,
-                    |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
-                    |addr, buf| unsafe { humpty::to_mem(addr, buf) },
-                ) {
-                    ringbuf_entry!(Trace::DumpRegionsFailed(e));
-                    return Err(DumpAgentError::BadSegmentAdd);
-                }
-            }
-            Some(_) => {}
+    // Helper function to add a region to the dump
+    let add_dump_region = |region: abi::TaskDumpRegion| {
+        // Skip regions which are in the space used for raw dump data
+        if in_dump_area(region.base, region.size) {
+            return Ok(());
         }
+        ringbuf_entry!(Trace::DumpRegion(region));
+
+        // SAFETY: we have configured memory so that humpty
+        // should only read headers which are properly initialized and
+        // readable by this task, and should only write memory which is
+        // writeable by this task (i.e. the dump areas).
+        if let Err(e) = humpty::add_dump_segment_header(
+            area.region.address,
+            region.base,
+            region.size,
+            |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+            |addr, buf| unsafe { humpty::to_mem(addr, buf) },
+        ) {
+            ringbuf_entry!(Trace::DumpRegionsFailed(e));
+            Err(DumpAgentError::BadSegmentAdd)
+        } else {
+            Ok(())
+        }
+    };
+
+    // We need to ask the kernel which regions we should dump for this task,
+    // which we do by asking for each dump region by index.  Note that
+    // get_task_dump_region is O(#regions) -- which makes this loop quadratic:
+    // O(#regions * #dumpable).  Fortunately, these numbers are very small: the
+    // number of regions is generally 3 or less (and -- as of this writing --
+    // tops out at 7), and the number of dumpable regions is generally just one
+    // (two when including the task TCB, but that's constant time to extract).
+    // So this isn't as bad as it potentially looks (and boils down to two
+    // iterations over all regions in a task) -- but could become so if these
+    // numbers become larger.
+    add_dump_region(kipc::get_task_desc_region(task))?;
+    for ndx in 0..=usize::MAX {
+        let Some(region) = kipc::get_task_dump_region(task, ndx) else {
+            break;
+        };
+        add_dump_region(region)?;
     }
 
     dump_task_run(area.region.address, task)?;
@@ -303,11 +309,11 @@ pub fn dump_task_region(
         length
     });
 
-    if start & 0b11 != 0 {
+    // Require alignment of 4-bytes for start + length
+    if !start.is_multiple_of(4) {
         return Err(DumpAgentError::UnalignedSegmentAddress);
     }
-
-    if (length as usize) & 0b11 != 0 {
+    if !length.is_multiple_of(4) {
         return Err(DumpAgentError::UnalignedSegmentLength);
     }
 
@@ -316,23 +322,62 @@ pub fn dump_task_region(
     // We don't trust the caller; it may request to dump a region that isn't
     // owned by this particular task!  To check this, we iterate over all of the
     // valid dump regions and confirm that our desired region is within one of
-    // them.
-    let mem = start..start + length;
+    // them. We also check that start+length wouldn't wrap around.
+    let Some(end) = start.checked_add(length) else {
+        return Err(DumpAgentError::BadSegmentAdd);
+    };
+    let mem = start..end;
     let mut okay = false;
 
-    for ndx in 0.. {
-        // This is Accidentally Quadratic; see the note in `dump_task`
-        match kipc::get_task_dump_region(task, ndx) {
-            None => break,
-            Some(region) if !in_dump_area(region.base, region.size) => {
-                ringbuf_entry!(Trace::DumpRegion(region));
-                let region = region.base..region.base + region.size;
-                if mem.start >= region.start && mem.end <= region.end {
+    // Get the task descriptor region (in kernel memory)
+    let desc = kipc::get_task_desc_region(task);
+    // Note: we implicitly trust kipc won't give us a region that wraps, so
+    // we'll use an unchecked add here (unlike untrusted user data from the
+    // request that we checked above)
+    let desc_region = desc.base..desc.base + desc.size;
+    if mem.start >= desc_region.start && mem.end <= desc_region.end {
+        // We are reading from the kernel descriptor region, great job
+        okay = true;
+    } else {
+        // Otherwise, iterate over task regions.   We will start with `mem`
+        // representing the full memory range to be dumped, then adjust
+        // `mem.start` as we find overlaps within the task dump regions. If
+        // `mem` becomes empty, then we know that it is valid (because the
+        // entire `mem` region has overlapped with task dump regions).
+        //
+        // Note: we also implicitly trust that kipc gives us regions which are
+        // in sorted order by base address.
+        let mut mem = start..end;
+        let mut started = false;
+        for ndx in 0..=usize::MAX {
+            // This is Accidentally Quadratic; see the note in `dump_task`
+            let Some(region) = kipc::get_task_dump_region(task, ndx) else {
+                break;
+            };
+
+            if in_dump_area(region.base, region.size) {
+                continue;
+            }
+
+            ringbuf_entry!(Trace::DumpRegion(region));
+
+            // Slide `mem.start` based on overlap
+            let region = region.base..region.base + region.size;
+            if region.contains(&mem.start) {
+                mem.start = region.end.min(mem.end);
+                started = true;
+                if mem.start == mem.end {
                     okay = true;
                     break;
                 }
+            } else if region.start > mem.start
+                || (started && region.start < mem.start)
+            {
+                // If we are beyond the start of our `mem` region (or have
+                // started overlapping but this region does not overlap), then
+                // there are no more overlaps and we can bail out immediately.
+                break;
             }
-            Some(_) => {}
         }
     }
 

@@ -77,3 +77,12 @@ size = 0x1000
 [bootrom]
 address = 0x03000000
 size = 0x10000
+
+[pint]
+address = 0x4000_4000
+size = 0x1000
+interrupts = { irq0 = 4, irq1 = 5, irq2 = 6, irq3 = 7, irq4 = 32, irq5 = 33, irq6 = 34, irq7 = 35 }
+
+[inputmux]
+address = 0x4000_6000
+size = 0x1000

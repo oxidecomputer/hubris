@@ -11,7 +11,7 @@ use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{units::Celsius, *};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
@@ -75,12 +75,13 @@ pub enum ThermalMode {
 pub enum ThermalAutoState {
     Boot,
     Running,
-    Overheated,
+    Critical,
     Uncontrollable,
+    FanParty,
 }
 
 /// Properties for a particular part in the system
-#[derive(Clone, Copy, AsBytes, FromBytes)]
+#[derive(Clone, Copy, IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct ThermalProperties {
     /// Target temperature for this part
@@ -115,10 +116,9 @@ impl ThermalProperties {
         t.0 >= self.critical_temperature.0
     }
 
-    /// Returns whether this part is below its critical temperature, with
-    /// a user-configured hysteresis band.
-    pub fn is_sub_critical(&self, t: Celsius, hysteresis: Celsius) -> bool {
-        t.0 < self.critical_temperature.0 - hysteresis.0
+    /// Returns whether this part is below its target temperature
+    pub fn is_nominal(&self, t: Celsius) -> bool {
+        t.0 <= self.target_temperature.0
     }
 
     /// Returns the margin of this part, given a current temperature reading.

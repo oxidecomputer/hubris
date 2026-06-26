@@ -2,7 +2,7 @@
 name = "task-net"
 version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 cfg-if = { workspace = true }
@@ -18,6 +18,7 @@ smoltcp = { workspace = true }
 stm32h7 = { workspace = true }
 vsc7448-pac = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 counters = { path = "../../lib/counters" }
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
@@ -46,7 +47,9 @@ use-spi-core = ["drv-stm32h7-spi-server-core"]
 mgmt = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/mgmt"]
 vpd-mac = ["task-packrat-api"]
 gimlet = ["drv-cpu-seq-api"]
+cosmo = ["drv-cpu-seq-api"]
 sidecar = ["drv-sidecar-seq-api"]
+minibar = []
 medusa = ["drv-medusa-seq-api"]
 psc = ["drv-psc-seq-api"]
 h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-spi-server-core?/h743"]

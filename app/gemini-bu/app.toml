@@ -2,8 +2,8 @@ name = "gemini-bu"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
 chip = "../../chips/stm32h7"
+default-ram = "dtcm"
 stacksize = 896
-fwid = true
 
 [kernel]
 name = "gemini-bu"
@@ -12,9 +12,9 @@ requires = {flash = 32768, ram = 8192}
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 8192, ram = 4096}
 start = true
-stacksize = 1536
+stacksize = 2200
 notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
@@ -93,7 +93,7 @@ task-slots = ["user_leds"]
 notifications = ["timer"]
 
 [tasks.hf]
-name = "drv-gimlet-hf-server"
+name = "drv-mock-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 6
 max-sizes = {flash = 16384, ram = 4096 }
@@ -124,6 +124,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver", "sprot", "update_server"]
+notifications = ["timer"]
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
@@ -141,7 +142,7 @@ interrupts = {"spi4.irq" = "spi-irq"}
 name = "task-validate"
 priority = 3
 max-sizes = {flash = 8192, ram = 4096 }
-stacksize = 1000 
+stacksize = 1000
 start = true
 task-slots = ["i2c_driver"]
 
@@ -156,10 +157,9 @@ start = true
 features = ["h753"]
 name = "drv-stm32h7-rng"
 priority = 6
-max-sizes = {flash = 8192, ram = 512}
 uses = ["rng"]
 start = true
-stacksize = 256
+stacksize = 512
 task-slots = ["sys", "user_leds"]
 
 [tasks.update_server]
@@ -228,24 +228,28 @@ device = "max31790"
 bus = "onboard"
 address = 0x20
 description = "Fan controller"
+refdes = "U701"
 
 [[config.i2c.devices]]
 device = "pca9555"
 bus = "onboard"
 address = 0x21
 description = "GPIO expander"
+refdes = "U1501"
 
 [[config.i2c.devices]]
 device = "ina219"
 bus = "onboard"
 address = 0x40
 description = "Current sensor"
+refdes = "U602"
 
 [[config.i2c.devices]]
 device = "ina219"
 bus = "onboard"
 address = 0x41
 description = "Current sensor"
+refdes = "U603"
 
 [[config.i2c.devices]]
 device = "ltc4306"
@@ -253,13 +257,14 @@ controller = 4
 port = "F"
 address = 0x44
 description = "Multiplexer"
+refdes = "U501"
 
 #
 # The following are devices for which Gemini BU has been or can be used as
 # a development or evaluation vehicle
 #
 [[config.i2c.devices]]
-device = "adm1272"
+device = "adm127x"
 controller = 4
 port = "F"
 mux = 1
@@ -267,6 +272,7 @@ segment = 1
 address = 0x10
 description = "ADM1272 evaluation board"
 power = { rails = [ "ADM_EVL_VOUT" ] }
+refdes = "J501"
 
 [[config.i2c.devices]]
 device = "isl68224"
@@ -277,6 +283,7 @@ segment = 3
 address = 0x60
 description = "ISL68224 evaluation board"
 power = { rails = [ "ISL_EVL_VOUT0", "ISL_EVL_VOUT1", "ISL_EVL_VOUT2" ] }
+refdes = "J503"
 
 [[config.i2c.devices]]
 device = "tps546b24a"
@@ -287,6 +294,7 @@ segment = 4
 address = 0x24
 description = "TPS546B24A evaluation board"
 power = { rails = [ "TPS_EVL_VOUT" ] }
+refdes = "J504"
 
 [config.spi.spi2]
 controller = 2
@@ -315,7 +323,3 @@ input = {port = "E", pin = 5, af = 5}
 mux = "port_e"
 cs = [{port = "E", pin = 4}]
 clock_divider = "DIV256"
-
-[config.sprot]
-# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-rot_irq = { port = "E", pin = 3, af = 15}

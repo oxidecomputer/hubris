@@ -14,10 +14,10 @@ pub fn claim_tx_statics() -> (
     &'static mut [eth::ring::Buffer; TX_RING_SZ],
 ) {
     mutable_statics! {
-        #[link_section = ".eth_bulk"]
+        #[unsafe(link_section = ".eth_bulk")]
         static mut TX_DESC: [eth::ring::TxDesc; TX_RING_SZ] =
             [eth::ring::TxDesc::new; _];
-        #[link_section = ".eth_bulk"]
+        #[unsafe(link_section = ".eth_bulk")]
         static mut TX_BUF: [eth::ring::Buffer; TX_RING_SZ] =
             [eth::ring::Buffer::new; _];
     }
@@ -29,10 +29,10 @@ pub fn claim_rx_statics() -> (
     &'static mut [eth::ring::Buffer; RX_RING_SZ],
 ) {
     mutable_statics! {
-        #[link_section = ".eth_bulk"]
+        #[unsafe(link_section = ".eth_bulk")]
         static mut RX_DESC: [eth::ring::RxDesc; RX_RING_SZ] =
             [eth::ring::RxDesc::new; _];
-        #[link_section = ".eth_bulk"]
+        #[unsafe(link_section = ".eth_bulk")]
         static mut RX_BUF: [eth::ring::Buffer; RX_RING_SZ] =
             [eth::ring::Buffer::new; _];
     }

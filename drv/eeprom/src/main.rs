@@ -17,7 +17,7 @@
 use derive_idol_err::IdolError;
 use drv_i2c_devices::at24csw080::*;
 use idol_runtime::{NotificationHandler, RequestError};
-use userlib::{task_slot, FromPrimitive};
+use userlib::{FromPrimitive, task_slot};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 task_slot!(I2C, i2c_driver);
@@ -97,12 +97,12 @@ impl NotificationHandler for EepromServer {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
     let dev =

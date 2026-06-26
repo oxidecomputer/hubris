@@ -28,7 +28,7 @@
 
 use drv_spi_api::{self as spi_api, SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
-use userlib::{hl, UnwrapLite};
+use userlib::{UnwrapLite, hl};
 
 /// Wiring configuration for the iCE40 FPGA.
 pub struct Config {
@@ -40,6 +40,7 @@ pub struct Config {
 
 /// Things that we can _notice_ going wrong when programming -- the FPGA doesn't
 /// actually give us a lot of feedback.
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 pub enum Ice40Error {
     /// We attempted to put the chip into programming mode, but its CDONE pin
     /// did not go low to confirm.

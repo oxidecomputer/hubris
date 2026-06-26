@@ -13,16 +13,30 @@ use stm32h7::stm32h743 as device;
 use stm32h7::stm32h753 as device;
 
 use drv_qspi_api::Command;
-use userlib::{sys_irq_control, sys_recv_notification};
-use zerocopy::AsBytes;
+use userlib::{UnwrapLite, sys_irq_control, sys_recv_notification};
+use zerocopy::IntoBytes;
 
 const FIFO_SIZE: usize = 32;
 const FIFO_THRESH: usize = 16;
+
+// In a perfect world we would use quad read everywhere because it is fast.
+// We've seen some inconsistency with the quad read command on some targets
+// so limit its use to targets where we've confirmed.
+pub enum ReadSetting {
+    Single,
+    Quad,
+}
 
 /// Wrapper for a reference to the register block.
 pub struct Qspi {
     reg: &'static device::quadspi::RegisterBlock,
     interrupt: u32,
+    read_command: Command,
+}
+
+pub enum QspiError {
+    Timeout,
+    TransferError,
 }
 
 impl Qspi {
@@ -30,8 +44,16 @@ impl Qspi {
     pub fn new(
         reg: &'static device::quadspi::RegisterBlock,
         interrupt: u32,
+        read: ReadSetting,
     ) -> Self {
-        Self { reg, interrupt }
+        Self {
+            reg,
+            interrupt,
+            read_command: match read {
+                ReadSetting::Single => Command::Read,
+                ReadSetting::Quad => Command::QuadRead,
+            },
+        }
     }
 
     /// Sets up the QSPI controller with some canned settings.
@@ -71,26 +93,38 @@ impl Qspi {
     /// Reads the Device ID Data, a 20-byte sequence describing the Flash chip.
     /// This can be used to get basic details of the chip, and also to detect
     /// whether a chip is attached at all.
-    pub fn read_id(&self, buf: &mut [u8; 20]) {
+    pub fn read_id(&self, buf: &mut [u8; 20]) -> Result<(), QspiError> {
         self.read_impl(Command::ReadId, None, buf)
     }
 
+    /// Reads the Device unique ID buffer for Winbond parts
+    pub fn read_winbond_unique_id(&self) -> Result<[u8; 8], QspiError> {
+        let mut buf = [0u8; 12];
+        self.read_impl(Command::WinbondReadUniqueId, None, &mut buf)?;
+        // First 4 bytes are dummy values (all zeros)
+        Ok(buf[4..].try_into().unwrap_lite())
+    }
+
     /// Reads the Status register.
-    pub fn read_status(&self) -> u8 {
+    pub fn read_status(&self) -> Result<u8, QspiError> {
         let mut status = 0u8;
-        self.read_impl(Command::ReadStatusReg, None, status.as_bytes_mut());
-        status
+        self.read_impl(Command::ReadStatusReg, None, status.as_mut_bytes())?;
+        Ok(status)
     }
 
     /// Reads from flash storage starting at `address` and continuing for
     /// `data.len()` bytes, depositing the bytes into `data`.
-    pub fn read_memory(&self, address: u32, data: &mut [u8]) {
-        self.read_impl(Command::Read, Some(address), data);
+    pub fn read_memory(
+        &self,
+        address: u32,
+        data: &mut [u8],
+    ) -> Result<(), QspiError> {
+        self.read_impl(self.read_command, Some(address), data)
     }
 
     /// Sets the Write Enable Latch on the flash chip, allowing a write/erase
     /// command sent immediately after to succeed.
-    pub fn write_enable(&self) {
+    pub fn write_enable(&self) -> Result<(), QspiError> {
         self.write_impl(Command::WriteEnable, None, &[])
     }
 
@@ -100,7 +134,7 @@ impl Qspi {
     /// since last erase.
     ///
     /// Erasing a NAND flash chip resets all bits to 1.
-    pub fn bulk_erase(&self) {
+    pub fn bulk_erase(&self) -> Result<(), QspiError> {
         self.write_impl(Command::BulkErase, None, &[])
     }
 
@@ -110,7 +144,7 @@ impl Qspi {
     /// erasing the entire chip, you may want `bulk_erase`.
     ///
     /// Erasing a sector of a NAND flash chip resets all bits to 1.
-    pub fn sector_erase(&self, addr: u32) {
+    pub fn sector_erase(&self, addr: u32) -> Result<(), QspiError> {
         self.write_impl(Command::SectorErase, Some(addr), &[])
     }
 
@@ -124,12 +158,48 @@ impl Qspi {
     /// It is sometimes (rarely) useful to deliberately overwrite data using
     /// this routine, to update information without erasing -- but of course it
     /// can only clear bits.
-    pub fn page_program(&self, addr: u32, data: &[u8]) {
+    pub fn page_program(
+        &self,
+        addr: u32,
+        data: &[u8],
+    ) -> Result<(), QspiError> {
         self.write_impl(Command::PageProgram, Some(addr), data)
     }
 
+    /// Helper for error paths.
+    fn disable_all_interrupts(&self) {
+        self.reg.cr.modify(|_, w| {
+            w.ftie()
+                .clear_bit()
+                .tcie()
+                .clear_bit()
+                .teie()
+                .clear_bit()
+                .toie()
+                .clear_bit()
+        });
+    }
+
+    fn write_impl(
+        &self,
+        command: Command,
+        addr: Option<u32>,
+        data: &[u8],
+    ) -> Result<(), QspiError> {
+        let result = self.write_impl_inner(command, addr, data);
+        if result.is_err() {
+            self.disable_all_interrupts();
+        }
+        result
+    }
+
     /// Internal implementation of writes.
-    fn write_impl(&self, command: Command, addr: Option<u32>, data: &[u8]) {
+    fn write_impl_inner(
+        &self,
+        command: Command,
+        addr: Option<u32>,
+        data: &[u8],
+    ) -> Result<(), QspiError> {
         if !data.is_empty() {
             self.set_transfer_length(data.len());
         }
@@ -168,8 +238,24 @@ impl Qspi {
         // off the front.
         let mut data = data;
         while !data.is_empty() {
+            let sr = self.reg.sr.read();
+
+            if sr.tof().bit_is_set() {
+                self.reg.fcr.modify(|_, w| w.ctof().set_bit());
+                return Err(QspiError::Timeout);
+            }
+            if sr.tef().bit_is_set() {
+                self.reg.fcr.modify(|_, w| w.ctef().set_bit());
+                return Err(QspiError::TransferError);
+            }
+
+            // Make sure our errors are enabled
+            self.reg
+                .cr
+                .modify(|_, w| w.teie().set_bit().toie().set_bit());
+
             // How much space is in the FIFO?
-            let fl = usize::from(self.reg.sr.read().flevel().bits());
+            let fl = usize::from(sr.flevel().bits());
             let ffree = FIFO_SIZE - fl;
             if ffree >= FIFO_THRESH.min(data.len()) {
                 // Calculate the write size. Note that this may be bigger than
@@ -216,11 +302,32 @@ impl Qspi {
             // And wait for it to arrive.
             sys_recv_notification(self.interrupt);
         }
-        self.reg.cr.modify(|_, w| w.tcie().clear_bit());
+        self.reg.cr.modify(|_, w| {
+            w.tcie().clear_bit().teie().clear_bit().toie().clear_bit()
+        });
+        Ok(())
+    }
+
+    fn read_impl(
+        &self,
+        command: Command,
+        addr: Option<u32>,
+        out: &mut [u8],
+    ) -> Result<(), QspiError> {
+        let result = self.read_impl_inner(command, addr, out);
+        if result.is_err() {
+            self.disable_all_interrupts();
+        }
+        result
     }
 
     /// Internal implementation of reads.
-    fn read_impl(&self, command: Command, addr: Option<u32>, out: &mut [u8]) {
+    fn read_impl_inner(
+        &self,
+        command: Command,
+        addr: Option<u32>,
+        out: &mut [u8],
+    ) -> Result<(), QspiError> {
         assert!(!out.is_empty());
 
         self.set_transfer_length(out.len());
@@ -229,22 +336,32 @@ impl Qspi {
         // hanging around from some previous transfer -- ensure this:
         self.reg.fcr.write(|w| w.ctcf().set_bit());
 
+        let (quad_setting, ddr_setting) = match command {
+            Command::QuadRead => (true, false),
+            Command::QuadDdrRead => (true, true),
+            Command::DdrRead => (false, true),
+            _ => (false, false),
+        };
+
         #[rustfmt::skip]
         #[allow(clippy::bool_to_int_with_if)]
         self.reg.ccr.write(|w| unsafe {
             w
+                // Set DDR mode if quad read
+                .ddrm().bit(ddr_setting)
+                .dhhc().bit(ddr_setting)
                 // Indirect read
                 .fmode().bits(0b01)
-                // Data on single line, or no data
-                .dmode().bits(if out.is_empty() { 0b00 } else { 0b01 })
-                // Dummy cycles = 0 for this
-                .dcyc().bits(0)
+                // Data on single line, 4 lines if quad or no line
+                .dmode().bits(if out.is_empty() { 0b00 } else if quad_setting { 0b11 } else { 0b01 } )
+                // Dummy cycles = 0 for single read, 8 for quad
+                .dcyc().bits(if quad_setting { 8 } else { 0 })
                 // No alternate bytes
                 .abmode().bits(0)
                 // 32-bit address if present.
                 .adsize().bits(if addr.is_some() { 0b11 } else { 0b00 })
-                // ...on one line for now, if present.
-                .admode().bits(if addr.is_some() { 0b01 } else { 0b00 })
+                // ...on one line for now (or 4 for the DDR command), if present.
+                .admode().bits(if addr.is_some() { if ddr_setting { 0b11} else { 0b01 } } else { 0b00 })
                 // Instruction on single line
                 .imode().bits(0b01)
                 // And, the op
@@ -258,8 +375,22 @@ impl Qspi {
         // perform transfers.
         let mut out = out;
         while !out.is_empty() {
+            let sr = self.reg.sr.read();
+
+            if sr.tof().bit_is_set() {
+                self.reg.fcr.modify(|_, w| w.ctof().set_bit());
+                return Err(QspiError::Timeout);
+            }
+            if sr.tef().bit_is_set() {
+                self.reg.fcr.modify(|_, w| w.ctef().set_bit());
+                return Err(QspiError::TransferError);
+            }
+            // Make sure our errors are enabled
+            self.reg
+                .cr
+                .modify(|_, w| w.teie().set_bit().toie().set_bit());
             // Is there enough to read that we want to bother with it?
-            let fl = usize::from(self.reg.sr.read().flevel().bits());
+            let fl = usize::from(sr.flevel().bits());
             if fl < FIFO_THRESH.min(out.len()) {
                 // Nope! Let's wait for more bytes.
 
@@ -318,9 +449,17 @@ impl Qspi {
         }
 
         // Clean up by disabling our interrupt sources.
-        self.reg
-            .cr
-            .modify(|_, w| w.ftie().clear_bit().tcie().clear_bit());
+        self.reg.cr.modify(|_, w| {
+            w.ftie()
+                .clear_bit()
+                .tcie()
+                .clear_bit()
+                .teie()
+                .clear_bit()
+                .toie()
+                .clear_bit()
+        });
+        Ok(())
     }
 
     fn set_transfer_length(&self, len: usize) {

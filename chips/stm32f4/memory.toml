@@ -9,5 +9,4 @@ address = 0x20000000
 size = 114688
 read = true
 write = true
-execute = true
-
+execute = false

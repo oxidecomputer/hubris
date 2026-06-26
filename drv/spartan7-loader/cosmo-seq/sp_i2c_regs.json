@@ -1,0 +1,28 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 4,
+    "inst_name": "sp_i2c_regs",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "mux_resets",
+            "addr_offset": 0,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "main_bus_reset",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Reset the FPGA-controlled I2C muxes on the, write '1', self clearing"
+                }
+            ]
+        }
+    ]
+}

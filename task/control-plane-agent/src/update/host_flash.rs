@@ -2,17 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::{common::CurrentUpdate, ComponentUpdater};
+use super::{ComponentUpdater, common::CurrentUpdate};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_hf_api::{
-    HfDevSelect, HfError, HfProtectMode, HostFlash, PAGE_SIZE_BYTES,
-    SECTOR_SIZE_BYTES,
+    ApobClearError, HfDevSelect, HfError, HfProtectMode, HostFlash,
+    PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
-    ComponentUpdatePrepare, SpComponent, SpError, UpdateId,
-    UpdateInProgressStatus, UpdatePreparationProgress, UpdatePreparationStatus,
-    UpdateStatus,
+    ApobComponentActionResponse, ComponentUpdatePrepare, HfError as GwHfError,
+    SpComponent, SpError, UpdateId, UpdateInProgressStatus,
+    UpdatePreparationProgress, UpdatePreparationStatus, UpdateStatus,
 };
 
 userlib::task_slot!(HOST_FLASH, hf);
@@ -20,6 +20,21 @@ userlib::task_slot!(HOST_FLASH, hf);
 pub(crate) struct HostFlashUpdate {
     task: HostFlash,
     current: Option<CurrentUpdate<State>>,
+}
+
+fn hf_to_gwhf(e: HfError) -> SpError {
+    match e {
+        HfError::NotMuxedToSP => SpError::Hf(GwHfError::NotMuxedToSp),
+        HfError::BadAddress => SpError::Hf(GwHfError::BadAddress),
+        HfError::QspiTimeout => SpError::Hf(GwHfError::QspiTimeout),
+        HfError::QspiTransferError => SpError::Hf(GwHfError::QspiTransferError),
+        HfError::HashUncalculated => SpError::Hf(GwHfError::HashUncalculated),
+        HfError::RecalculateHash => SpError::Hf(GwHfError::RecalculateHash),
+        HfError::HashInProgress => SpError::Hf(GwHfError::HashInProgress),
+        // We're signficicantly less likely to hit other host flash
+        // errors, add this as a catch all
+        _ => SpError::ComponentOperationFailed(e.into()),
+    }
 }
 
 impl HostFlashUpdate {
@@ -30,14 +45,72 @@ impl HostFlashUpdate {
         }
     }
 
+    pub(crate) fn start_hash(&self, slot: u16) -> Result<(), SpError> {
+        self.task
+            .hash_significant_bits(Self::slot_to_dev(slot)?)
+            .map_err(hf_to_gwhf)
+    }
+
+    pub(crate) fn get_hash(&self, slot: u16) -> Result<[u8; 32], SpError> {
+        self.task
+            .get_cached_hash(Self::slot_to_dev(slot)?)
+            .map_err(hf_to_gwhf)
+    }
+
+    pub(crate) fn read_page(
+        &self,
+        slot: u16,
+        addr: u32,
+        dest: &mut [u8],
+    ) -> Result<(), SpError> {
+        // It's tempting to disable access if an update is in progress but
+        // this is a debug feature so we need it handy at all times
+        self.task
+            .read_dev(
+                Self::slot_to_dev(slot)?,
+                addr,
+                &mut dest[..PAGE_SIZE_BYTES],
+            )
+            .map_err(hf_to_gwhf)
+    }
+
     pub(crate) fn active_slot(&self) -> Result<u16, SpError> {
-        match self
-            .task
+        self.task
             .get_dev()
-            .map_err(|err| SpError::ComponentOperationFailed(err as u32))?
-        {
-            HfDevSelect::Flash0 => Ok(0),
-            HfDevSelect::Flash1 => Ok(1),
+            .map(Self::dev_to_slot)
+            .map_err(|err| SpError::ComponentOperationFailed(err as u32))
+    }
+
+    pub(crate) fn persistent_slot(&self) -> Result<u16, SpError> {
+        self.task
+            .get_persistent_data()
+            .map(|data| Self::dev_to_slot(data.dev_select))
+            .map_err(hf_to_gwhf)
+    }
+
+    fn dev_to_slot(dev: HfDevSelect) -> u16 {
+        match dev {
+            HfDevSelect::Flash0 => 0,
+            HfDevSelect::Flash1 => 1,
+        }
+    }
+
+    fn slot_to_dev(slot: u16) -> Result<HfDevSelect, SpError> {
+        match slot {
+            0 => Ok(HfDevSelect::Flash0),
+            1 => Ok(HfDevSelect::Flash1),
+            _ => Err(SpError::InvalidSlotForComponent),
+        }
+    }
+
+    fn check_target_slot(&self, slot: u16) -> Result<HfDevSelect, SpError> {
+        let slot = Self::slot_to_dev(slot)?;
+        match self.task.check_dev(slot) {
+            Ok(()) => Ok(slot),
+
+            // Things went wrong; translate if possible:
+            Err(HfError::NotMuxedToSP) => Err(SpError::UpdateSlotBusy),
+            Err(err) => Err(SpError::UpdateFailed(err as u32)),
         }
     }
 
@@ -46,19 +119,12 @@ impl HostFlashUpdate {
         slot: u16,
         persist: bool,
     ) -> Result<(), SpError> {
-        let slot = match slot {
-            0 => HfDevSelect::Flash0,
-            1 => HfDevSelect::Flash1,
-            _ => return Err(SpError::InvalidSlotForComponent),
-        };
+        let slot = Self::slot_to_dev(slot)?;
 
         // Attempt to swap to the chosen slot, returning a "slot busy" error if
         // we don't have control over the host flash.
         match self.task.set_dev(slot) {
             Ok(()) => Ok(()),
-            // If this board does not have multiple devices (indicated by
-            // receiving NoDevSelect), then Flash0 is the only valid option.
-            Err(HfError::NoDevSelect) if slot == HfDevSelect::Flash0 => Ok(()),
 
             // Otherwise, things went wrong; translate if possible:
             Err(HfError::NotMuxedToSP) => Err(SpError::UpdateSlotBusy),
@@ -72,6 +138,21 @@ impl HostFlashUpdate {
             }
         } else {
             Ok(())
+        }
+    }
+
+    pub(crate) fn apob_clear(&self) -> ApobComponentActionResponse {
+        match self.task.apob_clear() {
+            Ok(()) => ApobComponentActionResponse::Success,
+            Err(ApobClearError::NotImplemented) => {
+                ApobComponentActionResponse::NotImplemented
+            }
+            Err(ApobClearError::NotMuxedToSp) => {
+                ApobComponentActionResponse::NotMuxedToSp
+            }
+            Err(ApobClearError::InvalidState) => {
+                ApobComponentActionResponse::InvalidState
+            }
         }
     }
 }
@@ -114,9 +195,7 @@ impl ComponentUpdater for HostFlashUpdate {
                 SpError::OtherComponentUpdateInProgress(component)
             })?;
 
-        // Update the currently-active slot so we can write to it, but don't
-        // persist those changes to non-volatile memory.
-        self.set_active_slot(update.slot, false)?;
+        let dev = self.check_target_slot(update.slot)?;
 
         // What is the total capacity of the device?
         let capacity = self
@@ -132,7 +211,7 @@ impl ComponentUpdater for HostFlashUpdate {
         // capacity is an exact multiple of the sector size, which is probably
         // a safe assumption for future parts as well. We'll fail here if that's
         // untrue, which will require reworking how we erase the target slot.
-        if capacity % SECTOR_SIZE_BYTES != 0 {
+        if !capacity.is_multiple_of(SECTOR_SIZE_BYTES) {
             // We don't have an error case for "our assumptions are wrong", so
             // we'll fill in an easily-greppable update failure code. In case it
             // shows up in logs in base 10, 0x1de_0001 == 31326209.
@@ -146,6 +225,7 @@ impl ComponentUpdater for HostFlashUpdate {
             update.id,
             update.total_size,
             State::ErasingSectors {
+                dev,
                 buffer,
                 sectors_to_erase: 1..num_sectors,
             },
@@ -172,11 +252,12 @@ impl ComponentUpdater for HostFlashUpdate {
         };
 
         current.update_state(|state| {
-            let (buffer, mut sectors_to_erase) = match state {
+            let (buffer, mut sectors_to_erase, dev) = match state {
                 State::ErasingSectors {
                     buffer,
                     sectors_to_erase,
-                } => (buffer, sectors_to_erase),
+                    dev,
+                } => (buffer, sectors_to_erase, dev),
                 State::AcceptingData { .. }
                 | State::Complete
                 | State::Failed(_)
@@ -191,16 +272,22 @@ impl ComponentUpdater for HostFlashUpdate {
             // During construction of the State::ErasingSectors object, we
             // should have configured it to start at sector 1; using
             // HfProtectMode::ProtectSector0 guards against mistakes.
-            match self.task.sector_erase(addr, HfProtectMode::ProtectSector0) {
+            match self.task.sector_erase_dev(
+                dev,
+                addr,
+                HfProtectMode::ProtectSector0,
+            ) {
                 Ok(()) => {
                     sectors_to_erase.start += 1;
                     if sectors_to_erase.start == sectors_to_erase.end {
                         State::AcceptingData {
+                            dev,
                             buffer,
                             next_write_offset: 0,
                         }
                     } else {
                         State::ErasingSectors {
+                            dev,
                             buffer,
                             sectors_to_erase,
                         }
@@ -230,6 +317,7 @@ impl ComponentUpdater for HostFlashUpdate {
             State::AcceptingData {
                 buffer,
                 next_write_offset,
+                ..
             } => UpdateStatus::InProgress(UpdateInProgressStatus {
                 id: current.id(),
                 bytes_received: next_write_offset + buffer.len() as u32,
@@ -258,16 +346,17 @@ impl ComponentUpdater for HostFlashUpdate {
         let current_id = current.id();
         let total_size = current.total_size();
 
-        let (buffer, next_write_offset) = match current.state_mut() {
+        let (buffer, next_write_offset, dev) = match current.state_mut() {
             State::AcceptingData {
                 buffer,
                 next_write_offset,
-            } => (buffer, next_write_offset),
+                dev,
+            } => (buffer, next_write_offset, dev),
             State::ErasingSectors { .. } | State::Complete | State::Aborted => {
-                return Err(SpError::UpdateNotPrepared)
+                return Err(SpError::UpdateNotPrepared);
             }
             State::Failed(err) => {
-                return Err(SpError::UpdateFailed(*err as u32))
+                return Err(SpError::UpdateFailed(*err as u32));
             }
         };
 
@@ -311,15 +400,16 @@ impl ComponentUpdater for HostFlashUpdate {
                     return Err(SpError::UpdateFailed(err as u32));
                 }
 
-                if skip_bytes < buffer.len() {
-                    if let Err(err) = self.task.page_program(
+                if skip_bytes < buffer.len()
+                    && let Err(err) = self.task.page_program_dev(
+                        *dev,
                         *next_write_offset + skip_bytes as u32,
                         HfProtectMode::ProtectSector0,
                         &buffer[skip_bytes..],
-                    ) {
-                        *current.state_mut() = State::Failed(err);
-                        return Err(SpError::UpdateFailed(err as u32));
-                    }
+                    )
+                {
+                    *current.state_mut() = State::Failed(err);
+                    return Err(SpError::UpdateFailed(err as u32));
                 }
 
                 *next_write_offset += buffer.len() as u32;
@@ -372,10 +462,12 @@ impl ComponentUpdater for HostFlashUpdate {
 
 enum State {
     ErasingSectors {
+        dev: HfDevSelect,
         buffer: BorrowedUpdateBuffer,
         sectors_to_erase: Range<u32>,
     },
     AcceptingData {
+        dev: HfDevSelect,
         buffer: BorrowedUpdateBuffer,
         next_write_offset: u32,
     },

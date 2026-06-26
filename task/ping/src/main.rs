@@ -36,7 +36,7 @@ fn divzero() {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let peer = PEER.get_task_id();
     const PING_OP: u16 = 1;
@@ -54,7 +54,7 @@ fn main() -> ! {
         let (code, _len) =
             sys_send(peer, PING_OP, b"hello", &mut response, &[]);
 
-        if code % FAULT_EVERY != 0 {
+        if !code.is_multiple_of(FAULT_EVERY) {
             continue;
         }
 

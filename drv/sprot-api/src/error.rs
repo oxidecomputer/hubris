@@ -372,6 +372,7 @@ impl From<AttestOrSprotError> for AttestDataSprotError {
                     Self::AttestSerializeSignature
                 }
                 AttestError::SignatureTooBig => Self::AttestSignatureTooBig,
+                AttestError::ReservedLogSlot => Self::AttestLogSlotReserved,
             },
         }
     }

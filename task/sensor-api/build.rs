@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::{fmt::Write as FmtWrite, io::Write as IoWrite};

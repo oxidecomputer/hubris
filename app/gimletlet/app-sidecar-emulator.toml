@@ -46,9 +46,6 @@ task-slots = ["fpga"]
 notifications = ["timer"]
 features = ["always-transmit"]
 
-[caboose]
-tasks = ["caboose_reader"]
-
 [[config.i2c.devices]]
 bus = "i2c2"
 address = 0b1100_011

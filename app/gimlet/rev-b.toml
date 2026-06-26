@@ -20,7 +20,7 @@ scl.pin = 10
 sda.pin = 11
 af = 4
 [[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x73
 
 #
@@ -38,15 +38,15 @@ af = 4
 # Shark fin muxes
 #
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x70
 
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x71
 
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x72
 
 [[config.i2c.devices]]
@@ -57,6 +57,7 @@ address = 0b110_1010
 device = "m2_hp_only"
 description = "M.2 A NVMe Basic Management Command"
 name = "M2_A"
+refdes = "P1"
 sensors = { temperature = 1 }
 removable = true
 
@@ -68,5 +69,6 @@ address = 0b110_1010
 device = "m2_hp_only"
 description = "M.2 B NVMe Basic Management Command"
 name = "M2_B"
+refdes = "P2"
 sensors = { temperature = 1 }
 removable = true

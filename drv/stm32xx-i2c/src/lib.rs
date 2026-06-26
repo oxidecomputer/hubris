@@ -37,6 +37,8 @@ pub type Isr = device::i2c1::isr::R;
 
 pub mod ltc4306;
 pub mod max7358;
+pub mod oximux16;
+pub mod pca9545;
 pub mod pca9548;
 
 use ringbuf::*;
@@ -74,17 +76,6 @@ pub enum I2cControlResult {
     TimedOut,
 }
 
-///
-/// A structure that defines interrupt control flow functions that will be
-/// used to pass control flow into the kernel to either enable or wait for
-/// interrupts.  Note that this is deliberately a struct and not a trait,
-/// allowing the [`I2cMuxDriver`] trait to itself be a trait object.
-///
-pub struct I2cControl {
-    pub enable: fn(u32),
-    pub wfi: fn(u32, I2cTimeout) -> I2cControlResult,
-}
-
 pub struct I2cTargetControl {
     pub enable: fn(u32),
     pub wfi: fn(u32),
@@ -107,7 +98,6 @@ pub trait I2cMuxDriver {
         mux: &I2cMux<'_>,
         controller: &I2cController<'_>,
         sys: &sys_api::Sys,
-        ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 
     /// Reset the mux
@@ -124,7 +114,6 @@ pub trait I2cMuxDriver {
         mux: &I2cMux<'_>,
         controller: &I2cController<'_>,
         segment: Option<drv_i2c_api::Segment>,
-        ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 }
 
@@ -169,6 +158,8 @@ enum Register {
 
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
+    None,
     Wait(Register, u32),
     Write(Register, u32),
     WriteWait(Register, u32),
@@ -203,8 +194,6 @@ enum Trace {
         enabled: bool,
         posted: bool,
     },
-    #[count(skip)]
-    None,
 }
 
 counted_ringbuf!(Trace, 48, Trace::None);
@@ -501,15 +490,18 @@ impl I2cController<'_> {
     }
 
     ///
-    /// A common routine to wait for interrupts with a timeout.
+    /// A common routine to wait for interrupts, panicking the driver if the
+    /// interrupt doesn't arrive in an arbitrarily chosen period of time.
     ///
-    fn wfi(&self, ctrl: &I2cControl) -> Result<(), drv_i2c_api::ResponseCode> {
+    fn wfi(&self) {
         //
-        // A 100 ms timeout is much, much longer than the I2C timeouts.
+        // A 100 ms timeout is 4x longer than the I2C timeouts, but much shorter
+        // than potential context switches when dumps are being recorded by a
+        // high priority task.
         //
         const TIMEOUT: I2cTimeout = I2cTimeout(100);
 
-        match (ctrl.wfi)(self.notification, TIMEOUT) {
+        match wfi_raw(self.notification, TIMEOUT) {
             I2cControlResult::TimedOut => {
                 //
                 // This really shouldn't happen:  it means that not only did
@@ -529,7 +521,7 @@ impl I2cController<'_> {
                 ringbuf_entry!(Trace::LostInterrupt);
                 self.panic();
             }
-            I2cControlResult::Interrupted => Ok(()),
+            I2cControlResult::Interrupted => (),
         }
     }
 
@@ -605,7 +597,6 @@ impl I2cController<'_> {
         getbyte: impl Fn(usize) -> Option<u8>,
         mut rlen: ReadLength,
         mut putbyte: impl FnMut(usize, u8) -> Option<()>,
-        ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         // Assert our preconditions as described above
         assert!(wlen > 0 || rlen != ReadLength::Fixed(0));
@@ -643,6 +634,8 @@ impl I2cController<'_> {
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
+                        // Setting ISR.TXE to 1 flushes anything pending there.
+                        i2c.isr.write(|w| w.txe().set_bit());
                         return Err(drv_i2c_api::ResponseCode::NoDevice);
                     }
 
@@ -650,8 +643,8 @@ impl I2cController<'_> {
                         break;
                     }
 
-                    self.wfi(ctrl)?;
-                    (ctrl.enable)(notification);
+                    self.wfi();
+                    sys_irq_control(notification, true);
                 }
 
                 // Get a single byte.
@@ -673,6 +666,8 @@ impl I2cController<'_> {
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
+                    // Setting ISR.TXE to 1 flushes anything pending there.
+                    i2c.isr.write(|w| w.txe().set_bit());
                     return Err(drv_i2c_api::ResponseCode::NoRegister);
                 }
 
@@ -680,8 +675,8 @@ impl I2cController<'_> {
                     break;
                 }
 
-                self.wfi(ctrl)?;
-                (ctrl.enable)(notification);
+                self.wfi();
+                sys_irq_control(notification, true);
             }
         }
 
@@ -721,15 +716,15 @@ impl I2cController<'_> {
             let mut pos = 0;
 
             loop {
-                if let ReadLength::Fixed(rlen) = rlen {
-                    if pos >= rlen {
-                        break;
-                    }
+                if let ReadLength::Fixed(rlen) = rlen
+                    && pos >= rlen
+                {
+                    break;
                 }
 
                 loop {
-                    self.wfi(ctrl)?;
-                    (ctrl.enable)(notification);
+                    self.wfi();
+                    sys_irq_control(notification, true);
 
                     let isr = i2c.isr.read();
                     ringbuf_entry!(Trace::Read(Register::ISR, isr.bits()));
@@ -738,6 +733,9 @@ impl I2cController<'_> {
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
+                        // Since we're reading, and not transmitting, we don't
+                        // need to do anything special to flush TXDR here --
+                        // unlike the write case.
                         return Err(drv_i2c_api::ResponseCode::NoDevice);
                     }
 
@@ -783,8 +781,8 @@ impl I2cController<'_> {
 
                 self.check_errors(&isr)?;
 
-                self.wfi(ctrl)?;
-                (ctrl.enable)(notification);
+                self.wfi();
+                sys_irq_control(notification, true);
             }
         }
 
@@ -818,7 +816,6 @@ impl I2cController<'_> {
         &self,
         addr: u8,
         ops: &[I2cKonamiCode],
-        ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         let i2c = self.registers;
         let notification = self.notification;
@@ -855,6 +852,9 @@ impl I2cController<'_> {
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
+                    // Even when we're writing, the "konami code" sends no data,
+                    // so we haven't loaded TXDR, so we don't need to flush it
+                    // on nack.
                     return Err(drv_i2c_api::ResponseCode::NoRegister);
                 }
 
@@ -862,8 +862,8 @@ impl I2cController<'_> {
                     break;
                 }
 
-                self.wfi(ctrl)?;
-                (ctrl.enable)(notification);
+                self.wfi();
+                sys_irq_control(notification, true);
             }
         }
 
@@ -1187,5 +1187,48 @@ impl I2cController<'_> {
                 });
             }
         }
+    }
+}
+
+/// Waits for `event_mask` or `timeout`, whichever comes first. This is
+/// factored out of `wfi` above for clarity.
+///
+/// This function, like `userlib::hl`, assumes that notification bit 31 is safe
+/// to use for the timer. If `event_mask` also has bit 31 set, weird things
+/// will happen, don't do that.
+fn wfi_raw(event_mask: u32, timeout: I2cTimeout) -> I2cControlResult {
+    const TIMER_NOTIFICATION: u32 = 1 << 31;
+
+    // If the driver passes in a timeout that is large enough that it would
+    // overflow the kernel's 64-bit timestamp space... well, we'll do the
+    // best we can without compiling in an unlikely panic.
+    let dead = sys_get_timer().now.saturating_add(timeout.0);
+
+    sys_set_timer(Some(dead), TIMER_NOTIFICATION);
+
+    loop {
+        let received = sys_recv_notification(event_mask | TIMER_NOTIFICATION);
+
+        // If the event arrived _and_ our timer went off, prioritize the event and
+        // ignore the timeout.
+        if received.check_notification_mask(event_mask) {
+            // Attempt to clear our timer. Note that this does not protect against
+            // the race where the kernel decided to wake us up, but the timer went
+            // off before we got to this point.
+            sys_set_timer(None, TIMER_NOTIFICATION);
+            break I2cControlResult::Interrupted;
+        } else if received.has_timer_fired(TIMER_NOTIFICATION) {
+            break I2cControlResult::TimedOut;
+        }
+
+        // Otherwise, one of two things has happened:
+        // 1. Some joker has posted to our timer bit. Ha ha very funny.
+        // 2. The timer bit was _already set_ on entry to this routine, as a
+        //    hangover from a previous run.
+        //
+        // We don't need to re-set our timer here because we sampled
+        // sys_get_timer _after_ receiving notifications, meaning it either
+        // hasn't gone off, or it has gone off but that fact is still stored
+        // in our notification bits.
     }
 }

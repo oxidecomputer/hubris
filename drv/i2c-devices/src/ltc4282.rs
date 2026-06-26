@@ -9,8 +9,8 @@ use bitfield::bitfield;
 use core::cell::Cell;
 use drv_i2c_api::*;
 use userlib::{
-    units::{Amperes, Ohms, Volts},
     FromPrimitive,
+    units::{Amperes, Ohms, Volts},
 };
 
 #[allow(dead_code, non_camel_case_types)]
@@ -271,7 +271,6 @@ impl Validate<ResponseCode> for Ltc4282 {
             && control.on_delay() == false
             && control.on_enb() == true
             && control.mass_write_enable() == true
-            && control.fet_on() == true
             && control.oc_autoretry() == false
             && control.uv_autoretry() == true
             && control.ov_autoretry() == true)

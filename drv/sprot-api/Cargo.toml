@@ -1,7 +1,7 @@
 [package]
 name = "drv-sprot-api"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 crc.workspace = true
@@ -15,6 +15,7 @@ serde.workspace = true
 static_assertions.workspace = true
 tlvc.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 attest-data.workspace = true
 
 attest-api = { path = "../../task/attest-api" }
@@ -30,7 +31,9 @@ unwrap-lite = { path = "../../lib/unwrap-lite" }
 userlib = { path = "../../sys/userlib" }
 
 # We need this for ABI reasons
-sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
+# Pin a specific commit because sprockets-common no longer exists upstream, and although Cargo.lock
+# has the correct commit hash, rust-analyzer can't find it.
+sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false, rev = "3906cf08db604f0805324bb7aeafe3b96c51b38e"}
 
 [build-dependencies]
 idol = { workspace = true }

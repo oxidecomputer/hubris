@@ -19,7 +19,7 @@ use drv_lpc55_update_api::{
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
 use ringbuf::*;
 use sha3::{Digest, Sha3_256};
@@ -31,7 +31,7 @@ use userlib::{
     sys_irq_control, sys_recv_notification, task_slot, ImageHeader,
     RecvMessage, UnwrapLite, CABOOSE_MAGIC, HEADER_MAGIC,
 };
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromZeros, IntoBytes};
 
 mod images;
 use crate::images::*;
@@ -40,7 +40,7 @@ const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 
 #[used]
-#[link_section = ".bootstate"]
+#[unsafe(link_section = ".bootstate")]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
 #[derive(Copy, Clone, PartialEq)]
@@ -133,7 +133,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress | UpdateState::NoUpdate => (),
         }
@@ -154,10 +154,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
+                return Err(UpdateError::UpdateNotStarted.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress => (),
         }
@@ -224,10 +224,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
+                return Err(UpdateError::UpdateNotStarted.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress => (),
         }
@@ -491,7 +491,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::Prep(component, slot));
         match self.state {
             UpdateState::InProgress => {
-                return Err(UpdateError::UpdateInProgress.into())
+                return Err(UpdateError::UpdateInProgress.into());
             }
             UpdateState::Finished | UpdateState::NoUpdate => (),
         }
@@ -540,7 +540,7 @@ impl NotificationHandler for ServerImpl<'_> {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
@@ -828,7 +828,7 @@ impl ServerImpl<'_> {
         indirect_flash_read(
             &self.flash,
             span.start + LENGTH_OFFSET as u32,
-            buf[..].as_bytes_mut(),
+            buf[..].as_mut_bytes(),
         )?;
         if let Some(len) = round_up_to_flash_page(buf[0]) {
             // The minimum image size should be further constrained
@@ -867,7 +867,7 @@ impl ServerImpl<'_> {
         indirect_flash_read(
             &self.flash,
             span.start,
-            self.fw_cache[0..len / core::mem::size_of::<u32>()].as_bytes_mut(),
+            self.fw_cache[0..len / core::mem::size_of::<u32>()].as_mut_bytes(),
         )?;
         Ok(len)
     }
@@ -878,7 +878,7 @@ impl ServerImpl<'_> {
         slot: SlotId,
     ) -> Result<(), UpdateError> {
         let clen = self.cache_image_len()?;
-        if clen % BYTES_PER_FLASH_PAGE != 0 {
+        if !clen.is_multiple_of(BYTES_PER_FLASH_PAGE) {
             return Err(UpdateError::BadLength);
         }
         let span = image_range(component, slot).0;
@@ -1060,7 +1060,7 @@ fn boot_preference_from_flash_word(flash_word: &[u32; 4]) -> SlotId {
 /// This API produces flash words in the form of `[u32; 4]`, because that's how
 /// the hardware produces them. Elements of the array are in ascending address
 /// order when the flash is viewed as bytes. The easiest way to view the
-/// corresponding block of 16 bytes is using `zerocopy::AsBytes` to reinterpret
+/// corresponding block of 16 bytes is using `zerocopy::IntoBytes` to reinterpret
 /// the array in place.
 fn indirect_flash_read_words(
     flash: &drv_lpc55_flash::Flash<'_>,
@@ -1230,7 +1230,7 @@ fn caboose_slice(
     indirect_flash_read(
         flash,
         flash_range.start + HEADER_OFFSET,
-        header.as_bytes_mut(),
+        header.as_mut_bytes(),
     )
     .map_err(|_| RawCabooseError::ReadFailed)?;
     if header.magic != HEADER_MAGIC {
@@ -1254,7 +1254,7 @@ fn caboose_slice(
     indirect_flash_read(
         flash,
         image_end - U32_SIZE,
-        caboose_size.as_bytes_mut(),
+        caboose_size.as_mut_bytes(),
     )
     .map_err(|_| RawCabooseError::ReadFailed)?;
 
@@ -1268,7 +1268,7 @@ fn caboose_slice(
         // Safety: we know this pointer is within the programmed flash region,
         // since it's checked above.
         let mut v = 0u32;
-        indirect_flash_read(flash, caboose_start, v.as_bytes_mut())
+        indirect_flash_read(flash, caboose_start, v.as_mut_bytes())
             .map_err(|_| RawCabooseError::ReadFailed)?;
         if v == CABOOSE_MAGIC {
             caboose_start + U32_SIZE..image_end - U32_SIZE
@@ -1347,7 +1347,7 @@ fn round_up_to_flash_page(offset: u32) -> Option<u32> {
 task_slot!(SYSCON, syscon);
 task_slot!(JEFE, jefe);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = drv_lpc55_syscon_api::Syscon::from(SYSCON.get_task_id());
 

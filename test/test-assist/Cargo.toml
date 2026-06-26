@@ -1,12 +1,13 @@
 [package]
 name = "test-assist"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 cortex-m = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 hubris-num-tasks = { path = "../../sys/num-tasks" }
 test-api = { path = "../test-api" }

@@ -91,12 +91,14 @@ SECTIONS
     *(.PreResetTrampoline);
     *(.Reset);
 
-    *(.text .text.*);
-
     /* The HardFaultTrampoline uses the `b` instruction to enter `HardFault`,
        so must be placed close to it. */
     *(.HardFaultTrampoline);
     *(.HardFault.*);
+    *(.text.HardFault.*);
+
+    *(.text .text.*);
+
     . = ALIGN(4);
     __etext = .;
   } > FLASH

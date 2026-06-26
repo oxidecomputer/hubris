@@ -7,7 +7,18 @@ use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let global_config = build_util::config::<GlobalConfig>()?;
-    generate_auxflash_config(&global_config.auxflash)?;
+
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("auxflash_config.rs");
+    let mut out = std::fs::File::create(dest_path)?;
+
+    if let Some(auxflash) = global_config.auxflash {
+        generate_auxflash_config(&auxflash, &mut out)?;
+    } else {
+        writeln!(out, "pub const MEMORY_SIZE: u32 = 0;")?;
+        writeln!(out, "pub const SLOT_COUNT: u32 = 0;")?;
+        writeln!(out, "pub const SLOT_SIZE: usize = 0;")?;
+    }
 
     idol::client::build_client_stub(
         "../../idl/auxflash.idol",
@@ -21,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
 struct GlobalConfig {
-    auxflash: AuxFlashConfig,
+    auxflash: Option<AuxFlashConfig>,
 }
 
 #[derive(Deserialize)]
@@ -31,14 +42,10 @@ struct AuxFlashConfig {
     slot_count: u32,
 }
 
-fn generate_auxflash_config(
+fn generate_auxflash_config<W: Write>(
     config: &AuxFlashConfig,
+    out: &mut W,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let out_dir = build_util::out_dir();
-    let dest_path = out_dir.join("auxflash_config.rs");
-
-    let mut out = std::fs::File::create(dest_path)?;
-
     // Check that the config is reasonable:
     // a. We have at least 6 slots (see RFD 311)
     assert!(config.slot_count >= 6, "auxflash requires at least 6 slots");
@@ -56,8 +63,10 @@ fn generate_auxflash_config(
         "auxflash slots must be page aligned"
     );
 
+    let slot_size = (config.memory_size / config.slot_count) as usize;
     writeln!(out, "pub const MEMORY_SIZE: u32 = {};", config.memory_size)?;
     writeln!(out, "pub const SLOT_COUNT: u32 = {};", config.slot_count)?;
+    writeln!(out, "pub const SLOT_SIZE: usize = {slot_size};")?;
 
     Ok(())
 }

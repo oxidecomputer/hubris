@@ -1,6 +1,7 @@
 name = "tests-psc"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
+default-ram = "dtcm"
 board = "psc-b"
 stacksize = 896
 
@@ -74,6 +75,7 @@ features = ["testsuite"]
 stacksize = 2048
 start = true
 task-slots = ["suite", "runner"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

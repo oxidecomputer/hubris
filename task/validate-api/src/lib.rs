@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use userlib::{sys_send, FromPrimitive};
-use zerocopy::AsBytes;
+use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 pub use task_sensor_api::SensorId;
 
@@ -39,7 +39,9 @@ impl From<ResponseCode> for ValidateError {
     }
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(u8)]
 pub enum ValidateOk {
     Present = 1,
@@ -72,6 +74,8 @@ pub struct DeviceDescription {
     pub device: &'static str,
     pub description: &'static str,
     pub sensors: &'static [SensorDescription],
+    pub id: &'static str,
+    pub is_pmbus: bool,
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));
