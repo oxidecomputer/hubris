@@ -12,7 +12,7 @@ use drv_front_io_api::FrontIOError;
 use drv_sidecar_seq_api::Sequencer;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
-use userlib::*;
+use userlib::{NotificationBits, RecvMessage, task_slot};
 
 task_slot!(SEQUENCER, sequencer);
 

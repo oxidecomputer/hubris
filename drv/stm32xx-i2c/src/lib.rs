@@ -42,7 +42,10 @@ pub mod pca9545;
 pub mod pca9548;
 
 use ringbuf::*;
-use userlib::{IrqStatus, hl, sys_irq_status};
+use userlib::{
+    IrqStatus, hl, sys_get_timer, sys_irq_control, sys_irq_status,
+    sys_recv_notification, sys_set_timer,
+};
 
 use drv_stm32xx_sys_api as sys_api;
 

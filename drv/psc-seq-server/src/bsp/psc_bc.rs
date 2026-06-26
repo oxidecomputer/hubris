@@ -5,7 +5,7 @@
 use super::{PSU_COUNT, i2c_config, notifications};
 use drv_i2c_api::I2cDevice;
 use drv_stm32xx_sys_api as sys_api;
-use userlib::*;
+use userlib::TaskId;
 
 pub use drv_i2c_devices::mwocp6x::Mwocp68 as Mwocp6x;
 

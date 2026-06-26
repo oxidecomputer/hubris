@@ -18,7 +18,9 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use static_cell::*;
-use userlib::hl;
+use userlib::{
+    UnwrapLite, sys_get_timer, sys_recv_notification, sys_set_timer,
+};
 
 mod common;
 

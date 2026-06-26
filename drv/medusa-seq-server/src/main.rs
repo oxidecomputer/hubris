@@ -14,9 +14,7 @@ use drv_front_io_api::phy_smi::PhyOscState;
 use drv_medusa_seq_api::{MedusaError, RailName};
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
-use userlib::{
-    RecvMessage, UnwrapLite, sys_get_timer, sys_set_timer, task_slot,
-};
+use userlib::{RecvMessage, UnwrapLite, task_slot};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);

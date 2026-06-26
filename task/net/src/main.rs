@@ -89,7 +89,7 @@ use stm32h7::stm32h753 as device;
 use counters::*;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::Sys;
-use userlib::{sys_get_timer, task_slot};
+use userlib::{sys_get_timer, sys_post, sys_refresh_task_id, task_slot};
 
 use crate::bsp::BspImpl;
 use crate::bsp_support::Bsp;
