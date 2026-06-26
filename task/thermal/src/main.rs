@@ -59,8 +59,10 @@ use task_thermal_api::{
     SensorReadError, ThermalAutoState, ThermalError, ThermalMode,
     ThermalProperties,
 };
-use userlib::units::PWMDuty;
-use userlib::*;
+use userlib::{
+    RecvMessage, UnwrapLite, sys_get_timer, sys_set_timer, task_slot,
+    units::{Celsius, PWMDuty},
+};
 
 // We define our own Fan type, as we may have more fans than any single
 // controller supports.
@@ -96,7 +98,7 @@ enum Trace {
         /// This ringbuf entry is always followed by a [`LastActualTemperature`]
         /// entry, which records the last actual temperature measurement
         /// reported by the sensor.
-        worst_case_temp: units::Celsius,
+        worst_case_temp: Celsius,
     },
     CriticalDueTo {
         sensor_id: SensorId,
@@ -111,7 +113,7 @@ enum Trace {
         /// This ringbuf entry is always followed by a [`LastActualTemperature`]
         /// entry, which records the last actual temperature measurement
         /// reported by the sensor.
-        worst_case_temp: units::Celsius,
+        worst_case_temp: Celsius,
     },
     /// The last actual temperature measurement reported by a sensor.
     ///
@@ -124,7 +126,7 @@ enum Trace {
         sensor_id: SensorId,
         /// The most recent real life (not fake) temperature measurement from
         /// the sensor.
-        temperature: units::Celsius,
+        temperature: Celsius,
         /// The (approximate) time, in seconds, since the real life temperature
         /// measurement was received.
         age_s: f32,

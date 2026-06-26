@@ -8,7 +8,7 @@
 
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
-use userlib::*;
+use userlib::{FromPrimitive, sys_send};
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
