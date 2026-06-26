@@ -20,10 +20,11 @@ use gateway_messages::{
     DumpTask, GpioToggleCount, Header, HostBootfailPayloadData,
     HostInfoRequest, HostPanicPayloadData, IgnitionCommand, IgnitionState,
     LastPostCode, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
-    PostCode, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
-    RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT, SensorRequest, SensorResponse,
-    SpComponent, SpError, SpPort as GwSpPort, SpRequest, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus, ignition,
+    PmbusStatus, PostCode, PowerRailName, PowerState, PowerStateTransition,
+    RotBootInfo, RotRequest, RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpPort as GwSpPort,
+    SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ignition, HostBootfailPayloadData, HostInfoRequest, HostPanicPayloadData
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -1354,6 +1355,13 @@ impl SpHandler for MgsHandler {
             total_len: info.total_len as u32,
             reason: info.reason,
         })
+    }
+
+    fn get_pmbus_status(
+        &mut self,
+        rail: &PowerRailName,
+    ) -> Result<PmbusStatus, SpError> {
+        self.common.get_pmbus_status(rail)
     }
 }
 

@@ -1,0 +1,5 @@
+# This is the production image. We expect `name` to match `board`
+name = "observer-a"
+board = "observer-a"
+
+inherit = "base.toml"

@@ -10,24 +10,17 @@ use crate::{
 };
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{
-    CabooseOrSprotError,
-    Fwid as SpFwid,
-    ImageError as SpImageError,
-    RotBootInfo as SpRotBootInfo,
-    RotBootInfoV2 as SpRotBootInfoV2,
-    RotComponent as SpRotComponent,
-    // RotImageDetails as SpRotImageDetails,
-    SlotId as SpSlotId,
-    SpRot,
-    SprotError,
-    SprotProtocolError,
-    SwitchDuration,
+    CabooseOrSprotError, Fwid as SpFwid, ImageError as SpImageError,
+    RotBootInfo as SpRotBootInfo, RotBootInfoV2 as SpRotBootInfoV2,
+    RotComponent as SpRotComponent, SlotId as SpSlotId, SpRot, SprotError,
+    SprotProtocolError, SwitchDuration,
     VersionedRotBootInfo as SpVersionedRotBootInfo,
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
     CfpaPage, DiscoverResponse, DumpSegment, DumpTask, Fwid as GwFwid,
-    ImageError as GwImageError, ImageVersion as GwImageVersion, PowerState,
+    ImageError as GwImageError, ImageVersion as GwImageVersion, PmbusStatus,
+    PmbusStatusError, PmbusStatusReadError, PowerRailName, PowerState,
     RotBootInfo as GwRotBootInfo, RotBootState as GwRotBootState, RotError,
     RotImageDetails as GwRotImageDetails, RotRequest, RotResponse,
     RotSlotId as GwRotSlotId, RotState as GwRotState,
@@ -745,6 +738,69 @@ impl MgsCommon {
         buf: &mut [u8],
     ) -> Result<Option<DumpSegment>, GwSpError> {
         self.dump_state.task_dump_read_continue(key, seq, buf)
+    }
+
+    pub(crate) fn get_pmbus_status(
+        &mut self,
+        rail: &PowerRailName,
+    ) -> Result<PmbusStatus, GwSpError> {
+        // Get the name as a binary string, up to the first null byte
+        let name = rail.as_bstr();
+
+        // Can we find the given rail in our list of sorted PMBus rails?
+        let idx = crate::pmbus::PMBUS_RAIL_TO_I2C_DEVICE_MAP
+            .binary_search_by_key(&name, |info| info.name.as_bytes())
+            .map_err(|_| {
+                GwSpError::PmbusStatus(PmbusStatusError::UnknownRail)
+            })?;
+
+        // Yep! Call the i2c-generated function to get back an I2cDevice
+        // and the rail index necessary to call the status function
+        let info = &crate::pmbus::PMBUS_RAIL_TO_I2C_DEVICE_MAP[idx];
+        let (device, rail_idx) = (info.summon_fn)(crate::I2C.get_task_id());
+
+        // Local version of:
+        // `impl From<i2c::PmbusStatusError> for mgs::PmbusStatusReadError`
+        fn err_fixer(
+            val: drv_i2c_devices::PmbusStatusError,
+        ) -> PmbusStatusReadError {
+            match val {
+                drv_i2c_devices::PmbusStatusError::BadRead { cmd: _, code } => {
+                    PmbusStatusReadError::DriverReadFailed {
+                        retry_hint: code.retry_hint(),
+                        raw_response_code: code as u8,
+                    }
+                }
+                drv_i2c_devices::PmbusStatusError::Unsupported => {
+                    PmbusStatusReadError::Unsupported
+                }
+            }
+        }
+
+        // `PmbusStatus::try_read_from` only fails if querying STATUS_WORD
+        // isn't successful. Plumb the errors as necessary if that happens.
+        let status = drv_i2c_devices::PmbusStatus::try_read_from(
+            &device,
+            rail_idx,
+            info.status_bits,
+        )
+        .map_err(err_fixer)
+        .map_err(PmbusStatusError::FailedStatusWord)
+        .map_err(GwSpError::PmbusStatus)?;
+
+        // We got *at least* STATUS_WORD! Time to tell everyone about it.
+        Ok(PmbusStatus {
+            status_word: status.status_word,
+            status_vout: status.status_vout.map_err(err_fixer),
+            status_iout: status.status_iout.map_err(err_fixer),
+            status_temperature: status.status_temperature.map_err(err_fixer),
+            status_cml: status.status_cml.map_err(err_fixer),
+            status_other: status.status_other.map_err(err_fixer),
+            status_input: status.status_input.map_err(err_fixer),
+            status_mfr_specific: status.status_mfr_specific.map_err(err_fixer),
+            status_fans_1_2: status.status_fans_1_2.map_err(err_fixer),
+            status_fans_3_4: status.status_fans_3_4.map_err(err_fixer),
+        })
     }
 }
 

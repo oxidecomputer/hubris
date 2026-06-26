@@ -39,6 +39,7 @@ mod server;
     any(target_board = "psc-b", target_board = "psc-c"),
     path = "bsp/psc_bc.rs"
 )]
+#[cfg_attr(target_board = "observer-a", path = "bsp/observer_a.rs")]
 #[cfg_attr(target_board = "gimletlet-1", path = "bsp/gimletlet_mgmt.rs")]
 #[cfg_attr(
     all(target_board = "gimletlet-2", feature = "gimletlet-nic"),
@@ -88,7 +89,7 @@ use stm32h7::stm32h753 as device;
 use counters::*;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::Sys;
-use userlib::*;
+use userlib::{sys_get_timer, sys_post, sys_refresh_task_id, task_slot};
 
 use crate::bsp::BspImpl;
 use crate::bsp_support::Bsp;
@@ -256,9 +257,17 @@ fn main() -> ! {
     // who was waiting to hear back on their TX queue becoming non-full will
     // snap out of it.
     //
-    // This only works because we've set waiting_to_send to true for all sockets
-    // above.
-    server.wake_sockets();
+    // Note that we don't, actually, need to check whether the TX queue is empty
+    // or not here. We just reset, so any previously buffered packets that we
+    // had in the TX queue for that socket are definitely gone and the queue
+    // will be empty.
+    //
+    // Once we have woken everyone once, we can then only wake tasks when we are
+    // sure they actually are trying to send.
+    for (task_id, notification) in generated::SOCKET_OWNERS {
+        let task_id = sys_refresh_task_id(task_id);
+        sys_post(task_id, notification);
+    }
 
     // Go!
     loop {

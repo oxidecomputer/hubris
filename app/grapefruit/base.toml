@@ -237,6 +237,7 @@ uses = ["usart1"]
 task-slots = [
     "auxflash",
     "dump_agent",
+    "i2c_driver",
     "jefe",
     "net",
     "update_server",

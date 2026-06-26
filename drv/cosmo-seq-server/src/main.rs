@@ -549,24 +549,24 @@ impl ServerImpl {
                         Ok(A0Sm::Faulted) | Err(_) => {
                             break;
                         }
-                        Ok(A0Sm::EnableGrpA) => {
-                            // hardware-cosmo#658 prevents us from checking `CPU_PRESENT`
-                            // at `A0Sm::ENABLE_GRP_A` time on rev-a boards
-                            if !cfg!(target_board = "cosmo-a") {
-                                let present =
-                                    self.sys.gpio_read(SP5_TO_SP_PRESENT_L)
-                                        == 0;
+                        // hardware-cosmo#658 prevents us from checking
+                        // `CPU_PRESENT` at `A0Sm::ENABLE_GRP_A` time on rev-a
+                        // boards
+                        Ok(A0Sm::EnableGrpA)
+                            if !cfg!(target_board = "cosmo-a") =>
+                        {
+                            let present =
+                                self.sys.gpio_read(SP5_TO_SP_PRESENT_L) == 0;
 
-                                if !present {
-                                    ringbuf_entry!(Trace::CPUNotPresent);
-                                    let _ = self.ereporter.deliver_ereport(
-                                        &ereports::cpu::CpuMissing {
-                                            cpu: &HOST_CPU_REFDES,
-                                        },
-                                    );
-                                    err = CpuSeqError::CPUNotPresent;
-                                    break;
-                                }
+                            if !present {
+                                ringbuf_entry!(Trace::CPUNotPresent);
+                                let _ = self.ereporter.deliver_ereport(
+                                    &ereports::cpu::CpuMissing {
+                                        cpu: &HOST_CPU_REFDES,
+                                    },
+                                );
+                                err = CpuSeqError::CPUNotPresent;
+                                break;
                             }
                         }
                         _ => (),
@@ -762,18 +762,11 @@ impl ServerImpl {
             notifications::SEQ_IRQ_MASK,
             sys_api::IrqControl::Enable,
         );
-        // Enable the undervoltage warning PMBus alert from the Vcore
-        // regulators.
-        //
-        // Yes, we just ignore the error here --- while that seems a bit
-        // sketchy, but what else can we do? It seems pretty bad to panic and
-        // say "nope, the computer won't turn on" because we weren't able to do
-        // an I2C transaction to turn on an interrupt that we only use for
-        // monitoring for faults. The initialize method will retry internally a
-        // few times, so we should power through any transient I2C messiness,
-        // and any I2C errors that occur get logged in the `vcore` module's
-        // ringbuf.
-        let _ = self.vcore.initialize_uv_warning();
+        // Configure PMBus alerts from the Vcore regulators. This will attempt
+        // to set a limit for the input undervoltage warning, and mask out the
+        // (spurious) output overcurrent warning (which must be set to a
+        // threshold that is not indicative of a real fault).
+        self.vcore.initialize_pmbus_alerts();
         self.seq.ier.modify(|m| {
             m.set_fanfault(true);
             m.set_thermtrip(true);

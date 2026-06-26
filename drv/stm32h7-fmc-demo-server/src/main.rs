@@ -13,7 +13,7 @@ use static_cell::ClaimOnceCell;
 use task_net_api::{
     LargePayloadBehavior, Net, RecvError, SendError, SocketName,
 };
-use userlib::*;
+use userlib::{RecvMessage, sys_recv_notification, task_slot};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "h743")] {

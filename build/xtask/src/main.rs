@@ -21,6 +21,7 @@ mod humility;
 mod lsp;
 mod passthrough;
 mod print;
+mod rust_analyzer;
 mod sizes;
 mod task_slot;
 
@@ -245,6 +246,15 @@ enum Xtask {
 
         /// Path to a Rust source file
         file: PathBuf,
+    },
+
+    /// Runs `rust-analyzer` for the target manifest + task
+    RustAnalyzer {
+        /// Path to which logs should be written
+        #[clap(short, long)]
+        log: Option<PathBuf>,
+        /// Colon-delimited `path/to/app.toml:task_name` value
+        target: Option<String>,
     },
 
     /// Prepare artifacts for upload in CI.
@@ -545,6 +555,26 @@ fn run(xtask: Xtask) -> Result<()> {
         }
         Xtask::Lsp { clients, file } => {
             lsp::run(&file, &clients)?;
+        }
+        Xtask::RustAnalyzer { log, target } => {
+            let t = if let Some(target) = target {
+                let mut iter = target.split(':');
+                let manifest = iter
+                    .next()
+                    .ok_or_else(|| anyhow!("failed to get manifest"))?;
+                let task =
+                    iter.next().ok_or_else(|| anyhow!("failed to get task"))?;
+                if iter.next().is_some() {
+                    bail!("expected two colon-separated values in `{target}`");
+                }
+                Some(rust_analyzer::HubrisTargetTask {
+                    manifest: manifest.into(),
+                    task_name: task.to_owned(),
+                })
+            } else {
+                None
+            };
+            rust_analyzer::run(log, t)?;
         }
         Xtask::GhaPrepareArtifacts { cfg, attestation } => {
             gha_prepare_artifacts::run(&cfg, attestation.as_deref())?;

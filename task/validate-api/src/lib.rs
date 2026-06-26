@@ -8,7 +8,7 @@
 
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
-use userlib::*;
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 pub use task_sensor_api::SensorId;
@@ -74,7 +74,8 @@ pub struct DeviceDescription {
     pub device: &'static str,
     pub description: &'static str,
     pub sensors: &'static [SensorDescription],
-    pub id: [u8; MAX_ID_LENGTH],
+    pub id: &'static str,
+    pub is_pmbus: bool,
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));
