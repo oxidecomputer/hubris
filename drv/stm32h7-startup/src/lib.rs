@@ -320,10 +320,6 @@ pub fn system_init_custom(
             .variant(config.apb3_div)
     });
     // Other APB buses at HCLK/2 = CPU/4 = 100MHz
-    //
-    // NOTE: until we call `configure_tim5` again below, our rolling timer will
-    // be inaccurate as we have changed the prescaler (and will shortly be
-    // changing the source clock fed to the prescaler!)
     p.RCC.d2cfgr.write(|w| {
         w.d2ppre1()
             .variant(config.apb1_div)
