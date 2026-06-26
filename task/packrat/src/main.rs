@@ -65,9 +65,7 @@
 
 use core::convert::Infallible;
 use gateway_ereport_messages as ereport_messages;
-use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError,
-};
+use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
@@ -159,6 +157,7 @@ enum TraceSet<T> {
 }
 
 /// Metadata about panics observed from the host
+#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
 struct HostPanicMetadata {
     /// Length in bytes of the currently stored panic message
     total_length: usize,
@@ -167,6 +166,7 @@ struct HostPanicMetadata {
 }
 
 /// Metadata about panics observed from the host
+#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
 struct HostBootFailMetadata {
     /// Length in bytes of the currently stored bootfail message
     total_length: usize,
@@ -176,6 +176,7 @@ struct HostBootFailMetadata {
     reason: u8,
 }
 
+#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
 pub struct HostInfo {
     host_panic_payload: [u8; 4096],
     host_bootfail_payload: [u8; 4096],
@@ -183,6 +184,7 @@ pub struct HostInfo {
     host_bootfail_state: Option<HostBootFailMetadata>,
 }
 
+#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
 impl HostInfo {
     const fn new() -> Self {
         Self {
@@ -673,7 +675,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
             0..to_copy,
             &mut self.host_info.host_bootfail_payload[..to_copy],
         )
-        .map_err(|_| ClientError::WentAway.fail())?;
+        .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
 
         // Okay! We've written the requested data. Let's update the metadata.
         //
@@ -727,7 +729,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn read_first_host_bootfail_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        data: Leased<idol_runtime::W, [u8]>,
+        _data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<
         HostBootfailReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
@@ -795,7 +797,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
             0..to_copy,
             &mut self.host_info.host_panic_payload[..to_copy],
         )
-        .map_err(|_| ClientError::WentAway.fail())?;
+        .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
 
         // Okay! We've written the requested data. Let's update the metadata.
         //
@@ -861,7 +863,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn read_first_host_panic_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        data: Leased<idol_runtime::W, [u8]>,
+        _data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<
         HostPanicReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
@@ -883,6 +885,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
 }
 
 impl ServerImpl {
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
     fn host_panic_helper(
         &self,
         req: Option<&HostInfoRequest>,
@@ -920,7 +923,7 @@ impl ServerImpl {
         let relevant = &self.host_info.host_panic_payload[offset..];
         let max_to_copy = data.len().min(relevant.len());
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
-            .map_err(|_| ClientError::WentAway.fail())?;
+            .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
 
         // Okay! Written! Return how many bytes were actually copied
         Ok(HostPanicReadOutput {
@@ -931,6 +934,7 @@ impl ServerImpl {
         })
     }
 
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
     fn host_bootfail_helper(
         &self,
         request: Option<&HostInfoRequest>,
@@ -967,7 +971,7 @@ impl ServerImpl {
         let relevant = &self.host_info.host_bootfail_payload[offset..];
         let max_to_copy = data.len().min(relevant.len());
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
-            .map_err(|_| ClientError::WentAway.fail())?;
+            .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
 
         let out = HostBootfailReadOutput {
             read: max_to_copy,

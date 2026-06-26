@@ -24,7 +24,7 @@ use gateway_messages::{
     RotBootInfo, RotRequest, RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT,
     SensorRequest, SensorResponse, SpComponent, SpError, SpPort as GwSpPort,
     SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
-    ignition, HostBootfailPayloadData, HostInfoRequest, HostPanicPayloadData
+    ignition,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
