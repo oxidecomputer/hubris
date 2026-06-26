@@ -30,15 +30,6 @@ fn system_init() {
     let cp = cortex_m::Peripherals::take().unwrap();
     let p = device::Peripherals::take().unwrap();
 
-    // Start the higher resolution timer with the default APB1 clock rate of
-    // 64MHz.
-    //
-    // SAFETY: We do not carry any "instant" values across this point (as they
-    // would be invalidated here!), and we do not re-use TIM5 for anything.
-    unsafe {
-        drv_stm32h7_startup::rolling_timer::configure_tim5(&p, 64);
-    }
-
     // Check the package we've been flashed on. Grapefruit boards use BGA240.
     // Gimletlet boards are very similar but use QFPs. This is designed to fail
     // a Grapefruit firmware that was accidentally flashed onto a Gimletlet.
