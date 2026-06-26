@@ -39,7 +39,7 @@
 use drv_user_leds_api::LedError;
 use enum_map::EnumMap;
 use idol_runtime::RequestError;
-use userlib::{set_timer_relative, task_slot, FromPrimitive, RecvMessage};
+use userlib::{FromPrimitive, RecvMessage, set_timer_relative, task_slot};
 
 task_config::optional_task_config! {
     blink_at_start: &'static [Led],

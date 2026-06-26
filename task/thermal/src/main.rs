@@ -60,8 +60,8 @@ use task_thermal_api::{
     ThermalProperties,
 };
 use userlib::{
-    sys_get_timer, sys_set_timer, task_slot, units::PWMDuty, RecvMessage,
-    UnwrapLite,
+    RecvMessage, UnwrapLite, sys_get_timer, sys_set_timer, task_slot,
+    units::PWMDuty,
 };
 
 // We define our own Fan type, as we may have more fans than any single

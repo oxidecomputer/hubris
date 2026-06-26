@@ -21,8 +21,8 @@ use ringbuf::*;
 use static_cell::ClaimOnceCell;
 use sys_api::IrqControl;
 use userlib::{
-    hl, set_timer_relative, sys_get_timer, sys_recv_notification,
-    sys_set_timer, task_slot, RecvMessage, UnwrapLite,
+    RecvMessage, UnwrapLite, hl, set_timer_relative, sys_get_timer,
+    sys_recv_notification, sys_set_timer, task_slot,
 };
 
 cfg_if::cfg_if! {

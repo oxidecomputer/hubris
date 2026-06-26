@@ -7,7 +7,7 @@ use hif::*;
 use hubris_num_tasks::Task;
 
 #[cfg(any(feature = "gpio", feature = "i2c"))]
-use userlib::{task_slot, FromPrimitive};
+use userlib::{FromPrimitive, task_slot};
 
 #[cfg(feature = "gpio")]
 task_slot!(SYS, sys);

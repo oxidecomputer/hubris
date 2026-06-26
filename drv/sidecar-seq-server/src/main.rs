@@ -30,8 +30,8 @@ use idol_runtime::{
 };
 use ringbuf::*;
 use userlib::{
-    hl, sys_get_timer, sys_set_timer, task_slot, FromPrimitive, RecvMessage,
-    UnwrapLite,
+    FromPrimitive, RecvMessage, UnwrapLite, hl, sys_get_timer, sys_set_timer,
+    task_slot,
 };
 
 task_slot!(I2C, i2c_driver);

@@ -22,7 +22,7 @@ use stm32g0::stm32g070 as device;
 #[cfg(feature = "g0b1")]
 use stm32g0::stm32g0b1 as device;
 
-use userlib::{hl, sys_irq_control, task_slot, FromPrimitive, LeaseAttributes};
+use userlib::{FromPrimitive, LeaseAttributes, hl, sys_irq_control, task_slot};
 
 task_slot!(SYS, sys);
 

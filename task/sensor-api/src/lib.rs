@@ -6,7 +6,7 @@
 
 #![no_std]
 
-use userlib::{sys_get_timer, sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_get_timer, sys_send};
 
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;

@@ -18,7 +18,7 @@ use drv_meanwell_api::MeanwellError;
 use idol_runtime::NotificationHandler;
 use idol_runtime::RequestError;
 use userlib::{
-    set_timer_relative, sys_get_timer, sys_set_timer, task_slot, RecvMessage,
+    RecvMessage, set_timer_relative, sys_get_timer, sys_set_timer, task_slot,
 };
 
 use drv_stm32xx_sys_api as sys_api;

@@ -10,7 +10,7 @@
 
 #![no_std]
 
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 /// Peripheral numbering.

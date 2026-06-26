@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 pub use dump_agent_api::DumpAgentError;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 
 /// Platform-agnostic (but heavily influenced) reset status bits.
 #[derive(

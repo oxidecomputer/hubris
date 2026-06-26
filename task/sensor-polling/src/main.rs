@@ -12,7 +12,7 @@ use drv_i2c_devices::mwocp6x::{Error as Mwocp6xError, Mwocp67, Mwocp68};
 use drv_i2c_devices::tmp117::{Error as Tmp117Error, Tmp117};
 use ringbuf::*;
 use task_sensor_api::{Sensor, SensorId};
-use userlib::{hl, task_slot, TaskId};
+use userlib::{TaskId, hl, task_slot};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);

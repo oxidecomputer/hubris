@@ -21,8 +21,8 @@ use drv_lpc55_syscon_api::*;
 use lib_lpc55_usart::{Usart, Write};
 use lpc55_pac as device;
 use userlib::{
-    sys_borrow_info, sys_borrow_read, sys_irq_control, sys_recv_open,
-    sys_reply, task_slot, LeaseAttributes, TaskId, UnwrapLite,
+    LeaseAttributes, TaskId, UnwrapLite, sys_borrow_info, sys_borrow_read,
+    sys_irq_control, sys_recv_open, sys_reply, task_slot,
 };
 use zerocopy::IntoBytes;
 

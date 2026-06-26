@@ -328,9 +328,9 @@ use task_jefe_api::{Jefe, ResetReason};
 
 #[cfg(not(feature = "test"))]
 use userlib::task_slot;
-#[cfg(feature = "exti")]
-use userlib::{sys_irq_control, sys_post, sys_refresh_task_id, TaskId};
 use userlib::{FromPrimitive, RecvMessage};
+#[cfg(feature = "exti")]
+use userlib::{TaskId, sys_irq_control, sys_post, sys_refresh_task_id};
 
 #[cfg(not(feature = "test"))]
 task_slot!(JEFE, jefe);

@@ -15,7 +15,7 @@ use drv_medusa_seq_api::{MedusaError, RailName};
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
-    sys_get_timer, sys_set_timer, task_slot, RecvMessage, UnwrapLite,
+    RecvMessage, UnwrapLite, sys_get_timer, sys_set_timer, task_slot,
 };
 
 task_slot!(I2C, i2c_driver);

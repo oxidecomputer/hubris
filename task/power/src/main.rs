@@ -28,9 +28,8 @@ use task_power_api::{
 };
 use task_sensor_api as sensor_api;
 use userlib::{
-    sys_get_timer, task_slot,
+    TaskId, sys_get_timer, task_slot,
     units::{Amperes, Celsius, Ohms, Volts},
-    TaskId,
 };
 use zerocopy::IntoBytes;
 

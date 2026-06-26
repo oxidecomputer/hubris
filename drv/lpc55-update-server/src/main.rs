@@ -28,8 +28,8 @@ use stage0_handoff::{
     RotBootStateV2,
 };
 use userlib::{
-    sys_irq_control, sys_recv_notification, task_slot, ImageHeader,
-    RecvMessage, UnwrapLite, CABOOSE_MAGIC, HEADER_MAGIC,
+    CABOOSE_MAGIC, HEADER_MAGIC, ImageHeader, RecvMessage, UnwrapLite,
+    sys_irq_control, sys_recv_notification, task_slot,
 };
 use zerocopy::{FromZeros, IntoBytes};
 

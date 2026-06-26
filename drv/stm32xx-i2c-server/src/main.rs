@@ -14,8 +14,8 @@ use drv_stm32xx_sys_api::{Mode, OutputType, PinSet, Pull, Speed, Sys};
 use fixedmap::*;
 use ringbuf::*;
 use userlib::{
-    hl, sys_get_timer, sys_irq_control, sys_recv_notification, sys_set_timer,
-    task_slot, FromPrimitive, LeaseAttributes,
+    FromPrimitive, LeaseAttributes, hl, sys_get_timer, sys_irq_control,
+    sys_recv_notification, sys_set_timer, task_slot,
 };
 
 task_slot!(SYS, sys);
