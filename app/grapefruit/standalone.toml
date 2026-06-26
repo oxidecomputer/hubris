@@ -11,7 +11,7 @@ interrupts = {"uart8.irq" = "usart-irq"}
 
 # Ereport stuff
 [tasks.packrat]
-stacksize = 1400
+stacksize = 64
 task-slots = ["jefe"]
 features = ["ereport"]
 notifications = ["task-faulted"]
