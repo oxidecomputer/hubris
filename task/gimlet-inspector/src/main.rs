@@ -17,7 +17,7 @@ use gimlet_inspector_protocol::{
 };
 use hubpack::SerializedSize;
 use task_net_api::*;
-use userlib::*;
+use userlib::{UnwrapLite, sys_recv_notification, task_slot};
 
 task_slot!(NET, net);
 task_slot!(SEQ, seq);

@@ -21,7 +21,7 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use userlib::*;
+use userlib::{RecvMessage, hl, task_slot};
 
 task_slot!(SYS, sys);
 

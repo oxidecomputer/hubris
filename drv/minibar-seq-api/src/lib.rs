@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
 
-use userlib::*;
+use userlib::{FromPrimitive, sys_send};
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,

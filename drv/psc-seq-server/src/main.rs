@@ -106,7 +106,10 @@ use drv_psc_seq_api::PowerState;
 use drv_stm32xx_sys_api as sys_api;
 use sys_api::{Edge, IrqControl, OutputType, PinSet, Pull, Speed};
 use task_jefe_api::Jefe;
-use userlib::*;
+use userlib::{
+    UnwrapLite, hl, sys_get_timer, sys_recv_notification, sys_set_timer,
+    task_slot,
+};
 
 use fixedstr::{FixedStr, FixedString};
 use ringbuf::{counted_ringbuf, ringbuf_entry};

@@ -6533,7 +6533,6 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
- "num-derive",
  "num-traits",
  "serde",
  "userlib",

@@ -243,7 +243,7 @@ features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 8
-max-sizes = {flash = 70000, ram = 65536}
+max-sizes = {flash = 72000, ram = 65536}
 stacksize = 5376
 start = true
 task-slots = ["sys", { cpu_seq = "gimlet_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot"]
@@ -991,7 +991,7 @@ device = "isl68224"
 description = "DIMM/SP3 1.8V A0 power controller"
 power.rails = [ "VPP_ABCD", "VPP_EFGH", "V1P8_SP3" ]
 power.phases = [ [ 0 ], [ 1 ], [ 2 ] ]
-sensors = { voltage = 3, current = 3 }
+sensors = { temperature = 3, voltage = 3, current = 3 }
 refdes = "U352"
 
 [[config.i2c.devices]]
