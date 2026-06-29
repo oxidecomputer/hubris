@@ -165,7 +165,7 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
     // rebuilds if it changes (and trust it's optimized out by the compiler)
     quote! {
         mod _hidden {
-            pub const _REBUILDER: &'static str = core::env!("HUBRIS_TASK_CONFIG");
+            const _REBUILDER: &'static str = core::env!("HUBRIS_TASK_CONFIG");
         }
         struct Config {
             #(#fields),*
@@ -210,7 +210,7 @@ pub fn optional_task_config(tokens: TokenStream) -> TokenStream {
     // rebuilds if it changes (and trust it's optimized out by the compiler)
     quote! {
         mod _hidden {
-            pub const _REBUILDER: &'static str = core::env!("HUBRIS_TASK_CONFIG");
+            const _REBUILDER: &'static str = core::env!("HUBRIS_TASK_CONFIG");
         }
         struct Config {
             #(#fields),*
