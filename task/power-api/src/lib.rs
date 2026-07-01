@@ -52,6 +52,8 @@ pub enum Operation {
     ReadTemperature1,
     ReadTemperature2,
     ReadTemperature3,
+    ReadTempClipP,
+    ReadTempClipN,
     ReadFanSpeed1,
     ReadFanSpeed2,
     ReadPout,

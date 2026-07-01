@@ -8,7 +8,7 @@ use ringbuf::*;
 use task_net_api::{
     LargePayloadBehavior, RecvError, SendError, SocketName, UdpMetadata,
 };
-use userlib::*;
+use userlib::kipc;
 
 static_assertions::const_assert_eq!(
     DUMP_READ_SIZE,

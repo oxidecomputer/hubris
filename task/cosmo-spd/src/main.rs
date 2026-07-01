@@ -85,12 +85,19 @@ impl ServerImpl {
         // This laborious list is intended to ensure that new power states
         // have to be added explicitly here.
         match PowerState::from_u32(self.jefe.get_state()) {
-            Some(PowerState::A0) | Some(PowerState::A0PlusHP) => {
+            // We wait for boot before activating temperature polling so
+            // that we don't interrupt the SPD fetches that happen during
+            // boot. The FPGA's SPD mux has proven to have some bugs that
+            // are difficult to reproduce, but seen frequently enough in the
+            // wild, so this is a workaround totally avoids any interaction
+            // with the DDR i2c bus until we're fully booted.
+            Some(PowerState::A0PlusHP) => {
                 if !self.active {
                     self.activate()
                 }
             }
-            Some(PowerState::A2)
+            Some(PowerState::A0)
+            | Some(PowerState::A2)
             | Some(PowerState::A2PlusFans)
             | Some(PowerState::A0Reset)
             | Some(PowerState::A0Thermtrip)

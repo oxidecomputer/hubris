@@ -274,6 +274,7 @@ const PMBUS_GENERATOR: &[StatusRow] = &[
     generator!("isl68224", isl68224),
     generator!("lm5066", lm5066),
     generator!("lm5066i", lm5066i),
+    generator!("mwocp67", mwocp67),
     generator!("mwocp68", mwocp68),
     generator!("raa229618", raa229618),
     generator!("raa229620a", raa229620a),

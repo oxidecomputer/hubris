@@ -12,10 +12,16 @@ on:
       brussels-run-id:
         description: Download Brussels from a Run ID
         type: string
+      override-version:
+        description: Custom version number
+        type: string
 
 # Prevent multiple releases for the same group from happening concurrently.
 concurrency:
   group: release-${{ github.event.inputs.group }}
+
+env:
+  BRUSSELS_VERSION: v0.6.0
 
 jobs:
   init:
@@ -28,6 +34,7 @@ jobs:
       version: ${{ steps.init.outputs.version }}
       tag_name: ${{ steps.init.outputs.tag_name }}
       hubris_app_dirs: ${{ steps.init.outputs.hubris_app_dirs }}
+      commit_sha1: ${{ steps.init.outputs.commit_sha1 }}
     steps:
       - &brussels-token
         name: Get a token to fetch Brussels
@@ -42,7 +49,7 @@ jobs:
         name: Download Brussels
         run: |
           if [[ "${BRUSSELS_RUN_ID}" == "" ]]; then
-            gh release download -R oxidecomputer/brussels -p brussels v0.3.0
+            gh release download -R oxidecomputer/brussels -p brussels "${BRUSSELS_VERSION}"
           else
             gh run download "${BRUSSELS_RUN_ID}" -R oxidecomputer/brussels -n prebuilt-binary
           fi
@@ -54,10 +61,22 @@ jobs:
 
       - id: init
         name: Initialize the release
-        run: brussels init "$group" HEAD >brussels-manifest.json
+        run: |
+          flags=()
+          if [[ "${override_version}" != "" ]]; then
+            flags+=("--override-version=${override_version}")
+          fi
+          brussels init "$group" "$ref" "${flags[@]}" >brussels-manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           group: ${{ github.event.inputs.group }}
+          # We choose to release the commit in which the workflow is defined.
+          # Most of the times this will be the "main" branch. If the developer
+          # chooses a different branch to run the workflow on though (in the
+          # GitHub "Run Workflow" UI), this will correctly release the branch
+          # they requested (as that will be the executed workflow).
+          ref: ${{ github.workflow_sha }}
+          override_version: ${{ github.event.inputs.override-version }}
 
       - name: Upload the release manifest
         uses: actions/upload-artifact@v4

@@ -2,12 +2,27 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{PowerControllerConfig, PowerState};
+use crate::{
+    PowerControllerConfig, PowerState,
+    i2c_config::{self, sensors},
+};
 
-// TODO add rectifiers (once we have their SMBus spec)
-pub(crate) const CONTROLLER_CONFIG_LEN: usize = 0;
+pub(crate) const CONTROLLER_CONFIG_LEN: usize = 12;
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
-    CONTROLLER_CONFIG_LEN] = [];
+    CONTROLLER_CONFIG_LEN] = [
+    mwocp67_controller!(PowerShelf, v50_main_psu0, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu0, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu1, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu1, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu2, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu2, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu3, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu3, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu4, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu4, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu5, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu5, A2),
+];
 
 pub(crate) fn get_state() -> PowerState {
     PowerState::A2

@@ -12,13 +12,14 @@ workflow-file = ".github/workflows/release.yml"
 runner-environment = "self-hosted"
 
 [groups.all-sp]
-tag-bump = "patch"
+tag-bump = "minor"
 tag-prefix = "all-sp-v"
 hubris-app-dirs = [
     "app/sidecar/",
     "app/gimlet/",
     "app/psc/",
     "app/cosmo/",
+    "app/observer/",
 ]
 
 release-title = "SP release {version}"
@@ -39,21 +40,25 @@ gimlet-e = {}
 gimlet-e-lab = {}
 gimlet-f = {}
 gimlet-f-lab = {}
-psc-b = {}
-psc-c = {}
-sidecar-b = {}
-sidecar-b-lab = {}
-sidecar-c = {}
-sidecar-c-lab = {}
-sidecar-d = {}
-sidecar-d-lab = {}
+psc-b = { corim = false }
+psc-c = { corim = false }
+sidecar-b = { corim = false }
+sidecar-b-lab = { corim = false }
+sidecar-b-reverso = { corim = false, omicron = false }
+sidecar-c = { corim = false }
+sidecar-c-lab = { corim = false }
+sidecar-c-reverso = { corim = false, omicron = false }
+sidecar-d = { corim = false }
+sidecar-d-lab = { corim = false }
+sidecar-d-reverso = { corim = false, omicron = false }
 cosmo-a = {}
 cosmo-a-lab = {}
 cosmo-b = {}
 cosmo-b-lab = {}
+observer-a = { corim = false, omicron = false }
 
 [groups.rot]
-tag-bump = "patch"
+tag-bump = "minor"
 tag-prefix = "oxide-rot-1-v"
 hubris-app-dirs = ["app/oxide-rot-1/"]
 

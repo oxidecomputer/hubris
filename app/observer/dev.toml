@@ -31,3 +31,13 @@ owner = {name = "udprpc", notification = "socket"}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+# This writes test data to the FRAM, so if we start actually using the FRAM then
+# we should remove this task to avoid clobbering the real data.
+[tasks.framulator]
+name = "task-framulator"
+priority = 5
+start = true
+task-slots = [{spi_driver = "spi2_driver"}]
+stacksize = 2048
+notifications = ["hey-you"]

@@ -7,7 +7,7 @@
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::*;
+use userlib::{FromPrimitive, ToPrimitive, sys_send};
 
 pub use vsc85xx::{
     tesla::{TeslaSerdes6gObConfig, TeslaSerdes6gPatch},

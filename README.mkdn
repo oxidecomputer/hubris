@@ -79,7 +79,7 @@ You will need:
 - [libusb](https://libusb.info/), typically found from your system's package
   manager as `libusb-1.0.0` or similar.
 
-- [libfdti1](https://www.intra2net.com/en/developer/libftdi/), found
+- [libftdi1](https://www.intra2net.com/en/developer/libftdi/), found
   as `libftdi1-dev` or similar.
 
 - If you will be running GDB, you should install `arm-none-eabi-gdb`.  This is

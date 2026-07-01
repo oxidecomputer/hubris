@@ -18,7 +18,9 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use static_cell::*;
-use userlib::*;
+use userlib::{
+    UnwrapLite, sys_get_timer, sys_recv_notification, sys_set_timer,
+};
 
 mod common;
 
@@ -497,12 +499,13 @@ mod net {
             if (meta.size as usize) < HEADER_SIZE {
                 return (RpcReply::TooShort, &[]);
             }
+            // Slice to our valid data region
+            let rx_data = &self.rx_data_buf[..meta.size as usize];
 
             // We can always read the header, since it's raw data
-            let header =
-                RpcHeader::read_from_bytes(&self.rx_data_buf[..HEADER_SIZE])
-                    .unwrap_lite();
-            let rest = &self.rx_data_buf[HEADER_SIZE..];
+            let header = RpcHeader::read_from_bytes(&rx_data[..HEADER_SIZE])
+                .unwrap_lite();
+            let rest = &rx_data[HEADER_SIZE..];
             if self.image_id != header.image_id.get() {
                 return (RpcReply::BadImageId, self.image_id.as_bytes());
             }

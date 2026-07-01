@@ -11,7 +11,7 @@ use drv_sp_ctrl_api::{SpCtrl, SpCtrlError};
 use dumper_api::*;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
-use userlib::*;
+use userlib::{NotificationBits, RecvMessage, task_slot};
 use zerocopy::FromBytes;
 
 #[derive(Copy, Clone, PartialEq)]

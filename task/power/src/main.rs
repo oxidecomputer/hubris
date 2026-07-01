@@ -17,7 +17,7 @@ use drv_i2c_devices::lm5066::*;
 use drv_i2c_devices::lm5066i::*;
 use drv_i2c_devices::ltc4282::*;
 use drv_i2c_devices::max5970::*;
-use drv_i2c_devices::mwocp68::*;
+use drv_i2c_devices::mwocp6x::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::raa229620a::*;
 use drv_i2c_devices::tps546b24a::*;
@@ -27,8 +27,10 @@ use task_power_api::{
     Bmr491Event, MAX_BLOCK_LEN, PmbusValue, RawPmbusBlock, RenesasBlackbox,
 };
 use task_sensor_api as sensor_api;
-use userlib::units::*;
-use userlib::*;
+use userlib::{
+    TaskId, sys_get_timer, task_slot,
+    units::{Amperes, Celsius, Ohms, Volts},
+};
 use zerocopy::IntoBytes;
 
 use drv_i2c_api::{I2cDevice, ResponseCode};
@@ -87,6 +89,7 @@ enum DeviceChip {
     Tps546B24A,
     Adm127x(Ohms),
     Max5970 { sense: Ohms, avg: bool },
+    Mwocp67,
     Mwocp68,
     Ltc4282(Ohms),
     Lm5066(Ohms, CurrentLimitStrap),
@@ -115,6 +118,7 @@ enum Device {
     Tps546B24A(Tps546B24A),
     Adm127x(Adm127X),
     Max5970(Max5970),
+    Mwocp67(Mwocp67),
     Mwocp68(Mwocp68),
     Ltc4282(Ltc4282),
     Lm5066(Lm5066),
@@ -132,10 +136,10 @@ impl Device {
             Device::Adm127x(dev) => dev.read_temperature()?,
             Device::Lm5066(dev) => dev.read_temperature()?,
             Device::Lm5066I(dev) => dev.read_temperature()?,
-            Device::Mwocp68(..) => {
-                // The MWOCP68 actually has three temperature sensors, but they
-                // aren't associated with power rails, so we don't read them
-                // here.
+            Device::Mwocp67(..) | Device::Mwocp68(..) => {
+                // The MWOCP67 and MWOCP68 do actually have temperature sensors,
+                // but they aren't associated with power rails, so we don't read
+                // them here.
                 return Err(ResponseCode::NoDevice);
             }
             Device::Max5970(..) | Device::Ltc4282(..) => {
@@ -154,6 +158,7 @@ impl Device {
             Device::Tps546B24A(dev) => dev.read_iout()?,
             Device::Adm127x(dev) => dev.read_iout()?,
             Device::Max5970(dev) => dev.read_iout()?,
+            Device::Mwocp67(dev) => dev.read_iout()?,
             Device::Mwocp68(dev) => dev.read_iout()?,
             Device::Ltc4282(dev) => dev.read_iout()?,
             Device::Lm5066(dev) => dev.read_iout()?,
@@ -171,6 +176,7 @@ impl Device {
             Device::Tps546B24A(dev) => dev.read_vout()?,
             Device::Adm127x(dev) => dev.read_vout()?,
             Device::Max5970(dev) => dev.read_vout()?,
+            Device::Mwocp67(dev) => dev.read_vout()?,
             Device::Mwocp68(dev) => dev.read_vout()?,
             Device::Ltc4282(dev) => dev.read_vout()?,
             Device::Lm5066(dev) => dev.read_vout()?,
@@ -193,9 +199,9 @@ impl Device {
 
     fn read_vin(&self) -> Result<Volts, ResponseCode> {
         let r = match &self {
+            Device::Mwocp67(dev) => dev.read_vin()?,
             Device::Mwocp68(dev) => dev.read_vin()?,
-            // Do any other devices have VIN? For now we only added support to
-            // MWOCP68
+            // Do any other devices have VIN?
             _ => return Err(ResponseCode::NoDevice),
         };
         Ok(r)
@@ -203,9 +209,9 @@ impl Device {
 
     fn read_iin(&self) -> Result<Amperes, ResponseCode> {
         let r = match &self {
+            Device::Mwocp67(dev) => dev.read_iin()?,
             Device::Mwocp68(dev) => dev.read_iin()?,
-            // Do any other devices have IIN? For now we only added support to
-            // MWOCP68
+            // Do any other devices have IIN?
             _ => return Err(ResponseCode::NoDevice),
         };
         Ok(r)
@@ -216,6 +222,7 @@ impl Device {
         op: task_power_api::Operation,
     ) -> Result<PmbusValue, ResponseCode> {
         let v = match &self {
+            Device::Mwocp67(dev) => dev.pmbus_read(op)?,
             Device::Mwocp68(dev) => dev.pmbus_read(op)?,
             Device::Bmr491(_)
             | Device::Raa229618(_)
@@ -235,6 +242,7 @@ impl Device {
 
     fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, ResponseCode> {
         let v = match &self {
+            Device::Mwocp67(dev) => dev.read_mode()?,
             Device::Mwocp68(dev) => dev.read_mode()?,
             Device::Bmr491(dev) => dev.read_mode()?,
             Device::Raa229618(dev) => dev.read_mode()?,
@@ -254,6 +262,7 @@ impl Device {
 
     fn i2c_device(&self) -> &I2cDevice {
         match &self {
+            Device::Mwocp67(dev) => dev.i2c_device(),
             Device::Mwocp68(dev) => dev.i2c_device(),
             Device::Bmr491(dev) => dev.i2c_device(),
             Device::Raa229618(dev) => dev.i2c_device(),
@@ -290,6 +299,7 @@ impl PowerControllerConfig {
             DeviceChip::Max5970 { sense, avg } => {
                 Device::Max5970(Max5970::new(&dev, rail, *sense, *avg))
             }
+            DeviceChip::Mwocp67 => Device::Mwocp67(Mwocp67::new(&dev, rail)),
             DeviceChip::Mwocp68 => Device::Mwocp68(Mwocp68::new(&dev, rail)),
             DeviceChip::Ltc4282(sense) => {
                 Device::Ltc4282(Ltc4282::new(&dev, *sense))
@@ -449,6 +459,31 @@ macro_rules! max5970_controller {
                 current: sensors::[<MAX5970_ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: None,
+                phases: None,
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! mwocp67_controller {
+    ($which:ident, $rail:ident, $state:ident) => {
+        paste::paste! {
+            PowerControllerConfig {
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Mwocp67,
+                builder: i2c_config::pmbus::$rail,
+                voltage: sensors::[<MWOCP67_ $rail:upper _VOLTAGE_SENSOR>],
+                input_voltage: Some(
+                    sensors::[<MWOCP67_ $rail:upper _INPUT_VOLTAGE_SENSOR>]
+                ),
+                current: sensors::[<MWOCP67_ $rail:upper _CURRENT_SENSOR>],
+                input_current: Some(
+                    sensors::[<MWOCP67_ $rail:upper _INPUT_CURRENT_SENSOR>]
+                ),
+                temperature: None, // Temperature sensors are independent of
+                                   // power rails and measured separately
                 phases: None,
             }
         }
