@@ -75,7 +75,7 @@ pub enum EreportWriteError {
 #[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable)]
 #[repr(C)]
 pub struct HostInfoWriteOutput {
-    pub index: u32,
+    pub seqno: u32,
     pub written: usize,
 }
 
@@ -85,7 +85,7 @@ pub struct HostBootfailReadOutput {
     pub read: usize,
     pub offset: usize,
     pub total_len: usize,
-    pub index: u32,
+    pub seqno: u32,
     pub reason: u8,
     pub _pad: [u8; 3],
 }
@@ -96,14 +96,14 @@ pub struct HostPanicReadOutput {
     pub read: usize,
     pub offset: usize,
     pub total_len: usize,
-    pub index: u32,
+    pub seqno: u32,
 }
 
 #[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct HostInfoRequest {
     pub offset: u32,
-    pub index: u32,
+    pub seqno: u32,
 }
 
 #[derive(
@@ -118,8 +118,9 @@ pub enum HostInfoReadError {
     /// host info.
     InvalidOffset,
 
-    /// Requested index does not match the currently stored host information
-    InvalidIndex,
+    /// Requested sequence number does not match the currently stored host
+    /// information
+    InvalidSeqNo,
 
     #[idol(server_death)]
     ServerRestarted,

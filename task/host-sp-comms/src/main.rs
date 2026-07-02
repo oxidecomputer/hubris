@@ -991,7 +991,7 @@ impl ServerImpl {
 
                 // ereport!
                 _ = self.ereporter.deliver_ereport(&HostBootFail {
-                    n: response.index,
+                    seqno: response.seqno,
                     msglen: response.written as u32,
                     reason,
                     flashidx,
@@ -1025,7 +1025,7 @@ impl ServerImpl {
 
                 // ereport!
                 _ = self.ereporter.deliver_ereport(&HostPanic {
-                    n: response.index,
+                    seqno: response.seqno,
                     msglen: response.written as u32,
                     flashidx,
                 });
@@ -2050,7 +2050,7 @@ struct HostPanic {
     /// host-sp-comms.
     ///
     /// This count will wrap, but is guaranteed to never be zero.
-    n: u32,
+    seqno: u32,
     /// The length, in bytes, of the stored panic message.
     ///
     /// This quantity may be less than the amount received, as it is capped
@@ -2069,7 +2069,7 @@ struct HostBootFail {
     /// of host-sp-comms.
     ///
     /// This count will wrap, but is guaranteed to never be zero.
-    n: u32,
+    seqno: u32,
     /// The length, in bytes, of the stored panic message.
     ///
     /// This quantity may be less than the amount received, as it is capped

@@ -162,7 +162,7 @@ struct HostPanicMetadata {
     /// Length in bytes of the currently stored panic message
     total_length: usize,
     /// (hopefully not) Rolling counter of panic messages observed this power cycle
-    total_count: u32,
+    sequence_number: u32,
 }
 
 /// Metadata about panics observed from the host
@@ -171,7 +171,7 @@ struct HostBootFailMetadata {
     /// Length in bytes of the currently stored bootfail message
     total_length: usize,
     /// (hopefully not) Rolling counter of panic messages observed this power cycle
-    total_count: u32,
+    sequence_number: u32,
     /// Bootfail reason
     reason: u8,
 }
@@ -682,22 +682,22 @@ impl idl::InOrderPackratImpl for ServerImpl {
         // Take the old count, if any, and add one to it. If that count wrapped,
         // or if we didn't have an old count, set it to 1, so we never return
         // a count of zero if we've ever observed a boot failure.
-        let new_ct = self
+        let new_seq = self
             .host_info
             .host_bootfail_state
             .take()
-            .map(|s| s.total_count.wrapping_add(1))
+            .map(|s| s.sequence_number.wrapping_add(1))
             .unwrap_or(0)
             .max(1);
         self.host_info.host_bootfail_state = Some(HostBootFailMetadata {
             total_length: to_copy,
-            total_count: new_ct,
+            sequence_number: new_seq,
             reason,
         });
 
         // Give the writer the current index and the number of bytes actually written
         Ok(HostInfoWriteOutput {
-            index: new_ct,
+            seqno: new_seq,
             written: to_copy,
         })
     }
@@ -804,21 +804,22 @@ impl idl::InOrderPackratImpl for ServerImpl {
         // Take the old count, if any, and add one to it. If that count wrapped,
         // or if we didn't have an old count, set it to 1, so we never return
         // a count of zero if we've ever observed a panic.
-        let new_ct = self
+        let new_seq = self
             .host_info
             .host_panic_state
             .take()
-            .map(|s| s.total_count.wrapping_add(1))
+            .map(|s| s.sequence_number.wrapping_add(1))
             .unwrap_or(0)
             .max(1);
         self.host_info.host_panic_state = Some(HostPanicMetadata {
             total_length: to_copy,
-            total_count: new_ct,
+            sequence_number: new_seq,
         });
 
-        // Give the writer the current index and the number of bytes actually written
+        // Give the writer the current seqno and the number of bytes actually
+        // written
         Ok(HostInfoWriteOutput {
-            index: new_ct,
+            seqno: new_seq,
             written: to_copy,
         })
     }
@@ -904,8 +905,8 @@ impl ServerImpl {
             .min(self.host_info.host_panic_payload.len());
         let offset = if let Some(req) = req {
             // Do we have the specific panic data being requested?
-            if bfs.total_count != req.index {
-                return Err(HostInfoReadError::InvalidIndex.into());
+            if bfs.sequence_number != req.seqno {
+                return Err(HostInfoReadError::InvalidSeqNo.into());
             }
 
             // Is the offset requested valid?
@@ -929,7 +930,7 @@ impl ServerImpl {
         Ok(HostPanicReadOutput {
             read: max_to_copy,
             offset,
-            index: bfs.total_count,
+            seqno: bfs.sequence_number,
             total_len: length,
         })
     }
@@ -953,8 +954,8 @@ impl ServerImpl {
             .min(self.host_info.host_bootfail_payload.len());
         let offset = if let Some(req) = request {
             // Do we have the specific bootfail data being requested?
-            if bfs.total_count != req.index {
-                return Err(HostInfoReadError::InvalidIndex.into());
+            if bfs.sequence_number != req.seqno {
+                return Err(HostInfoReadError::InvalidSeqNo.into());
             }
 
             // Is the offset requested valid?
@@ -976,7 +977,7 @@ impl ServerImpl {
         let out = HostBootfailReadOutput {
             read: max_to_copy,
             reason: bfs.reason,
-            index: bfs.total_count,
+            seqno: bfs.sequence_number,
             total_len: length,
             offset,
             _pad: [0u8; _],

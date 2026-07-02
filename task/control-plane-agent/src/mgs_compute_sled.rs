@@ -1276,7 +1276,7 @@ impl SpHandler for MgsHandler {
             self.common.packrat().read_host_panic_fragment(
                 task_packrat_api::HostInfoRequest {
                     offset: req.offset,
-                    index: req.index,
+                    seqno: req.seqno,
                 },
                 dest,
             )
@@ -1292,8 +1292,8 @@ impl SpHandler for MgsHandler {
                 task_packrat_api::HostInfoReadError::InvalidOffset => {
                     gateway_messages::HostPanicError::InvalidOffset
                 }
-                task_packrat_api::HostInfoReadError::InvalidIndex => {
-                    gateway_messages::HostPanicError::InvalidIndex
+                task_packrat_api::HostInfoReadError::InvalidSeqNo => {
+                    gateway_messages::HostPanicError::InvalidSeqNo
                 }
                 task_packrat_api::HostInfoReadError::ServerRestarted => {
                     gateway_messages::HostPanicError::ServerRestarted
@@ -1302,7 +1302,7 @@ impl SpHandler for MgsHandler {
         })?;
 
         Ok(HostPanicPayloadData {
-            index: info.index,
+            seqno: info.seqno,
             len: info.read,
             total_len: info.total_len as u32,
         })
@@ -1322,7 +1322,7 @@ impl SpHandler for MgsHandler {
             self.common.packrat().read_host_bootfail_fragment(
                 task_packrat_api::HostInfoRequest {
                     offset: req.offset,
-                    index: req.index,
+                    seqno: req.seqno,
                 },
                 dest,
             )
@@ -1340,8 +1340,8 @@ impl SpHandler for MgsHandler {
                 task_packrat_api::HostInfoReadError::InvalidOffset => {
                     gateway_messages::HostBootfailError::InvalidOffset
                 }
-                task_packrat_api::HostInfoReadError::InvalidIndex => {
-                    gateway_messages::HostBootfailError::InvalidIndex
+                task_packrat_api::HostInfoReadError::InvalidSeqNo => {
+                    gateway_messages::HostBootfailError::InvalidSeqNo
                 }
                 task_packrat_api::HostInfoReadError::ServerRestarted => {
                     gateway_messages::HostBootfailError::ServerRestarted
@@ -1350,7 +1350,7 @@ impl SpHandler for MgsHandler {
         })?;
 
         Ok(HostBootfailPayloadData {
-            index: info.index,
+            seqno: info.seqno,
             len: info.read,
             total_len: info.total_len as u32,
             reason: info.reason,
