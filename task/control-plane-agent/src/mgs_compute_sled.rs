@@ -1340,7 +1340,7 @@ impl SpHandler for MgsHandler {
         Ok(HostBootfailPayloadData {
             seqno: info.seqno,
             len: info.read as usize,
-            total_len: info.total_len as u32,
+            total_len: info.total_len,
             reason: info.reason,
         })
     }
