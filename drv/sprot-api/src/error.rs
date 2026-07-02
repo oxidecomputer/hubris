@@ -94,7 +94,8 @@ pub enum SprotProtocolError {
     UnsupportedProtocol,
     /// Unknown message
     BadMessageType,
-    /// Transfer size is outside of maximum and minimum lenghts for message type.
+    /// Transfer size is outside of maximum and minimum lengths for message
+    /// type, or a length field within the message is invalid.
     BadMessageLength,
     // We cannot assert chip select
     CannotAssertCSn,
