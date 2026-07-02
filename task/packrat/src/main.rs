@@ -712,7 +712,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn read_host_bootfail_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        _request: HostInfoRequest,
+        _request: Option<HostInfoRequest>,
         _data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<
         HostBootfailReadOutput,
