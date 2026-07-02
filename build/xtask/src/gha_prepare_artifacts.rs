@@ -66,7 +66,7 @@ pub fn run(cfg: &Path, attestations: Option<&Path>) -> Result<()> {
 
         // The hash will be used later to determine which attestation refers to
         // this artifact (as the attestation contains the hash within it).
-        let mut hasher = Sha256::new();
+        let mut hasher = digest_io::IoWrapper(Sha256::new());
         std::io::copy(
             &mut File::open(&path).with_context(|| {
                 format!("failed to open {}", dest.display())
@@ -74,7 +74,7 @@ pub fn run(cfg: &Path, attestations: Option<&Path>) -> Result<()> {
             &mut hasher,
         )
         .with_context(|| format!("failed to hash {}", dest.display()))?;
-        hashes.insert(hasher.finalize().to_vec(), file_name.to_os_string());
+        hashes.insert(hasher.0.finalize().to_vec(), file_name.to_os_string());
     }
 
     if let Some(attestations) = attestations {
