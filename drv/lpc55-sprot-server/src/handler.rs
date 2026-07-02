@@ -571,20 +571,17 @@ impl<'a> Handler {
                 nonce_size,
                 write_size,
             }) => {
-                // Ensure the requester didn't send a bad nonce_size that's
-                // larger than the actual blob.
-                let nonce_size = nonce_size as usize;
-                if nonce_size > req.blob.len() {
+                let Some(nonce) = req.blob.get(..nonce_size as usize) else {
+                    // The requester sent a bad nonce_size that's larger than
+                    // the actual blob.
                     return Err(SprotError::Protocol(
                         SprotProtocolError::BadMessageLength,
                     ));
-                }
+                };
+
                 Ok((
                     RspBody::Attest(Ok(AttestRsp::Attest)),
-                    Some(TrailingData::Attest {
-                        nonce: &req.blob[..nonce_size],
-                        write_size,
-                    }),
+                    Some(TrailingData::Attest { nonce, write_size }),
                 ))
             }
             ReqBody::Attest(AttestReq::AttestLen) => {
