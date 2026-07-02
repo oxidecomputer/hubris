@@ -17,7 +17,8 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ApobComponentAction, ComponentAction, ComponentActionResponse,
     ComponentDetails, ComponentUpdatePrepare, DiscoverResponse, DumpSegment,
-    DumpTask, GpioToggleCount, Header, IgnitionCommand, IgnitionState,
+    DumpTask, GpioToggleCount, Header, HostBootfailPayloadData,
+    HostInfoRequest, HostPanicPayloadData, IgnitionCommand, IgnitionState,
     LastPostCode, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
     PmbusStatus, PostCode, PowerRailName, PowerState, PowerStateTransition,
     RotBootInfo, RotRequest, RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT,
@@ -1259,6 +1260,89 @@ impl SpHandler for MgsHandler {
             slot
         }));
         self.host_flash_update.get_hash(slot)
+    }
+
+    fn get_host_panic_payload(
+        &mut self,
+        request: Option<HostInfoRequest>,
+        len: u32,
+        trailing_tx_buf: &mut [u8],
+    ) -> Result<HostPanicPayloadData, SpError> {
+        let max_len_usize = len as usize;
+        let max_len_usize = max_len_usize.min(trailing_tx_buf.len());
+        let dest = &mut trailing_tx_buf[..max_len_usize];
+
+        let req = request.map(|r| task_packrat_api::HostInfoRequest {
+            offset: r.offset,
+            seqno: r.seqno,
+        });
+
+        let res = self.common.packrat().read_host_panic_fragment(req, dest);
+
+        let info = res.map_err(|e| {
+            SpError::HostPanic(match e {
+                task_packrat_api::HostInfoReadError::NoHostInfo => {
+                    gateway_messages::HostPanicError::NoHostInfo
+                }
+                task_packrat_api::HostInfoReadError::InvalidOffset => {
+                    gateway_messages::HostPanicError::InvalidOffset
+                }
+                task_packrat_api::HostInfoReadError::InvalidSeqNo => {
+                    gateway_messages::HostPanicError::InvalidSeqNo
+                }
+                task_packrat_api::HostInfoReadError::ServerRestarted => {
+                    gateway_messages::HostPanicError::ServerRestarted
+                }
+            })
+        })?;
+
+        Ok(HostPanicPayloadData {
+            seqno: info.seqno,
+            len: info.read as usize,
+            total_len: info.total_len,
+        })
+    }
+
+    fn get_host_bootfail_payload(
+        &mut self,
+        request: Option<HostInfoRequest>,
+        len: u32,
+        trailing_tx_buf: &mut [u8],
+    ) -> Result<HostBootfailPayloadData, SpError> {
+        let max_len_usize = len as usize;
+        let max_len_usize = max_len_usize.min(trailing_tx_buf.len());
+        let dest = &mut trailing_tx_buf[..max_len_usize];
+
+        let req = request.map(|r| task_packrat_api::HostInfoRequest {
+            offset: r.offset,
+            seqno: r.seqno,
+        });
+
+        let res = self.common.packrat().read_host_bootfail_fragment(req, dest);
+
+        let info = res.map_err(|e| {
+            SpError::HostBootfail(match e {
+                task_packrat_api::HostInfoReadError::NoHostInfo => {
+                    gateway_messages::HostBootfailError::NoHostInfo
+                }
+                task_packrat_api::HostInfoReadError::InvalidOffset => {
+                    gateway_messages::HostBootfailError::InvalidOffset
+                }
+                task_packrat_api::HostInfoReadError::InvalidSeqNo => {
+                    gateway_messages::HostBootfailError::InvalidSeqNo
+                }
+                task_packrat_api::HostInfoReadError::ServerRestarted => {
+                    gateway_messages::HostBootfailError::ServerRestarted
+                }
+            })
+        })?;
+
+        Ok(HostBootfailPayloadData {
+            seqno: info.seqno,
+            len: info.read as usize,
+            total_len: info.total_len,
+            reason: info.reason,
+        })
     }
 
     fn get_pmbus_status(

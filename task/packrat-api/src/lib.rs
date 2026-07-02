@@ -7,6 +7,8 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::{FromPrimitive, sys_send};
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, LittleEndian, U16,
@@ -70,6 +72,57 @@ pub enum EreportWriteError {
     /// Indicates that an ereport was lost because it would not have fit in
     /// Packrat's ereport buffer.
     Lost = 1,
+}
+
+#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable)]
+#[repr(C)]
+pub struct HostInfoWriteOutput {
+    pub seqno: u32,
+    pub written: usize,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
+pub struct HostBootfailReadOutput {
+    pub read: u32,
+    pub offset: u32,
+    pub total_len: u32,
+    pub seqno: u32,
+    pub reason: u8,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
+pub struct HostPanicReadOutput {
+    pub read: u32,
+    pub offset: u32,
+    pub total_len: u32,
+    pub seqno: u32,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
+#[repr(C)]
+pub struct HostInfoRequest {
+    pub offset: u32,
+    pub seqno: u32,
+}
+
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
+pub enum HostInfoReadError {
+    /// We have never received the requested Host Info, or this is a platform
+    /// that is not expected to have a host.
+    NoHostInfo = 1,
+
+    /// The requested byte-offset is beyond the range of the currently stored
+    /// host info.
+    InvalidOffset,
+
+    /// Requested sequence number does not match the currently stored host
+    /// information
+    InvalidSeqNo,
+
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 /// Errors returned by [`Packrat::encode_ereport`].

@@ -3299,7 +3299,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#da0ac17b9d465db5b1f7a2597d068ae091a89b22"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=james%2Fhost-fails#b93969bf4c122f3e609d72b34955f93dfc1601f7"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
@@ -6374,12 +6374,14 @@ dependencies = [
  "drv-stm32h7-usart",
  "drv-stm32xx-sys-api",
  "enum-map",
+ "ereports",
  "heapless",
  "host-sp-messages",
  "hubpack",
  "idol",
  "idol-runtime",
  "ksz8463",
+ "microcbor",
  "multitimer",
  "num-traits",
  "oxide-barcode",
@@ -6597,6 +6599,7 @@ dependencies = [
  "drv-caboose-pos",
  "drv-cpu-seq-api",
  "gateway-ereport-messages",
+ "hubpack",
  "hubris-num-tasks",
  "hubris-task-names",
  "idol",
@@ -6607,6 +6610,7 @@ dependencies = [
  "num-traits",
  "quote",
  "ringbuf",
+ "serde",
  "snitch-core",
  "spd",
  "static-cell",
@@ -6627,11 +6631,13 @@ dependencies = [
  "derive-idol-err",
  "gateway-ereport-messages",
  "host-sp-messages",
+ "hubpack",
  "idol",
  "idol-runtime",
  "microcbor",
  "num-traits",
  "oxide-barcode",
+ "serde",
  "static_assertions",
  "userlib",
  "zerocopy 0.8.27",

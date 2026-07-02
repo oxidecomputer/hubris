@@ -70,7 +70,9 @@ use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-    HostStartupOptions, MacAddressBlock, OxideIdentity,
+    HostBootfailReadOutput, HostInfoReadError, HostInfoRequest,
+    HostInfoWriteOutput, HostPanicReadOutput, HostStartupOptions,
+    MacAddressBlock, OxideIdentity,
 };
 use userlib::RecvMessage;
 
@@ -154,12 +156,58 @@ enum TraceSet<T> {
     AttemptedSetToNewValue(T),
 }
 
+/// Metadata about panics observed from the host
+#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+struct HostPanicMetadata {
+    /// Length in bytes of the currently stored panic message
+    total_length: usize,
+    /// (hopefully not) Rolling counter of panic messages observed this power cycle
+    sequence_number: u32,
+}
+
+/// Metadata about panics observed from the host
+#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+struct HostBootFailMetadata {
+    /// Length in bytes of the currently stored bootfail message
+    total_length: usize,
+    /// (hopefully not) Rolling counter of panic messages observed this power cycle
+    sequence_number: u32,
+    /// Bootfail reason
+    reason: u8,
+}
+
+#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+pub struct HostInfo {
+    host_panic_payload: [u8; 4096],
+    host_bootfail_payload: [u8; 4096],
+    host_panic_state: Option<HostPanicMetadata>,
+    host_bootfail_state: Option<HostBootFailMetadata>,
+}
+
+#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+impl HostInfo {
+    const fn new() -> Self {
+        Self {
+            host_panic_payload: [0u8; _],
+            host_bootfail_payload: [0u8; _],
+            host_panic_state: None,
+            host_bootfail_state: None,
+        }
+    }
+}
+
 ringbuf!(Trace, 16, Trace::None);
 #[unsafe(export_name = "main")]
 fn main() -> ! {
     struct StaticBufs {
         mac_address_block: Option<MacAddressBlock>,
         identity: Option<OxideIdentity>,
+        #[cfg(any(
+            feature = "gimlet",
+            feature = "grapefruit",
+            feature = "cosmo"
+        ))]
+        host_info: HostInfo,
         #[cfg(feature = "gimlet")]
         gimlet_bufs: gimlet::StaticBufs,
         #[cfg(feature = "cosmo")]
@@ -170,6 +218,12 @@ fn main() -> ! {
     let &mut StaticBufs {
         ref mut mac_address_block,
         ref mut identity,
+        #[cfg(any(
+            feature = "gimlet",
+            feature = "grapefruit",
+            feature = "cosmo"
+        ))]
+        ref mut host_info,
         #[cfg(feature = "gimlet")]
         ref mut gimlet_bufs,
         #[cfg(feature = "cosmo")]
@@ -181,6 +235,12 @@ fn main() -> ! {
             ClaimOnceCell::new(StaticBufs {
                 mac_address_block: None,
                 identity: None,
+                #[cfg(any(
+                    feature = "gimlet",
+                    feature = "grapefruit",
+                    feature = "cosmo"
+                ))]
+                host_info: HostInfo::new(),
                 #[cfg(feature = "gimlet")]
                 gimlet_bufs: gimlet::StaticBufs::new(),
                 #[cfg(feature = "cosmo")]
@@ -194,6 +254,12 @@ fn main() -> ! {
     let mut server = ServerImpl {
         mac_address_block,
         identity,
+        #[cfg(any(
+            feature = "gimlet",
+            feature = "grapefruit",
+            feature = "cosmo"
+        ))]
+        host_info,
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::new(gimlet_bufs),
         #[cfg(feature = "grapefruit")]
@@ -213,6 +279,8 @@ fn main() -> ! {
 struct ServerImpl {
     mac_address_block: &'static mut Option<MacAddressBlock>,
     identity: &'static mut Option<OxideIdentity>,
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    host_info: &'static mut HostInfo,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
     #[cfg(feature = "grapefruit")]
@@ -569,6 +637,298 @@ impl idl::InOrderPackratImpl for ServerImpl {
             self.identity.as_ref(),
         )
     }
+
+    /// We're not a system that is expected to have a host, so we shouldn't have
+    /// anyone writing host bootfail messages to us
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn write_host_bootfail(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _reason: u8,
+        _data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<
+        HostInfoWriteOutput,
+        idol_runtime::RequestError<core::convert::Infallible>,
+    > {
+        Err(idol_runtime::ClientError::UnknownOperation.fail())
+    }
+
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn write_host_bootfail(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        reason: u8,
+        data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<
+        HostInfoWriteOutput,
+        idol_runtime::RequestError<core::convert::Infallible>,
+    > {
+        // First, attempt to copy-in the new data, to ensure that we don't rev the
+        // metadata if the lease access fails.
+        let to_copy =
+            self.host_info.host_bootfail_payload.len().min(data.len());
+        data.read_range(
+            0..to_copy,
+            &mut self.host_info.host_bootfail_payload[..to_copy],
+        )
+        .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
+
+        // Okay! We've written the requested data. Let's update the metadata.
+        //
+        // Take the old count, if any, and add one to it. If that count wrapped,
+        // or if we didn't have an old count, set it to 1, so we never return
+        // a count of zero if we've ever observed a boot failure.
+        let new_seq = self
+            .host_info
+            .host_bootfail_state
+            .take()
+            .map(|s| s.sequence_number.wrapping_add(1))
+            .unwrap_or(0)
+            .max(1);
+        self.host_info.host_bootfail_state = Some(HostBootFailMetadata {
+            total_length: to_copy,
+            sequence_number: new_seq,
+            reason,
+        });
+
+        // Give the writer the current index and the number of bytes actually written
+        Ok(HostInfoWriteOutput {
+            seqno: new_seq,
+            written: to_copy,
+        })
+    }
+
+    /// We're not a system that is expected to have a host, therefore we can always return
+    /// "no host info", since we won't ever have any.
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn read_host_bootfail_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _request: Option<HostInfoRequest>,
+        _data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostBootfailReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        Err(HostInfoReadError::NoHostInfo.into())
+    }
+
+    /// Attempt to obtain the requested host info.
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn read_host_bootfail_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        request: Option<HostInfoRequest>,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostBootfailReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        self.host_bootfail_helper(request.as_ref(), data)
+    }
+
+    /// We're not a system that is expected to have a host, therefore we can always return
+    /// "no host info", since we won't ever have any.
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn write_host_panic(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<
+        HostInfoWriteOutput,
+        idol_runtime::RequestError<core::convert::Infallible>,
+    > {
+        Err(idol_runtime::ClientError::UnknownOperation.fail())
+    }
+
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn write_host_panic(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<
+        HostInfoWriteOutput,
+        idol_runtime::RequestError<core::convert::Infallible>,
+    > {
+        // First, attempt to copy-in the new data, to ensure that we don't rev the
+        // metadata if the lease access fails.
+        let to_copy = self.host_info.host_panic_payload.len().min(data.len());
+        data.read_range(
+            0..to_copy,
+            &mut self.host_info.host_panic_payload[..to_copy],
+        )
+        .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
+
+        // Okay! We've written the requested data. Let's update the metadata.
+        //
+        // Take the old count, if any, and add one to it. If that count wrapped,
+        // or if we didn't have an old count, set it to 1, so we never return
+        // a count of zero if we've ever observed a panic.
+        let new_seq = self
+            .host_info
+            .host_panic_state
+            .take()
+            .map(|s| s.sequence_number.wrapping_add(1))
+            .unwrap_or(0)
+            .max(1);
+        self.host_info.host_panic_state = Some(HostPanicMetadata {
+            total_length: to_copy,
+            sequence_number: new_seq,
+        });
+
+        // Give the writer the current seqno and the number of bytes actually
+        // written
+        Ok(HostInfoWriteOutput {
+            seqno: new_seq,
+            written: to_copy,
+        })
+    }
+
+    /// We're not a system that is expected to have a host, therefore we can always return
+    /// "no host info", since we won't ever have any.
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn read_host_panic_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _request: Option<HostInfoRequest>,
+        _data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostPanicReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        Err(HostInfoReadError::NoHostInfo.into())
+    }
+
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn read_host_panic_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        request: Option<HostInfoRequest>,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostPanicReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        self.host_panic_helper(request.as_ref(), data)
+    }
+}
+
+impl ServerImpl {
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn host_panic_helper(
+        &self,
+        req: Option<&HostInfoRequest>,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostPanicReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        // Do we *have* a panic to report?
+        let Some(bfs) = self.host_info.host_panic_state.as_ref() else {
+            return Err(HostInfoReadError::NoHostInfo.into());
+        };
+
+        let length = bfs
+            .total_length
+            .min(self.host_info.host_panic_payload.len());
+        let offset = if let Some(req) = req {
+            // Do we have the specific panic data being requested?
+            if bfs.sequence_number != req.seqno {
+                return Err(HostInfoReadError::InvalidSeqNo.into());
+            }
+
+            // Is the offset requested valid?
+            let offset_req = req.offset as usize;
+            if offset_req >= length {
+                return Err(HostInfoReadError::InvalidOffset.into());
+            }
+
+            offset_req
+        } else {
+            0
+        };
+
+        // Attempt to copy the requested range into the destination
+        let relevant = &self.host_info.host_panic_payload[offset..];
+        let max_to_copy = data.len().min(relevant.len());
+        data.write_range(0..max_to_copy, &relevant[..max_to_copy])
+            .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
+
+        // Okay! Written! Return how many bytes were actually copied
+        Ok(HostPanicReadOutput {
+            read: max_to_copy as u32,
+            offset: offset as u32,
+            seqno: bfs.sequence_number,
+            total_len: length as u32,
+        })
+    }
+
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn host_bootfail_helper(
+        &self,
+        request: Option<&HostInfoRequest>,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostBootfailReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        // Do we *have* a bootfail to report?
+        let Some(bfs) = self.host_info.host_bootfail_state.as_ref() else {
+            return Err(HostInfoReadError::NoHostInfo.into());
+        };
+
+        let length = bfs
+            .total_length
+            .min(self.host_info.host_bootfail_payload.len());
+        let offset = if let Some(req) = request {
+            // Do we have the specific bootfail data being requested?
+            if bfs.sequence_number != req.seqno {
+                return Err(HostInfoReadError::InvalidSeqNo.into());
+            }
+
+            // Is the offset requested valid?
+            let offset_req = req.offset as usize;
+            if offset_req >= length {
+                return Err(HostInfoReadError::InvalidOffset.into());
+            }
+            offset_req
+        } else {
+            0
+        };
+
+        // Attempt to copy the requested range into the destination
+        let relevant = &self.host_info.host_bootfail_payload[offset..];
+        let max_to_copy = data.len().min(relevant.len());
+        data.write_range(0..max_to_copy, &relevant[..max_to_copy])
+            .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
+
+        let out = HostBootfailReadOutput {
+            read: max_to_copy as u32,
+            reason: bfs.reason,
+            seqno: bfs.sequence_number,
+            total_len: length as u32,
+            offset: offset as u32,
+        };
+
+        // Okay! Written! Return how many bytes were actually copied
+        Ok(out)
+    }
 }
 
 // If we are not built with ereport support, we expect no notifications.
@@ -604,7 +964,9 @@ impl NotificationHandler for ServerImpl {
 mod idl {
     use super::{
         CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-        HostStartupOptions, MacAddressBlock, OxideIdentity, ereport_messages,
+        HostBootfailReadOutput, HostInfoReadError, HostInfoRequest,
+        HostInfoWriteOutput, HostPanicReadOutput, HostStartupOptions,
+        MacAddressBlock, OxideIdentity, ereport_messages,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
