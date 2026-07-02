@@ -157,23 +157,10 @@ Interface(
                 err: ServerDeath,
             ),
         ),
-        "read_first_host_bootfail_fragment": (
-            doc: "Read a portion of the host's boot failure message",
-            args: {
-            },
-            leases: {
-                "data": (type: "[u8]", write: true),
-            },
-            reply: Result(
-                ok: "HostBootfailReadOutput",
-                err: CLike("HostInfoReadError"),
-            ),
-            idempotent: true,
-        ),
         "read_host_bootfail_fragment": (
             doc: "Read a portion of the host's boot failure message",
             args: {
-                "request": "HostInfoRequest",
+                "request": "Option<HostInfoRequest>",
             },
             leases: {
                 "data": (type: "[u8]", write: true),
@@ -183,6 +170,7 @@ Interface(
                 err: CLike("HostInfoReadError"),
             ),
             idempotent: true,
+            encoding: Hubpack,
         ),
         "write_host_panic": (
             doc: "Write a host's panic message and return the index of this panic",
@@ -196,23 +184,10 @@ Interface(
                 err: ServerDeath,
             ),
         ),
-        "read_first_host_panic_fragment": (
-            doc: "Read a portion of the host's panic message",
-            args: {
-            },
-            leases: {
-                "data": (type: "[u8]", write: true),
-            },
-            reply: Result(
-                ok: "HostPanicReadOutput",
-                err: CLike("HostInfoReadError"),
-            ),
-            idempotent: true,
-        ),
         "read_host_panic_fragment": (
             doc: "Read a portion of the host's panic message",
             args: {
-                "request": "HostInfoRequest",
+                "request": "Option<HostInfoRequest>",
             },
             leases: {
                 "data": (type: "[u8]", write: true),
@@ -222,6 +197,7 @@ Interface(
                 err: CLike("HostInfoReadError"),
             ),
             idempotent: true,
+            encoding: Hubpack,
         ),
     },
 )

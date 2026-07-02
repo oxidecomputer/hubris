@@ -721,46 +721,18 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Err(HostInfoReadError::NoHostInfo.into())
     }
 
-    #[cfg(not(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo"
-    )))]
-    fn read_first_host_bootfail_fragment(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        _data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<
-        HostBootfailReadOutput,
-        idol_runtime::RequestError<HostInfoReadError>,
-    > {
-        Err(HostInfoReadError::NoHostInfo.into())
-    }
-
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
-    fn read_first_host_bootfail_fragment(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<
-        HostBootfailReadOutput,
-        idol_runtime::RequestError<HostInfoReadError>,
-    > {
-        self.host_bootfail_helper(None, data)
-    }
-
     /// Attempt to obtain the requested host info.
     #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
     fn read_host_bootfail_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        request: HostInfoRequest,
+        request: Option<HostInfoRequest>,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<
         HostBootfailReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
     > {
-        self.host_bootfail_helper(Some(&request), data)
+        self.host_bootfail_helper(request.as_ref(), data)
     }
 
     /// We're not a system that is expected to have a host, therefore we can always return
@@ -834,7 +806,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn read_host_panic_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        _request: HostInfoRequest,
+        _request: Option<HostInfoRequest>,
         _data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<
         HostPanicReadOutput,
@@ -847,41 +819,13 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn read_host_panic_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        request: HostInfoRequest,
+        request: Option<HostInfoRequest>,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<
         HostPanicReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
     > {
-        self.host_panic_helper(Some(&request), data)
-    }
-
-    #[cfg(not(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo"
-    )))]
-    fn read_first_host_panic_fragment(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        _data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<
-        HostPanicReadOutput,
-        idol_runtime::RequestError<HostInfoReadError>,
-    > {
-        Err(HostInfoReadError::NoHostInfo.into())
-    }
-
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
-    fn read_first_host_panic_fragment(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<
-        HostPanicReadOutput,
-        idol_runtime::RequestError<HostInfoReadError>,
-    > {
-        self.host_panic_helper(None, data)
+        self.host_panic_helper(request.as_ref(), data)
     }
 }
 
@@ -928,10 +872,10 @@ impl ServerImpl {
 
         // Okay! Written! Return how many bytes were actually copied
         Ok(HostPanicReadOutput {
-            read: max_to_copy,
-            offset,
+            read: max_to_copy as u32,
+            offset: offset as u32,
             seqno: bfs.sequence_number,
-            total_len: length,
+            total_len: length as u32,
         })
     }
 
@@ -975,12 +919,11 @@ impl ServerImpl {
             .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
 
         let out = HostBootfailReadOutput {
-            read: max_to_copy,
+            read: max_to_copy as u32,
             reason: bfs.reason,
             seqno: bfs.sequence_number,
-            total_len: length,
-            offset,
-            _pad: [0u8; _],
+            total_len: length as u32,
+            offset: offset as u32,
         };
 
         // Okay! Written! Return how many bytes were actually copied

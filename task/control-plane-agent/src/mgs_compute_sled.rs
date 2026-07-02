@@ -1272,17 +1272,12 @@ impl SpHandler for MgsHandler {
         let max_len_usize = max_len_usize.min(trailing_tx_buf.len());
         let dest = &mut trailing_tx_buf[..max_len_usize];
 
-        let res = if let Some(req) = request {
-            self.common.packrat().read_host_panic_fragment(
-                task_packrat_api::HostInfoRequest {
-                    offset: req.offset,
-                    seqno: req.seqno,
-                },
-                dest,
-            )
-        } else {
-            self.common.packrat().read_first_host_panic_fragment(dest)
-        };
+        let req = request.map(|r| task_packrat_api::HostInfoRequest {
+            offset: r.offset,
+            seqno: r.seqno,
+        });
+
+        let res = self.common.packrat().read_host_panic_fragment(req, dest);
 
         let info = res.map_err(|e| {
             SpError::HostPanic(match e {
@@ -1303,8 +1298,8 @@ impl SpHandler for MgsHandler {
 
         Ok(HostPanicPayloadData {
             seqno: info.seqno,
-            len: info.read,
-            total_len: info.total_len as u32,
+            len: info.read as usize,
+            total_len: info.total_len,
         })
     }
 
@@ -1318,19 +1313,12 @@ impl SpHandler for MgsHandler {
         let max_len_usize = max_len_usize.min(trailing_tx_buf.len());
         let dest = &mut trailing_tx_buf[..max_len_usize];
 
-        let res = if let Some(req) = request {
-            self.common.packrat().read_host_bootfail_fragment(
-                task_packrat_api::HostInfoRequest {
-                    offset: req.offset,
-                    seqno: req.seqno,
-                },
-                dest,
-            )
-        } else {
-            self.common
-                .packrat()
-                .read_first_host_bootfail_fragment(dest)
-        };
+        let req = request.map(|r| task_packrat_api::HostInfoRequest {
+            offset: r.offset,
+            seqno: r.seqno,
+        });
+
+        let res = self.common.packrat().read_host_bootfail_fragment(req, dest);
 
         let info = res.map_err(|e| {
             SpError::HostBootfail(match e {
@@ -1351,7 +1339,7 @@ impl SpHandler for MgsHandler {
 
         Ok(HostBootfailPayloadData {
             seqno: info.seqno,
-            len: info.read,
+            len: info.read as usize,
             total_len: info.total_len as u32,
             reason: info.reason,
         })

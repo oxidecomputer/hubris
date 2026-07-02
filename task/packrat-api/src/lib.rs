@@ -7,6 +7,8 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::{FromPrimitive, sys_send};
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, LittleEndian, U16,
@@ -79,27 +81,24 @@ pub struct HostInfoWriteOutput {
     pub written: usize,
 }
 
-#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable)]
-#[repr(C)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
 pub struct HostBootfailReadOutput {
-    pub read: usize,
-    pub offset: usize,
-    pub total_len: usize,
+    pub read: u32,
+    pub offset: u32,
+    pub total_len: u32,
     pub seqno: u32,
     pub reason: u8,
-    pub _pad: [u8; 3],
 }
 
-#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, zerocopy::Immutable)]
-#[repr(C)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
 pub struct HostPanicReadOutput {
-    pub read: usize,
-    pub offset: usize,
-    pub total_len: usize,
+    pub read: u32,
+    pub offset: u32,
+    pub total_len: u32,
     pub seqno: u32,
 }
 
-#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable, KnownLayout)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
 #[repr(C)]
 pub struct HostInfoRequest {
     pub offset: u32,
