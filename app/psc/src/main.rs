@@ -11,7 +11,7 @@ extern crate stm32h7;
 
 use stm32h7::stm32h753 as device;
 
-use drv_stm32h7_startup::ClockConfig;
+use drv_stm32h7_startup::{ClockConfig, rolling_timer::RollingTimer};
 
 use cortex_m_rt::entry;
 
@@ -27,6 +27,10 @@ fn main() -> ! {
 fn system_init() {
     let cp = cortex_m::Peripherals::take().unwrap();
     let p = device::Peripherals::take().unwrap();
+
+    // Start the higher resolution timer with the default APB1 clock rate of
+    // 64MHz.
+    let timer = RollingTimer::new_tim5(&p, 64);
 
     // We want to measure PG0-2 to determine if we're running on the correct
     // board.  On rev A, these pins are left floating; on later revisions, they
@@ -54,7 +58,11 @@ fn system_init() {
 
     // Wait for pins to charge / discharge (see comment in gimlet/src/main.rs
     // for the actual calculations).
-    cortex_m::asm::delay(155 * 2);
+    //
+    // Later note: as of 2026, gimlet's main calculated a necessary time of
+    // 11µs, and was conservatively waiting about 10x that. We will wait a
+    // similar amount of time.
+    timer.blocking_delay_micros(100);
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
     cfg_if::cfg_if! {
@@ -67,6 +75,9 @@ fn system_init() {
         }
     }
     assert_eq!(rev, expected_rev);
+
+    // Drop the timer since we're passing the peripherals by ownership here.
+    drop(timer);
 
     drv_stm32h7_startup::system_init_custom(
         cp,
