@@ -142,7 +142,7 @@ fn config_to_token(
 /// cannot be configured using this macro).
 #[proc_macro]
 pub fn task_config(tokens: TokenStream) -> TokenStream {
-    let config = build_util::task_config::<toml::Value>().unwrap();
+    let config = get_task_config().expect("task config is missing");
 
     let input = parse_macro_input!(tokens as Config);
     let fields = input.items.iter();
@@ -160,14 +160,13 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
         })
         .collect::<Vec<_>>();
 
-    let app_toml_path = std::env::var("HUBRIS_APP_TOML")
-        .expect("Could not find 'HUBRIS_APP_TOML' environment variable");
-
     // Once `proc_macro::tracked_env::var` is stable, we won't need to use
-    // this hack, but until then, we include the app TOML file to force
+    // this hack, but until then, we include the environment variable to force
     // rebuilds if it changes (and trust it's optimized out by the compiler)
     quote! {
-        const APP_TOML_TO_ENSURE_REBUILD: &[u8] = include_bytes!(#app_toml_path);
+        mod _hidden {
+            const _REBUILDER: &'static str = core::env!("HUBRIS_TASK_CONFIG");
+        }
         struct Config {
             #(#fields),*
         }
@@ -185,10 +184,7 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
 pub fn optional_task_config(tokens: TokenStream) -> TokenStream {
     let input = parse_macro_input!(tokens as Config);
     let fields = input.items.iter();
-    let app_toml_path = std::env::var("HUBRIS_APP_TOML")
-        .expect("Could not find 'HUBRIS_APP_TOML' environment variable");
-
-    let cfg_val = if let Ok(config) = build_util::task_config::<toml::Value>() {
+    let cfg_val = if let Some(config) = get_task_config() {
         let values = input
             .items
             .iter()
@@ -201,10 +197,6 @@ pub fn optional_task_config(tokens: TokenStream) -> TokenStream {
                 quote! { #ident: #vs }
             })
             .collect::<Vec<_>>();
-
-        // Once `proc_macro::tracked_env::var` is stable, we won't need to use
-        // this hack, but until then, we include the app TOML file to force
-        // rebuilds if it changes (and trust it's optimized out by the compiler)
         quote! {
             Some(Config {
                 #(#values),*
@@ -214,14 +206,34 @@ pub fn optional_task_config(tokens: TokenStream) -> TokenStream {
         quote! { None }
     };
     // Once `proc_macro::tracked_env::var` is stable, we won't need to use
-    // this hack, but until then, we include the app TOML file to force
+    // this hack, but until then, we include the environment variable to force
     // rebuilds if it changes (and trust it's optimized out by the compiler)
     quote! {
-        const APP_TOML_TO_ENSURE_REBUILD: &[u8] = include_bytes!(#app_toml_path);
+        mod _hidden {
+            const _REBUILDER: &'static str = core::env!("HUBRIS_TASK_CONFIG");
+        }
         struct Config {
             #(#fields),*
         }
         const TASK_CONFIG: Option<Config> = #cfg_val;
     }
     .into()
+}
+
+/// Gets a task config from `HUBRIS_TASK_CONFIG`
+///
+/// Note that this is used instead of `build_utils::task_config`; the functions
+/// in `build_utils` print a `cargo::rerun-if-env-changed` message, which isn't
+/// valid in a proc_macro context.
+///
+/// # Panics
+/// If the environment variable is missing or the task TOML cannot be parsed
+fn get_task_config() -> Option<toml::Value> {
+    let config = std::env::var("HUBRIS_TASK_CONFIG")
+        .map_err(|e| format!("could not read HUBRIS_TASK_CONFIG: {e:#}"))
+        .unwrap();
+    toml::from_str::<toml_task::Task<toml::Value>>(&config)
+        .map_err(|e| format!("could not deserialize configuration: {e:#}"))
+        .unwrap()
+        .config
 }
