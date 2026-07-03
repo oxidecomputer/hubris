@@ -51,8 +51,9 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     let task_descs = &HUBRIS_TASK_DESCS;
     // Safety: this reference will remain unique so long as the "only called
     // once per boot" contract on this function is upheld.
-    let task_table =
-        unsafe { &mut *core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE) };
+    let task_table: &mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] = unsafe {
+        core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE).as_mut_unchecked()
+    };
 
     // Initialize our RAM data structures.
 
@@ -63,22 +64,40 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // and (2) moving them into RAM where random accesses don't imply wait
     // states.
 
-    // Now, generate the task table.
-    // Safety: MaybeUninit<[T]> -> [MaybeUninit<T>] is defined as safe.
-    let task_table: &mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] =
-        unsafe { &mut *(task_table as *mut _ as *mut _) };
-    for (i, task) in task_table.iter_mut().enumerate() {
-        task.write(Task::from_descriptor(&task_descs[i]));
-    }
+    // SAFETY: These MUST be the same length to avoid short-circuiting the
+    // iterator. We check this in const context. Codegen should assure this is
+    // always the case, but can't hurt to cross-check at compile time.
+    let _check: () = const {
+        let htd_len = HUBRIS_TASK_DESCS.len();
+        // SAFETY: This is checked at compile time. Invalid access would lead to
+        // a compiler error. We are not observing the contents of any of the
+        // MaybeUninit members of the array, only the length of the array.
+        let htts_len = unsafe {
+            (*core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE)).len()
+        };
+
+        assert!(
+            htd_len == htts_len,
+            "Task Descriptor and Task Table Length Mismatch!"
+        );
+    };
+
+    // Initialize each task, one at a time, using the task descriptions
+    task_table
+        .iter_mut()
+        .zip(task_descs.iter())
+        .for_each(|(t, d)| {
+            // Writing to the MaybeUninit safely gives us back a mutable
+            // reference to the just-initialized Task item.
+            let task: &mut Task = t.write(Task::from_descriptor(d));
+
+            // With init done, set up initial register state etc.
+            crate::arch::reinitialize(task);
+        });
 
     // Safety: we have fully initialized this and can shed the uninit part.
     let task_table: &mut [Task; HUBRIS_TASK_COUNT] =
-        unsafe { &mut *(task_table as *mut _ as *mut _) };
-
-    // With that done, set up initial register state etc.
-    for task in task_table.iter_mut() {
-        crate::arch::reinitialize(task);
-    }
+        unsafe { core::mem::transmute(task_table) };
 
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.
@@ -97,24 +116,24 @@ pub(crate) fn with_task_table<R>(body: impl FnOnce(&mut [Task]) -> R) -> R {
     if TASK_TABLE_IN_USE.swap_polyfill(true, Ordering::Acquire) {
         panic!(); // recursive use of with_task_table
     }
-    let task_table: *mut MaybeUninit<[Task; HUBRIS_TASK_COUNT]> =
-        core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE);
-    // Pointer cast valid as MaybeUninit<[T; N]> and [MaybeUninit<T>; N] have
-    // same in-memory representation. At the time of this writing
-    // MaybeUninit::transpose is not yet stable.
+
+    // This could be made less awkward once `array_assume_init` and `transpose`
+    // are stabilized: https://github.com/rust-lang/rust/issues/96097
+    //
+    // Get the address of the task table, a MaybeUninit Static
     let task_table: *mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] =
-        task_table as _;
-    // This pointer cast is doing the equivalent of
-    // MaybeUninit::array_assume_init, which at the time of this writing is not
-    // stable.
-    let task_table: *mut [Task; HUBRIS_TASK_COUNT] = task_table as _;
+        core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE);
+    // Cast the pointer to an *initialized* static, which is sound as
+    // MaybeUninit is repr(transparent).
+    let task_table: *mut [Task; HUBRIS_TASK_COUNT] = task_table.cast();
     // Safety: we have observed `TASK_TABLE_IN_USE` being false, which means the
     // task table is initialized (note that at reset it starts out true) and
     // that we're not already within a call to with_task_table. Thus, we can
     // produce a reference to the task table without aliasing, and we can be
     // confident that the memory it's pointing to is initialized and shed the
     // MaybeUninit.
-    let task_table = unsafe { &mut *task_table };
+    let task_table: &mut [Task; HUBRIS_TASK_COUNT] =
+        unsafe { task_table.as_mut_unchecked() };
 
     let r = body(task_table);
 

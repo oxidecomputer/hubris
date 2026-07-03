@@ -82,6 +82,8 @@ pub struct EventsTable {
 
     /// Called whenever the current task changes, with a pointer to the task's
     /// control block.
+    ///
+    /// TODO(AJM): This probably should be `fn(*const/mut Task)`, not `usize`.
     pub context_switch: fn(usize),
 }
 
@@ -90,7 +92,8 @@ pub struct EventsTable {
 /// You can call this more than once if you need to, though that seems odd at
 /// first glance.
 pub fn configure_events_table(table: &'static EventsTable) {
-    EVENTS_TABLE.store(table as *const _ as *mut _, Ordering::Relaxed);
+    let table: *const EventsTable = table;
+    EVENTS_TABLE.store(table.cast_mut(), Ordering::Relaxed);
 }
 
 /// Internal pointer written by `configure_events_table` and read by `table`. If
