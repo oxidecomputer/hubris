@@ -17,11 +17,11 @@ toml_edit = { workspace = true }
 # for dist
 byteorder = { workspace = true }
 bzip2-rs = { workspace = true }
-capstone = { workspace = true }
 ctrlc = { workspace = true }
 directories = { workspace = true }
 digest-io = { workspace = true }
 dunce = { workspace = true }
+elf = { path = "../elf" }
 filetime = { workspace = true }
 fnv = { workspace = true }
 glob = { workspace = true }
@@ -30,7 +30,6 @@ guppy = { workspace = true }
 hex = "0.4"
 hubtools = { workspace = true }
 indexmap = { workspace = true }
-leb128 = { workspace = true }
 multimap = { workspace = true }
 path-slash = { workspace = true }
 rangemap = { workspace = true }
@@ -41,7 +40,7 @@ scroll = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha3 = { workspace = true }
-rustc-demangle = { workspace = true }
+stack = { path = "../stack" }
 tlvc = { workspace = true }
 tlvc-text = { workspace = true }
 toml = { workspace = true }
