@@ -8,6 +8,19 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow, bail};
+use capstone::{
+    Capstone, InsnGroupId, InsnGroupType,
+    arch::{ArchOperand, BuildsCapstone, BuildsCapstoneExtraMode, arm},
+};
+
+// We'll be packing everything into this data structure
+#[derive(Debug)]
+struct FunctionData {
+    name: String,
+    short_name: String,
+    frame_size: Option<u64>,
+    calls: BTreeSet<u32>,
+}
 
 /// Estimates the maximum stack size for the given task
 ///
@@ -66,22 +79,9 @@ pub fn get_max_stack(
         *iter.next_back().unwrap().1
     };
 
-    // We'll be packing everything into this data structure
-    #[derive(Debug)]
-    struct FunctionData {
-        name: String,
-        short_name: String,
-        frame_size: Option<u64>,
-        calls: BTreeSet<u32>,
-    }
-
     let text = elf::get_section_by_name(&elf, ".text")
         .context("could not get .text")?;
 
-    use capstone::{
-        Capstone, InsnGroupId, InsnGroupType,
-        arch::{ArchOperand, BuildsCapstone, BuildsCapstoneExtraMode, arm},
-    };
     let cs = Capstone::new()
         .arm()
         .mode(arm::ArchMode::Thumb)
@@ -191,57 +191,6 @@ pub fn get_max_stack(
         );
     }
 
-    fn recurse(
-        call_stack: &mut Vec<u32>,
-        recurse_depth: usize,
-        mut stack_depth: u64,
-        fns: &BTreeMap<u32, FunctionData>,
-        deepest: &mut Option<(u64, Vec<u32>)>,
-        verbose: bool,
-    ) {
-        let addr = *call_stack.last().unwrap();
-        let Some(f) = fns.get(&addr) else {
-            panic!("found jump to unknown function at {call_stack:08x?}");
-        };
-        let frame_size = f.frame_size.unwrap_or(0);
-        stack_depth += frame_size;
-        if verbose {
-            let indent = recurse_depth * 2;
-            println!(
-                "  {:indent$}{addr:08x}: {} [+{frame_size} => {stack_depth}]",
-                "",
-                f.short_name,
-                indent = indent
-            );
-        }
-
-        if deepest
-            .as_ref()
-            .map(|(max_depth, _)| stack_depth > *max_depth)
-            .unwrap_or(true)
-        {
-            *deepest = Some((stack_depth, call_stack.to_owned()));
-        }
-        for j in &f.calls {
-            if call_stack.contains(j) {
-                // Skip recursive / mutually recursive calls, because we can't
-                // reason about them.
-                continue;
-            } else {
-                call_stack.push(*j);
-                recurse(
-                    call_stack,
-                    recurse_depth + 1,
-                    stack_depth,
-                    fns,
-                    deepest,
-                    verbose,
-                );
-                call_stack.pop();
-            }
-        }
-    }
-
     // Find stack sizes by traversing the graph
     if verbose {
         println!("finding stack sizes for {task_name}");
@@ -266,4 +215,55 @@ pub fn get_max_stack(
         out.push((f.frame_size.unwrap_or(0), name.clone()));
     }
     Ok(out)
+}
+
+fn recurse(
+    call_stack: &mut Vec<u32>,
+    recurse_depth: usize,
+    mut stack_depth: u64,
+    fns: &BTreeMap<u32, FunctionData>,
+    deepest: &mut Option<(u64, Vec<u32>)>,
+    verbose: bool,
+) {
+    let addr = *call_stack.last().unwrap();
+    let Some(f) = fns.get(&addr) else {
+        panic!("found jump to unknown function at {call_stack:08x?}");
+    };
+    let frame_size = f.frame_size.unwrap_or(0);
+    stack_depth += frame_size;
+    if verbose {
+        let indent = recurse_depth * 2;
+        println!(
+            "  {:indent$}{addr:08x}: {} [+{frame_size} => {stack_depth}]",
+            "",
+            f.short_name,
+            indent = indent
+        );
+    }
+
+    if deepest
+        .as_ref()
+        .map(|(max_depth, _)| stack_depth > *max_depth)
+        .unwrap_or(true)
+    {
+        *deepest = Some((stack_depth, call_stack.to_owned()));
+    }
+    for j in &f.calls {
+        if call_stack.contains(j) {
+            // Skip recursive / mutually recursive calls, because we can't
+            // reason about them.
+            continue;
+        } else {
+            call_stack.push(*j);
+            recurse(
+                call_stack,
+                recurse_depth + 1,
+                stack_depth,
+                fns,
+                deepest,
+                verbose,
+            );
+            call_stack.pop();
+        }
+    }
 }
