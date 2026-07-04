@@ -10,7 +10,10 @@ use std::{
 use anyhow::{Context, Result, anyhow, bail};
 use capstone::{
     Capstone, InsnGroupId, InsnGroupType,
-    arch::{ArchOperand, BuildsCapstone, BuildsCapstoneExtraMode, arm},
+    arch::{
+        ArchDetail, BuildsCapstone, BuildsCapstoneExtraMode, DetailsArchInsn,
+        arm,
+    },
 };
 use goblin::elf::{Elf, SectionHeader, Sym};
 
@@ -57,14 +60,14 @@ fn extract_text_regions(
     task_name: &str,
 ) -> Result<BTreeMap<u32, bool>> {
     let mut text_regions = BTreeMap::new();
-    for sym in parsed_elf.syms.iter() {
-        if sym.st_name == 0
-            || sym.st_size != 0
-            || sym.st_type() != goblin::elf::sym::STT_NOTYPE
-        {
-            continue;
-        }
+    let relevant = parsed_elf
+        .syms
+        .iter()
+        .filter(|s| s.st_name != 0)
+        .filter(|s| s.st_size == 0)
+        .filter(|s| s.st_type() == goblin::elf::sym::STT_NOTYPE);
 
+    for sym in relevant {
         let addr = sym.st_value as u32;
         let is_text = match parsed_elf.strtab.get_at(sym.st_name) {
             Some("$t") => true,
@@ -128,7 +131,6 @@ fn fn_symbol_iter<'a>(
         .filter(|s| s.st_name != 0)
         .filter(|s| s.is_function())
         .filter(|s| s.st_size != 0)
-        // TODO: assert?
         .filter_map(|s| {
             // Clear the lowest bit, which indicates that the function contains
             // thumb instructions (always true for our systems!)
@@ -142,24 +144,19 @@ fn fn_symbol_iter<'a>(
             // Bake into a handy collected symbol item
             Some(SymbolItem {
                 sym: s,
-                name: parsed_elf.strtab.get_at(s.st_name)?,
+                // TODO: assert?
+                name: parsed_elf.strtab.get_at(s.st_name).unwrap(),
                 base_addr,
                 text_region,
             })
         })
 }
 
-/// Estimates the maximum stack size for the given task
-///
-/// This does not take dynamic function calls into account, which could cause
-/// underestimation.  Overestimation is less likely, but still may happen if
-/// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
-/// `B` never calls `C` if called by `A`).
-pub fn get_max_stack(
+fn extract_function_items(
     elf: &Path,
     task_name: &str,
     verbose: bool,
-) -> Result<Vec<(u64, String)>> {
+) -> Result<BTreeMap<u32, FunctionData>> {
     // Open the statically-linked ELF file
     let data = std::fs::read(elf).context("could not open ELF file")?;
     let elf = goblin::elf::Elf::parse(&data)?;
@@ -196,50 +193,7 @@ pub fn get_max_stack(
         let chunks = sym_item.extract_instruction_chunks(is_code);
 
         let frame_size = addr_to_frame_size.get(&base_addr).copied();
-        let mut calls = BTreeSet::new();
-        for chunk_item in chunks {
-            let instrs = cs
-                .disasm_all(&chunk_item.code, chunk_item.addr)
-                .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
-            for (i, instr) in instrs.iter().enumerate() {
-                let detail = cs.insn_detail(instr).map_err(|e| {
-                    anyhow!("could not get instruction details: {e}")
-                })?;
-
-                // Detect tail calls, which are jumps at the final instruction
-                // when the function itself has no stack frame.
-                let can_tail = frame_size == Some(0) && i == instrs.len() - 1;
-                if detail.groups().iter().any(|g| {
-                    g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8)
-                        || (g == &InsnGroupId(InsnGroupType::CS_GRP_JUMP as u8)
-                            && can_tail)
-                }) {
-                    let arch = detail.arch_detail();
-                    let ops = arch.operands();
-                    let op = ops.last().unwrap_or_else(|| {
-                        panic!("missing operand!");
-                    });
-
-                    let ArchOperand::ArmOperand(op) = op else {
-                        panic!("bad operand type: {op:?}");
-                    };
-                    // We can't resolve indirect calls, alas
-                    let arm::ArmOperandType::Imm(target) = op.op_type else {
-                        continue;
-                    };
-                    let target = u32::try_from(target).unwrap();
-
-                    // Avoid recursive calls into the same function (or midway
-                    // into the function, which is a thing we've seen before!
-                    // it's weird!)
-                    if !(base_addr..base_addr + sym.st_size as u32)
-                        .contains(&target)
-                    {
-                        calls.insert(target);
-                    }
-                }
-            }
-        }
+        let function_range = base_addr..base_addr + sym.st_size as u32;
 
         let name = rustc_demangle::demangle(name).to_string();
 
@@ -250,6 +204,69 @@ pub fn get_max_stack(
             &name
         }
         .to_owned();
+
+        // Walk through each "chunk", which is an island of executable code
+        // inside of each function, and collect all the out-bound calls
+        let mut calls = BTreeSet::new();
+        for chunk_item in chunks {
+            let instrs = cs
+                .disasm_all(&chunk_item.code, chunk_item.addr)
+                .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
+
+            // Walk through each instruction inside of each chunk
+            for (i, instr) in instrs.iter().enumerate() {
+                // We need to get details for the instruction, which we should
+                // always have for well-formed programs
+                let detail = cs.insn_detail(instr).map_err(|e| {
+                    anyhow!("could not get instruction details: {e}")
+                })?;
+
+                let can_tail = frame_size == Some(0) && i == instrs.len() - 1;
+                let is_grp_call =
+                    |g| g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8);
+                let is_grp_jump =
+                    |g| g == &InsnGroupId(InsnGroupType::CS_GRP_JUMP as u8);
+
+                // Detect tail calls, which are jumps at the final instruction
+                // when the function itself has no stack frame.
+                let is_tail_call = |g| is_grp_jump(g) && can_tail;
+
+                let is_branching_instr = detail
+                    .groups()
+                    .iter()
+                    .any(|g| is_grp_call(g) || is_tail_call(g));
+
+                if is_branching_instr {
+                    // On Arm/Thumb, a jump always has some kind of operand,
+                    // which is where we are jumping to. Get the last operand so
+                    // we can determine if we can follow this.
+                    let arch = detail.arch_detail();
+                    let ArchDetail::ArmDetail(details) = arch else {
+                        panic!("Unsupported arch");
+                    };
+                    let op = details.operands().last().unwrap_or_else(|| {
+                        panic!("missing operand!");
+                    });
+                    // We can't resolve indirect calls, alas
+                    let arm::ArmOperandType::Imm(target) = op.op_type else {
+                        if verbose {
+                            println!(
+                                "Failed to resolve indirect call in {name}!"
+                            );
+                        }
+                        continue;
+                    };
+                    let target = u32::try_from(target).unwrap();
+
+                    // Avoid recursive calls into the same function (or midway
+                    // into the function, which is a thing we've seen before!
+                    // it's weird!)
+                    if !function_range.contains(&target) {
+                        calls.insert(target);
+                    }
+                }
+            }
+        }
 
         fns.insert(
             base_addr,
@@ -262,6 +279,21 @@ pub fn get_max_stack(
         );
     }
 
+    Ok(fns)
+}
+
+/// Estimates the maximum stack size for the given task
+///
+/// This does not take dynamic function calls into account, which could cause
+/// underestimation.  Overestimation is less likely, but still may happen if
+/// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
+/// `B` never calls `C` if called by `A`).
+pub fn get_max_stack(
+    elf: &Path,
+    task_name: &str,
+    verbose: bool,
+) -> Result<Vec<(u64, String)>> {
+    let fns = extract_function_items(elf, task_name, verbose)?;
     // Find stack sizes by traversing the graph
     if verbose {
         println!("finding stack sizes for {task_name}");
