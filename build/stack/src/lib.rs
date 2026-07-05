@@ -4,12 +4,13 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::Range,
     path::Path,
 };
 
 use anyhow::{Context, Result, anyhow, bail};
 use capstone::{
-    Capstone, InsnGroupId, InsnGroupType,
+    Capstone, Insn, InsnDetail, InsnGroupId, InsnGroupType,
     arch::{
         ArchDetail, BuildsCapstone, BuildsCapstoneExtraMode, DetailsArchInsn,
         arm,
@@ -28,7 +29,7 @@ pub struct FunctionData {
 
 struct SymbolItem<'a> {
     sym: Sym,
-    name: &'a str,
+    mangled_name: &'a str,
     base_addr: u64,
     text_region: &'a [u8],
 }
@@ -36,6 +37,12 @@ struct SymbolItem<'a> {
 struct ChunkItem {
     code: Vec<u8>,
     addr: u64,
+}
+
+pub struct FunctionReport {
+    pub function_items: BTreeMap<u32, FunctionData>,
+    pub addr_to_frame_size: BTreeMap<u32, u64>,
+    pub names: BTreeMap<u32, String>,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -95,6 +102,11 @@ fn extract_text_regions(
 }
 
 impl SymbolItem<'_> {
+    fn addr_range(&self) -> Range<u32> {
+        let base_addr = self.base_addr as u32;
+        base_addr..base_addr + self.sym.st_size as u32
+    }
+
     // TODO: return `Vec<(u32, &[u8])>?
     fn extract_instruction_chunks<F>(&self, is_code: F) -> Vec<ChunkItem>
     where
@@ -145,17 +157,11 @@ fn fn_symbol_iter<'a>(
             Some(SymbolItem {
                 sym: s,
                 // TODO: assert?
-                name: parsed_elf.strtab.get_at(s.st_name).unwrap(),
+                mangled_name: parsed_elf.strtab.get_at(s.st_name).unwrap(),
                 base_addr,
                 text_region,
             })
         })
-}
-
-pub struct FunctionReport {
-    pub function_items: BTreeMap<u32, FunctionData>,
-    pub addr_to_frame_size: BTreeMap<u32, u64>,
-    pub names: BTreeMap<u32, String>,
 }
 
 pub fn extract_function_items(
@@ -191,44 +197,45 @@ pub fn extract_function_items(
     let mut fns = BTreeMap::new();
     let mut fn_names = BTreeMap::new();
     for sym_item in fn_symbol_iter(&elf, text, &data) {
-        // TODO
-        let sym = sym_item.sym;
         let base_addr = sym_item.base_addr as u32;
-        let name = sym_item.name;
+        let name = sym_item.mangled_name;
+        // This is the stack frame size of the current function
+        let frame_size = addr_to_frame_size.get(&base_addr).copied();
+        // This is the range of addresses comprising this function
+        let function_range = sym_item.addr_range();
+        // Demangled and short name of this function
+        let name = rustc_demangle::demangle(name).to_string();
+        let short_name = name_shortener(&name);
+
+        fn_names.insert(base_addr, name.clone());
 
         // Split the text region into instruction-only chunks
         let chunks = sym_item.extract_instruction_chunks(is_code);
 
-        let frame_size = addr_to_frame_size.get(&base_addr).copied();
-        let function_range = base_addr..base_addr + sym.st_size as u32;
-
-        let name = rustc_demangle::demangle(name).to_string();
-        fn_names.insert(base_addr, name.clone());
-
-        // Strip the trailing hash from the name for ease of printing
-        let short_name = if let Some(i) = name.rfind("::") {
-            &name[..i]
-        } else {
-            &name
-        }
-        .to_owned();
-
         // Walk through each "chunk", which is an island of executable code
-        // inside of each function, and collect all the out-bound calls
+        // inside of each function, and collect all the out-bound calls. We
+        // disassemble chunks rather than functions, as functions might contain
+        // puddles of inline data which we don't want to (mis)-disassemble.
         let mut calls = BTreeSet::new();
         for chunk_item in chunks {
             let instrs = cs
                 .disasm_all(&chunk_item.code, chunk_item.addr)
                 .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
 
-            // Walk through each instruction inside of each chunk
-            for (i, instr) in instrs.iter().enumerate() {
-                // We need to get details for the instruction, which we should
-                // always have for well-formed programs
-                let detail = cs.insn_detail(instr).map_err(|e| {
-                    anyhow!("could not get instruction details: {e}")
-                })?;
+            // We need to get details for the instruction, which we should
+            // always have for well-formed programs
+            let instrs: Vec<&Insn<'_>> = instrs.iter().collect();
+            let details: Vec<InsnDetail<'_>> = instrs
+                .iter()
+                .map(|instr| {
+                    cs.insn_detail(instr).map_err(|e| {
+                        anyhow!("could not get instruction details: {e}")
+                    })
+                })
+                .collect::<Result<_>>()?;
 
+            // Walk through each instruction inside of each chunk
+            for (i, detail) in details.iter().enumerate() {
                 let can_tail = frame_size == Some(0) && i == instrs.len() - 1;
                 let is_grp_call =
                     |g| g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8);
@@ -306,10 +313,14 @@ pub fn get_max_stack(
     verbose: bool,
 ) -> Result<Vec<(u64, String)>> {
     let fns = extract_function_items(elf, task_name, verbose)?;
-    get_max_stack_inner(fns)
+    get_max_stack_inner(fns, task_name, verbose)
 }
 
-pub fn get_max_stack_inner(fns: FunctionReport) -> Result<Vec<(u64, String)>> {
+pub fn get_max_stack_inner(
+    fns: FunctionReport,
+    task_name: &str,
+    verbose: bool,
+) -> Result<Vec<(u64, String)>> {
     let fns = fns.function_items;
     // Find stack sizes by traversing the graph
     if verbose {
@@ -335,6 +346,16 @@ pub fn get_max_stack_inner(fns: FunctionReport) -> Result<Vec<(u64, String)>> {
         out.push((f.frame_size.unwrap_or(0), name.clone()));
     }
     Ok(out)
+}
+
+fn name_shortener(name: &str) -> String {
+    // Strip the trailing hash from the name for ease of printing
+    if let Some(i) = name.rfind("::") {
+        &name[..i]
+    } else {
+        &name
+    }
+    .to_owned()
 }
 
 fn recurse(

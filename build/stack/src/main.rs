@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::path::Path;
+use std::{collections::BTreeSet, path::Path};
 
 use stack::FunctionReport;
 
@@ -30,7 +30,7 @@ fn main() {
 
     println!();
 
-    for (addr, item) in function_items {
+    for (addr, item) in function_items.iter() {
         print!("{addr:08X} ");
 
         if let Some(n) = names.get(&addr) {
@@ -44,7 +44,7 @@ fn main() {
             println!("- ??? bytes");
         }
 
-        for subitem in item.calls {
+        for subitem in item.calls.iter() {
             print!("  => ");
             if let Some(n) = names.get(&subitem) {
                 print!("{n} ");
@@ -58,4 +58,30 @@ fn main() {
             }
         }
     }
+
+    let as_fi = function_items.keys().copied().collect::<BTreeSet<_>>();
+    let as_a2f = addr_to_frame_size.keys().copied().collect::<BTreeSet<_>>();
+    let as_names = names.keys().copied().collect::<BTreeSet<_>>();
+
+    let fi_a2f = as_fi.difference(&as_a2f);
+    let a2f_names = as_a2f.difference(&as_names);
+    let names_fi = as_names.difference(&as_fi);
+
+    println!("fi_a2f:");
+    for addr in fi_a2f {
+        println!("- {addr:08X}");
+    }
+    println!();
+
+    println!("a2f_names:");
+    for addr in a2f_names {
+        println!("- {addr:08X}");
+    }
+    println!();
+
+    println!("names_fi:");
+    for addr in names_fi {
+        println!("- {addr:08X}");
+    }
+    println!();
 }
