@@ -6,6 +6,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     ops::Range,
     path::Path,
+    rc::Rc,
 };
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -241,15 +242,19 @@ pub fn extract_function_items(
                     |g| g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8);
                 let is_grp_jump =
                     |g| g == &InsnGroupId(InsnGroupType::CS_GRP_JUMP as u8);
+                let is_grp_rel = |g| {
+                    g == &InsnGroupId(
+                        InsnGroupType::CS_GRP_BRANCH_RELATIVE as u8,
+                    )
+                };
 
                 // Detect tail calls, which are jumps at the final instruction
                 // when the function itself has no stack frame.
                 let is_tail_call = |g| is_grp_jump(g) && can_tail;
 
-                let is_branching_instr = detail
-                    .groups()
-                    .iter()
-                    .any(|g| is_grp_call(g) || is_tail_call(g));
+                let is_branching_instr = detail.groups().iter().any(|g| {
+                    is_grp_call(g) || is_grp_rel(g) || is_tail_call(g)
+                });
 
                 if is_branching_instr {
                     // On Arm/Thumb, a jump always has some kind of operand,
@@ -356,6 +361,137 @@ fn name_shortener(name: &str) -> String {
         &name
     }
     .to_owned()
+}
+
+pub struct ResolvedNode {
+    pub addr: u32,
+    pub name: String,
+    pub local_size: Option<u64>,
+    pub max_children: u64,
+    pub children: BTreeMap<u32, Rc<ResolvedNode>>,
+}
+
+impl ResolvedNode {
+    pub fn debug_all(&self) {
+        self.debug_all_depth(0, 0);
+    }
+
+    pub fn debug_all_depth(&self, depth: usize, current_stack: u64) {
+        let frame_size = self.local_size.unwrap_or(0);
+        let stack_depth = current_stack + frame_size;
+        for _ in 0..depth {
+            print!("  ");
+        }
+        println!(
+            "- 0x{:08X} {} [+{frame_size} => {stack_depth}]",
+            self.addr, self.name,
+        );
+        for (_addr, child) in self.children.iter() {
+            child.debug_all_depth(depth + 1, current_stack + frame_size);
+        }
+    }
+
+    /// Used to determine if `other` should be discarded
+    pub fn is_same_or_child_of(&self, other: &Self) -> bool {
+        if other.addr == self.addr {
+            return true;
+        }
+        for (_caddr, child) in other.children.iter() {
+            if self.is_same_or_child_of(child) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn max_stack(&self) -> u64 {
+        self.local_size.unwrap_or(0) + self.max_children
+    }
+
+    pub fn worst_chain(self: &Rc<Self>) -> Vec<Rc<ResolvedNode>> {
+        let mut chain = vec![];
+        self.worst_chain_inner(&mut chain);
+        chain
+    }
+
+    fn worst_chain_inner(self: &Rc<Self>, chain: &mut Vec<Rc<ResolvedNode>>) {
+        chain.push(self.clone());
+        if let Some(child) = self
+            .children
+            .iter()
+            .find(|c| c.1.max_stack() == self.max_children)
+        {
+            child.1.worst_chain_inner(chain)
+        }
+    }
+}
+
+pub struct Resolver {
+    pub call_stack: Vec<u32>,
+    pub all_resolved: BTreeMap<u32, Rc<ResolvedNode>>,
+    pub fn_items: BTreeMap<u32, FunctionData>,
+}
+
+impl Resolver {
+    pub fn new(fn_items: BTreeMap<u32, FunctionData>) -> Self {
+        Self {
+            call_stack: vec![],
+            all_resolved: BTreeMap::new(),
+            fn_items,
+        }
+    }
+
+    pub fn resolve_by_name(&mut self, entry: &str) -> Result<Rc<ResolvedNode>> {
+        let Some(item) = self.fn_items.iter().find(|(_k, v)| &v.name == entry)
+        else {
+            bail!("Not found");
+        };
+        let addr = *(item.0);
+        self.resolve_addr(addr)
+    }
+
+    pub fn resolve_addr(&mut self, addr: u32) -> Result<Rc<ResolvedNode>> {
+        // Have we already resolved this node?
+        if let Some(node) = self.all_resolved.get(&addr) {
+            return Ok(node.clone());
+        }
+
+        // no, we havent. Get the node info from the fn data
+        let Some(item) = self.fn_items.get(&addr) else {
+            bail!("no function data");
+        };
+        self.call_stack.push(addr);
+        let children = item.calls.clone();
+        let name = item.name.clone();
+        let local_size = item.frame_size;
+
+        let mut res_children = BTreeMap::new();
+        let mut max_children = 0;
+        for child in children {
+            if self.call_stack.contains(&child) {
+                bail!("Refusing to handle recursive");
+            }
+
+            // Resolve the child
+            let rchild = self.resolve_addr(child)?;
+
+            let ttl_child =
+                rchild.local_size.unwrap_or(0) + rchild.max_children;
+            max_children = max_children.max(ttl_child);
+            res_children.insert(child, rchild);
+        }
+
+        let new_node = Rc::new(ResolvedNode {
+            addr,
+            name,
+            local_size,
+            max_children,
+            children: res_children,
+        });
+        self.all_resolved.insert(addr, new_node.clone());
+        self.call_stack.pop();
+        Ok(new_node)
+    }
 }
 
 fn recurse(

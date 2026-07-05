@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::{collections::BTreeSet, path::Path};
+use std::{path::Path, rc::Rc};
 
-use stack::FunctionReport;
+use stack::{FunctionReport, ResolvedNode, Resolver};
 
 fn main() {
     let file = "../../target/gimlet-c/dist/host_sp_comms.tmp";
@@ -18,70 +18,74 @@ fn main() {
         names,
     } = items;
 
-    for (addr, name) in names.iter() {
-        println!("{addr:08X} - {name}");
-    }
+    let mut resolver = Resolver::new(function_items);
+    let node = resolver.resolve_by_name("_start").unwrap();
+    node.debug_all();
 
-    println!();
-
+    let mut missing = vec![];
     for (addr, size) in addr_to_frame_size.iter() {
-        println!("{addr:08X} - {size}");
+        let name = names.get(addr).unwrap();
+        if !resolver.all_resolved.contains_key(addr) {
+            println!("WARN: missing {name} => {size}");
+            missing.push((*addr, name));
+        }
     }
 
-    println!();
+    let mut found = vec![];
+    for (addr, name) in missing {
+        println!("probing {name}...");
+        let node = resolver.resolve_addr(addr).unwrap();
+        println!("  {:?} + {}", node.local_size, node.max_children);
+        node.debug_all();
+        println!("---");
+        found.push(node);
+    }
 
-    for (addr, item) in function_items.iter() {
-        print!("{addr:08X} ");
-
-        if let Some(n) = names.get(&addr) {
-            print!("{n} ");
-        } else {
-            print!("anon@{addr:08X} ");
-        }
-        if let Some(n) = addr_to_frame_size.get(&addr) {
-            println!("- {n} bytes");
-        } else {
-            println!("- ??? bytes");
-        }
-
-        for subitem in item.calls.iter() {
-            print!("  => ");
-            if let Some(n) = names.get(&subitem) {
-                print!("{n} ");
+    println!("Shaking down...");
+    let mut last_len = found.len();
+    loop {
+        let mut to_keep = vec![];
+        while let Some(val) = found.pop() {
+            if found
+                .iter()
+                .any(|f: &Rc<ResolvedNode>| f.is_same_or_child_of(&val))
+                || to_keep
+                    .iter()
+                    .any(|f: &Rc<ResolvedNode>| f.is_same_or_child_of(&val))
+            {
+                continue;
             } else {
-                print!("anon@{subitem:08X} ");
+                to_keep.push(val);
             }
-            if let Some(n) = addr_to_frame_size.get(&subitem) {
-                println!("- {n} bytes");
-            } else {
-                println!("- ??? bytes");
-            }
+        }
+        found = to_keep;
+        if found.len() == last_len {
+            break;
+        } else {
+            last_len = found.len();
         }
     }
 
-    let as_fi = function_items.keys().copied().collect::<BTreeSet<_>>();
-    let as_a2f = addr_to_frame_size.keys().copied().collect::<BTreeSet<_>>();
-    let as_names = names.keys().copied().collect::<BTreeSet<_>>();
-
-    let fi_a2f = as_fi.difference(&as_a2f);
-    let a2f_names = as_a2f.difference(&as_names);
-    let names_fi = as_names.difference(&as_fi);
-
-    println!("fi_a2f:");
-    for addr in fi_a2f {
-        println!("- {addr:08X}");
+    println!("--- shook ---");
+    let mut sum = 0;
+    for n in found.iter() {
+        println!("{} - {:?} + {}", n.name, n.local_size, n.max_children);
+        n.debug_all();
+        println!("---");
+        sum += n.max_stack();
     }
-    println!();
 
-    println!("a2f_names:");
-    for addr in a2f_names {
-        println!("- {addr:08X}");
-    }
     println!();
+    println!("Worst chain:");
+    let chain = node.worst_chain();
+    for n in chain {
+        println!("{} - {}", n.name, n.max_stack());
+    }
 
-    println!("names_fi:");
-    for addr in names_fi {
-        println!("- {addr:08X}");
-    }
-    println!();
+    println!(
+        "max stack: {} + fudge ({}) = {}",
+        node.max_stack(),
+        sum,
+        node.max_stack() + sum
+    );
 }
