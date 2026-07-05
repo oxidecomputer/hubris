@@ -19,11 +19,23 @@ use goblin::elf::{Elf, SectionHeader, Sym};
 
 // We'll be packing everything into this data structure
 #[derive(Debug)]
-struct FunctionData {
-    name: String,
-    short_name: String,
-    frame_size: Option<u64>,
-    calls: BTreeSet<u32>,
+pub struct FunctionData {
+    pub name: String,
+    pub short_name: String,
+    pub frame_size: Option<u64>,
+    pub calls: BTreeSet<u32>,
+}
+
+struct SymbolItem<'a> {
+    sym: Sym,
+    name: &'a str,
+    base_addr: u64,
+    text_region: &'a [u8],
+}
+
+struct ChunkItem {
+    code: Vec<u8>,
+    addr: u64,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -80,18 +92,6 @@ fn extract_text_regions(
         text_regions.insert(addr, is_text);
     }
     Ok(text_regions)
-}
-
-struct SymbolItem<'a> {
-    sym: Sym,
-    name: &'a str,
-    base_addr: u64,
-    text_region: &'a [u8],
-}
-
-struct ChunkItem {
-    code: Vec<u8>,
-    addr: u64,
 }
 
 impl SymbolItem<'_> {
@@ -152,11 +152,17 @@ fn fn_symbol_iter<'a>(
         })
 }
 
-fn extract_function_items(
+pub struct FunctionReport {
+    pub function_items: BTreeMap<u32, FunctionData>,
+    pub addr_to_frame_size: BTreeMap<u32, u64>,
+    pub names: BTreeMap<u32, String>,
+}
+
+pub fn extract_function_items(
     elf: &Path,
     task_name: &str,
     verbose: bool,
-) -> Result<BTreeMap<u32, FunctionData>> {
+) -> Result<FunctionReport> {
     // Open the statically-linked ELF file
     let data = std::fs::read(elf).context("could not open ELF file")?;
     let elf = goblin::elf::Elf::parse(&data)?;
@@ -183,6 +189,7 @@ fn extract_function_items(
 
     // Disassemble each function, building a map of its call sites
     let mut fns = BTreeMap::new();
+    let mut fn_names = BTreeMap::new();
     for sym_item in fn_symbol_iter(&elf, text, &data) {
         // TODO
         let sym = sym_item.sym;
@@ -196,6 +203,7 @@ fn extract_function_items(
         let function_range = base_addr..base_addr + sym.st_size as u32;
 
         let name = rustc_demangle::demangle(name).to_string();
+        fn_names.insert(base_addr, name.clone());
 
         // Strip the trailing hash from the name for ease of printing
         let short_name = if let Some(i) = name.rfind("::") {
@@ -279,7 +287,11 @@ fn extract_function_items(
         );
     }
 
-    Ok(fns)
+    Ok(FunctionReport {
+        function_items: fns,
+        addr_to_frame_size,
+        names: fn_names,
+    })
 }
 
 /// Estimates the maximum stack size for the given task
@@ -294,6 +306,11 @@ pub fn get_max_stack(
     verbose: bool,
 ) -> Result<Vec<(u64, String)>> {
     let fns = extract_function_items(elf, task_name, verbose)?;
+    get_max_stack_inner(fns)
+}
+
+pub fn get_max_stack_inner(fns: FunctionReport) -> Result<Vec<(u64, String)>> {
+    let fns = fns.function_items;
     // Find stack sizes by traversing the graph
     if verbose {
         println!("finding stack sizes for {task_name}");
