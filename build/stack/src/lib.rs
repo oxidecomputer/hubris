@@ -236,7 +236,9 @@ pub fn extract_function_items(
                 .collect::<Result<_>>()?;
 
             // Walk through each instruction inside of each chunk
-            for (i, detail) in details.iter().enumerate() {
+            for (i, (_instr, detail)) in
+                instrs.iter().zip(details.iter()).enumerate()
+            {
                 let can_tail = frame_size == Some(0) && i == instrs.len() - 1;
                 let is_grp_call =
                     |g| g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8);
@@ -251,8 +253,12 @@ pub fn extract_function_items(
                 // Detect tail calls, which are jumps at the final instruction
                 // when the function itself has no stack frame.
                 let is_tail_call = |g| is_grp_jump(g) && can_tail;
-
                 let is_branching_instr = detail.groups().iter().any(|g| {
+                    // Check if this is now not needed anymore
+                    if !is_grp_rel(g) && is_tail_call(g) {
+                        panic!("this check is NOT obsolete!");
+                    }
+
                     is_grp_call(g) || is_grp_rel(g) || is_tail_call(g)
                 });
 
@@ -268,6 +274,10 @@ pub fn extract_function_items(
                         panic!("missing operand!");
                     });
                     // We can't resolve indirect calls, alas
+                    //
+                    // TODO: We could consider keeping track of register ops
+                    // and potentially figure out the location of the register
+                    // based jump here
                     let arm::ArmOperandType::Imm(target) = op.op_type else {
                         if verbose {
                             println!(
@@ -313,6 +323,83 @@ pub fn extract_function_items(
 /// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
 /// `B` never calls `C` if called by `A`).
 pub fn get_max_stack(
+    elf: &Path,
+    task_name: &str,
+    verbose: bool,
+) -> Result<Vec<(u64, String)>> {
+    let fns = extract_function_items(elf, task_name, verbose)?;
+    let mut resolver = Resolver::new(fns.function_items);
+    let node = resolver.resolve_by_name("_start")?;
+    let chain = node.worst_chain();
+    let mut chain_compat = chain
+        .into_iter()
+        .map(|n| (n.local_size.unwrap_or(0), n.name.clone()))
+        .collect::<Vec<_>>();
+
+    let missing = find_missing_nodes(
+        &mut resolver,
+        fns.addr_to_frame_size.keys().copied(),
+    );
+
+    let fake_items = missing
+        .iter()
+        .map(|n| (n.max_stack(), format!("missing::{}", n.name)));
+    chain_compat.extend(fake_items);
+
+    Ok(chain_compat)
+}
+
+fn find_missing_nodes(
+    resolver: &mut Resolver,
+    all_addrs: impl Iterator<Item = u32>,
+) -> Vec<Rc<ResolvedNode>> {
+    let mut missing = vec![];
+    for addr in all_addrs {
+        if !resolver.all_resolved.contains_key(&addr) {
+            missing.push(addr);
+        }
+    }
+
+    let mut found = vec![];
+    for addr in missing {
+        let node = resolver.resolve_addr(addr).unwrap();
+        found.push(node);
+    }
+
+    let mut last_len = found.len();
+    loop {
+        let mut to_keep = vec![];
+        while let Some(val) = found.pop() {
+            if found
+                .iter()
+                .any(|f: &Rc<ResolvedNode>| f.is_same_or_child_of(&val))
+                || to_keep
+                    .iter()
+                    .any(|f: &Rc<ResolvedNode>| f.is_same_or_child_of(&val))
+            {
+                continue;
+            } else {
+                to_keep.push(val);
+            }
+        }
+        found = to_keep;
+        if found.len() == last_len {
+            break;
+        } else {
+            last_len = found.len();
+        }
+    }
+
+    found
+}
+
+/// Estimates the maximum stack size for the given task
+///
+/// This does not take dynamic function calls into account, which could cause
+/// underestimation.  Overestimation is less likely, but still may happen if
+/// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
+/// `B` never calls `C` if called by `A`).
+pub fn get_max_stack_old(
     elf: &Path,
     task_name: &str,
     verbose: bool,
@@ -377,21 +464,24 @@ impl ResolvedNode {
     }
 
     pub fn debug_all_depth(&self, depth: usize, current_stack: u64) {
-        let frame_size = self.local_size.unwrap_or(0);
-        let stack_depth = current_stack + frame_size;
+        let frame_size = self.local_size;
+        let stack_depth = current_stack + frame_size.unwrap_or(0);
         for _ in 0..depth {
             print!("  ");
         }
         println!(
-            "- 0x{:08X} {} [+{frame_size} => {stack_depth}]",
+            "- 0x{:08X} {} [+{frame_size:?} => {stack_depth}]",
             self.addr, self.name,
         );
         for (_addr, child) in self.children.iter() {
-            child.debug_all_depth(depth + 1, current_stack + frame_size);
+            child.debug_all_depth(
+                depth + 1,
+                current_stack + frame_size.unwrap_or(0),
+            );
         }
     }
 
-    /// Used to determine if `other` should be discarded
+    /// Used to determine if `self` could be potentially discarded as a dupe
     pub fn is_same_or_child_of(&self, other: &Self) -> bool {
         if other.addr == self.addr {
             return true;
@@ -469,14 +559,13 @@ impl Resolver {
         let mut max_children = 0;
         for child in children {
             if self.call_stack.contains(&child) {
-                bail!("Refusing to handle recursive");
+                bail!("Refusing to handle recursion");
             }
 
             // Resolve the child
             let rchild = self.resolve_addr(child)?;
 
-            let ttl_child =
-                rchild.local_size.unwrap_or(0) + rchild.max_children;
+            let ttl_child = rchild.max_stack();
             max_children = max_children.max(ttl_child);
             res_children.insert(child, rchild);
         }

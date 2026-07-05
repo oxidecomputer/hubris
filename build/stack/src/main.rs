@@ -20,8 +20,10 @@ fn main() {
 
     let mut resolver = Resolver::new(function_items);
     let node = resolver.resolve_by_name("_start").unwrap();
-    node.debug_all();
+    // node.debug_all();
 
+    println!();
+    println!();
     let mut missing = vec![];
     for (addr, size) in addr_to_frame_size.iter() {
         let name = names.get(addr).unwrap();
@@ -31,13 +33,11 @@ fn main() {
         }
     }
 
+    println!();
     let mut found = vec![];
     for (addr, name) in missing {
         println!("probing {name}...");
         let node = resolver.resolve_addr(addr).unwrap();
-        println!("  {:?} + {}", node.local_size, node.max_children);
-        node.debug_all();
-        println!("---");
         found.push(node);
     }
 
@@ -70,22 +70,28 @@ fn main() {
     let mut sum = 0;
     for n in found.iter() {
         println!("{} - {:?} + {}", n.name, n.local_size, n.max_children);
-        n.debug_all();
-        println!("---");
         sum += n.max_stack();
     }
 
     println!();
+    println!("------------");
     println!("Worst chain:");
+    println!("------------");
     let chain = node.worst_chain();
+    let mut worst_sum = 0;
     for n in chain {
-        println!("{} - {}", n.name, n.max_stack());
+        worst_sum += n.local_size.unwrap_or(0);
+        println!("{} - [+{:?} => {}]", n.name, n.local_size, worst_sum);
     }
 
+    println!();
     println!(
         "max stack: {} + fudge ({}) = {}",
         node.max_stack(),
         sum,
         node.max_stack() + sum
     );
+
+    println!();
+    println!("{} functions resolved.", resolver.all_resolved.len());
 }
