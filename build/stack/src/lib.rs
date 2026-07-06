@@ -536,10 +536,12 @@ pub fn get_max_stack(
     let missing =
         resolver.find_missing_nodes(fns.addr_to_frame_size.keys().copied());
 
-    let fake_items = missing
-        .iter()
-        .map(|n| (n.max_stack(), format!("missing::{}", n.name)));
-    chain_compat.extend(fake_items);
+    // Find the largest missing item so that we can add it to the call stack as
+    // a "fudge factor" for unresolved dynamic/indirect dispatch.
+    let largest = missing.iter().map(|n| n.max_stack()).max().unwrap_or(0);
+    if let Some(node) = missing.iter().find(|n| n.max_stack() == largest) {
+        chain_compat.push((largest, format!("missing::{}", node.name)));
+    }
 
     Ok(chain_compat)
 }
