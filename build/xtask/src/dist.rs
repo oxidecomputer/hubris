@@ -1599,6 +1599,9 @@ pub fn get_max_stack(
                     g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8)
                         || (g == &InsnGroupId(InsnGroupType::CS_GRP_JUMP as u8)
                             && can_tail)
+                        || g == &InsnGroupId(
+                            InsnGroupType::CS_GRP_BRANCH_RELATIVE as u8,
+                        )
                 }) {
                     let arch = detail.arch_detail();
                     let ops = arch.operands();
