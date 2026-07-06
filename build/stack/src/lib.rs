@@ -2,6 +2,58 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! ## Static Stack Analysis
+//!
+//! The current static analysis implemented works roughly as follows:
+//!
+//! 1. We configure LLVM to emit `.stack_sizes` debug information using a `-Z`
+//!    flag, which means that the `elf` file compiled for each task contains a
+//!    debuginfo section listing the size of stack frames on a per-function
+//!    basis.
+//! 2. We use the `goblin` crate to parse the compiled `elf` files, and obtain:
+//!     1. The per-function stack frame sizes: [`extract_stack_sizes_section()`]
+//!     2. The list of all function symbols contained in the elf file,  see
+//!        [`fn_symbol_iter()`]
+//!     3. The `.text` section of the elf file, which contains executable
+//!        instructions, inside of [`extract_function_items()`]
+//!     4. Information about where data is inlined within the `.text` section,
+//!        see [`extract_text_regions()`]
+//! 3. For each function in the elf file, we:
+//!     1. Use the [Capstone library](https://www.capstone-engine.org/) (by way
+//!        of the [`capstone`](https://docs.rs/capstone/latest/capstone/)
+//!        FFI crate) to disassemble the instruction code
+//!     2. Iterate through each instruction in the function, and determine all
+//!        "outgoing" branches which are calls to other functions
+//!     3. Produce a report called [`FunctionData`] for that function which
+//!        contains the name, local stack usage, and a list of all called
+//!        functions by that function
+//! 4. We then start from the entrypoint of the task, `_start`, and recurse
+//!    through each node, to calculate the deepest stack usage of any chain of
+//!    function calls. See [`get_max_stack()`] and [`Resolver`]'s  `resolve_*`
+//!    methods.
+//! 5. This "max stack" usage is compared against the `stacksize` for the task
+//!    in the manifest, and compilation fails if the calculated max stack
+//!    exceeds the written stacksize (outside of this crate).
+//!
+//! ## Known Limitations
+//!
+//! This approach already had a couple of known limitations, as they are
+//! typical for this approach of static analysis.
+//!
+//! 1. This approach does not handle recursion, as we have no way to annotate a
+//!    potential upper bound of recursive iterations. Currently, the code
+//!    counts the number of direct recursion instances detected (e.g. self-calls
+//!    of a function), and refuses to resolve call stacks with cycles.
+//! 2. This approach does not handle "indirect" branching, which looks something
+//!    like `blx r5` in assembly, and is often (but not exclusively) generated
+//!    when calling a function through a vtable method, like `dyn Format`.
+//!    Currently, the code silently skips considering instances of indirect
+//!    branching found.
+//! 3. This approach does not handle functions without `.stack_sizes` metadata.
+//!    This is commonly present in assembly functions such as
+//!    `userlib::sys_send_stub`, or in `compiler-rt`/`llvm` builtins like
+//!    `__aeabi_memcpy`. These functions are silently assumed to use zero stack.
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::Range,
@@ -27,6 +79,7 @@ pub struct FunctionData {
     pub frame_size: Option<u64>,
     pub calls: BTreeSet<u32>,
     pub missing_calls: usize,
+    pub recursive_calls: usize,
 }
 
 /// The resulting report of all metadata obtained for functions after
@@ -349,6 +402,7 @@ pub fn extract_function_items(
         // puddles of inline data which we don't want to (mis)-disassemble.
         let mut calls = BTreeSet::new();
         let mut missing_calls = 0;
+        let mut recursive_calls = 0;
         for chunk_item in chunks {
             let instrs = cs
                 .disasm_all(&chunk_item.code, chunk_item.addr)
@@ -427,10 +481,12 @@ pub fn extract_function_items(
                     };
                     let target = u32::try_from(target).unwrap();
 
-                    // Avoid recursive calls into the same function (or midway
-                    // into the function, which is a thing we've seen before!
-                    // it's weird!)
-                    if !function_range.contains(&target) {
+                    // Avoid recursive calls to the same function, and ignore
+                    // any control flow that directs back inside this function.
+                    // Any other jumps should be recorded as a call.
+                    if target == base_addr {
+                        recursive_calls += 1;
+                    } else if !function_range.contains(&target) {
                         calls.insert(target);
                     }
                 }
@@ -445,6 +501,7 @@ pub fn extract_function_items(
                 frame_size,
                 calls,
                 missing_calls,
+                recursive_calls,
             },
         );
     }
