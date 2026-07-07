@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::elf;
 use anyhow::{Context, Result, bail};
 use scroll::Pread;
 
@@ -33,7 +32,7 @@ impl scroll::ctx::TryFromCtx<'_, &goblin::elf::Elf<'_>>
         };
 
         let caboose_pos_file_offset =
-            crate::elf::get_file_offset_by_vma(elf, caboose_pos_address)
+            elf::get_file_offset_by_vma(elf, caboose_pos_address)
                 .context("could not get caboose pos file offset")?;
 
         Ok((
