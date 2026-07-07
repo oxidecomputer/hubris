@@ -73,7 +73,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // address).
     let (id_and_name, magic) =
         BOOTED_IMAGE.split_at(BOOTED_IMAGE.len() - BOOTED_IMAGE_MAGIC.len());
-    for (destination, byte) in id_and_name.into_iter().zip(
+    for (destination, byte) in id_and_name.iter().zip(
         HUBRIS_IMAGE_ID
             .to_le_bytes()
             .into_iter()
@@ -82,7 +82,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
         destination.store(byte, Ordering::Relaxed);
     }
     compiler_fence(Ordering::Release);
-    for (destination, byte) in magic.into_iter().zip(BOOTED_IMAGE_MAGIC) {
+    for (destination, byte) in magic.iter().zip(BOOTED_IMAGE_MAGIC) {
         destination.store(byte, Ordering::Relaxed);
     }
 
