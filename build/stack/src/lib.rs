@@ -26,7 +26,7 @@ pub fn get_max_stack(
 
     // Read the .stack_sizes section, which is an array of
     // `(address: u32, stack size: unsigned leb128)` tuples
-    let sizes = elf::get_section_by_name(&elf, ".stack_sizes")
+    let sizes = build_elf::get_section_by_name(&elf, ".stack_sizes")
         .context("could not get .stack_sizes")?;
     let mut sizes = &data[sizes.sh_offset as usize..][..sizes.sh_size as usize];
     let mut addr_to_frame_size = BTreeMap::new();
@@ -75,7 +75,7 @@ pub fn get_max_stack(
         calls: BTreeSet<u32>,
     }
 
-    let text = elf::get_section_by_name(&elf, ".text")
+    let text = build_elf::get_section_by_name(&elf, ".text")
         .context("could not get .text")?;
 
     use capstone::{

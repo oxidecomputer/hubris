@@ -1,5 +1,5 @@
 [package]
-name = "stack"
+name = "build-stack"
 version = "0.1.0"
 edition = "2024"
 
@@ -10,7 +10,7 @@ capstone = { workspace = true }
 rustc-demangle = { workspace = true }
 leb128 = { workspace = true }
 
-elf = { path = "../elf" }
+build-elf = { path = "../elf" }
 
 [lints]
 workspace = true
