@@ -17,7 +17,6 @@ use build_stack::get_max_stack;
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
-use stack::get_max_stack;
 use zerocopy::IntoBytes;
 
 use crate::{

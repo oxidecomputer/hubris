@@ -366,7 +366,7 @@ pub fn extract_function_items(
         *iter.next_back().unwrap().1
     };
 
-    let text = elf::get_section_by_name(&elf, ".text")
+    let text = build_elf::get_section_by_name(&elf, ".text")
         .context("could not get .text")?;
 
     let cs = Capstone::new()
@@ -556,7 +556,7 @@ fn extract_stack_sizes_section(
     raw_elf: &[u8],
     parsed_elf: &Elf<'_>,
 ) -> Result<BTreeMap<u32, u64>> {
-    let sizes = elf::get_section_by_name(parsed_elf, ".stack_sizes")
+    let sizes = build_elf::get_section_by_name(parsed_elf, ".stack_sizes")
         .context("could not get .stack_sizes")?;
     let mut sizes =
         &raw_elf[sizes.sh_offset as usize..][..sizes.sh_size as usize];
