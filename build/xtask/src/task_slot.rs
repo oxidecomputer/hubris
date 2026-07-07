@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::elf;
 use anyhow::{Context, Result, bail};
 use scroll::Pread;
 use std::path::Path;
@@ -25,7 +24,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, &goblin::elf::Elf<'a>>
         src: &'a [u8],
         elf: &goblin::elf::Elf<'a>,
     ) -> Result<(Self, usize), Self::Error> {
-        let endianness = elf::get_endianness(elf);
+        let endianness = build_elf::get_endianness(elf);
         let src_offset = &mut 0;
 
         let taskidx_address = if elf.is_64 {
@@ -46,7 +45,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, &goblin::elf::Elf<'a>>
         )?;
 
         let taskidx_file_offset =
-            crate::elf::get_file_offset_by_vma(elf, taskidx_address).context(
+            build_elf::get_file_offset_by_vma(elf, taskidx_address).context(
                 format!("slot '{slot_name}' points to non-existent address"),
             )?;
 
@@ -66,7 +65,7 @@ pub fn get_task_slot_table_entries<'a>(
     elf: &goblin::elf::Elf<'a>,
 ) -> Result<Vec<TaskSlotTableEntry<'a>>> {
     let task_slot_table_section =
-        match elf::get_section_by_name(elf, TASK_SLOT_TABLE_SECTION) {
+        match build_elf::get_section_by_name(elf, TASK_SLOT_TABLE_SECTION) {
             Some(task_slot_table_section) => task_slot_table_section,
             _ => bail!("No {TASK_SLOT_TABLE_SECTION} section"),
         };
@@ -97,7 +96,7 @@ pub fn dump_task_slot_table(task_path: &Path) -> Result<()> {
     for entry in get_task_slot_table_entries(&task_bin, &elf)? {
         let task_idx = task_bin.pread_with::<u16>(
             entry.taskidx_file_offset as usize,
-            elf::get_endianness(&elf),
+            build_elf::get_endianness(&elf),
         )?;
 
         println!(
