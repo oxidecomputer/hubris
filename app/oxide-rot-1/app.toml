@@ -10,7 +10,7 @@ version = 0
 
 [kernel]
 name = "oxide-rot-1"
-requires = {flash = 61252, ram = 2720}
+requires = {flash = 61252, ram = 2736}
 features = ["dice-mfg"]
 
 [caboose]
