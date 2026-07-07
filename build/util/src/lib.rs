@@ -9,6 +9,14 @@ use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::io::Write;
 
+/// Maximum length, in bytes, of an image name (an entry in `image-names` in a
+/// manifest).
+///
+/// NOTE: If you modify this, the layout of `BOOTED_IMAGE` will change. Humility
+/// won't be able to identify which image is running if the archive and target
+/// have a different layout.
+pub const MAX_IMAGE_NAME_LEN: usize = 8;
+
 /// Reads the given environment variable and marks that it's used
 ///
 /// This ensures a rebuild if the variable changes

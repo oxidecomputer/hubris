@@ -1880,6 +1880,7 @@ fn build_kernel(
     let build_config = cfg.kernel_build_config(&[
         ("HUBRIS_KCONFIG", &kconfig),
         ("HUBRIS_IMAGE_ID", &format!("{image_id}")),
+        ("HUBRIS_IMAGE_NAME", image_name),
         ("HUBRIS_FLASH_OUTPUTS", &flash_outputs),
     ]);
     build(cfg, "kernel", build_config, false)?;

@@ -406,6 +406,22 @@ fn generate_statics(generated: &Generated) -> Result<()> {
         .parse()
         .context("parsing HUBRIS_IMAGE_ID")?;
 
+    let max_name_len = build_util::MAX_IMAGE_NAME_LEN;
+    let image_name =
+        build_util::env_var("HUBRIS_IMAGE_NAME").unwrap_or_default();
+    let image_name_bytes = image_name.as_bytes();
+    if image_name_bytes.len() > max_name_len {
+        bail!(
+            "HUBRIS_IMAGE_NAME '{}' is {} bytes, but the max length is {}",
+            image_name,
+            image_name_bytes.len(),
+            max_name_len,
+        );
+    }
+    let mut image_name_padded = vec![0u8; max_name_len];
+    image_name_padded[..image_name_bytes.len()]
+        .copy_from_slice(image_name_bytes);
+
     let out = build_util::out_dir();
     let kconfig_path = out.join("kconfig.rs");
     let mut file =
@@ -424,6 +440,9 @@ fn generate_statics(generated: &Generated) -> Result<()> {
             const HUBRIS_TASK_COUNT: usize = #task_count;
             #[unsafe(no_mangle)]
             pub static HUBRIS_IMAGE_ID: u64 = #image_id;
+
+            pub static HUBRIS_IMAGE_NAME: [u8; #max_name_len] =
+                [#(#image_name_padded),*];
 
             static mut HUBRIS_TASK_TABLE_SPACE:
                 core::mem::MaybeUninit<[crate::task::Task; HUBRIS_TASK_COUNT]> =

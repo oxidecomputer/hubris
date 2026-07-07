@@ -8,7 +8,7 @@ use crate::atomic::AtomicExt;
 use crate::descs::{RegionAttributes, RegionDesc, TaskDesc, TaskFlags};
 use crate::task::Task;
 use core::mem::MaybeUninit;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU8, Ordering, compiler_fence};
 
 /// Tracks when a mutable reference to the task table is floating around in
 /// kernel code, to prevent production of a second one. This forms a sort of
@@ -18,6 +18,25 @@ use core::sync::atomic::{AtomicBool, Ordering};
 /// `with_task_table` et al before the kernel is properly started. We set it to
 /// `false` late in `start_kernel`.
 static TASK_TABLE_IN_USE: AtomicBool = AtomicBool::new(true);
+
+/// Magic marker written into the tail of `BOOTED_IMAGE`. This lets humility
+/// confirm that it's reading from the right address and that the kernel has
+/// finished populating `BOOTED_IMAGE`.
+const BOOTED_IMAGE_MAGIC: [u8; 8] = *b"HUBRISID";
+
+/// A record of which image is actually running. This is useful on systems with
+/// multiple image slots, like the RoT's A/B images.
+///
+/// Layout:
+/// - little-endian `HUBRIS_IMAGE_ID` (8 bytes),
+/// - null-padded `HUBRIS_IMAGE_NAME` (`build_util::MAX_IMAGE_NAME_LEN`=8 bytes)
+/// - `BOOTED_IMAGE_MAGIC` (8 bytes)
+#[unsafe(no_mangle)]
+static BOOTED_IMAGE: [AtomicU8; BOOTED_IMAGE_LEN] =
+    [const { AtomicU8::new(0) }; BOOTED_IMAGE_LEN];
+
+const BOOTED_IMAGE_LEN: usize =
+    8 + HUBRIS_IMAGE_NAME.len() + BOOTED_IMAGE_MAGIC.len();
 
 pub const HUBRIS_FAULT_NOTIFICATION: u32 = 1;
 
@@ -45,6 +64,26 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // Safety: TODO it is not clear that this operation needs to be unsafe.
     unsafe {
         crate::arch::set_clock_freq(tick_divisor);
+    }
+
+    // Record the ID and name of the image so that humility can tell which image
+    // is actually running on a system with A/B image slots. Write the magic
+    // marker last, so that if humility sees the marker it can trust that the ID
+    // and name are complete (and that it's reading from the correct memory
+    // address).
+    let (id_and_name, magic) =
+        BOOTED_IMAGE.split_at(BOOTED_IMAGE.len() - BOOTED_IMAGE_MAGIC.len());
+    for (destination, byte) in id_and_name.into_iter().zip(
+        HUBRIS_IMAGE_ID
+            .to_le_bytes()
+            .into_iter()
+            .chain(HUBRIS_IMAGE_NAME.iter().copied()),
+    ) {
+        destination.store(byte, Ordering::Relaxed);
+    }
+    compiler_fence(Ordering::Release);
+    for (destination, byte) in magic.into_iter().zip(BOOTED_IMAGE_MAGIC) {
+        destination.store(byte, Ordering::Relaxed);
     }
 
     // Grab references to all our statics.
