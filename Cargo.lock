@@ -393,6 +393,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
 
 [[package]]
+name = "build-elf"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "goblin",
+ "scroll",
+]
+
+[[package]]
 name = "build-fpga-regmap"
 version = "0.1.0"
 dependencies = [
@@ -470,6 +479,18 @@ dependencies = [
  "quote",
  "serde",
  "syn 2.0.106",
+]
+
+[[package]]
+name = "build-stack"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-elf",
+ "capstone",
+ "goblin",
+ "leb128",
+ "rustc-demangle",
 ]
 
 [[package]]
@@ -8057,8 +8078,10 @@ dependencies = [
  "anyhow",
  "atty",
  "base64 0.22.1",
+ "build-elf",
  "build-fpga-regmap",
  "build-kconfig",
+ "build-stack",
  "byteorder",
  "bzip2-rs",
  "cargo_metadata",

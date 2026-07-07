@@ -13,6 +13,7 @@ use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, anyhow, bail};
 use atty::Stream;
+use build_stack::get_max_stack;
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
@@ -3193,7 +3194,7 @@ fn resolve_task_slots(
     for entry in task_slot::get_task_slot_table_entries(&in_task_bin, &elf)? {
         let in_task_idx = in_task_bin.pread_with::<u16>(
             entry.taskidx_file_offset as usize,
-            elf::get_endianness(&elf),
+            build_elf::get_endianness(&elf),
         )?;
 
         let target_task_name = match task_toml.task_slots.get(entry.slot_name) {
@@ -3222,7 +3223,7 @@ fn resolve_task_slots(
         out_task_bin.pwrite_with::<u16>(
             target_task_idx as u16,
             entry.taskidx_file_offset as usize,
-            elf::get_endianness(&elf),
+            build_elf::get_endianness(&elf),
         )?;
 
         if cfg.verbose {
@@ -3257,12 +3258,12 @@ fn resolve_caboose_pos(
         out_task_bin.pwrite_with::<u32>(
             start,
             entry.caboose_pos_file_offset as usize,
-            elf::get_endianness(&elf),
+            build_elf::get_endianness(&elf),
         )?;
         out_task_bin.pwrite_with::<u32>(
             end,
             entry.caboose_pos_file_offset as usize + 4,
-            elf::get_endianness(&elf),
+            build_elf::get_endianness(&elf),
         )?;
 
         if cfg.verbose {

@@ -18,7 +18,7 @@ use crate::{
     Config,
     dist::{Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK},
 };
-use stack::get_max_stack;
+use build_stack::get_max_stack;
 
 #[derive(Debug)]
 struct TaskSizes<'a> {

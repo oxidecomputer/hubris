@@ -22,7 +22,7 @@ impl scroll::ctx::TryFromCtx<'_, &goblin::elf::Elf<'_>>
         src: &[u8],
         elf: &goblin::elf::Elf<'_>,
     ) -> Result<(Self, usize), Self::Error> {
-        let endianness = elf::get_endianness(elf);
+        let endianness = build_elf::get_endianness(elf);
         let src_offset = &mut 0;
 
         let caboose_pos_address = if elf.is_64 {
@@ -32,7 +32,7 @@ impl scroll::ctx::TryFromCtx<'_, &goblin::elf::Elf<'_>>
         };
 
         let caboose_pos_file_offset =
-            elf::get_file_offset_by_vma(elf, caboose_pos_address)
+            build_elf::get_file_offset_by_vma(elf, caboose_pos_address)
                 .context("could not get caboose pos file offset")?;
 
         Ok((
@@ -52,7 +52,7 @@ pub fn get_caboose_pos_table_entry(
     // If the section isn't present, then we're not reading the caboose position
     // from this task.
     let Some(caboose_pos_table_section) =
-        elf::get_section_by_name(elf, CABOOSE_POS_TABLE_SECTION)
+        build_elf::get_section_by_name(elf, CABOOSE_POS_TABLE_SECTION)
     else {
         return Ok(None);
     };

@@ -21,7 +21,7 @@ ctrlc = { workspace = true }
 directories = { workspace = true }
 digest-io = { workspace = true }
 dunce = { workspace = true }
-elf = { path = "../elf" }
+build-elf = { path = "../elf" }
 filetime = { workspace = true }
 fnv = { workspace = true }
 glob = { workspace = true }
@@ -40,7 +40,7 @@ scroll = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha3 = { workspace = true }
-stack = { path = "../stack" }
+build-stack = { path = "../stack" }
 tlvc = { workspace = true }
 tlvc-text = { workspace = true }
 toml = { workspace = true }
