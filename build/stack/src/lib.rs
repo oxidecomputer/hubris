@@ -346,6 +346,291 @@ impl SymbolData<'_> {
 // Public methods
 ////////////////////////////////////////////////////////////////////////////////
 
+pub fn chunkify_text(elf: &Path) -> Result<()> {
+    // Open the statically-linked ELF file
+    let data = std::fs::read(elf).context("could not open ELF file")?;
+    let elf = goblin::elf::Elf::parse(&data)?;
+
+    chunkify_text_inner(&elf)
+}
+
+/// Describes where a symbol lives.
+#[derive(Debug)]
+enum SymSection<'a> {
+    /// Defined in a real section; carries the section name.
+    Section(&'a str),
+    /// Undefined (imported / external) — st_shndx == SHN_UNDEF.
+    Undefined,
+    /// Absolute value, not tied to a section — SHN_ABS.
+    Absolute,
+    /// Common block (tentative definition) — SHN_COMMON.
+    Common,
+    /// Real index lives in a SHT_SYMTAB_SHNDX section — SHN_XINDEX.
+    Extended,
+}
+
+fn section_of<'a>(elf: &'a Elf<'_>, sym: &Sym) -> SymSection<'a> {
+    match sym.st_shndx as u32 {
+        goblin::elf::section_header::SHN_UNDEF => SymSection::Undefined,
+        goblin::elf::section_header::SHN_ABS => SymSection::Absolute,
+        goblin::elf::section_header::SHN_COMMON => SymSection::Common,
+        goblin::elf::section_header::SHN_XINDEX => SymSection::Extended,
+        idx => {
+            match elf.section_headers.get(idx as usize) {
+                Some(shdr) => elf
+                    .shdr_strtab
+                    .get_at(shdr.sh_name)
+                    .map(SymSection::Section)
+                    .unwrap_or(SymSection::Undefined),
+                None => SymSection::Undefined, // out-of-range / malformed
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct NeoChunk {
+    name: String,
+    base_addr: u32,
+    header_size: Option<u64>,
+    calc_size: u64,
+    text_ranges: Vec<TextRange>,
+}
+
+impl NeoChunk {
+    pub fn new(entry: Sym, parsed_elf: &Elf<'_>, base_addr: u32) -> Self {
+        // Get the name, if there is one in the symbol table, otherwise
+        // make one up.
+        let name = if entry.st_name == 0 {
+            None
+        } else {
+            parsed_elf
+                .strtab
+                .get_at(entry.st_name)
+                .map(|n| rustc_demangle::demangle(n).to_string())
+        };
+        let name = name.unwrap_or_else(|| format!("anon_fn_0x{base_addr:08X}"));
+
+        // Get the size, if there is one
+        let size = if entry.st_size == 0 {
+            None
+        } else {
+            Some(entry.st_size)
+        };
+
+        NeoChunk {
+            name,
+            base_addr,
+            header_size: size,
+            text_ranges: vec![],
+
+            // For now, we don't calculate the size
+            calc_size: 0,
+        }
+    }
+
+    pub fn push_text_end(&mut self, addr: u32) -> Result<()> {
+        match self.text_ranges.last_mut() {
+            None => {
+                bail!("Unexpected data before text at {addr:08X}")
+            }
+            Some(val) => match val {
+                TextRange::TextStart { start } => {
+                    let start = *start;
+                    *val = TextRange::TextRange { start, end: addr };
+                }
+                TextRange::TextRange { start: _, end } => {
+                    bail!("Unexpected repeated data {end:08X} -> {addr:08X}")
+                }
+            },
+        }
+        Ok(())
+    }
+
+    pub fn push_text_start(&mut self, addr: u32) -> Result<()> {
+        if let Some(TextRange::TextStart { start: old }) =
+            self.text_ranges.last()
+        {
+            bail!("Back to back Text Starts! {old:08X} => {addr:08X}");
+        }
+        self.text_ranges.push(TextRange::TextStart { start: addr });
+        Ok(())
+    }
+}
+
+fn chunkify_text_inner(parsed_elf: &Elf<'_>) -> Result<()> {
+    let text = build_elf::get_section_by_name(parsed_elf, ".text")
+        .context("could not get .text")?;
+
+    let neo_chunks = neochunkify(parsed_elf, &text)?;
+
+    for nc in neo_chunks {
+        println!("{nc:08X?}");
+    }
+    panic!();
+}
+
+#[derive(Debug)]
+enum TextRange {
+    TextStart { start: u32 },
+    TextRange { start: u32, end: u32 },
+}
+
+impl TextRange {
+    fn text_data<'a>(
+        &self,
+        raw_elf: &'a [u8],
+        text_section: &SectionHeader,
+    ) -> Result<&'a [u8]> {
+        let (start, end) = match self {
+            TextRange::TextStart { start } => {
+                bail!("Missing text end: {start:08X}")
+            }
+            TextRange::TextRange { start, end } => (*start, *end),
+        };
+        // Get the text region for this function
+        let start = (start as u64 - text_section.sh_addr
+            + text_section.sh_offset) as usize;
+        let end = (end as u64 - text_section.sh_addr + text_section.sh_offset)
+            as usize;
+        Ok(&raw_elf[start..end])
+    }
+}
+
+fn neochunkify(
+    parsed_elf: &Elf<'_>,
+    text_section: &SectionHeader,
+) -> Result<BTreeMap<u32, NeoChunk>> {
+    // We're going to walk through each of the symbols in the symbol table,
+    // pulling any item that is part of the `.text` or executable section.
+    // This section may include multiple entries for the same address, we'll
+    // explain that more shortly! But for now, "bunch" them into buckets of
+    // symbols at the same address. We're *also* doing this because the symbols
+    // may not necessarily be in-order in the symbol table.
+    let mut buckets = BTreeMap::<u32, Vec<Sym>>::new();
+    for sym in parsed_elf.syms.iter() {
+        // If it's not in the `.text` table, we're not interested!
+        let section = section_of(parsed_elf, &sym);
+        let SymSection::Section(".text") = section else {
+            continue;
+        };
+
+        // Mask the lowest bit off, this is because thumb functions are listed
+        // with this bit set, because that controls the "mode" on jump in arm
+        // processors.
+        let base_addr = sym.st_value & !1;
+
+        // Get the existing bucket for this address, or make a new bucket.
+        let syms = buckets.entry(base_addr as u32).or_default();
+        syms.push(sym);
+    }
+
+    // Great, now we have a bunch of buckets! We expect to see something that
+    // looks like this, if you were to look at it with `objdump`:
+    //
+    // ```text
+    // 00012078 l       .text	00000000 $t
+    // 00012078 l     F .text	00000064 func_one
+    // 000120d0 l       .text	00000000 $d
+    // 000120dc l       .text	00000000 $t
+    // 000120dc l     F .text	00000014 func_two
+    // ```
+    //
+    // This is a bit harder to read, because it's out of order, as mentioned
+    // above, but we would expect three buckets in our code now:
+    //
+    // * 00012078 with two items ($t and func_one)
+    // * 000120d0 with one item ($d)
+    // * 000120dc with two items ($t and func_two)
+    //
+    // This might make more sense if we arrange this correctly:
+    //
+    // ```text
+    // 00012078 l     F .text	00000064 func_one
+    // 00012078 l       .text	00000000 $t
+    // 000120d0 l       .text	00000000 $d
+    // 000120dc l     F .text	00000014 func_two
+    // 000120dc l       .text	00000000 $t
+    // ```
+    //
+    // What we actually have here is two functions, `func_one` at 00012078, and
+    // `func_two` at `000120dc`. `func_one` has three symbols: The one marked
+    // `F`, which is the actual function symbol, showing it has a length of 64,
+    // and the name "func_one". Then it has `$t` at the same address, which
+    // shows that it starts with "executable code" first. Later, it has a `$d`
+    // symbol, which notes that inline data is here at the end of the function.
+    // After this, `func_two` begins.
+    //
+    // The following code is a small state machine that tries to extract all the
+    // symbols related to a single function into an aggregated "neochunk"
+    // report, which we will later use.
+    let mut neo_chunks = BTreeMap::<u32, NeoChunk>::new();
+    let mut current: Option<NeoChunk> = None;
+
+    // For each bucket...
+    for (base_addr, mut syms) in buckets {
+        // ... while there is still any contents in this bucket...
+        while !syms.is_empty() {
+            // ..see if there is a function entry still in this bucket. If there
+            // is, remove it from the bucket and process it.
+            if let Some(entry) = {
+                syms.iter()
+                    .position(|s| s.is_function())
+                    .map(|idx| syms.remove(idx))
+            } {
+                // Found one, if there was a pending neochunk, "commit" it,
+                // using the current address to calculate the size, in case the
+                // function item was missing "function size" metadata, which we
+                // have observed with some externally linked static libraries,
+                // like `salty`.
+                if let Some(mut ch) = current.take() {
+                    let calc_size = (base_addr - ch.base_addr) as u64;
+                    ch.calc_size = calc_size;
+                    ch.push_text_end(base_addr);
+                    neo_chunks.insert(ch.base_addr, ch);
+                }
+
+                // Store off the current chunk
+                current = Some(NeoChunk::new(entry, parsed_elf, base_addr));
+                continue;
+            }
+
+            // We know `syms` is non-empty, take some item in it
+            let entry = syms.pop().unwrap();
+
+            // Nope, see if we can extract $d/$t symbols to the current fn.
+            // We *should* always have a function entry by now, but if not,
+            // just log a warning.
+            let Some(current) = current.as_mut() else {
+                bail!("Discarded {entry:?} at {base_addr:08X}");
+            };
+
+            match parsed_elf.strtab.get_at(entry.st_name) {
+                Some("$t") => current.push_text_start(base_addr)?,
+                Some("$d") => current.push_text_end(base_addr)?,
+                other => {
+                    println!(
+                        "WARN: Discarding unexpected '{other:?}' \
+                        {entry:?} at {base_addr:08X}"
+                    )
+                }
+            }
+        }
+    }
+
+    // Finally push the last chunk onto the list
+    if let Some(mut cur) = current.take() {
+        // TODO! We need to figure out the end of the section here to fill in
+        // calculated length!
+        let text_end = text_section.sh_addr + text_section.sh_size;
+        cur.calc_size = text_end - cur.base_addr as u64;
+        cur.push_text_end(text_end as u32);
+        neo_chunks.insert(cur.base_addr, cur);
+    }
+
+    Ok(neo_chunks)
+}
+
 /// Load and parse the `elf` file at the given path, producing a report of
 /// metadata about all functions in the `elf` file.
 pub fn extract_function_items(
