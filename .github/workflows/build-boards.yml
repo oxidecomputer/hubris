@@ -100,6 +100,10 @@ jobs:
             ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-
             ${{ runner.os }}-vcpkg-download-
 
+      - name: debug disk usage
+        run: |
+          du -sch ./target
+
       - name: cargo xtask dist
         run: |
           # GitHub Actions defaults the environment variable to an empty string when missing.
