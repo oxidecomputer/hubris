@@ -91,7 +91,6 @@ pub const KNOWN_RECURSORS: &[&str] = &[
 #[derive(Debug, Clone)]
 pub struct FunctionData {
     pub name: String,
-    pub short_name: String,
     pub frame_size: Option<u64>,
     pub calls: BTreeSet<u32>,
     pub missing_calls: usize,
@@ -213,7 +212,7 @@ impl Resolver {
     pub fn resolve_by_name(&mut self, entry: &str) -> Result<Rc<ResolvedNode>> {
         let Some(item) = self.fn_items.iter().find(|(_k, v)| v.name == entry)
         else {
-            bail!("Not found");
+            bail!("function '{entry}' not found");
         };
         let addr = *(item.0);
         self.resolve_addr(addr)
@@ -228,7 +227,7 @@ impl Resolver {
 
         // no, we havent. Get the node info from the fn data
         let Some(item) = self.fn_items.get(&addr) else {
-            bail!("{addr:08X}: no function data");
+            bail!("no function data for {addr:08X}");
         };
         self.call_stack.push(addr);
         let children = item.calls.clone();
@@ -270,8 +269,7 @@ impl Resolver {
                 .resolve_addr(child)
                 .with_context(|| format!("While resolving {}", name))?;
 
-            let ttl_child = rchild.max_stack();
-            max_children = max_children.max(ttl_child);
+            max_children = max_children.max(rchild.max_stack());
             res_children.insert(child, rchild);
         }
 
@@ -294,18 +292,18 @@ impl Resolver {
     /// while resolving the call graph, likely due to being called indirectly or
     /// through vtable methods.
     fn find_missing_nodes(&mut self) -> Result<Vec<Rc<ResolvedNode>>> {
-        let mut missing = vec![];
-        for addr in self.fn_items.keys() {
-            if !self.all_resolved.contains_key(addr) {
-                missing.push(*addr);
-            }
-        }
-
-        let mut found = vec![];
-        for addr in missing {
-            let node = self.resolve_addr(addr)?;
-            found.push(node);
-        }
+        // Find all of the functions we know about in `fn_items`, and find
+        // any that haven't already been resolved into `all_resolved` from
+        // previous resolution, usually the `_start` entry point
+        let mut found = self
+            .fn_items
+            .keys()
+            .copied()
+            .filter(|addr| !self.all_resolved.contains_key(&addr))
+            .collect::<Vec<_>>() // necessary to avoid double borrowing self
+            .into_iter()
+            .map(|addr| self.resolve_addr(addr))
+            .collect::<Result<Vec<_>, _>>()?;
 
         let mut last_len = found.len();
         loop {
@@ -695,7 +693,7 @@ impl FunctionCollector<'_> {
                 panic!("Unsupported arch");
             };
             let op = details.operands().last().unwrap_or_else(|| {
-                panic!("missing operand!");
+                panic!("jumps on ARM should always have an operand!");
             });
             // We can't resolve indirect calls, alas
             //
@@ -742,8 +740,11 @@ pub fn extract_function_items(
     allowed_recurses: &[String],
 ) -> Result<FunctionReport> {
     // Open the statically-linked ELF file
-    let data = std::fs::read(elf).context("could not open ELF file")?;
-    let elf = goblin::elf::Elf::parse(&data)?;
+    let data = std::fs::read(elf).with_context(|| {
+        format!("could not open ELF file: {}", elf.display())
+    })?;
+    let elf = goblin::elf::Elf::parse(&data)
+        .with_context(|| format!("could not parse {}", elf.display()))?;
 
     // Get sizes of stack frames by addr from the elf
     let addr_to_frame_size = extract_stack_sizes_section(&data, &elf)?;
@@ -816,8 +817,7 @@ pub fn extract_function_items(
                 calls: fc.calls,
                 missing_calls: fc.missing_calls,
                 recursive_calls: fc.recursive_calls,
-                name: nchunk.name.clone(),
-                short_name: nchunk.name,
+                name: nchunk.name,
                 frame_size,
             },
         );
