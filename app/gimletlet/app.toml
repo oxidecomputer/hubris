@@ -52,7 +52,7 @@ name = "task-packrat"
 priority = 1
 start = true
 task-slots = ["jefe"]
-stacksize = 1480
+stacksize = 1496
 features = ["ereport"]
 notifications = ["task-faulted"]
 
