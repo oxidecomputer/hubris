@@ -299,7 +299,7 @@ impl Resolver {
             .fn_items
             .keys()
             .copied()
-            .filter(|addr| !self.all_resolved.contains_key(&addr))
+            .filter(|addr| !self.all_resolved.contains_key(addr))
             .collect::<Vec<_>>() // necessary to avoid double borrowing self
             .into_iter()
             .map(|addr| self.resolve_addr(addr))
