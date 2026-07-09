@@ -42,7 +42,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Check License Header
         uses: apache/skywalking-eyes/header@501a28d2fb4a9b962661987e50cf0219631b32ff
@@ -54,7 +54,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Run tests
         run: cargo test --verbose --workspace
@@ -68,7 +68,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Install clippy
         run:  rustup component add clippy
       - name: Clippy check
@@ -81,9 +81,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: cargo fmt 
+      - name: cargo fmt
         run: cargo fmt --all --check
 
   docs-build:
@@ -93,7 +93,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Create output directories
         run: |
@@ -107,12 +107,12 @@ jobs:
           cp website/bugs/index.html output/bugs/index.html
 
       - name: Generate reference
-        uses: tonynv/asciidoctor-action@master
+        uses: tonynv/asciidoctor-action@153b34f78be19907024c3dfb128874a36cec2535 # master
         with:
           program: asciidoctor doc/index.adoc -o output/reference/index.html
 
       - name: Upload content as an artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
           path: output/
           retention-days: 90 # We might want to inspect this in a PR.
@@ -131,7 +131,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
         id: deployment
 
   # Hubris builds have to be reproducible, and we want to test that in CI. This job does a build of
@@ -153,7 +153,7 @@ jobs:
             app_toml: app/oxide-rot-1/app.toml
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       # We check explicitly to ensure the other job has a different one.
       - name: Check that GCC is the system C toolchain
@@ -167,7 +167,7 @@ jobs:
           app_toml: ${{ matrix.app_toml }}
 
       - name: Upload the artifact to be later checked
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reproducible-${{ matrix.name }}-a
           path: target/${{ matrix.name }}/dist/${{ matrix.image }}/build-${{ matrix.name }}-image-${{ matrix.image }}.zip
@@ -210,7 +210,7 @@ jobs:
           cc --version | grep -q clang
 
       - name: Checkout the source code in the standard GitHub Actions directory
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       # We run the Hubris build in a different directory, to ensure that paths are not hardcoded. We
       # also use a very long path, as a reproducibility issue Emily found in the wild in the past
@@ -229,7 +229,7 @@ jobs:
       #
       # Note that this causes very funny behavior in GitHub Action's workflow UI, as apparently step
       # duration estimates are based on time reported by the runner???
-      - name: Move forward in time to ensure a different build date 
+      - name: Move forward in time to ensure a different build date
         run: |
           echo "Before time change: $(date)"
 
@@ -272,7 +272,7 @@ jobs:
         run: sudo timedatectl set-ntp true
 
       - name: Upload the artifact to be later checked
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reproducible-${{ matrix.name }}-b
           path: ${{ env.CUSTOM_ROOT }}/target/${{ matrix.name }}/dist/${{ matrix.image }}/build-${{ matrix.name }}-image-${{ matrix.image }}.zip
@@ -290,13 +290,13 @@ jobs:
     permissions: {}
     steps:
       - name: Install uv (Python package manager)
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           enable-cache: false
           ignore-empty-workdir: true
 
       - name: Download reproducible artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: reproducible-${{ matrix.name }}-*
 
@@ -322,7 +322,7 @@ jobs:
       - name: Upload the diffoscope report
         if: failure() # Only upload the report if the previous step failed.
         id: diffoscope-report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reproducible-diffoscope-report-${{ matrix.name }}
           path: report.html
