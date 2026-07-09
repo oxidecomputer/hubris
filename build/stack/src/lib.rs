@@ -72,7 +72,7 @@ use capstone::{
 use goblin::elf::{Elf, SectionHeader, Sym};
 
 /// Information derived about a given function
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionData {
     pub name: String,
     pub short_name: String,
@@ -88,7 +88,6 @@ pub struct FunctionData {
 pub struct FunctionReport {
     pub function_items: BTreeMap<u32, FunctionData>,
     pub addr_to_frame_size: BTreeMap<u32, u64>,
-    pub names: BTreeMap<u32, String>,
 }
 
 /// A function that has been visited and "filled in" by the [`Resolver`].
@@ -112,21 +111,6 @@ pub struct Resolver {
     pub call_stack: Vec<u32>,
     pub all_resolved: BTreeMap<u32, Rc<ResolvedNode>>,
     pub fn_items: BTreeMap<u32, FunctionData>,
-}
-
-/// Information derived about a given symbol
-struct SymbolData<'a> {
-    sym: Sym,
-    mangled_name: &'a str,
-    base_addr: u64,
-    text_region: &'a [u8],
-}
-
-/// Information about a "chunk", which is a portion of a function containing
-/// executable code (and not inlined data)
-struct ChunkItem {
-    code: Vec<u8>,
-    addr: u64,
 }
 
 impl ResolvedNode {
@@ -223,7 +207,7 @@ impl Resolver {
 
         // no, we havent. Get the node info from the fn data
         let Some(item) = self.fn_items.get(&addr) else {
-            bail!("no function data");
+            bail!("{addr:08X}: no function data");
         };
         self.call_stack.push(addr);
         let children = item.calls.clone();
@@ -308,51 +292,9 @@ impl Resolver {
     }
 }
 
-impl SymbolData<'_> {
-    /// The range of addresses contained within this symbol
-    fn addr_range(&self) -> Range<u32> {
-        let base_addr = self.base_addr as u32;
-        base_addr..base_addr + self.sym.st_size as u32
-    }
-
-    /// An array of "Chunks", which are each of the executable portions of this
-    /// symbol.
-    //
-    // TODO: return `Vec<(u32, &[u8])>?
-    fn extract_instruction_chunks<F>(&self, is_code: F) -> Vec<ChunkItem>
-    where
-        F: Fn(u32) -> bool,
-    {
-        // Split the text region into instruction-only chunks
-        let mut chunks = vec![];
-        let mut chunk = None;
-        for (i, b) in self.text_region.iter().enumerate() {
-            let addr = self.base_addr + i as u64;
-            if is_code(addr as u32) {
-                chunk
-                    .get_or_insert(ChunkItem { addr, code: vec![] })
-                    .code
-                    .push(*b);
-            } else if let Some(c) = chunk.take() {
-                chunks.push(c);
-            }
-        }
-        chunks.extend(chunk); // don't forget the trailing chunk!
-        chunks
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Public methods
 ////////////////////////////////////////////////////////////////////////////////
-
-pub fn chunkify_text(elf: &Path) -> Result<()> {
-    // Open the statically-linked ELF file
-    let data = std::fs::read(elf).context("could not open ELF file")?;
-    let elf = goblin::elf::Elf::parse(&data)?;
-
-    chunkify_text_inner(&elf)
-}
 
 /// Describes where a symbol lives.
 #[derive(Debug)]
@@ -429,18 +371,27 @@ impl NeoChunk {
         }
     }
 
-    pub fn push_text_end(&mut self, addr: u32) -> Result<()> {
+    pub fn push_text_end(&mut self, mut addr: u32) -> Result<()> {
+        // We may push the text end when we reach the end of the function. If
+        // there is padding, this may be a garbage D4D4 instruction inserted by
+        // the linker!
+        if let Some(size) = self.header_size.as_ref() {
+            addr = addr.min(self.base_addr + (*size as u32));
+        }
+
         match self.text_ranges.last_mut() {
             None => {
-                bail!("Unexpected data before text at {addr:08X}")
+                bail!("Unexpected data/end of fn before text at {addr:08X}")
             }
             Some(val) => match val {
                 TextRange::TextStart { start } => {
                     let start = *start;
                     *val = TextRange::TextRange { start, end: addr };
                 }
-                TextRange::TextRange { start: _, end } => {
-                    bail!("Unexpected repeated data {end:08X} -> {addr:08X}")
+                TextRange::TextRange { .. } => {
+                    // This could happen if we had text, then data, then the
+                    // next function, because we call `push_text_end` both when
+                    // we see a `$d` record or when the function ends.
                 }
             },
         }
@@ -456,18 +407,16 @@ impl NeoChunk {
         self.text_ranges.push(TextRange::TextStart { start: addr });
         Ok(())
     }
-}
 
-fn chunkify_text_inner(parsed_elf: &Elf<'_>) -> Result<()> {
-    let text = build_elf::get_section_by_name(parsed_elf, ".text")
-        .context("could not get .text")?;
-
-    let neo_chunks = neochunkify(parsed_elf, &text)?;
-
-    for nc in neo_chunks {
-        println!("{nc:08X?}");
+    pub fn function_range(&self) -> Range<u32> {
+        let start = self.base_addr;
+        let size = if let Some(addr) = self.header_size.as_ref() {
+            *addr
+        } else {
+            self.calc_size
+        } as u32;
+        start..(start + size)
     }
-    panic!();
 }
 
 #[derive(Debug)]
@@ -481,7 +430,7 @@ impl TextRange {
         &self,
         raw_elf: &'a [u8],
         text_section: &SectionHeader,
-    ) -> Result<&'a [u8]> {
+    ) -> Result<(u64, &'a [u8])> {
         let (start, end) = match self {
             TextRange::TextStart { start } => {
                 bail!("Missing text end: {start:08X}")
@@ -489,11 +438,11 @@ impl TextRange {
             TextRange::TextRange { start, end } => (*start, *end),
         };
         // Get the text region for this function
-        let start = (start as u64 - text_section.sh_addr
+        let start_offset = (start as u64 - text_section.sh_addr
             + text_section.sh_offset) as usize;
-        let end = (end as u64 - text_section.sh_addr + text_section.sh_offset)
-            as usize;
-        Ok(&raw_elf[start..end])
+        let end_offset = (end as u64 - text_section.sh_addr
+            + text_section.sh_offset) as usize;
+        Ok((start as u64, &raw_elf[start_offset..end_offset]))
     }
 }
 
@@ -586,7 +535,7 @@ fn neochunkify(
                 if let Some(mut ch) = current.take() {
                     let calc_size = (base_addr - ch.base_addr) as u64;
                     ch.calc_size = calc_size;
-                    ch.push_text_end(base_addr);
+                    ch.push_text_end(base_addr)?;
                     neo_chunks.insert(ch.base_addr, ch);
                 }
 
@@ -624,18 +573,135 @@ fn neochunkify(
         // calculated length!
         let text_end = text_section.sh_addr + text_section.sh_size;
         cur.calc_size = text_end - cur.base_addr as u64;
-        cur.push_text_end(text_end as u32);
+        cur.push_text_end(text_end as u32)?;
         neo_chunks.insert(cur.base_addr, cur);
     }
 
     Ok(neo_chunks)
 }
 
+struct FunctionCollector<'a> {
+    cs: &'a Capstone,
+    name: &'a str,
+    base_addr: u32,
+    function_range: Range<u32>,
+    frame_size: Option<u64>,
+    verbose: bool,
+    missing_calls: usize,
+    recursive_calls: usize,
+    calls: BTreeSet<u32>,
+}
+
+impl FunctionCollector<'_> {
+    fn extract_calls(&mut self, data: &[u8], data_addr: u64) -> Result<()> {
+        let instrs = self
+            .cs
+            .disasm_all(data, data_addr)
+            .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
+
+        let Some((last, all_except_last)) = instrs.split_last() else {
+            bail!("Empty chunk in {} at {:08X}", self.name, data_addr);
+        };
+
+        let to_consider = if last.bytes() == [0xD4, 0xD4] {
+            all_except_last
+        } else {
+            &instrs
+        };
+
+        // Walk through each instruction inside of each chunk
+        for (i, instr) in to_consider.iter().enumerate() {
+            // We need to get details for the instruction, which we should
+            // always have for well-formed programs
+            let detail = self.cs.insn_detail(instr).map_err(|e| {
+                anyhow!("could not get instruction details: {e}")
+            })?;
+            self.process_one(instr, &detail, i == (to_consider.len() - 1))?;
+        }
+
+        // And process the last instruction carefully
+        //
+        Ok(())
+    }
+
+    fn process_one(
+        &mut self,
+        instr: &Insn<'_>,
+        detail: &InsnDetail<'_>,
+        last_in_chunk: bool,
+    ) -> Result<()> {
+        let can_tail = self.frame_size == Some(0) && last_in_chunk;
+        let is_grp_call =
+            |g| g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8);
+        let is_grp_jump =
+            |g| g == &InsnGroupId(InsnGroupType::CS_GRP_JUMP as u8);
+        let is_grp_rel =
+            |g| g == &InsnGroupId(InsnGroupType::CS_GRP_BRANCH_RELATIVE as u8);
+
+        // Detect tail calls, which are jumps at the final instruction
+        // when the function itself has no stack frame.
+        let is_tail_call = |g| is_grp_jump(g) && can_tail;
+        let is_branching_instr = detail.groups().iter().any(|g| {
+            // Check if this is now not needed anymore
+            if !is_grp_rel(g) && is_tail_call(g) {
+                panic!("this check is NOT obsolete!");
+            }
+
+            is_grp_call(g) || is_grp_rel(g) || is_tail_call(g)
+        });
+
+        if is_branching_instr {
+            // On Arm/Thumb, a jump always has some kind of operand,
+            // which is where we are jumping to. Get the last operand so
+            // we can determine if we can follow this.
+            let arch = detail.arch_detail();
+            let ArchDetail::ArmDetail(details) = arch else {
+                panic!("Unsupported arch");
+            };
+            let op = details.operands().last().unwrap_or_else(|| {
+                panic!("missing operand!");
+            });
+            // We can't resolve indirect calls, alas
+            //
+            // TODO: We could consider keeping track of register ops
+            // and potentially figure out the location of the register
+            // based jump here
+            let arm::ArmOperandType::Imm(target) = op.op_type else {
+                if self.verbose {
+                    println!(
+                        "Failed to resolve indirect call in {}!",
+                        self.name
+                    );
+                }
+                // TODO: we record that we are missing a call, and
+                // ideally we would plug the worst of the missing funcs
+                // here. Unfortunately, that means we end up needing to
+                // invalidate the RC, which would be disappointing. We
+                // could potentially add an AtomicU64 here to add
+                // "bonus" items, but that would again invalidate the
+                // pre-computed "max stack" numbers.
+                self.missing_calls += 1;
+                return Ok(());
+            };
+            let target = u32::try_from(target).unwrap();
+
+            // Avoid recursive calls to the same function, and ignore
+            // any control flow that directs back inside this function.
+            // Any other jumps should be recorded as a call.
+            if target == self.base_addr {
+                self.recursive_calls += 1;
+            } else if !self.function_range.contains(&target) {
+                self.calls.insert(target);
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Load and parse the `elf` file at the given path, producing a report of
 /// metadata about all functions in the `elf` file.
 pub fn extract_function_items(
     elf: &Path,
-    task_name: &str,
     verbose: bool,
 ) -> Result<FunctionReport> {
     // Open the statically-linked ELF file
@@ -644,12 +710,6 @@ pub fn extract_function_items(
 
     // Get sizes of stack frames by addr from the elf
     let addr_to_frame_size = extract_stack_sizes_section(&data, &elf)?;
-
-    let text_regions = extract_text_regions(&elf, task_name)?;
-    let is_code = |addr| {
-        let mut iter = text_regions.range(..=addr);
-        *iter.next_back().unwrap().1
-    };
 
     let text = build_elf::get_section_by_name(&elf, ".text")
         .context("could not get .text")?;
@@ -664,129 +724,47 @@ pub fn extract_function_items(
 
     // Disassemble each function, building a map of its call sites
     let mut fns = BTreeMap::new();
-    let mut fn_names = BTreeMap::new();
-    for sym_item in fn_symbol_iter(&elf, text, &data) {
-        let base_addr = sym_item.base_addr as u32;
-        let name = sym_item.mangled_name;
-        // This is the stack frame size of the current function
-        let frame_size = addr_to_frame_size.get(&base_addr).copied();
-        // This is the range of addresses comprising this function
-        let function_range = sym_item.addr_range();
-        // Demangled and short name of this function
-        let name = rustc_demangle::demangle(name).to_string();
-        let short_name = name_shortener(&name);
 
-        fn_names.insert(base_addr, name.clone());
+    let chunks = neochunkify(&elf, text)?;
 
-        // Split the text region into instruction-only chunks
-        let chunks = sym_item.extract_instruction_chunks(is_code);
-
+    for (base_addr, nchunk) in chunks {
         // Walk through each "chunk", which is an island of executable code
         // inside of each function, and collect all the out-bound calls. We
         // disassemble chunks rather than functions, as functions might contain
         // puddles of inline data which we don't want to (mis)-disassemble.
-        let mut calls = BTreeSet::new();
-        let mut missing_calls = 0;
-        let mut recursive_calls = 0;
-        for chunk_item in chunks {
-            let instrs = cs
-                .disasm_all(&chunk_item.code, chunk_item.addr)
-                .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
+        //
+        // This is the stack frame size of the current function
+        let frame_size = addr_to_frame_size.get(&base_addr).copied();
+        let function_range = nchunk.function_range();
 
-            // We need to get details for the instruction, which we should
-            // always have for well-formed programs
-            let instrs: Vec<&Insn<'_>> = instrs.iter().collect();
-            let details: Vec<InsnDetail<'_>> = instrs
-                .iter()
-                .map(|instr| {
-                    cs.insn_detail(instr).map_err(|e| {
-                        anyhow!("could not get instruction details: {e}")
-                    })
-                })
-                .collect::<Result<_>>()?;
+        // Gather up all the information we need to find all the calls in this
+        // function
+        let mut fc = FunctionCollector {
+            cs: &cs,
+            name: &nchunk.name,
+            base_addr,
+            function_range,
+            frame_size,
+            verbose,
+            missing_calls: 0,
+            recursive_calls: 0,
+            calls: BTreeSet::new(),
+        };
 
-            // Walk through each instruction inside of each chunk
-            for (i, (_instr, detail)) in
-                instrs.iter().zip(details.iter()).enumerate()
-            {
-                let can_tail = frame_size == Some(0) && i == instrs.len() - 1;
-                let is_grp_call =
-                    |g| g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8);
-                let is_grp_jump =
-                    |g| g == &InsnGroupId(InsnGroupType::CS_GRP_JUMP as u8);
-                let is_grp_rel = |g| {
-                    g == &InsnGroupId(
-                        InsnGroupType::CS_GRP_BRANCH_RELATIVE as u8,
-                    )
-                };
-
-                // Detect tail calls, which are jumps at the final instruction
-                // when the function itself has no stack frame.
-                let is_tail_call = |g| is_grp_jump(g) && can_tail;
-                let is_branching_instr = detail.groups().iter().any(|g| {
-                    // Check if this is now not needed anymore
-                    if !is_grp_rel(g) && is_tail_call(g) {
-                        panic!("this check is NOT obsolete!");
-                    }
-
-                    is_grp_call(g) || is_grp_rel(g) || is_tail_call(g)
-                });
-
-                if is_branching_instr {
-                    // On Arm/Thumb, a jump always has some kind of operand,
-                    // which is where we are jumping to. Get the last operand so
-                    // we can determine if we can follow this.
-                    let arch = detail.arch_detail();
-                    let ArchDetail::ArmDetail(details) = arch else {
-                        panic!("Unsupported arch");
-                    };
-                    let op = details.operands().last().unwrap_or_else(|| {
-                        panic!("missing operand!");
-                    });
-                    // We can't resolve indirect calls, alas
-                    //
-                    // TODO: We could consider keeping track of register ops
-                    // and potentially figure out the location of the register
-                    // based jump here
-                    let arm::ArmOperandType::Imm(target) = op.op_type else {
-                        if verbose {
-                            println!(
-                                "Failed to resolve indirect call in {name}!"
-                            );
-                        }
-                        // TODO: we record that we are missing a call, and
-                        // ideally we would plug the worst of the missing funcs
-                        // here. Unfortunately, that means we end up needing to
-                        // invalidate the RC, which would be disappointing. We
-                        // could potentially add an AtomicU64 here to add
-                        // "bonus" items, but that would again invalidate the
-                        // pre-computed "max stack" numbers.
-                        missing_calls += 1;
-                        continue;
-                    };
-                    let target = u32::try_from(target).unwrap();
-
-                    // Avoid recursive calls to the same function, and ignore
-                    // any control flow that directs back inside this function.
-                    // Any other jumps should be recorded as a call.
-                    if target == base_addr {
-                        recursive_calls += 1;
-                    } else if !function_range.contains(&target) {
-                        calls.insert(target);
-                    }
-                }
-            }
+        for chunk in nchunk.text_ranges.iter() {
+            let (data_addr, data) = chunk.text_data(&data, text)?;
+            fc.extract_calls(data, data_addr)?;
         }
 
         fns.insert(
             base_addr,
             FunctionData {
-                name,
-                short_name,
+                calls: fc.calls,
+                missing_calls: fc.missing_calls,
+                recursive_calls: fc.recursive_calls,
+                name: nchunk.name.clone(),
+                short_name: nchunk.name,
                 frame_size,
-                calls,
-                missing_calls,
-                recursive_calls,
             },
         );
     }
@@ -794,7 +772,6 @@ pub fn extract_function_items(
     Ok(FunctionReport {
         function_items: fns,
         addr_to_frame_size,
-        names: fn_names,
     })
 }
 
@@ -804,12 +781,8 @@ pub fn extract_function_items(
 /// underestimation.  Overestimation is less likely, but still may happen if
 /// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
 /// `B` never calls `C` if called by `A`).
-pub fn get_max_stack(
-    elf: &Path,
-    task_name: &str,
-    verbose: bool,
-) -> Result<Vec<(u64, String)>> {
-    let fns = extract_function_items(elf, task_name, verbose)?;
+pub fn get_max_stack(elf: &Path, verbose: bool) -> Result<Vec<(u64, String)>> {
+    let fns = extract_function_items(elf, verbose)?;
     let mut resolver = Resolver::new(fns.function_items);
     let node = resolver.resolve_by_name("_start")?;
     let chain = node.worst_chain();
@@ -855,79 +828,4 @@ fn extract_stack_sizes_section(
     }
 
     Ok(addr_to_frame_size)
-}
-
-/// There are `$t` and `$d` symbols which indicate the beginning of text
-/// versus data in the `.text` region.  We collect them into a `BTreeMap`
-/// here so that we can avoid trying to decode inline data words.
-fn extract_text_regions(
-    parsed_elf: &Elf<'_>,
-    task_name: &str,
-) -> Result<BTreeMap<u32, bool>> {
-    let mut text_regions = BTreeMap::new();
-    let relevant = parsed_elf
-        .syms
-        .iter()
-        .filter(|s| s.st_name != 0)
-        .filter(|s| s.st_size == 0)
-        .filter(|s| s.st_type() == goblin::elf::sym::STT_NOTYPE);
-
-    for sym in relevant {
-        let addr = sym.st_value as u32;
-        let is_text = match parsed_elf.strtab.get_at(sym.st_name) {
-            Some("$t") => true,
-            Some("$d") => false,
-            Some(_) => continue,
-            None => {
-                bail!("bad symbol in {task_name}: {}", sym.st_name);
-            }
-        };
-        text_regions.insert(addr, is_text);
-    }
-    Ok(text_regions)
-}
-
-/// Returns an iterator over symbols inside the elf file that represent a named
-/// function.
-fn fn_symbol_iter<'a>(
-    parsed_elf: &Elf<'a>,
-    text_section: &SectionHeader,
-    raw_elf: &'a [u8],
-) -> impl Iterator<Item = SymbolData<'a>> {
-    parsed_elf
-        .syms
-        .iter()
-        // We only care about named function symbols here
-        .filter(|s| s.st_name != 0)
-        .filter(|s| s.is_function())
-        .filter(|s| s.st_size != 0)
-        .filter_map(|s| {
-            // Clear the lowest bit, which indicates that the function contains
-            // thumb instructions (always true for our systems!)
-            let base_addr = s.st_value & !1;
-
-            // Get the text region for this function
-            let offset = (base_addr - text_section.sh_addr
-                + text_section.sh_offset) as usize;
-            let text_region = &raw_elf[offset..][..s.st_size as usize];
-
-            // Bake into a handy collected symbol item
-            Some(SymbolData {
-                sym: s,
-                // TODO: assert?
-                mangled_name: parsed_elf.strtab.get_at(s.st_name).unwrap(),
-                base_addr,
-                text_region,
-            })
-        })
-}
-
-fn name_shortener(name: &str) -> String {
-    // Strip the trailing hash from the name for ease of printing
-    if let Some(i) = name.rfind("::") {
-        &name[..i]
-    } else {
-        &name
-    }
-    .to_owned()
 }
