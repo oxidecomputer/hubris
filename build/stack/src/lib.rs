@@ -86,6 +86,9 @@ pub const KNOWN_RECURSORS: &[&str] = &[
     // We have limited recursion here, see
     // https://github.com/oxidecomputer/hubris/issues/2593
     "Vsc7448Spi",
+    // Tests have a method called "stackblow" that, you guessed it, blows
+    // the stack (intentionally)
+    "stackblow",
 ];
 
 /// Information derived about a given function
