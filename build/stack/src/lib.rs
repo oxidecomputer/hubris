@@ -12,12 +12,13 @@
 //!    basis.
 //! 2. We use the `goblin` crate to parse the compiled `elf` files, and obtain:
 //!     1. The per-function stack frame sizes: [`extract_stack_sizes_section()`]
-//!     2. The list of all function symbols contained in the elf file,  see
-//!        [`fn_symbol_iter()`]
-//!     3. The `.text` section of the elf file, which contains executable
-//!        instructions, inside of [`extract_function_items()`]
-//!     4. Information about where data is inlined within the `.text` section,
-//!        see [`extract_text_regions()`]
+//!     2. "Raw" function information per-function, see
+//!        [`extract_raw_function_data`], containing:
+//!         1. The list of all function symbols contained in the elf file
+//!         2. The `.text` section of the elf file, which contains executable
+//!            instructions
+//!         3. Information about where data is inlined within the `.text`
+//!            section
 //! 3. For each function in the elf file, we:
 //!     1. Use the [Capstone library](https://www.capstone-engine.org/) (by way
 //!        of the [`capstone`](https://docs.rs/capstone/latest/capstone/)
@@ -128,6 +129,210 @@ pub struct Resolver {
     pub fn_items: BTreeMap<u32, FunctionData>,
     pub allowed_recurses: Vec<String>,
 }
+
+/// Describes where a symbol lives.
+#[derive(Debug)]
+enum SymSection<'a> {
+    /// Defined in a real section; carries the section name.
+    Section(&'a str),
+    /// Undefined (imported / external) — st_shndx == SHN_UNDEF.
+    Undefined,
+    /// Absolute value, not tied to a section — SHN_ABS.
+    Absolute,
+    /// Common block (tentative definition) — SHN_COMMON.
+    Common,
+    /// Real index lives in a SHT_SYMTAB_SHNDX section — SHN_XINDEX.
+    Extended,
+}
+
+/// "Raw" function data, extracted from the elf metadata and section headers
+#[derive(Debug)]
+struct RawFunctionData {
+    /// Demangled name of the function
+    name: String,
+    /// Address of the function
+    base_addr: u32,
+    /// The size of the function, in bytes, according to the symbol table
+    symbol_table_size: Option<u64>,
+    /// The calculated size of the function, counting until the next symbol
+    /// starts (useful when the symbol table is missing size)
+    calc_size: u64,
+    /// The address ranges that contain executable code (and not inline data)
+    text_ranges: Vec<TextRange>,
+}
+
+/// A range of executable "Text" data
+#[derive(Debug)]
+enum TextRange {
+    /// An open-ended range starting at the given address
+    TextStart { start: u32 },
+    /// A closed-ended range `start..end`.
+    TextRange { start: u32, end: u32 },
+}
+
+/// Private helper type to group up all of the context information we need when
+/// processing the raw assembly of each function to figure out which functions
+/// are called by this function
+struct FunctionCallCollector<'a> {
+    /// The Capstone disassembler
+    cs: &'a Capstone,
+    /// The name of this function
+    name: &'a str,
+    /// The base address of this function
+    base_addr: u32,
+    /// The range of addresses on the target that contain this function, as well
+    /// as any data sections within/after this function
+    function_range: Range<u32>,
+    /// The stack frame size for this function, as reported by LLVM's
+    /// `.stack_sizes` section
+    frame_size: Option<u64>,
+    /// Whether to print debugging info
+    verbose: bool,
+    /// The number of outgoing calls we were unable to resolve, likely because
+    /// of indirect addressing via function pointers/dyn Trait
+    missing_calls: usize,
+    /// The number of self-recursive calls, e.g. this function directly calling
+    /// itself
+    recursive_calls: usize,
+    /// All outgoing calls from this function
+    calls: BTreeSet<u32>,
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Public methods
+////////////////////////////////////////////////////////////////////////////////
+
+/// Estimates the maximum stack size for the given task
+///
+/// This does not take dynamic function calls into account, which could cause
+/// underestimation.  Overestimation is less likely, but still may happen if
+/// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
+/// `B` never calls `C` if called by `A`).
+pub fn get_max_stack(
+    elf: &Path,
+    verbose: bool,
+    allowed_recurses: Vec<String>,
+) -> Result<Vec<(u64, String)>> {
+    let fns = extract_function_items(elf, verbose, &allowed_recurses)?;
+    let mut resolver = Resolver::new(fns.function_items, allowed_recurses);
+    let node = resolver.resolve_by_name("_start")?;
+    let chain = node.worst_chain();
+    let mut chain_compat = chain
+        .into_iter()
+        .map(|n| (n.local_size.unwrap_or(0), n.name.clone()))
+        .collect::<Vec<_>>();
+
+    let missing = resolver.find_missing_nodes()?;
+
+    // Find the largest missing item so that we can add it to the call stack as
+    // a "fudge factor" for unresolved dynamic/indirect dispatch.
+    let largest = missing.iter().map(|n| n.max_stack()).max().unwrap_or(0);
+    if let Some(node) = missing.iter().find(|n| n.max_stack() == largest) {
+        chain_compat.push((largest, format!("missing::{}", node.name)));
+    }
+
+    Ok(chain_compat)
+}
+
+/// Load and parse the `elf` file at the given path, producing a report of
+/// metadata about all functions in the `elf` file.
+pub fn extract_function_items(
+    elf: &Path,
+    verbose: bool,
+    allowed_recurses: &[String],
+) -> Result<FunctionReport> {
+    // Open the statically-linked ELF file
+    let data = std::fs::read(elf).with_context(|| {
+        format!("could not open ELF file: {}", elf.display())
+    })?;
+    let elf = goblin::elf::Elf::parse(&data)
+        .with_context(|| format!("could not parse {}", elf.display()))?;
+
+    // Get sizes of stack frames by addr from the elf
+    let addr_to_frame_size = extract_stack_sizes_section(&data, &elf)?;
+
+    let text = build_elf::get_section_by_name(&elf, ".text")
+        .context("could not get .text")?;
+
+    let cs = Capstone::new()
+        .arm()
+        .mode(arm::ArchMode::Thumb)
+        .extra_mode(std::iter::once(arm::ArchExtraMode::MClass))
+        .detail(true)
+        .build()
+        .map_err(|e| anyhow!("failed to initialize disassembler: {e:?}"))?;
+
+    // Disassemble each function, building a map of its call sites
+    let mut fns = BTreeMap::new();
+
+    let functions = extract_raw_function_data(&elf, text)?;
+
+    for (base_addr, function) in functions {
+        // This is the stack frame size of the current function
+        let frame_size = addr_to_frame_size.get(&base_addr).copied();
+        let function_range = function.function_range();
+
+        // Gather up all the information we need to find all the calls in this
+        // function
+        let mut fc = FunctionCallCollector {
+            cs: &cs,
+            name: &function.name,
+            base_addr,
+            function_range,
+            frame_size,
+            verbose,
+            missing_calls: 0,
+            recursive_calls: 0,
+            calls: BTreeSet::new(),
+        };
+
+        // Walk through each "text range", which is an island of executable code
+        // inside of each function, and collect all the out-bound calls. We
+        // disassemble ranges rather than functions, as functions might contain
+        // puddles of inline data which we don't want to (mis)-disassemble.
+        for chunk in function.text_ranges.iter() {
+            let (data_addr, data) = chunk.text_data(&data, text)?;
+            fc.extract_calls(data, data_addr)?;
+        }
+
+        if fc.recursive_calls != 0 {
+            let allow_match = allowed_recurses
+                .iter()
+                .find(|allow| fc.name.contains(allow.as_str()));
+
+            if let Some(am) = allow_match {
+                // For now, pragmatically, we'll just ignore this recursive
+                // call site.
+                println!(
+                    "WARN: Allowing {} to self-recurse, matching {}",
+                    fc.name, am
+                );
+            } else {
+                bail!("Refusing to handle self-recursion of {}", fc.name);
+            }
+        }
+
+        fns.insert(
+            base_addr,
+            FunctionData {
+                calls: fc.calls,
+                missing_calls: fc.missing_calls,
+                recursive_calls: fc.recursive_calls,
+                name: function.name,
+                frame_size,
+            },
+        );
+    }
+
+    Ok(FunctionReport {
+        function_items: fns,
+        addr_to_frame_size,
+    })
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// impls
+////////////////////////////////////////////////////////////////////////////////
 
 impl ResolvedNode {
     /// Print the entire stack trace to stdout
@@ -295,63 +500,18 @@ impl Resolver {
         // Find all of the functions we know about in `fn_items`, and find
         // any that haven't already been resolved into `all_resolved` from
         // previous resolution, usually the `_start` entry point
-        let mut found = self
-            .fn_items
+        self.fn_items
             .keys()
             .copied()
             .filter(|addr| !self.all_resolved.contains_key(addr))
             .collect::<Vec<_>>() // necessary to avoid double borrowing self
             .into_iter()
             .map(|addr| self.resolve_addr(addr))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let mut last_len = found.len();
-        loop {
-            let mut to_keep = vec![];
-            while let Some(val) = found.pop() {
-                if found
-                    .iter()
-                    .any(|f: &Rc<ResolvedNode>| f.is_same_or_child_of(&val))
-                    || to_keep
-                        .iter()
-                        .any(|f: &Rc<ResolvedNode>| f.is_same_or_child_of(&val))
-                {
-                    continue;
-                } else {
-                    to_keep.push(val);
-                }
-            }
-            found = to_keep;
-            if found.len() == last_len {
-                break;
-            } else {
-                last_len = found.len();
-            }
-        }
-
-        Ok(found)
+            .collect::<Result<Vec<_>, _>>()
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Public methods
-////////////////////////////////////////////////////////////////////////////////
-
-/// Describes where a symbol lives.
-#[derive(Debug)]
-enum SymSection<'a> {
-    /// Defined in a real section; carries the section name.
-    Section(&'a str),
-    /// Undefined (imported / external) — st_shndx == SHN_UNDEF.
-    Undefined,
-    /// Absolute value, not tied to a section — SHN_ABS.
-    Absolute,
-    /// Common block (tentative definition) — SHN_COMMON.
-    Common,
-    /// Real index lives in a SHT_SYMTAB_SHNDX section — SHN_XINDEX.
-    Extended,
-}
-
+/// Gets the linking section that the given symbol is a part of.
 fn section_of<'a>(elf: &'a Elf<'_>, sym: &Sym) -> SymSection<'a> {
     match sym.st_shndx as u32 {
         goblin::elf::section_header::SHN_UNDEF => SymSection::Undefined,
@@ -371,16 +531,11 @@ fn section_of<'a>(elf: &'a Elf<'_>, sym: &Sym) -> SymSection<'a> {
     }
 }
 
-#[derive(Debug)]
-struct NeoChunk {
-    name: String,
-    base_addr: u32,
-    header_size: Option<u64>,
-    calc_size: u64,
-    text_ranges: Vec<TextRange>,
-}
-
-impl NeoChunk {
+impl RawFunctionData {
+    /// Obtain "Raw" function data for a given [`Sym`].
+    ///
+    /// This starts with no text ranges yet, and requires calls to
+    /// `push_text_*`.
     pub fn new(entry: Sym, parsed_elf: &Elf<'_>, base_addr: u32) -> Self {
         // Get the name, if there is one in the symbol table, otherwise
         // make one up.
@@ -401,10 +556,10 @@ impl NeoChunk {
             Some(entry.st_size)
         };
 
-        NeoChunk {
+        RawFunctionData {
             name,
             base_addr,
-            header_size: size,
+            symbol_table_size: size,
             text_ranges: vec![],
 
             // For now, we don't calculate the size
@@ -412,11 +567,12 @@ impl NeoChunk {
         }
     }
 
+    /// Note where a text section ends
     pub fn push_text_end(&mut self, mut addr: u32) -> Result<()> {
         // We may push the text end when we reach the end of the function. If
         // there is padding, this may be a garbage D4D4 instruction inserted by
         // the linker!
-        if let Some(size) = self.header_size.as_ref() {
+        if let Some(size) = self.symbol_table_size.as_ref() {
             addr = addr.min(self.base_addr + (*size as u32));
         }
 
@@ -439,6 +595,7 @@ impl NeoChunk {
         Ok(())
     }
 
+    /// Not where a text section starts
     pub fn push_text_start(&mut self, addr: u32) -> Result<()> {
         if let Some(TextRange::TextStart { start: old }) =
             self.text_ranges.last()
@@ -449,9 +606,11 @@ impl NeoChunk {
         Ok(())
     }
 
+    /// Get the range of addresses contained by this function. This does
+    /// include any inline data.
     pub fn function_range(&self) -> Range<u32> {
         let start = self.base_addr;
-        let size = if let Some(addr) = self.header_size.as_ref() {
+        let size = if let Some(addr) = self.symbol_table_size.as_ref() {
             *addr
         } else {
             self.calc_size
@@ -460,13 +619,8 @@ impl NeoChunk {
     }
 }
 
-#[derive(Debug)]
-enum TextRange {
-    TextStart { start: u32 },
-    TextRange { start: u32, end: u32 },
-}
-
 impl TextRange {
+    /// Extract the raw bytes of assembly for this text range
     fn text_data<'a>(
         &self,
         raw_elf: &'a [u8],
@@ -487,10 +641,158 @@ impl TextRange {
     }
 }
 
-fn neochunkify(
+impl FunctionCallCollector<'_> {
+    // attempt to extract all outgoing calls from the given chunk of executable
+    // code within this function
+    fn extract_calls(&mut self, data: &[u8], data_addr: u64) -> Result<()> {
+        let instrs = self
+            .cs
+            .disasm_all(data, data_addr)
+            .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
+
+        let Some((last, all_except_last)) = instrs.split_last() else {
+            bail!("Empty chunk in {} at {:08X}", self.name, data_addr);
+        };
+
+        // See https://www.nmichaels.org/musings/d4d4/d4d4/
+        let to_consider = if last.bytes() == [0xD4, 0xD4] {
+            all_except_last
+        } else {
+            &instrs
+        };
+
+        // Walk through each instruction inside of each chunk
+        for (i, instr) in to_consider.iter().enumerate() {
+            // We need to get details for the instruction, which we should
+            // always have for well-formed programs
+            let detail = self.cs.insn_detail(instr).map_err(|e| {
+                anyhow!("could not get instruction details: {e}")
+            })?;
+            self.process_one_instruction(
+                &detail,
+                i == (to_consider.len() - 1),
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Process a single instruction, and determine if it is making an outgoing
+    /// call
+    fn process_one_instruction(
+        &mut self,
+        detail: &InsnDetail<'_>,
+        last_in_chunk: bool,
+    ) -> Result<()> {
+        let can_tail = self.frame_size == Some(0) && last_in_chunk;
+        let is_grp_call =
+            |g| g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8);
+        let is_grp_jump =
+            |g| g == &InsnGroupId(InsnGroupType::CS_GRP_JUMP as u8);
+        let is_grp_rel =
+            |g| g == &InsnGroupId(InsnGroupType::CS_GRP_BRANCH_RELATIVE as u8);
+
+        // Detect tail calls, which are jumps at the final instruction
+        // when the function itself has no stack frame.
+        let is_tail_call = |g| is_grp_jump(g) && can_tail;
+        let is_branching_instr = detail.groups().iter().any(|g| {
+            // NOTE: `is_tail_call` was a check before we started checking
+            // `is_grp_rel`. As of 2026-07-09, James *thinks* the latter check
+            // is a superset of the former, and we can probably remove it, but
+            // isn't that sure about it, and hasn't had time to look deeper.
+            // For now, we leave this as a tombstone to see if we ever observe
+            // this in practice.
+            if !is_grp_rel(g) && is_tail_call(g) {
+                panic!(
+                    "this check is NOT obsolete, please @jamesmunns about this"
+                );
+            }
+
+            is_grp_call(g) || is_grp_rel(g) || is_tail_call(g)
+        });
+
+        if is_branching_instr {
+            // On Arm/Thumb, a jump always has some kind of operand,
+            // which is where we are jumping to. Get the last operand so
+            // we can determine if we can follow this.
+            let arch = detail.arch_detail();
+            let ArchDetail::ArmDetail(details) = arch else {
+                panic!("Unsupported arch");
+            };
+            let op = details.operands().last().unwrap_or_else(|| {
+                panic!("jumps on ARM should always have an operand!");
+            });
+            // We can't resolve indirect calls, alas
+            //
+            // TODO: We could consider keeping track of register ops
+            // and potentially figure out the location of the register
+            // based jump here
+            let arm::ArmOperandType::Imm(target) = op.op_type else {
+                if self.verbose {
+                    println!(
+                        "Failed to resolve indirect call in {}!",
+                        self.name
+                    );
+                }
+                // TODO: we record that we are missing a call, and
+                // ideally we would plug the worst of the missing funcs
+                // here. Unfortunately, that means we end up needing to
+                // invalidate the RC, which would be disappointing. We
+                // could potentially add an AtomicU64 here to add
+                // "bonus" items, but that would again invalidate the
+                // pre-computed "max stack" numbers.
+                self.missing_calls += 1;
+                return Ok(());
+            };
+            let target = u32::try_from(target).unwrap();
+
+            // Note any recursive calls to the same function, and ignore
+            // any control flow that directs back inside this function.
+            // Any other jumps should be recorded as a call.
+            //
+            // We'll check this at the end if there were any instances
+            // of self-recursion
+            if target == self.base_addr {
+                self.recursive_calls += 1;
+            } else if !self.function_range.contains(&target) {
+                self.calls.insert(target);
+            }
+        }
+        Ok(())
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Pulling data from the elf file
+////////////////////////////////////////////////////////////////////////////////
+
+/// Read the .stack_sizes section, which is an array of
+/// `(address: u32, stack size: unsigned leb128)` tuples.
+fn extract_stack_sizes_section(
+    raw_elf: &[u8],
+    parsed_elf: &Elf<'_>,
+) -> Result<BTreeMap<u32, u64>> {
+    let sizes = build_elf::get_section_by_name(parsed_elf, ".stack_sizes")
+        .context("could not get .stack_sizes")?;
+    let mut sizes =
+        &raw_elf[sizes.sh_offset as usize..][..sizes.sh_size as usize];
+    let mut addr_to_frame_size = BTreeMap::new();
+    while !sizes.is_empty() {
+        let (addr, rest) = sizes.split_at(4);
+        let addr = u32::from_le_bytes(addr.try_into().unwrap());
+        sizes = rest;
+        let size = leb128::read::unsigned(&mut sizes)?;
+        addr_to_frame_size.insert(addr, size);
+    }
+
+    Ok(addr_to_frame_size)
+}
+
+/// Extract "raw" function data, which contains information local to each
+/// function, without yet considering call graph data.
+fn extract_raw_function_data(
     parsed_elf: &Elf<'_>,
     text_section: &SectionHeader,
-) -> Result<BTreeMap<u32, NeoChunk>> {
+) -> Result<BTreeMap<u32, RawFunctionData>> {
     // We're going to walk through each of the symbols in the symbol table,
     // pulling any item that is part of the `.text` or executable section.
     // This section may include multiple entries for the same address, we'll
@@ -552,10 +854,10 @@ fn neochunkify(
     // After this, `func_two` begins.
     //
     // The following code is a small state machine that tries to extract all the
-    // symbols related to a single function into an aggregated "neochunk"
+    // symbols related to a single function into an aggregated "ElfFunctionData"
     // report, which we will later use.
-    let mut neo_chunks = BTreeMap::<u32, NeoChunk>::new();
-    let mut current: Option<NeoChunk> = None;
+    let mut functions = BTreeMap::<u32, RawFunctionData>::new();
+    let mut current: Option<RawFunctionData> = None;
 
     // For each bucket...
     for (base_addr, mut syms) in buckets {
@@ -568,20 +870,21 @@ fn neochunkify(
                     .position(|s| s.is_function())
                     .map(|idx| syms.remove(idx))
             } {
-                // Found one, if there was a pending neochunk, "commit" it,
-                // using the current address to calculate the size, in case the
-                // function item was missing "function size" metadata, which we
-                // have observed with some externally linked static libraries,
-                // like `salty`.
+                // Found one, if there was a pending ElfFunctionData, "commit"
+                // it, using the current address to calculate the size, in case
+                // the function item was missing "function size" metadata, which
+                // we have observed with some externally linked static
+                // libraries, like `salty`.
                 if let Some(mut ch) = current.take() {
                     let calc_size = (base_addr - ch.base_addr) as u64;
                     ch.calc_size = calc_size;
                     ch.push_text_end(base_addr)?;
-                    neo_chunks.insert(ch.base_addr, ch);
+                    functions.insert(ch.base_addr, ch);
                 }
 
                 // Store off the current chunk
-                current = Some(NeoChunk::new(entry, parsed_elf, base_addr));
+                current =
+                    Some(RawFunctionData::new(entry, parsed_elf, base_addr));
                 continue;
             }
 
@@ -612,277 +915,8 @@ fn neochunkify(
         let text_end = text_section.sh_addr + text_section.sh_size;
         cur.calc_size = text_end - cur.base_addr as u64;
         cur.push_text_end(text_end as u32)?;
-        neo_chunks.insert(cur.base_addr, cur);
+        functions.insert(cur.base_addr, cur);
     }
 
-    Ok(neo_chunks)
-}
-
-struct FunctionCollector<'a> {
-    cs: &'a Capstone,
-    name: &'a str,
-    base_addr: u32,
-    function_range: Range<u32>,
-    frame_size: Option<u64>,
-    verbose: bool,
-    missing_calls: usize,
-    recursive_calls: usize,
-    calls: BTreeSet<u32>,
-}
-
-impl FunctionCollector<'_> {
-    fn extract_calls(&mut self, data: &[u8], data_addr: u64) -> Result<()> {
-        let instrs = self
-            .cs
-            .disasm_all(data, data_addr)
-            .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
-
-        let Some((last, all_except_last)) = instrs.split_last() else {
-            bail!("Empty chunk in {} at {:08X}", self.name, data_addr);
-        };
-
-        let to_consider = if last.bytes() == [0xD4, 0xD4] {
-            all_except_last
-        } else {
-            &instrs
-        };
-
-        // Walk through each instruction inside of each chunk
-        for (i, instr) in to_consider.iter().enumerate() {
-            // We need to get details for the instruction, which we should
-            // always have for well-formed programs
-            let detail = self.cs.insn_detail(instr).map_err(|e| {
-                anyhow!("could not get instruction details: {e}")
-            })?;
-            self.process_one(&detail, i == (to_consider.len() - 1))?;
-        }
-        Ok(())
-    }
-
-    fn process_one(
-        &mut self,
-        detail: &InsnDetail<'_>,
-        last_in_chunk: bool,
-    ) -> Result<()> {
-        let can_tail = self.frame_size == Some(0) && last_in_chunk;
-        let is_grp_call =
-            |g| g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8);
-        let is_grp_jump =
-            |g| g == &InsnGroupId(InsnGroupType::CS_GRP_JUMP as u8);
-        let is_grp_rel =
-            |g| g == &InsnGroupId(InsnGroupType::CS_GRP_BRANCH_RELATIVE as u8);
-
-        // Detect tail calls, which are jumps at the final instruction
-        // when the function itself has no stack frame.
-        let is_tail_call = |g| is_grp_jump(g) && can_tail;
-        let is_branching_instr = detail.groups().iter().any(|g| {
-            // Check if this is now not needed anymore
-            if !is_grp_rel(g) && is_tail_call(g) {
-                panic!("this check is NOT obsolete!");
-            }
-
-            is_grp_call(g) || is_grp_rel(g) || is_tail_call(g)
-        });
-
-        if is_branching_instr {
-            // On Arm/Thumb, a jump always has some kind of operand,
-            // which is where we are jumping to. Get the last operand so
-            // we can determine if we can follow this.
-            let arch = detail.arch_detail();
-            let ArchDetail::ArmDetail(details) = arch else {
-                panic!("Unsupported arch");
-            };
-            let op = details.operands().last().unwrap_or_else(|| {
-                panic!("jumps on ARM should always have an operand!");
-            });
-            // We can't resolve indirect calls, alas
-            //
-            // TODO: We could consider keeping track of register ops
-            // and potentially figure out the location of the register
-            // based jump here
-            let arm::ArmOperandType::Imm(target) = op.op_type else {
-                if self.verbose {
-                    println!(
-                        "Failed to resolve indirect call in {}!",
-                        self.name
-                    );
-                }
-                // TODO: we record that we are missing a call, and
-                // ideally we would plug the worst of the missing funcs
-                // here. Unfortunately, that means we end up needing to
-                // invalidate the RC, which would be disappointing. We
-                // could potentially add an AtomicU64 here to add
-                // "bonus" items, but that would again invalidate the
-                // pre-computed "max stack" numbers.
-                self.missing_calls += 1;
-                return Ok(());
-            };
-            let target = u32::try_from(target).unwrap();
-
-            // Avoid recursive calls to the same function, and ignore
-            // any control flow that directs back inside this function.
-            // Any other jumps should be recorded as a call.
-            if target == self.base_addr {
-                self.recursive_calls += 1;
-            } else if !self.function_range.contains(&target) {
-                self.calls.insert(target);
-            }
-        }
-        Ok(())
-    }
-}
-
-/// Load and parse the `elf` file at the given path, producing a report of
-/// metadata about all functions in the `elf` file.
-pub fn extract_function_items(
-    elf: &Path,
-    verbose: bool,
-    allowed_recurses: &[String],
-) -> Result<FunctionReport> {
-    // Open the statically-linked ELF file
-    let data = std::fs::read(elf).with_context(|| {
-        format!("could not open ELF file: {}", elf.display())
-    })?;
-    let elf = goblin::elf::Elf::parse(&data)
-        .with_context(|| format!("could not parse {}", elf.display()))?;
-
-    // Get sizes of stack frames by addr from the elf
-    let addr_to_frame_size = extract_stack_sizes_section(&data, &elf)?;
-
-    let text = build_elf::get_section_by_name(&elf, ".text")
-        .context("could not get .text")?;
-
-    let cs = Capstone::new()
-        .arm()
-        .mode(arm::ArchMode::Thumb)
-        .extra_mode(std::iter::once(arm::ArchExtraMode::MClass))
-        .detail(true)
-        .build()
-        .map_err(|e| anyhow!("failed to initialize disassembler: {e:?}"))?;
-
-    // Disassemble each function, building a map of its call sites
-    let mut fns = BTreeMap::new();
-
-    let chunks = neochunkify(&elf, text)?;
-
-    for (base_addr, nchunk) in chunks {
-        // Walk through each "chunk", which is an island of executable code
-        // inside of each function, and collect all the out-bound calls. We
-        // disassemble chunks rather than functions, as functions might contain
-        // puddles of inline data which we don't want to (mis)-disassemble.
-        //
-        // This is the stack frame size of the current function
-        let frame_size = addr_to_frame_size.get(&base_addr).copied();
-        let function_range = nchunk.function_range();
-
-        // Gather up all the information we need to find all the calls in this
-        // function
-        let mut fc = FunctionCollector {
-            cs: &cs,
-            name: &nchunk.name,
-            base_addr,
-            function_range,
-            frame_size,
-            verbose,
-            missing_calls: 0,
-            recursive_calls: 0,
-            calls: BTreeSet::new(),
-        };
-
-        for chunk in nchunk.text_ranges.iter() {
-            let (data_addr, data) = chunk.text_data(&data, text)?;
-            fc.extract_calls(data, data_addr)?;
-        }
-
-        if fc.recursive_calls != 0 {
-            let allow_match = allowed_recurses
-                .iter()
-                .find(|allow| fc.name.contains(allow.as_str()));
-
-            if let Some(am) = allow_match {
-                // For now, pragmatically, we'll just ignore this recursive
-                // call site.
-                println!(
-                    "WARN: Allowing {} to self-recurse, matching {}",
-                    fc.name, am
-                );
-            } else {
-                bail!("Refusing to handle self-recursion of {}", fc.name);
-            }
-        }
-
-        fns.insert(
-            base_addr,
-            FunctionData {
-                calls: fc.calls,
-                missing_calls: fc.missing_calls,
-                recursive_calls: fc.recursive_calls,
-                name: nchunk.name,
-                frame_size,
-            },
-        );
-    }
-
-    Ok(FunctionReport {
-        function_items: fns,
-        addr_to_frame_size,
-    })
-}
-
-/// Estimates the maximum stack size for the given task
-///
-/// This does not take dynamic function calls into account, which could cause
-/// underestimation.  Overestimation is less likely, but still may happen if
-/// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
-/// `B` never calls `C` if called by `A`).
-pub fn get_max_stack(
-    elf: &Path,
-    verbose: bool,
-    allowed_recurses: Vec<String>,
-) -> Result<Vec<(u64, String)>> {
-    let fns = extract_function_items(elf, verbose, &allowed_recurses)?;
-    let mut resolver = Resolver::new(fns.function_items, allowed_recurses);
-    let node = resolver.resolve_by_name("_start")?;
-    let chain = node.worst_chain();
-    let mut chain_compat = chain
-        .into_iter()
-        .map(|n| (n.local_size.unwrap_or(0), n.name.clone()))
-        .collect::<Vec<_>>();
-
-    let missing = resolver.find_missing_nodes()?;
-
-    // Find the largest missing item so that we can add it to the call stack as
-    // a "fudge factor" for unresolved dynamic/indirect dispatch.
-    let largest = missing.iter().map(|n| n.max_stack()).max().unwrap_or(0);
-    if let Some(node) = missing.iter().find(|n| n.max_stack() == largest) {
-        chain_compat.push((largest, format!("missing::{}", node.name)));
-    }
-
-    Ok(chain_compat)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Pulling data from the elf file
-////////////////////////////////////////////////////////////////////////////////
-
-/// Read the .stack_sizes section, which is an array of
-/// `(address: u32, stack size: unsigned leb128)` tuples.
-fn extract_stack_sizes_section(
-    raw_elf: &[u8],
-    parsed_elf: &Elf<'_>,
-) -> Result<BTreeMap<u32, u64>> {
-    let sizes = build_elf::get_section_by_name(parsed_elf, ".stack_sizes")
-        .context("could not get .stack_sizes")?;
-    let mut sizes =
-        &raw_elf[sizes.sh_offset as usize..][..sizes.sh_size as usize];
-    let mut addr_to_frame_size = BTreeMap::new();
-    while !sizes.is_empty() {
-        let (addr, rest) = sizes.split_at(4);
-        let addr = u32::from_le_bytes(addr.try_into().unwrap());
-        sizes = rest;
-        let size = leb128::read::unsigned(&mut sizes)?;
-        addr_to_frame_size.insert(addr, size);
-    }
-
-    Ok(addr_to_frame_size)
+    Ok(functions)
 }
