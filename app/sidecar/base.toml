@@ -272,7 +272,7 @@ notifications = ["timer"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1480
+stacksize = 1496
 start = true
 task-slots = ["jefe"]
 features = ["ereport"]
