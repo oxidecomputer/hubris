@@ -440,7 +440,11 @@ fn print_task_stacks(toml: &Config) -> Result<()> {
             .join(&toml.name)
             .join("dist")
             .join(format!("{task_name}.tmp"));
-        let max_stack = get_max_stack(&f, task_name, false)?;
+        let allowed_recurses = build_stack::KNOWN_RECURSORS
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let max_stack = get_max_stack(&f, false, allowed_recurses)?;
         let total: u64 = max_stack.iter().map(|(n, _)| *n).sum();
         println!("{task_name}: {total} bytes (limit is {task_stack_size})");
         for (frame_size, name) in max_stack {

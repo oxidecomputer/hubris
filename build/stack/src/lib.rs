@@ -63,13 +63,18 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 use capstone::{
-    Capstone, Insn, InsnDetail, InsnGroupId, InsnGroupType,
+    Capstone, InsnDetail, InsnGroupId, InsnGroupType,
     arch::{
         ArchDetail, BuildsCapstone, BuildsCapstoneExtraMode, DetailsArchInsn,
         arm,
     },
 };
 use goblin::elf::{Elf, SectionHeader, Sym};
+
+pub const KNOWN_RECURSORS: &[&str] = &[
+    // slice_error_fail calls slice_error_fail_rt which calls slice_error_fail
+    "str::slice_error_fail",
+];
 
 /// Information derived about a given function
 #[derive(Debug, Clone)]
@@ -111,6 +116,7 @@ pub struct Resolver {
     pub call_stack: Vec<u32>,
     pub all_resolved: BTreeMap<u32, Rc<ResolvedNode>>,
     pub fn_items: BTreeMap<u32, FunctionData>,
+    pub allowed_recurses: Vec<String>,
 }
 
 impl ResolvedNode {
@@ -180,11 +186,15 @@ impl ResolvedNode {
 
 impl Resolver {
     /// Create a new resolver from the given map of [`FunctionData`] items
-    pub fn new(fn_items: BTreeMap<u32, FunctionData>) -> Self {
+    pub fn new(
+        fn_items: BTreeMap<u32, FunctionData>,
+        allowed_recurses: Vec<String>,
+    ) -> Self {
         Self {
             call_stack: vec![],
             all_resolved: BTreeMap::new(),
             fn_items,
+            allowed_recurses,
         }
     }
 
@@ -218,7 +228,30 @@ impl Resolver {
         let mut max_children = 0;
         for child in children {
             if self.call_stack.contains(&child) {
-                bail!("Refusing to handle recursion");
+                let Some(child_info) = self.fn_items.get(&child) else {
+                    bail!("{child:08X}: no child function data");
+                };
+                let allow_match = self
+                    .allowed_recurses
+                    .iter()
+                    .find(|allow| child_info.name.contains(allow.as_str()));
+
+                if let Some(am) = allow_match {
+                    // For now, pragmatically, we'll just ignore this recursive
+                    // call site.
+                    println!(
+                        "WARN: Allowing {} to recurse, matching {}",
+                        child_info.name, am
+                    );
+                    continue;
+                }
+
+                bail!(
+                    "Refusing to handle recursion of {}, {:08X?} + {:08X}",
+                    child_info.name,
+                    self.call_stack,
+                    child
+                );
             }
 
             // Resolve the child
@@ -247,20 +280,17 @@ impl Resolver {
     /// This finds functions that exist in the elf file, but were not visited
     /// while resolving the call graph, likely due to being called indirectly or
     /// through vtable methods.
-    fn find_missing_nodes(
-        &mut self,
-        all_addrs: impl Iterator<Item = u32>,
-    ) -> Vec<Rc<ResolvedNode>> {
+    fn find_missing_nodes(&mut self) -> Result<Vec<Rc<ResolvedNode>>> {
         let mut missing = vec![];
-        for addr in all_addrs {
-            if !self.all_resolved.contains_key(&addr) {
-                missing.push(addr);
+        for addr in self.fn_items.keys() {
+            if !self.all_resolved.contains_key(addr) {
+                missing.push(*addr);
             }
         }
 
         let mut found = vec![];
         for addr in missing {
-            let node = self.resolve_addr(addr).unwrap();
+            let node = self.resolve_addr(addr)?;
             found.push(node);
         }
 
@@ -288,7 +318,7 @@ impl Resolver {
             }
         }
 
-        found
+        Ok(found)
     }
 }
 
@@ -557,11 +587,8 @@ fn neochunkify(
             match parsed_elf.strtab.get_at(entry.st_name) {
                 Some("$t") => current.push_text_start(base_addr)?,
                 Some("$d") => current.push_text_end(base_addr)?,
-                other => {
-                    println!(
-                        "WARN: Discarding unexpected '{other:?}' \
-                        {entry:?} at {base_addr:08X}"
-                    )
+                _other => {
+                    // Ignore other symbols, like `_stext`, etc.
                 }
             }
         }
@@ -616,17 +643,13 @@ impl FunctionCollector<'_> {
             let detail = self.cs.insn_detail(instr).map_err(|e| {
                 anyhow!("could not get instruction details: {e}")
             })?;
-            self.process_one(instr, &detail, i == (to_consider.len() - 1))?;
+            self.process_one(&detail, i == (to_consider.len() - 1))?;
         }
-
-        // And process the last instruction carefully
-        //
         Ok(())
     }
 
     fn process_one(
         &mut self,
-        instr: &Insn<'_>,
         detail: &InsnDetail<'_>,
         last_in_chunk: bool,
     ) -> Result<()> {
@@ -781,9 +804,13 @@ pub fn extract_function_items(
 /// underestimation.  Overestimation is less likely, but still may happen if
 /// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
 /// `B` never calls `C` if called by `A`).
-pub fn get_max_stack(elf: &Path, verbose: bool) -> Result<Vec<(u64, String)>> {
+pub fn get_max_stack(
+    elf: &Path,
+    verbose: bool,
+    allowed_recurses: Vec<String>,
+) -> Result<Vec<(u64, String)>> {
     let fns = extract_function_items(elf, verbose)?;
-    let mut resolver = Resolver::new(fns.function_items);
+    let mut resolver = Resolver::new(fns.function_items, allowed_recurses);
     let node = resolver.resolve_by_name("_start")?;
     let chain = node.worst_chain();
     let mut chain_compat = chain
@@ -791,8 +818,7 @@ pub fn get_max_stack(elf: &Path, verbose: bool) -> Result<Vec<(u64, String)>> {
         .map(|n| (n.local_size.unwrap_or(0), n.name.clone()))
         .collect::<Vec<_>>();
 
-    let missing =
-        resolver.find_missing_nodes(fns.addr_to_frame_size.keys().copied());
+    let missing = resolver.find_missing_nodes()?;
 
     // Find the largest missing item so that we can add it to the call stack as
     // a "fudge factor" for unresolved dynamic/indirect dispatch.
