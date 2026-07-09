@@ -74,6 +74,14 @@ use goblin::elf::{Elf, SectionHeader, Sym};
 pub const KNOWN_RECURSORS: &[&str] = &[
     // slice_error_fail calls slice_error_fail_rt which calls slice_error_fail
     "str::slice_error_fail",
+    // `smoltcp::iface::interface::InterfaceInner::dispatch_ip::<VLanTxToken>`
+    // self-recurses. This fragment is a little weird because it looks like:
+    //
+    // ```
+    // <smoltcp[b3fa0c29b1d616a8]::iface::interface::InterfaceInner>
+    //   ::dispatch_ip::<task_net[f938ea0ef13e6f35]::server_impl::VLanTxToken>
+    // ```
+    "dispatch_ip",
 ];
 
 /// Information derived about a given function
@@ -255,7 +263,9 @@ impl Resolver {
             }
 
             // Resolve the child
-            let rchild = self.resolve_addr(child)?;
+            let rchild = self
+                .resolve_addr(child)
+                .with_context(|| format!("While resolving {}", name))?;
 
             let ttl_child = rchild.max_stack();
             max_children = max_children.max(ttl_child);
@@ -726,6 +736,7 @@ impl FunctionCollector<'_> {
 pub fn extract_function_items(
     elf: &Path,
     verbose: bool,
+    allowed_recurses: &[String],
 ) -> Result<FunctionReport> {
     // Open the statically-linked ELF file
     let data = std::fs::read(elf).context("could not open ELF file")?;
@@ -779,6 +790,23 @@ pub fn extract_function_items(
             fc.extract_calls(data, data_addr)?;
         }
 
+        if fc.recursive_calls != 0 {
+            let allow_match = allowed_recurses
+                .iter()
+                .find(|allow| fc.name.contains(allow.as_str()));
+
+            if let Some(am) = allow_match {
+                // For now, pragmatically, we'll just ignore this recursive
+                // call site.
+                println!(
+                    "WARN: Allowing {} to self-recurse, matching {}",
+                    fc.name, am
+                );
+            } else {
+                bail!("Refusing to handle self-recursion of {}", fc.name);
+            }
+        }
+
         fns.insert(
             base_addr,
             FunctionData {
@@ -809,7 +837,7 @@ pub fn get_max_stack(
     verbose: bool,
     allowed_recurses: Vec<String>,
 ) -> Result<Vec<(u64, String)>> {
-    let fns = extract_function_items(elf, verbose)?;
+    let fns = extract_function_items(elf, verbose, &allowed_recurses)?;
     let mut resolver = Resolver::new(fns.function_items, allowed_recurses);
     let node = resolver.resolve_by_name("_start")?;
     let chain = node.worst_chain();
