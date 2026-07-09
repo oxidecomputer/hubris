@@ -102,6 +102,8 @@ jobs:
 
       - name: debug disk usage
         run: |
+          ls -hal
+          pwd
           du -sch ./target
 
       - name: cargo xtask dist
