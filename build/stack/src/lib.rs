@@ -200,7 +200,7 @@ impl Resolver {
 
     /// Attempt to resolve a function by name into a [`ResolvedNode`].
     pub fn resolve_by_name(&mut self, entry: &str) -> Result<Rc<ResolvedNode>> {
-        let Some(item) = self.fn_items.iter().find(|(_k, v)| &v.name == entry)
+        let Some(item) = self.fn_items.iter().find(|(_k, v)| v.name == entry)
         else {
             bail!("Not found");
         };
