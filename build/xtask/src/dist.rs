@@ -1437,14 +1437,10 @@ fn task_can_overflow(
         .join(&toml.name)
         .join("dist")
         .join(format!("{task_name}.tmp"));
-    let allowed_recurses = build_stack::KNOWN_RECURSORS
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-    let max_stack =
-        get_max_stack(&f, verbose, allowed_recurses).with_context(|| {
-            format!("Failed getting max stack for task: {task_name}")
-        })?;
+    let config = build_stack::Config::default();
+    let max_stack = get_max_stack(config, &f, verbose).with_context(|| {
+        format!("Failed getting max stack for task: {task_name}")
+    })?;
     let max_depth: u64 = max_stack.iter().map(|(d, _)| *d).sum();
 
     let task_stack_size = toml.tasks[task_name]

@@ -88,6 +88,20 @@ pub const KNOWN_RECURSORS: &[&str] = &[
     "Vsc7448Spi",
 ];
 
+pub const KNOWN_TO_IGNORE: &[&str] = &["stackblow"];
+
+/// Configuration for public methods
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct Config {
+    /// Function names containing any of these patterns will be allowed to
+    /// recurse
+    pub allowed_recurses: Vec<String>,
+
+    /// Functions names containing any of these patterns will be totally ignored
+    pub ignored_functions: Vec<String>,
+}
+
 /// Information derived about a given function
 #[derive(Debug, Clone)]
 pub struct FunctionData {
@@ -127,7 +141,7 @@ pub struct Resolver {
     pub call_stack: Vec<u32>,
     pub all_resolved: BTreeMap<u32, Rc<ResolvedNode>>,
     pub fn_items: BTreeMap<u32, FunctionData>,
-    pub allowed_recurses: Vec<String>,
+    pub config: Config,
 }
 
 /// Describes where a symbol lives.
@@ -209,12 +223,12 @@ struct FunctionCallCollector<'a> {
 /// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
 /// `B` never calls `C` if called by `A`).
 pub fn get_max_stack(
+    config: Config,
     elf: &Path,
     verbose: bool,
-    allowed_recurses: Vec<String>,
 ) -> Result<Vec<(u64, String)>> {
-    let fns = extract_function_items(elf, verbose, &allowed_recurses)?;
-    let mut resolver = Resolver::new(fns.function_items, allowed_recurses);
+    let fns = extract_function_items(elf, verbose, &config)?;
+    let mut resolver = Resolver::new(fns.function_items, &config);
     let node = resolver.resolve_by_name("_start")?;
     let chain = node.worst_chain();
     let mut chain_compat = chain
@@ -239,7 +253,7 @@ pub fn get_max_stack(
 pub fn extract_function_items(
     elf: &Path,
     verbose: bool,
-    allowed_recurses: &[String],
+    config: &Config,
 ) -> Result<FunctionReport> {
     // Open the statically-linked ELF file
     let data = std::fs::read(elf).with_context(|| {
@@ -296,9 +310,7 @@ pub fn extract_function_items(
         }
 
         if fc.recursive_calls != 0 {
-            let allow_match = allowed_recurses
-                .iter()
-                .find(|allow| fc.name.contains(allow.as_str()));
+            let allow_match = config.match_allowed_recurses(&fc.name);
 
             if let Some(am) = allow_match {
                 // For now, pragmatically, we'll just ignore this recursive
@@ -333,6 +345,37 @@ pub fn extract_function_items(
 ////////////////////////////////////////////////////////////////////////////////
 // impls
 ////////////////////////////////////////////////////////////////////////////////
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            allowed_recurses: KNOWN_RECURSORS
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            ignored_functions: KNOWN_TO_IGNORE
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        }
+    }
+}
+
+impl Config {
+    fn match_allowed_recurses(&self, name: &str) -> Option<&str> {
+        self.allowed_recurses
+            .iter()
+            .find(|am| name.contains(am.as_str()))
+            .map(String::as_str)
+    }
+
+    fn match_ignored_functions(&self, name: &str) -> Option<&str> {
+        self.ignored_functions
+            .iter()
+            .find(|am| name.contains(am.as_str()))
+            .map(String::as_str)
+    }
+}
 
 impl ResolvedNode {
     /// Print the entire stack trace to stdout
@@ -401,15 +444,12 @@ impl ResolvedNode {
 
 impl Resolver {
     /// Create a new resolver from the given map of [`FunctionData`] items
-    pub fn new(
-        fn_items: BTreeMap<u32, FunctionData>,
-        allowed_recurses: Vec<String>,
-    ) -> Self {
+    pub fn new(fn_items: BTreeMap<u32, FunctionData>, config: &Config) -> Self {
         Self {
             call_stack: vec![],
             all_resolved: BTreeMap::new(),
             fn_items,
-            allowed_recurses,
+            config: config.clone(),
         }
     }
 
@@ -442,14 +482,13 @@ impl Resolver {
         let mut res_children = BTreeMap::new();
         let mut max_children = 0;
         for child in children {
+            // Is this a recursive callsite?
             if self.call_stack.contains(&child) {
                 let Some(child_info) = self.fn_items.get(&child) else {
                     bail!("{child:08X}: no child function data");
                 };
-                let allow_match = self
-                    .allowed_recurses
-                    .iter()
-                    .find(|allow| child_info.name.contains(allow.as_str()));
+                let allow_match =
+                    self.config.match_allowed_recurses(&child_info.name);
 
                 if let Some(am) = allow_match {
                     // For now, pragmatically, we'll just ignore this recursive
@@ -474,6 +513,15 @@ impl Resolver {
                 .resolve_addr(child)
                 .with_context(|| format!("While resolving {}", name))?;
 
+            // Is this an ignored function?
+            let ignore_match =
+                self.config.match_ignored_functions(&rchild.name);
+            if let Some(ignore) = ignore_match {
+                println!("WARN: Ignoring {}, matching {}", rchild.name, ignore);
+                continue;
+            }
+
+            // Keep it!
             max_children = max_children.max(rchild.max_stack());
             res_children.insert(child, rchild);
         }
@@ -500,14 +548,22 @@ impl Resolver {
         // Find all of the functions we know about in `fn_items`, and find
         // any that haven't already been resolved into `all_resolved` from
         // previous resolution, usually the `_start` entry point
-        self.fn_items
+        let mut found = self
+            .fn_items
             .keys()
             .copied()
             .filter(|addr| !self.all_resolved.contains_key(addr))
             .collect::<Vec<_>>() // necessary to avoid double borrowing self
             .into_iter()
             .map(|addr| self.resolve_addr(addr))
-            .collect::<Result<Vec<_>, _>>()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Filter out any ignored functions
+        found.retain(|rn| {
+            self.config.match_ignored_functions(&rn.name).is_none()
+        });
+
+        Ok(found)
     }
 }
 
