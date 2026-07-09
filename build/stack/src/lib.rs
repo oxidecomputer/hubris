@@ -82,6 +82,9 @@ pub const KNOWN_RECURSORS: &[&str] = &[
     //   ::dispatch_ip::<task_net[f938ea0ef13e6f35]::server_impl::VLanTxToken>
     // ```
     "dispatch_ip",
+    // We have limited recursion here, see
+    // https://github.com/oxidecomputer/hubris/issues/2593
+    "Vsc7448Spi",
 ];
 
 /// Information derived about a given function
