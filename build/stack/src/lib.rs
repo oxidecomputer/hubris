@@ -310,7 +310,7 @@ pub fn extract_function_items(
         }
 
         if fc.recursive_calls != 0 {
-            let allow_match = config.match_allowed_recurses(&fc.name);
+            let allow_match = config.match_allowed_recurses(fc.name);
 
             if let Some(am) = allow_match {
                 // For now, pragmatically, we'll just ignore this recursive
