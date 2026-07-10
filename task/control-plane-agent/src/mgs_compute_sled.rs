@@ -1300,6 +1300,7 @@ impl SpHandler for MgsHandler {
             seqno: info.seqno,
             len: info.read as usize,
             total_len: info.total_len,
+            slot: info.slot,
         })
     }
 
@@ -1342,6 +1343,7 @@ impl SpHandler for MgsHandler {
             len: info.read as usize,
             total_len: info.total_len,
             reason: info.reason,
+            slot: info.slot,
         })
     }
 

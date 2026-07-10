@@ -3320,7 +3320,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=james%2Fhost-fails#b93969bf4c122f3e609d72b34955f93dfc1601f7"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=james%2Fhost-fails#834da067fa8d1c6255e23fdb398a36474ad17ffe"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",

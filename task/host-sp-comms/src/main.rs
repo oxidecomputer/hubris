@@ -971,6 +971,13 @@ impl ServerImpl {
                 // sequencer why we are asking it to power off the system.
                 self.last_power_off = Some(StateChangeReason::HostBootFailure);
 
+                // Get the flash index used for the currently booting host
+                let flashidx = match self.hf.get_dev() {
+                    Ok(HfDevSelect::Flash0) => Some(0),
+                    Ok(HfDevSelect::Flash1) => Some(1),
+                    Err(_) => None,
+                };
+
                 // Store the bootfail message in packrat so it can be accessed by MGS in the future
                 // TODO: What to do if this call fails? Without it, we don't have a proper index, but
                 // this would only happen if packrat crashes. We could store some fake info here to
@@ -978,16 +985,8 @@ impl ServerImpl {
                 // we send ereports to, you guessed it: packrat, which just crashed.
                 let response = self
                     .packrat
-                    .write_host_bootfail(reason, data)
+                    .write_host_bootfail(reason, flashidx, data)
                     .unwrap_lite();
-
-                // TODO: Do we want to give this to packrat too?
-                // TODO: Update `humility host boot-fail` to use packrat API!
-                let flashidx = match self.hf.get_dev() {
-                    Ok(HfDevSelect::Flash0) => 0,
-                    Ok(HfDevSelect::Flash1) => 1,
-                    Err(_) => 0xFF,
-                };
 
                 // ereport!
                 _ = self.ereporter.deliver_ereport(&HostBootFail {
@@ -1007,21 +1006,17 @@ impl ServerImpl {
                     self.last_power_off = Some(StateChangeReason::HostPanic);
                 }
 
+                // TODO: The flashidx *at panic time* may not be the *flashidx
+                // used when the panicking host booted*.
+                let flashidx = None;
+
                 // Store the panic message in packrat so it can be accessed by MGS in the future
                 // TODO: What to do if this call fails? Without it, we don't have a proper index, but
                 // this would only happen if packrat crashes. We could store some fake info here to
                 // continue preparing an ereport, but THAT is going to be a problem anyway because
                 // we send ereports to, you guessed it: packrat, which just crashed.
                 let response =
-                    self.packrat.write_host_panic(data).unwrap_lite();
-
-                // TODO: Do we want to give this to packrat too?
-                // TODO: Update `humility host last-panic` to use packrat API!
-                let flashidx = match self.hf.get_dev() {
-                    Ok(HfDevSelect::Flash0) => 0,
-                    Ok(HfDevSelect::Flash1) => 1,
-                    Err(_) => 0xFF,
-                };
+                    self.packrat.write_host_panic(flashidx, data).unwrap_lite();
 
                 // ereport!
                 _ = self.ereporter.deliver_ereport(&HostPanic {
@@ -2057,8 +2052,9 @@ struct HostPanic {
     /// by the available storage space allocated (`MAX_HOST_FAIL_MESSAGE_LEN`).
     msglen: u32,
     /// The flash boot index, directly correlated to which boot slot we are
-    /// operating from. Currently 0 (BSU: A), 1 (BSU: B), or 0xFF (unknown).
-    flashidx: u8,
+    /// operating from. Currently Some(0) (BSU: A), Some(1) (BSU: B), or None
+    /// (unknown).
+    flashidx: Option<u16>,
 }
 
 /// An ereport represent a host reported boot failure
@@ -2078,6 +2074,7 @@ struct HostBootFail {
     /// The reported reason code for the host boot failure
     reason: u8,
     /// The flash boot index, directly correlated to which boot slot we are
-    /// operating from. Currently 0 (BSU: A), 1 (BSU: B), or 0xFF (unknown).
-    flashidx: u8,
+    /// operating from. Currently Some(0) (BSU: A), Some(1) (BSU: B), or None
+    /// (unknown).
+    flashidx: Option<u16>,
 }

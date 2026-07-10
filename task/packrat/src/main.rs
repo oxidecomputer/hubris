@@ -163,6 +163,8 @@ struct HostPanicMetadata {
     total_length: usize,
     /// (hopefully not) Rolling counter of panic messages observed this power cycle
     sequence_number: u32,
+    /// Boot slot
+    slot: Option<u16>,
 }
 
 /// Metadata about panics observed from the host
@@ -174,6 +176,8 @@ struct HostBootFailMetadata {
     sequence_number: u32,
     /// Bootfail reason
     reason: u8,
+    /// Boot slot
+    slot: Option<u16>,
 }
 
 #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
@@ -649,6 +653,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
         _reason: u8,
+        _slot: Option<u16>,
         _data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<
         HostInfoWriteOutput,
@@ -662,6 +667,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
         reason: u8,
+        slot: Option<u16>,
         data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<
         HostInfoWriteOutput,
@@ -693,12 +699,13 @@ impl idl::InOrderPackratImpl for ServerImpl {
             total_length: to_copy,
             sequence_number: new_seq,
             reason,
+            slot,
         });
 
         // Give the writer the current index and the number of bytes actually written
         Ok(HostInfoWriteOutput {
             seqno: new_seq,
-            written: to_copy,
+            written: to_copy as u32,
         })
     }
 
@@ -745,6 +752,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn write_host_panic(
         &mut self,
         _msg: &userlib::RecvMessage,
+        _slot: Option<u16>,
         _data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<
         HostInfoWriteOutput,
@@ -757,6 +765,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn write_host_panic(
         &mut self,
         _msg: &userlib::RecvMessage,
+        slot: Option<u16>,
         data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<
         HostInfoWriteOutput,
@@ -786,13 +795,14 @@ impl idl::InOrderPackratImpl for ServerImpl {
         self.host_info.host_panic_state = Some(HostPanicMetadata {
             total_length: to_copy,
             sequence_number: new_seq,
+            slot,
         });
 
         // Give the writer the current seqno and the number of bytes actually
         // written
         Ok(HostInfoWriteOutput {
             seqno: new_seq,
-            written: to_copy,
+            written: to_copy as u32,
         })
     }
 
@@ -876,6 +886,7 @@ impl ServerImpl {
             offset: offset as u32,
             seqno: bfs.sequence_number,
             total_len: length as u32,
+            slot: bfs.slot,
         })
     }
 
@@ -924,6 +935,7 @@ impl ServerImpl {
             seqno: bfs.sequence_number,
             total_len: length as u32,
             offset: offset as u32,
+            slot: bfs.slot,
         };
 
         // Okay! Written! Return how many bytes were actually copied

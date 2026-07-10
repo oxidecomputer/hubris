@@ -74,11 +74,10 @@ pub enum EreportWriteError {
     Lost = 1,
 }
 
-#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable)]
-#[repr(C)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
 pub struct HostInfoWriteOutput {
     pub seqno: u32,
-    pub written: usize,
+    pub written: u32,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
@@ -88,6 +87,7 @@ pub struct HostBootfailReadOutput {
     pub total_len: u32,
     pub seqno: u32,
     pub reason: u8,
+    pub slot: Option<u16>,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
@@ -96,6 +96,7 @@ pub struct HostPanicReadOutput {
     pub offset: u32,
     pub total_len: u32,
     pub seqno: u32,
+    pub slot: Option<u16>,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
