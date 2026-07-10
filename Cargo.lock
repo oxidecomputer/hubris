@@ -2347,6 +2347,7 @@ dependencies = [
  "idol",
  "num-derive",
  "num-traits",
+ "ringbuf",
  "serde",
  "serde_json",
  "userlib",
