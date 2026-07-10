@@ -13,7 +13,6 @@ mod auxflash;
 mod caboose_pos;
 mod config;
 mod dist;
-mod elf;
 mod flash;
 mod gha_prepare_artifacts;
 mod graph;

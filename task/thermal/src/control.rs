@@ -452,9 +452,6 @@ pub(crate) struct ThermalControl<'a> {
     /// Controller state
     state: ThermalControlState,
 
-    /// How long to wait in the `Overheated` state before powering down
-    overheat_timeout_ms: u64,
-
     /// Most recent power mode mask
     power_mode: PowerBitmask,
 
@@ -673,30 +670,15 @@ type DynamicChannelsArray =
 /// threshold, we return to normal control.
 ///
 /// In addition, the thermal control loop will perform an emergency power down
-/// of the system under either of the following conditions:
+/// of the system if any component temperature exceeds its power-down threshold.
+/// In that case, we will decide that the system's temperatures cannot be
+/// controlled, and transition to [`ThermalControlState::Uncontrollable`]. In
+/// this state, the thermal loop will request a power state change to A2,
+/// shutting down the system.
 ///
-/// - Any component temperature has been above its critical threshold for
-///   longer than [`overheat_timeout_ms`].
-/// - Any component temperature exceeds its power-down threshold.
-///
-/// In either of these cases, we will decide that the system's temperatures
-/// cannot be controlled, and transition to
-/// [`ThermalControlState::Uncontrollable`].  In this state, the thermal loop
-/// will request a power state change to A2, shutting down the system.
-///
-/// The intent behind the overheat timeout is to safely power down the system
-/// when in a situation where even running the fans at their maximum duty cycle
-/// cannot reduce temperatures below a critical threshold.  Therefore, the
-/// timeout is only applied while any component temperature(s) are at or above
-/// critical thresholds.  If running the fans at full speed is effectively
-/// reducing the system temperature, but we have not yet returned to normal
-/// control, the timeout is not applied.  Therefore, we separate the overheated
-/// control regime into two substates:
-///
-/// - `Overheat`, in which at least one component is critical and the timeout
-///   is being tracked, and
+/// - `Overheat`, in which at least one component is critical
 /// - `FanParty`, in which all temperatures are below critical, and we will run
-///   the fans at 100% duty cycle but do not track the overheat timeout.
+///   the fans at 100% duty cycle until we return to nomal
 ///
 /// This diagram depicts the transitions between control states:
 ///
@@ -718,24 +700,24 @@ type DynamicChannelsArray =
 ///    |   |         .      +----------+     .           |
 ///    |   +--------------->|          |--------->-------+
 ///    +------<-------------| OVERHEAT |     .           |
-///    |             .      |          |-------------+   |
-///    |             .      +----------+     .       |   |
-///    |             .        |    ^         .       |   ^
-///    |       all temps      |    * . any temp      v   |
-///    |       under crit . . *    |   over crit     |   |
-///    |             .        |    |         .       |   |
-///    |             .        v    |         .       |   |
-///    |             .     +-----------+     .       |   |
+///    |             .      |          |     .           |
+///    |             .      +----------+     .           |
+///    |             .        |    ^         .           ^
+///    |       all temps      |    * . any temp          |
+///    |       under crit . . *    |   over crit         |
+///    |             .        |    |         .           |
+///    |             .        v    |         .           |
+///    |             .     +-----------+     .           |
 ///    +-------------------| FAN PARTY |----------->-----+
-///    |             .     +-----------+     .       |
-///    |             .........................       |
-///    |                                             |
-///    * . . Any temp over                           * . . overheat_timeout_ms
-///    |     power_down                              |     elapsed
-///    |                                             |
-///    v                                             |
-/// +----------------+                               |
-/// | UNCONTROLLABLE |<------------------------------+
+///    |             .     +-----------+     .
+///    |             .........................
+///    |
+///    * . . Any temp over
+///    |     power_down
+///    |
+///    v
+/// +----------------+
+/// | UNCONTROLLABLE |
 /// +----------------+
 ///    |
 ///    V
@@ -764,8 +746,7 @@ enum ThermalControlState {
     //
     /// In the critical state, one or more components has entered their
     /// critical temperature ranges.  We turn on fans at high power and record
-    /// the time at which we entered this state; at a certain point, we will
-    /// timeout and drop into `Uncontrolled` if components do not recover.
+    /// the time at which we entered this state.
     Critical {
         values: TemperatureArray,
         /// The time at which we transitioned to the `Critical` state *this*
@@ -773,13 +754,12 @@ enum ThermalControlState {
         start_time: u64,
     },
 
-    /// If we are in the `Critical` state and all temperatures drop below
-    /// their Critical threshold, but above their nominal threshold, we leave
-    /// the `Critical` state and enter FAN PARTY!!!!, a special state that's
-    /// kind of halfway between `Critical` and normal operation. In FAN PARTY
-    /// MODE, we continue to run the fans at their max duty cycle, but we don't
-    /// track the overheated timeout. If anything goes above critical while in
-    /// FAN PARTY!!!!!, we return to `Critical`.
+    /// If we are in the `Critical` state and all temperatures drop below their
+    /// Critical threshold, but above their nominal threshold, we leave the
+    /// `Critical` state and enter FAN PARTY!!!!, a special state that's kind of
+    /// halfway between `Critical` and normal operation. In FAN PARTY MODE, we
+    /// continue to run the fans at their max duty cycle until we go below a
+    /// nomal threshold.
     ///
     /// This gives us an opportunity to recover from overheating by running the
     /// fans aggressively without also deciding to give up and kill ourselves
@@ -1043,8 +1023,6 @@ impl<'a> ThermalControl<'a> {
                 values: OptionalTemperatureArray::new(data),
             },
             pid_config,
-
-            overheat_timeout_ms: 60_000,
 
             power_mode: PowerBitmask::empty(), // no sensors active
 
@@ -1403,7 +1381,7 @@ impl<'a> ThermalControl<'a> {
                     ControlResult::Pwm(PWMDuty(pwm as u8))
                 }
             }
-            ThermalControlState::Critical { values, start_time } => {
+            ThermalControlState::Critical { values, .. } => {
                 let mut all_nominal = true;
                 let mut any_still_critical = false;
                 let mut any_power_down = None;
@@ -1437,10 +1415,6 @@ impl<'a> ThermalControl<'a> {
                     // nominal.
                     let values = *values;
                     self.transition_to_fan_party(now_ms, values)
-                } else if now_ms > *start_time + self.overheat_timeout_ms {
-                    // If blasting the fans hasn't cooled us down in this amount
-                    // of time, then something is terribly wrong - abort!
-                    self.transition_to_uncontrollable(now_ms)
                 } else {
                     ControlResult::Pwm(PWMDuty(
                         self.pid_config.max_output as u8,
@@ -1594,7 +1568,7 @@ impl<'a> ThermalControl<'a> {
     /// also records the sensor ID and temperature measurements for the device
     /// that tripped over the threshold. We separate this into two functions as
     /// we may also transition to uncontrollable due to an inability to read
-    /// sensors at all, or due to the power-down timeout.
+    /// sensors at all.
     fn transition_to_uncontrollable_due_to(
         &mut self,
         (sensor_id, worst_case): (SensorId, WorstCaseTemperature),
@@ -1617,9 +1591,9 @@ impl<'a> ThermalControl<'a> {
         self.transition_to_uncontrollable(now_ms)
     }
 
-    /// Transition to the `Uncontrollable` state, either in response to the
-    /// overheat timeout, thermal sensor errors, or a component exceeding its
-    /// power-down temperature threshold.
+    /// Transition to the `Uncontrollable` state, either in response to thermal
+    /// sensor errors, or a component exceeding its power-down temperature
+    /// threshold.
     fn transition_to_uncontrollable(&mut self, now_ms: u64) -> ControlResult {
         self.record_leaving_critical(now_ms);
         self.record_leaving_overheat(now_ms);

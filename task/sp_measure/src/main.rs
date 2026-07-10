@@ -8,7 +8,7 @@
 use drv_sp_ctrl_api::*;
 use ringbuf::*;
 use sha3::{Digest, Sha3_256};
-use userlib::*;
+use userlib::{sys_get_timer, sys_recv_notification, task_slot};
 
 const READ_SIZE: usize = 256;
 

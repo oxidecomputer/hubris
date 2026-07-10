@@ -20,7 +20,7 @@ pub use drv_sidecar_mainboard_controller::{
 use drv_sidecar_mainboard_controller::tofino2::TofinoBar0Registers;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::*;
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 #[derive(

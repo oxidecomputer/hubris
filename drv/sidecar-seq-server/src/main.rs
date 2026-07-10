@@ -29,7 +29,10 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, R, RequestError, W,
 };
 use ringbuf::*;
-use userlib::*;
+use userlib::{
+    FromPrimitive, RecvMessage, UnwrapLite, hl, sys_get_timer, sys_set_timer,
+    task_slot,
+};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(MAINBOARD, mainboard);

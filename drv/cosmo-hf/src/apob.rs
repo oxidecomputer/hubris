@@ -970,7 +970,7 @@ impl ApobState {
                     hasher.update(&buf.page[..n]);
                 }
                 let out = hasher.finalize();
-                if out != expected_hash.into() {
+                if out != expected_hash {
                     ringbuf_entry!(Trace::HashMismatch {
                         expected_hash,
                         actual_hash: out.into()

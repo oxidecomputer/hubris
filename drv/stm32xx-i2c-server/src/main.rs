@@ -13,7 +13,7 @@ use drv_stm32xx_sys_api::{Mode, OutputType, PinSet, Pull, Speed, Sys};
 
 use fixedmap::*;
 use ringbuf::*;
-use userlib::*;
+use userlib::{FromPrimitive, LeaseAttributes, hl, sys_irq_control, task_slot};
 
 task_slot!(SYS, sys);
 
