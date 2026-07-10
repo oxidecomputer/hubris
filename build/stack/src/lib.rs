@@ -64,7 +64,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 use capstone::{
-    Capstone, InsnDetail, InsnGroupId, InsnGroupType,
+    Capstone, Insn, InsnDetail, InsnGroupId, InsnGroupType,
     arch::{
         ArchDetail, BuildsCapstone, BuildsCapstoneExtraMode, DetailsArchInsn,
         arm,
@@ -210,6 +210,7 @@ struct FunctionCallCollector<'a> {
     recursive_calls: usize,
     /// All outgoing calls from this function
     calls: BTreeSet<u32>,
+    calculated_stack: u64,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -298,7 +299,9 @@ pub fn extract_function_items(
             missing_calls: 0,
             recursive_calls: 0,
             calls: BTreeSet::new(),
+            calculated_stack: 0,
         };
+        // println!("=== {}", fc.name);
 
         // Walk through each "text range", which is an island of executable code
         // inside of each function, and collect all the out-bound calls. We
@@ -307,6 +310,10 @@ pub fn extract_function_items(
         for chunk in function.text_ranges.iter() {
             let (data_addr, data) = chunk.text_data(&data, text)?;
             fc.extract_calls(data, data_addr)?;
+        }
+
+        if let Some(size) = fc.frame_size.as_ref() {
+            assert_eq!(*size, fc.calculated_stack);
         }
 
         if fc.recursive_calls != 0 {
@@ -724,6 +731,8 @@ impl FunctionCallCollector<'_> {
             let detail = self.cs.insn_detail(instr).map_err(|e| {
                 anyhow!("could not get instruction details: {e}")
             })?;
+
+            self.measure_stack(&instr)?;
             self.process_one_instruction(
                 &detail,
                 i == (to_consider.len() - 1),
@@ -814,6 +823,157 @@ impl FunctionCallCollector<'_> {
             }
         }
         Ok(())
+    }
+
+    fn measure_stack(&mut self, instr: &Insn<'_>) -> Result<()> {
+        let mnem = instr.mnemonic().unwrap();
+        let op = instr.op_str().unwrap();
+
+        // println!("{mnem} {op}");
+        match mnem {
+            "sub" | "subs" | "sub.w" | "subw" if op.starts_with("sp") => {
+                let parts = op.split(", ").collect::<Vec<_>>();
+                match parts.as_slice() {
+                    ["sp", num] | ["sp", "sp", num] => {
+                        let num = num.strip_prefix("#").unwrap();
+                        let num =
+                            if let Some(hexnum) = num.strip_prefix("0x") {
+                                u64::from_str_radix(hexnum, 16)
+                            } else {
+                                u64::from_str_radix(num, 10)
+                            }
+                            .unwrap();
+                        self.calculated_stack += num;
+                    }
+                    other => todo!("{other:?}"),
+                }
+            }
+            "push.w" | "push" => {
+                let ops = op.split(", ").count();
+                self.calculated_stack += 4 * (ops as u64);
+            }
+            "vpush" => {
+                let ops = op.split(", ").count();
+                self.calculated_stack += 8 * (ops as u64);
+            }
+            "str" => {
+                let Some(val) = parse_str(op) else {
+                    // TODO: `str r6, [r5, r4]`
+                    return Ok(());
+                };
+                match val {
+                    StrForm::Plain { .. } => {
+                        // Don't care, no modification of sp
+                    }
+                    StrForm::Offset { src, base, offset } => {
+                        if base == "sp" && offset < 0 {
+                            panic!("Offset {src}, {base}, {offset}");
+                        }
+                    }
+                    StrForm::PreIndex {
+                        src: _,
+                        base,
+                        offset,
+                    } => {
+                        if base == "sp" && offset < 0 {
+                            self.calculated_stack += offset.abs() as u64;
+                        }
+                    }
+                    StrForm::PostIndex { src, base, offset } => {
+                        if base == "sp" {
+                            panic!("PostIndex {src}, {base}, {offset}");
+                        }
+                    }
+                }
+            }
+            _ => {
+                // println!("IGN: {instr:?}");
+                return Ok(());
+            }
+        }
+
+        // println!("->{}", self.calculated_stack);
+        Ok(())
+    }
+}
+
+////////
+/// bad code
+////////
+
+#[derive(Debug, PartialEq)]
+enum StrForm<'a> {
+    Plain {
+        src: &'a str,
+        base: &'a str,
+    }, // str r, [b]
+    Offset {
+        src: &'a str,
+        base: &'a str,
+        offset: i32,
+    }, // str r, [b, #imm]
+    PreIndex {
+        src: &'a str,
+        base: &'a str,
+        offset: i32,
+    }, // str r, [b, #imm]!
+    PostIndex {
+        src: &'a str,
+        base: &'a str,
+        offset: i32,
+    }, // str r, [b], #imm
+}
+
+/// Parse a `#`-prefixed immediate like `#-0x4`, `#0xc`, or `#4`.
+fn parse_imm(s: &str) -> Option<i32> {
+    let s = s.trim().strip_prefix('#')?.trim();
+    let (neg, s) = match s.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, s),
+    };
+    let val = match s.strip_prefix("0x") {
+        Some(hex) => i32::from_str_radix(hex, 16).ok()?,
+        None => s.parse::<i32>().ok()?,
+    };
+    Some(if neg { -val } else { val })
+}
+
+fn parse_str(operands: &str) -> Option<StrForm<'_>> {
+    let (src, mem) = operands.split_once(',')?;
+    let (src, mem) = (src.trim(), mem.trim());
+
+    let open = mem.find('[')?;
+    let close = mem.find(']')?;
+    // "sp" or "sp, #-0x4"
+    let inside = mem[open + 1..close].trim();
+    // "", "!", or ", #-0x4"
+    let after = mem[close + 1..].trim();
+
+    // Separate the base register from an optional in-bracket offset.
+    let (base, inside_off) = match inside.split_once(',') {
+        Some((b, o)) => (b.trim(), Some(o.trim())),
+        None => (inside, None),
+    };
+
+    match (after, inside_off) {
+        ("!", Some(o)) => Some(StrForm::PreIndex {
+            src,
+            base,
+            offset: parse_imm(o)?,
+        }),
+        ("", Some(o)) => Some(StrForm::Offset {
+            src,
+            base,
+            offset: parse_imm(o)?,
+        }),
+        ("", None) => Some(StrForm::Plain { src, base }),
+        (a, None) if a.starts_with(',') => Some(StrForm::PostIndex {
+            src,
+            base,
+            offset: parse_imm(&a[1..])?,
+        }),
+        // eh?
+        _ => None,
     }
 }
 
