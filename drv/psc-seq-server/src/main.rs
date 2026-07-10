@@ -509,7 +509,8 @@ fn main() -> ! {
         let dev = {
             let i2c = I2C.get_task_id();
             let make_dev = bsp::PSU_PMBUS_DEVS[i];
-            let (dev, rail) = make_dev(i2c);
+            let (dev, opt_rail) = make_dev(i2c);
+            let rail = opt_rail.unwrap_or(0);
             bsp::Mwocp6x::new(&dev, rail)
         };
         let slot = PSU_SLOTS[i];

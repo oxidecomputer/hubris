@@ -906,7 +906,7 @@ fn main() -> ! {
         use drv_i2c_devices::bmr491::{Bmr491, ExternalInputVoltageProtection};
 
         let dev = i2c_config::devices::bmr491_u12(I2C.get_task_id());
-        let driver = Bmr491::new(&dev, 0);
+        let driver = Bmr491::new(&dev);
 
         // Sidecar provides external undervoltage protection that is better than
         // what we'd get from the 491, so we rely on that.

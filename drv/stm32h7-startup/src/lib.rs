@@ -15,6 +15,19 @@ use stm32h7::stm32h753 as device;
 #[cfg(any(feature = "h743", feature = "h753"))]
 #[pre_init]
 unsafe fn system_pre_init() {
+    // /!\ EXTREME DANGER WARNING /!\
+    //
+    // We are running this function *before* the startup routine has completed,
+    // meaning that `static`s have NOT been initialized. This is extremely
+    // likely to be unsound in the general case, and should probably be
+    // rewritten in `global_asm!` some day, as the `pre_init` macro is now
+    // deprecated.
+    //
+    // Until that day, you MUST NOT read or write any `static` variables, as
+    // that would be IMMEDIATE Undefined Behavior. Tread carefully!
+    //
+    // /!\ EXTREME DANGER WARNING /!\
+    //
     // Configure the power supply to latch the LDO on and prevent further
     // reconfiguration.
     //
@@ -114,17 +127,18 @@ pub fn system_init_custom(
     // Before doing anything else, check for a measurement handoff token
     #[cfg(feature = "measurement-handoff")]
     unsafe {
-        // After each delay, we'll wait roughly 200 ms.  We double the naive
-        // cycle count because the STM32H7 may (under some circumstances)
-        // dual-issue instructions in the delay loop, which would make the loop
-        // run twice as fast as expected.  We'd rather the loop sometimes run
-        // twice as *slow*, because that just slows down SP boot in cases where
-        // the RoT is not present; if the loop is twice as fast, the SP can time
-        // out before RoT comes up at all, which is a much worse failure mode.
-        const DELAY_CYCLES: u32 = 12860000 * 2;
+        // After each delay, we'll wait roughly 200 ms.
+        //
+        // You might ask yourself, "how do we have a RETRY_COUNT if the closure
+        // diverges"? Well! `measurement_handoff::check` stores the iteration
+        // counter in a linker location that persists across soft-reboots.
+        const DELAY_MICROS: u32 = 200 * 1_000;
         const RETRY_COUNT: u32 = 20;
+
+        // APB1 is currently 64MHz. Create a rolling timer we can use for now.
+        let timer = rolling_timer::RollingTimer::new_tim5(&p, 64);
         measurement_handoff::check(RETRY_COUNT, || {
-            cortex_m::asm::delay(DELAY_CYCLES);
+            timer.blocking_delay_micros(DELAY_MICROS);
             cortex_m::peripheral::SCB::sys_reset()
         });
     }
@@ -346,9 +360,104 @@ pub fn system_init_custom(
     #[cfg(any(feature = "h743", feature = "h753"))]
     p.RCC.d2ccip2r.modify(|_, w| w.rngsel().pll1_q());
 
-    // Hello from target speed!
-
     // Hand the peripherals back in case the board-specific setup code needs to
     // do anything.
     p
+}
+
+pub mod rolling_timer {
+    use super::device;
+
+    /// A 32-bit rolling hardware timer, ticking at 1MHz.
+    pub struct RollingTimer<'a> {
+        tim: &'a device::TIM5,
+    }
+
+    /// Stop the rolling timer automatically when dropped.
+    impl Drop for RollingTimer<'_> {
+        fn drop(&mut self) {
+            self.tim.cr1.modify(|_r, w| w.cen().disabled());
+        }
+    }
+
+    impl<'a> RollingTimer<'a> {
+        /// Enable TIM5 for use as a 32-bit rolling timer at a tick rate of
+        /// 1MHz.
+        ///
+        /// TIM5 will be enabled at the RCC level, and the current count value
+        /// will be reset to zero. This function may be called multiple times,
+        /// modulo the safety concerns listed below.
+        ///
+        /// `apb1_mhz` should be the configured frequency in MHz of the APB1
+        /// clock, which is used as an input to TIM5, and will be used to
+        /// pre-scale this input down to a tick rate of 1MHz.
+        pub fn new_tim5(p: &'a device::Peripherals, apb1_mhz: u16) -> Self {
+            // Hand-build TIM5 as a 32-bit rolling timer at 1 MHz. Start by
+            // enabling TIM5 on APB1L in RCC and toggling reset
+            p.RCC.apb1lenr.modify(|_r, w| w.tim5en().enabled());
+            cortex_m::asm::dsb();
+
+            p.RCC.apb1lrstr.modify(|_r, w| w.tim5rst().set_bit());
+            p.RCC.apb1lrstr.modify(|_r, w| w.tim5rst().clear_bit());
+
+            // Now, configure it for an upcounting rolling mode
+            //
+            // Disable counter
+            p.TIM5.cr1.modify(|_r, w| w.cen().disabled());
+            // Set auto-reload to u32::MAX
+            p.TIM5.arr.write(|w| w.arr().bits(u32::MAX));
+            // Set counter to zero
+            p.TIM5.cnt.modify(|_r, w| w.cnt().bits(0));
+            // Set prescaler to (FREQ / 1M) - 1, as the counter resets to 0
+            // AFTER counting this number.
+            p.TIM5.psc.write(|w| w.psc().bits(apb1_mhz - 1));
+            // Generate update (latch the PSC and ARR values)
+            p.TIM5.egr.write(|w| w.ug().set_bit());
+            // Start counting!
+            p.TIM5.cr1.modify(|_r, w| w.cen().enabled());
+
+            Self { tim: &p.TIM5 }
+        }
+
+        /// Obtain the current count value of TIM5, which is a 32-bit timer that
+        /// ticks at a rate of 1MHz.
+        ///
+        /// The value returned by this function "rolls over", or wraps around
+        /// every 71 minutes or so. Callers should be careful to handle
+        /// potential wrapping of the returned value when calculating elapsed
+        /// time or using for delays.
+        ///
+        /// Consider using `blocking_delay_micros()`, which correctly handles
+        /// this calculation, for early boot-up delays.
+        ///
+        /// NOTE: The returned value here is only valid while *this* instance of
+        /// `RollingTimer` is valid. If the timer is dropped and recreated, the
+        /// count will be reset to zero.
+        #[inline(always)]
+        pub fn get_rolling_micros(&self) -> u32 {
+            self.tim.cnt.read().bits()
+        }
+
+        /// Perform a blocking delay for the given number of microseconds.
+        #[inline]
+        pub fn blocking_delay_micros(&self, micros: u32) {
+            let start = self.get_rolling_micros();
+            loop {
+                let now = self.get_rolling_micros();
+
+                // Since this is a rolling timer, we can perform a wrapping sub
+                // to obtain the elapsed amount of time, even if we have crossed
+                // the rollover point, e.g.:
+                //
+                // start  = 0xFFFF_FFFE
+                // now    = 0x0000_0080
+                //
+                // now.wrapping_sub(start) => 0x82
+                let elapsed = now.wrapping_sub(start);
+                if elapsed >= micros {
+                    break;
+                }
+            }
+        }
+    }
 }

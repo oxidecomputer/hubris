@@ -1,0 +1,16 @@
+[package]
+name = "build-stack"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+goblin = { workspace = true }
+capstone = { workspace = true }
+rustc-demangle = { workspace = true }
+leb128 = { workspace = true }
+
+build-elf = { path = "../elf" }
+
+[lints]
+workspace = true

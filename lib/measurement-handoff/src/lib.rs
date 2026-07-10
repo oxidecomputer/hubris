@@ -75,7 +75,13 @@ pub static mut HUBRIS_MEASUREMENT_RESULT: Option<MeasurementResult> = None;
 /// measurement is valid, or `false` if we exceeded `retry_count`.
 ///
 /// `delay_and_reset` should include a delay, to give the RoT time to boot.
-pub unsafe fn check(retry_count: u32, delay_and_reset: fn() -> !) -> bool {
+///
+// TODO: `core::convert::Infallible` is used as a stand-in for `!`, we should
+// change this over when https://github.com/rust-lang/rust/pull/155499 lands.
+pub unsafe fn check<F>(retry_count: u32, delay_and_reset: F) -> bool
+where
+    F: FnOnce() -> core::convert::Infallible,
+{
     let ptr: *mut u32 = &raw mut __REGION_DTCM_BASE as *mut _;
     let end: *mut u32 = &raw mut __REGION_DTCM_END as *mut _;
     assert!(ptr == measurement_token::SP_ADDR);
@@ -133,7 +139,18 @@ pub unsafe fn check(retry_count: u32, delay_and_reset: fn() -> !) -> bool {
                     next ^ COUNTER_TAG,
                 );
             }
-            delay_and_reset();
+
+            // NOTE(AJM), sadly, the compiler IS smart enough to figure out that
+            // core::convert::Infallible is uninhabited, and will warn us that
+            // code following `delay_and_reset` is unreachable, BUT, it isn't
+            // smart enough to enforce this wrt types, and if we DON'T include
+            // the `unreachable!()` macro, it will tell us that it expects us to
+            // return a bool here.
+            #[allow(unreachable_code)]
+            {
+                delay_and_reset();
+                unreachable!();
+            }
         }
     }
 }

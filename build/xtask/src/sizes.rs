@@ -16,10 +16,9 @@ use indexmap::map::Entry;
 
 use crate::{
     Config,
-    dist::{
-        Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK, get_max_stack,
-    },
+    dist::{Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK},
 };
+use build_stack::get_max_stack;
 
 #[derive(Debug)]
 struct TaskSizes<'a> {
@@ -437,7 +436,11 @@ fn print_task_stacks(toml: &Config) -> Result<()> {
         let task_stack_size =
             task.stacksize.unwrap_or_else(|| toml.stacksize.unwrap());
 
-        let max_stack = get_max_stack(toml, task_name, false)?;
+        let f = Path::new("target")
+            .join(&toml.name)
+            .join("dist")
+            .join(format!("{task_name}.tmp"));
+        let max_stack = get_max_stack(&f, task_name, false)?;
         let total: u64 = max_stack.iter().map(|(n, _)| *n).sum();
         println!("{task_name}: {total} bytes (limit is {task_stack_size})");
         for (frame_size, name) in max_stack {
