@@ -3,9 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use super::{PSU_COUNT, i2c_config, notifications};
-use drv_i2c_api::I2cDevice;
 use drv_stm32xx_sys_api as sys_api;
-use userlib::TaskId;
 
 pub use drv_i2c_devices::mwocp6x::Mwocp68 as Mwocp6x;
 
@@ -51,8 +49,11 @@ pub const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_6_MASK,
 ];
 
+/// Type returned by generated pmbus rail functions
+pub type SummonFn = fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
+
 /// In order to get the PMBus devices by PSU index, we need a little lookup table.
-pub const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
+pub const PSU_PMBUS_DEVS: [SummonFn; PSU_COUNT] = [
     i2c_config::pmbus::v54_psu0,
     i2c_config::pmbus::v54_psu1,
     i2c_config::pmbus::v54_psu2,

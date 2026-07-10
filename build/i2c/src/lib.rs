@@ -1386,31 +1386,14 @@ impl ConfigGenerator {
             for (rail, (device, index)) in &all {
                 let raw_bank = index.unwrap_or(0);
 
-                // ----
-                // First accessor, returns `(I2cDevice, u8)`
-
-                // if we update this code to be more clever than just
-                // to-lowercase'ing the rail names, you might need to go update
-                // the mapping in `control-plane-agent`!
-                write!(
-                    &mut self.output,
-                    r##"
-        #[allow(dead_code)]
-        pub fn {}(task: TaskId) -> (I2cDevice, u8) {{"##,
-                    rail.to_lowercase(),
-                )?;
-
-                let out = self.generate_device(device, 16);
-                writeln!(&mut self.output, "({out}, {raw_bank})\n        }}")?;
-
                 // ---
-                // Second accessor, returns `(I2cDevice, Option<u8>)`
+                // Accessor, returns `(I2cDevice, Option<u8>)`
 
                 write!(
                     &mut self.output,
                     r##"
         #[allow(dead_code)]
-        pub fn {}_with_opt_page_idx(task: TaskId)"##,
+        pub fn {}(task: TaskId)"##,
                     rail.to_lowercase(),
                 )?;
                 write!(&mut self.output, " -> (I2cDevice, Option<u8>) {{")?;

@@ -100,7 +100,7 @@ struct PowerControllerConfig {
     state: PowerState,
     device: DeviceType,
     chip: DeviceChip,
-    builder: fn(TaskId) -> (drv_i2c_api::I2cDevice, u8), // device, rail
+    builder: fn(TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>), // device, rail
     voltage: SensorId,
     input_voltage: Option<SensorId>,
     current: SensorId,
@@ -280,9 +280,10 @@ impl Device {
 
 impl PowerControllerConfig {
     fn get_device(&self, task: TaskId) -> Device {
-        let (dev, rail) = (self.builder)(task);
+        let (dev, opt_rail) = (self.builder)(task);
+        let rail = opt_rail.unwrap_or(0);
         match &self.chip {
-            DeviceChip::Bmr491 => Device::Bmr491(Bmr491::new(&dev, rail)),
+            DeviceChip::Bmr491 => Device::Bmr491(Bmr491::new(&dev)),
             DeviceChip::Raa229618 => {
                 Device::Raa229618(Raa229618::new(&dev, rail))
             }
@@ -290,9 +291,7 @@ impl PowerControllerConfig {
                 Device::Raa229620A(Raa229620A::new(&dev, rail))
             }
             DeviceChip::Isl68224 => Device::Isl68224(Isl68224::new(&dev, rail)),
-            DeviceChip::Tps546B24A => {
-                Device::Tps546B24A(Tps546B24A::new(&dev, rail))
-            }
+            DeviceChip::Tps546B24A => Device::Tps546B24A(Tps546B24A::new(&dev)),
             DeviceChip::Adm127x(sense) => {
                 Device::Adm127x(Adm127X::new(&dev, *sense))
             }
@@ -683,13 +682,15 @@ impl ServerImpl {
                 match (dev.device, req_dev) {
                     // Filter down to only devices that match types...
                     (DeviceType::PowerShelf, Device::PowerShelf) => {
-                        let (_device, rail) = (dev.builder)(self.i2c_task);
+                        let (_device, opt_rail) = (dev.builder)(self.i2c_task);
+                        let rail = opt_rail.unwrap_or(0);
                         // ... and rails
                         (rail == req_rail)
                             .then_some(dev.get_device(self.i2c_task))
                     }
                     (DeviceType::IBC, Device::Bmr491) => {
-                        let (_device, rail) = (dev.builder)(self.i2c_task);
+                        let (_device, opt_rail) = (dev.builder)(self.i2c_task);
+                        let rail = opt_rail.unwrap_or(0);
                         // ... and rails
                         (rail == req_rail)
                             .then_some(dev.get_device(self.i2c_task))
@@ -715,7 +716,10 @@ impl ServerImpl {
         let out: T = if has_rail {
             dev.write_read_reg(
                 op,
-                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                &[
+                    pmbus::commands::PAGE::CommandData::code(),
+                    rail.unwrap_or(0),
+                ],
             )
         } else {
             dev.read_reg(op)
@@ -753,7 +757,10 @@ impl ServerImpl {
         };
         if has_rail {
             dev.write_write(
-                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                &[
+                    pmbus::commands::PAGE::CommandData::code(),
+                    rail.unwrap_or(0),
+                ],
                 args_slice,
             )
         } else {
@@ -838,7 +845,10 @@ impl idl::InOrderPowerImpl for ServerImpl {
         let len = if has_rail {
             dev.write_read_block(
                 op,
-                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                &[
+                    pmbus::commands::PAGE::CommandData::code(),
+                    rail.unwrap_or(0),
+                ],
                 &mut out.data,
             )
         } else {
@@ -918,7 +928,10 @@ impl idl::InOrderPowerImpl for ServerImpl {
         let (dev, rail) = (cfg.builder)(self.i2c_task);
         if has_rail {
             dev.write_write(
-                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                &[
+                    pmbus::commands::PAGE::CommandData::code(),
+                    rail.unwrap_or(0),
+                ],
                 &buf,
             )
         } else {
