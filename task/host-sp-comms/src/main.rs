@@ -991,7 +991,7 @@ impl ServerImpl {
                 // ereport!
                 _ = self.ereporter.deliver_ereport(&HostBootFail {
                     seqno: response.seqno,
-                    msglen: response.written as u32,
+                    msglen: response.written,
                     reason,
                     flashidx,
                 });
@@ -1021,7 +1021,7 @@ impl ServerImpl {
                 // ereport!
                 _ = self.ereporter.deliver_ereport(&HostPanic {
                     seqno: response.seqno,
-                    msglen: response.written as u32,
+                    msglen: response.written,
                     flashidx,
                 });
 
