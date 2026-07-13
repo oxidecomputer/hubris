@@ -1080,7 +1080,7 @@ device = "isl68224"
 description = "SP5 power controller (V1P1, V1P8, V3P3)"
 power.rails = [ "V1P1_SP5_A0", "V1P8_SP5_A1", "V3P3_SP5_A1" ]
 power.phases = [ [ 0, 1, 2 ], [ 3 ], [ 4 ] ]
-sensors = { voltage = 3, current = 3 } # XXX add temperature sensors?
+sensors = { temperature = 3, voltage = 3, current = 3 }
 refdes = "U116"
 
 ################################################################################
