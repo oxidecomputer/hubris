@@ -102,8 +102,8 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
-        "set_ereport_restart_id": (
-            doc: "Set the restart ID for ereports",
+        "set_restart_id": (
+            doc: "Set the restart ID for ereports and other APIs",
             args: {
                 "restart_id": "u128",
             },

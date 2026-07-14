@@ -50,10 +50,10 @@
 //!   packrat may flush them from its buffer, to free memory for new
 //!   ereports.
 //!
-//! - `set_ereport_restart_id`: called by the `rng` task to set the
+//! - `set_restart_id`: called by the `rng` task to set the
 //!   128-bit random restart ID that uniquely identifies this system's
 //!   boot/restart. No ereports will be reported until this IPC has been
-//!   called.
+//!   called. Also used for MGS messages.
 //!
 //! If the "ereport" feature flag is *not* enabled, packrat's `deliver_ereport`
 //! and `read_ereports` IPCs will always fail with
@@ -100,11 +100,18 @@ mod ereport;
 type SpdData = spd_data::SpdData<0, 0>; // dummy type
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[allow(dead_code)] // not all variants are used, depending on cargo features
 enum Trace {
     None,
     MacAddressBlockSet(TraceSet<MacAddressBlock>),
     VpdIdentitySet(TraceSet<OxideIdentity>),
+    #[cfg_attr(
+        not(any(
+            feature = "gimlet",
+            feature = "grapefruit",
+            feature = "cosmo"
+        )),
+        allow(dead_code)
+    )]
     SetNextBootHostStartupOptions(HostStartupOptions),
     SpdDataUpdate {
         index: u8,
@@ -114,7 +121,6 @@ enum Trace {
     SpdRemoveEeprom {
         index: u8,
     },
-    #[cfg(feature = "ereport")]
     RestartIdSet(TraceSet<u128>),
 }
 
@@ -130,7 +136,6 @@ impl From<TraceSet<OxideIdentity>> for Trace {
     }
 }
 
-#[cfg(feature = "ereport")]
 impl From<TraceSet<ereport_messages::RestartId>> for Trace {
     fn from(value: TraceSet<ereport_messages::RestartId>) -> Self {
         // Turn this into a TraceSet<u128> instead of the newtype so that
@@ -258,6 +263,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         mac_address_block,
         identity,
+        restart_id: None,
         #[cfg(any(
             feature = "gimlet",
             feature = "grapefruit",
@@ -283,6 +289,7 @@ fn main() -> ! {
 struct ServerImpl {
     mac_address_block: &'static mut Option<MacAddressBlock>,
     identity: &'static mut Option<OxideIdentity>,
+    restart_id: Option<ereport_messages::RestartId>,
     #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
     host_info: &'static mut HostInfo,
     #[cfg(feature = "gimlet")]
@@ -566,24 +573,13 @@ impl idl::InOrderPackratImpl for ServerImpl {
         }
     }
 
-    #[cfg(not(feature = "ereport"))]
-    fn set_ereport_restart_id(
-        &mut self,
-        _: &RecvMessage,
-        _: u128,
-    ) -> Result<(), RequestError<CacheSetError>> {
-        Ok(())
-    }
-
-    #[cfg(feature = "ereport")]
-    fn set_ereport_restart_id(
+    fn set_restart_id(
         &mut self,
         _: &RecvMessage,
         value: u128,
     ) -> Result<(), RequestError<CacheSetError>> {
         let restart_id = ereport_messages::RestartId::new(value);
-        Self::set_once(&mut self.ereport_store.restart_id, restart_id)
-            .map_err(Into::into)
+        Self::set_once(&mut self.restart_id, restart_id).map_err(Into::into)
     }
 
     #[cfg(not(feature = "ereport"))]
@@ -632,6 +628,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<EreportReadError>> {
         self.ereport_store.read_ereports(
+            &self.restart_id,
             request_id,
             restart_id,
             begin_ena,
@@ -849,6 +846,11 @@ impl ServerImpl {
         HostPanicReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
     > {
+        // Do we have a restart ID?
+        let Some(restart_id) = self.restart_id else {
+            return Err(HostInfoReadError::MissingRestartId.into());
+        };
+
         // Do we *have* a panic to report?
         let Some(bfs) = self.host_info.host_panic_state.as_ref() else {
             return Err(HostInfoReadError::NoHostInfo.into());
@@ -887,6 +889,7 @@ impl ServerImpl {
             seqno: bfs.sequence_number,
             total_len: length as u32,
             slot: bfs.slot,
+            restart_id,
         })
     }
 
@@ -899,6 +902,11 @@ impl ServerImpl {
         HostBootfailReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
     > {
+        // Do we have a restart ID?
+        let Some(restart_id) = self.restart_id else {
+            return Err(HostInfoReadError::MissingRestartId.into());
+        };
+
         // Do we *have* a bootfail to report?
         let Some(bfs) = self.host_info.host_bootfail_state.as_ref() else {
             return Err(HostInfoReadError::NoHostInfo.into());
@@ -936,6 +944,7 @@ impl ServerImpl {
             total_len: length as u32,
             offset: offset as u32,
             slot: bfs.slot,
+            restart_id,
         };
 
         // Okay! Written! Return how many bytes were actually copied

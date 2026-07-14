@@ -1290,6 +1290,9 @@ impl SpHandler for MgsHandler {
                 task_packrat_api::HostInfoReadError::InvalidSeqNo => {
                     gateway_messages::HostPanicError::InvalidSeqNo
                 }
+                task_packrat_api::HostInfoReadError::MissingRestartId => {
+                    gateway_messages::HostPanicError::MissingRestartId
+                }
                 task_packrat_api::HostInfoReadError::ServerRestarted => {
                     gateway_messages::HostPanicError::ServerRestarted
                 }
@@ -1301,6 +1304,7 @@ impl SpHandler for MgsHandler {
             len: info.read as usize,
             total_len: info.total_len,
             slot: info.slot,
+            restart_id: info.restart_id,
         })
     }
 
@@ -1332,6 +1336,9 @@ impl SpHandler for MgsHandler {
                 task_packrat_api::HostInfoReadError::InvalidSeqNo => {
                     gateway_messages::HostBootfailError::InvalidSeqNo
                 }
+                task_packrat_api::HostInfoReadError::MissingRestartId => {
+                    gateway_messages::HostBootfailError::MissingRestartId
+                }
                 task_packrat_api::HostInfoReadError::ServerRestarted => {
                     gateway_messages::HostBootfailError::ServerRestarted
                 }
@@ -1344,6 +1351,7 @@ impl SpHandler for MgsHandler {
             total_len: info.total_len,
             reason: info.reason,
             slot: info.slot,
+            restart_id: info.restart_id,
         })
     }
 

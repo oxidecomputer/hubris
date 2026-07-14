@@ -7,6 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use gateway_ereport_messages::RestartId;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{FromPrimitive, sys_send};
@@ -87,6 +88,7 @@ pub struct HostBootfailReadOutput {
     pub total_len: u32,
     pub seqno: u32,
     pub reason: u8,
+    pub restart_id: RestartId,
     pub slot: Option<u16>,
 }
 
@@ -96,6 +98,7 @@ pub struct HostPanicReadOutput {
     pub offset: u32,
     pub total_len: u32,
     pub seqno: u32,
+    pub restart_id: RestartId,
     pub slot: Option<u16>,
 }
 
@@ -121,6 +124,9 @@ pub enum HostInfoReadError {
     /// Requested sequence number does not match the currently stored host
     /// information
     InvalidSeqNo,
+
+    /// Missing Restart ID,
+    MissingRestartId,
 
     #[idol(server_death)]
     ServerRestarted,

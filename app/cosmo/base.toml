@@ -139,7 +139,7 @@ features = ["cosmo", "ereport"]
 notifications = ["task-faulted"]
 
 [tasks.rng_driver]
-features = ["h753", "ereport"]
+features = ["h753", "packrat"]
 name = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]
