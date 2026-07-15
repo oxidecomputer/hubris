@@ -145,7 +145,7 @@ Interface(
             idempotent: true,
         ),
         "write_host_bootfail": (
-            doc: "Write a host's boot failure message and return the index of this failure",
+            doc: "Write the host's boot failure message and return the index of this failure",
             args: {
                 "reason": "u8",
                 "slot": "Option<u16>",
@@ -175,7 +175,7 @@ Interface(
             encoding: Hubpack,
         ),
         "write_host_panic": (
-            doc: "Write a host's panic message and return the index of this panic",
+            doc: "Write the host's panic message and return the index of this panic",
             args: {
                 "slot": "Option<u16>",
             },

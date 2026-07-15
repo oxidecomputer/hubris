@@ -96,6 +96,9 @@ use cosmo::SpdData;
 #[cfg(feature = "ereport")]
 mod ereport;
 
+#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+mod host;
+
 #[cfg(not(any(feature = "gimlet", feature = "cosmo")))]
 type SpdData = spd_data::SpdData<0, 0>; // dummy type
 
@@ -161,50 +164,6 @@ enum TraceSet<T> {
     AttemptedSetToNewValue(T),
 }
 
-/// Metadata about panics observed from the host
-#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
-struct HostPanicMetadata {
-    /// Length in bytes of the currently stored panic message
-    total_length: usize,
-    /// (hopefully not) Rolling counter of panic messages observed this power cycle
-    sequence_number: u32,
-    /// Boot slot
-    slot: Option<u16>,
-}
-
-/// Metadata about panics observed from the host
-#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
-struct HostBootFailMetadata {
-    /// Length in bytes of the currently stored bootfail message
-    total_length: usize,
-    /// (hopefully not) Rolling counter of panic messages observed this power cycle
-    sequence_number: u32,
-    /// Bootfail reason
-    reason: u8,
-    /// Boot slot
-    slot: Option<u16>,
-}
-
-#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
-pub struct HostInfo {
-    host_panic_payload: [u8; 4096],
-    host_bootfail_payload: [u8; 4096],
-    host_panic_state: Option<HostPanicMetadata>,
-    host_bootfail_state: Option<HostBootFailMetadata>,
-}
-
-#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
-impl HostInfo {
-    const fn new() -> Self {
-        Self {
-            host_panic_payload: [0u8; _],
-            host_bootfail_payload: [0u8; _],
-            host_panic_state: None,
-            host_bootfail_state: None,
-        }
-    }
-}
-
 ringbuf!(Trace, 16, Trace::None);
 #[unsafe(export_name = "main")]
 fn main() -> ! {
@@ -216,7 +175,7 @@ fn main() -> ! {
             feature = "grapefruit",
             feature = "cosmo"
         ))]
-        host_info: HostInfo,
+        host_info: host::HostCrashDebuggingInfo,
         #[cfg(feature = "gimlet")]
         gimlet_bufs: gimlet::StaticBufs,
         #[cfg(feature = "cosmo")]
@@ -249,7 +208,7 @@ fn main() -> ! {
                     feature = "grapefruit",
                     feature = "cosmo"
                 ))]
-                host_info: HostInfo::new(),
+                host_info: host::HostCrashDebuggingInfo::new(),
                 #[cfg(feature = "gimlet")]
                 gimlet_bufs: gimlet::StaticBufs::new(),
                 #[cfg(feature = "cosmo")]
@@ -291,7 +250,7 @@ struct ServerImpl {
     identity: &'static mut Option<OxideIdentity>,
     restart_id: Option<ereport_messages::RestartId>,
     #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
-    host_info: &'static mut HostInfo,
+    host_info: &'static mut host::HostCrashDebuggingInfo,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
     #[cfg(feature = "grapefruit")]
@@ -672,11 +631,10 @@ impl idl::InOrderPackratImpl for ServerImpl {
     > {
         // First, attempt to copy-in the new data, to ensure that we don't rev the
         // metadata if the lease access fails.
-        let to_copy =
-            self.host_info.host_bootfail_payload.len().min(data.len());
+        let to_copy = self.host_info.bootfail_payload.len().min(data.len());
         data.read_range(
             0..to_copy,
-            &mut self.host_info.host_bootfail_payload[..to_copy],
+            &mut self.host_info.bootfail_payload[..to_copy],
         )
         .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
 
@@ -687,12 +645,12 @@ impl idl::InOrderPackratImpl for ServerImpl {
         // a count of zero if we've ever observed a boot failure.
         let new_seq = self
             .host_info
-            .host_bootfail_state
+            .bootfail_state
             .take()
             .map(|s| s.sequence_number.wrapping_add(1))
             .unwrap_or(0)
             .max(1);
-        self.host_info.host_bootfail_state = Some(HostBootFailMetadata {
+        self.host_info.bootfail_state = Some(host::HostBootFailMetadata {
             total_length: to_copy,
             sequence_number: new_seq,
             reason,
@@ -770,10 +728,10 @@ impl idl::InOrderPackratImpl for ServerImpl {
     > {
         // First, attempt to copy-in the new data, to ensure that we don't rev the
         // metadata if the lease access fails.
-        let to_copy = self.host_info.host_panic_payload.len().min(data.len());
+        let to_copy = self.host_info.panic_payload.len().min(data.len());
         data.read_range(
             0..to_copy,
-            &mut self.host_info.host_panic_payload[..to_copy],
+            &mut self.host_info.panic_payload[..to_copy],
         )
         .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
 
@@ -784,12 +742,12 @@ impl idl::InOrderPackratImpl for ServerImpl {
         // a count of zero if we've ever observed a panic.
         let new_seq = self
             .host_info
-            .host_panic_state
+            .panic_state
             .take()
             .map(|s| s.sequence_number.wrapping_add(1))
             .unwrap_or(0)
             .max(1);
-        self.host_info.host_panic_state = Some(HostPanicMetadata {
+        self.host_info.panic_state = Some(host::HostPanicMetadata {
             total_length: to_copy,
             sequence_number: new_seq,
             slot,
@@ -846,19 +804,17 @@ impl ServerImpl {
         HostPanicReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
     > {
+        // Do we *have* a panic to report?
+        let Some(bfs) = self.host_info.panic_state.as_ref() else {
+            return Err(HostInfoReadError::NoHostInfo.into());
+        };
+
         // Do we have a restart ID?
         let Some(restart_id) = self.restart_id else {
             return Err(HostInfoReadError::MissingRestartId.into());
         };
 
-        // Do we *have* a panic to report?
-        let Some(bfs) = self.host_info.host_panic_state.as_ref() else {
-            return Err(HostInfoReadError::NoHostInfo.into());
-        };
-
-        let length = bfs
-            .total_length
-            .min(self.host_info.host_panic_payload.len());
+        let length = bfs.total_length.min(self.host_info.panic_payload.len());
         let offset = if let Some(req) = req {
             // Do we have the specific panic data being requested?
             if bfs.sequence_number != req.seqno {
@@ -877,7 +833,7 @@ impl ServerImpl {
         };
 
         // Attempt to copy the requested range into the destination
-        let relevant = &self.host_info.host_panic_payload[offset..];
+        let relevant = &self.host_info.panic_payload[offset..];
         let max_to_copy = data.len().min(relevant.len());
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
             .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
@@ -902,19 +858,18 @@ impl ServerImpl {
         HostBootfailReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
     > {
+        // Do we *have* a bootfail to report?
+        let Some(bfs) = self.host_info.bootfail_state.as_ref() else {
+            return Err(HostInfoReadError::NoHostInfo.into());
+        };
+
         // Do we have a restart ID?
         let Some(restart_id) = self.restart_id else {
             return Err(HostInfoReadError::MissingRestartId.into());
         };
 
-        // Do we *have* a bootfail to report?
-        let Some(bfs) = self.host_info.host_bootfail_state.as_ref() else {
-            return Err(HostInfoReadError::NoHostInfo.into());
-        };
-
-        let length = bfs
-            .total_length
-            .min(self.host_info.host_bootfail_payload.len());
+        let length =
+            bfs.total_length.min(self.host_info.bootfail_payload.len());
         let offset = if let Some(req) = request {
             // Do we have the specific bootfail data being requested?
             if bfs.sequence_number != req.seqno {
@@ -932,7 +887,7 @@ impl ServerImpl {
         };
 
         // Attempt to copy the requested range into the destination
-        let relevant = &self.host_info.host_bootfail_payload[offset..];
+        let relevant = &self.host_info.bootfail_payload[offset..];
         let max_to_copy = data.len().min(relevant.len());
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
             .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;

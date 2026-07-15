@@ -990,7 +990,7 @@ impl ServerImpl {
 
                 // ereport!
                 _ = self.ereporter.deliver_ereport(&HostBootFail {
-                    seqno: response.seqno,
+                    seq: response.seqno,
                     msglen: response.written,
                     reason,
                     flashidx,
@@ -1008,6 +1008,8 @@ impl ServerImpl {
 
                 // TODO: The flashidx *at panic time* may not be the *flashidx
                 // used when the panicking host booted*.
+                //
+                // See https://github.com/oxidecomputer/hubris/issues/2597.
                 let flashidx = None;
 
                 // Store the panic message in packrat so it can be accessed by MGS in the future
@@ -2059,13 +2061,13 @@ struct HostPanic {
 
 /// An ereport represent a host reported boot failure
 #[derive(Encode)]
-#[ereport(class = "host.btfail", version = 0)]
+#[ereport(class = "host.bootfail", version = 0)]
 struct HostBootFail {
     /// The total number of host boot failures observed by this invocation
     /// of host-sp-comms.
     ///
     /// This count will wrap, but is guaranteed to never be zero.
-    seqno: u32,
+    seq: u32,
     /// The length, in bytes, of the stored panic message.
     ///
     /// This quantity may be less than the amount received, as it is capped
