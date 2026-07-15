@@ -206,7 +206,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.rng_driver]
-features = ["h753", "ereport"]
+features = ["h753", "packrat"]
 task-slots = ["sys", "user_leds", "packrat"]
 
 # VLAN configuration

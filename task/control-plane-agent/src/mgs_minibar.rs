@@ -17,6 +17,7 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ComponentAction, ComponentActionResponse, ComponentDetails,
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
+    HostBootfailPayloadData, HostInfoRequest, HostPanicPayloadData,
     IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
     PmbusStatus, PowerRailName, PowerState, PowerStateTransition, RotBootInfo,
     RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
@@ -694,5 +695,23 @@ impl SpHandler for MgsHandler {
         rail: &PowerRailName,
     ) -> Result<PmbusStatus, SpError> {
         self.common.get_pmbus_status(rail)
+    }
+
+    fn get_host_bootfail_payload(
+        &mut self,
+        _request: Option<HostInfoRequest>,
+        _len: u32,
+        _trailing_tx_buf: &mut [u8],
+    ) -> Result<HostBootfailPayloadData, SpError> {
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn get_host_panic_payload(
+        &mut self,
+        _request: Option<HostInfoRequest>,
+        _len: u32,
+        _trailing_tx_buf: &mut [u8],
+    ) -> Result<HostPanicPayloadData, SpError> {
+        Err(SpError::RequestUnsupportedForSp)
     }
 }
