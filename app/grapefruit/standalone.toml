@@ -11,7 +11,7 @@ interrupts = {"uart8.irq" = "usart-irq"}
 
 # Ereport stuff
 [tasks.packrat]
-stacksize = 1512
+stacksize = 1616
 task-slots = ["jefe"]
 features = ["ereport"]
 notifications = ["task-faulted"]
@@ -29,7 +29,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.rng_driver]
-features = ["h753", "ereport"]
+features = ["h753", "packrat"]
 name = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]

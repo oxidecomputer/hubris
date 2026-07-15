@@ -195,7 +195,7 @@ fn main() -> ! {
         use drv_i2c_devices::bmr491::{Bmr491, ExternalInputVoltageProtection};
 
         let dev = i2c_config::devices::bmr491_u80(I2C.get_task_id());
-        let driver = Bmr491::new(&dev, 0);
+        let driver = Bmr491::new(&dev);
 
         // Cosmo provides external undervoltage protection that kicks in at a
         // lower voltage than we'd like to tolerate, so, request additional

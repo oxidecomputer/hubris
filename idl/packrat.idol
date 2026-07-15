@@ -102,8 +102,8 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
-        "set_ereport_restart_id": (
-            doc: "Set the restart ID for ereports",
+        "set_restart_id": (
+            doc: "Set the restart ID for ereports and other APIs",
             args: {
                 "restart_id": "u128",
             },
@@ -143,6 +143,65 @@ Interface(
                 err: CLike("EreportReadError"),
             ),
             idempotent: true,
+        ),
+        "write_host_bootfail": (
+            doc: "Write the host's boot failure message and return the index of this failure",
+            args: {
+                "reason": "u8",
+                "slot": "Option<u16>",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "HostInfoWriteOutput",
+                err: ServerDeath,
+            ),
+            encoding: Hubpack,
+        ),
+        "read_host_bootfail_fragment": (
+            doc: "Read a portion of the host's boot failure message",
+            args: {
+                "request": "Option<HostInfoRequest>",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "HostBootfailReadOutput",
+                err: CLike("HostInfoReadError"),
+            ),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+        "write_host_panic": (
+            doc: "Write the host's panic message and return the index of this panic",
+            args: {
+                "slot": "Option<u16>",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "HostInfoWriteOutput",
+                err: ServerDeath,
+            ),
+            encoding: Hubpack,
+        ),
+        "read_host_panic_fragment": (
+            doc: "Read a portion of the host's panic message",
+            args: {
+                "request": "Option<HostInfoRequest>",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "HostPanicReadOutput",
+                err: CLike("HostInfoReadError"),
+            ),
+            idempotent: true,
+            encoding: Hubpack,
         ),
     },
 )

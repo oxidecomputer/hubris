@@ -55,7 +55,7 @@ impl From<Error> for ResponseCode {
 }
 
 impl Tps546B24A {
-    pub fn new(device: &I2cDevice, _rail: u8) -> Self {
+    pub fn new(device: &I2cDevice) -> Self {
         Tps546B24A {
             device: *device,
             mode: Cell::new(None),

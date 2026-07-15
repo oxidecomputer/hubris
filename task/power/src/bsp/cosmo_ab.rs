@@ -344,7 +344,9 @@ impl State {
         .iter()
         .enumerate()
         {
-            let (dev, rail) = (builder)(i2c_task);
+            let (dev, opt_rail) = (builder)(i2c_task);
+            // If there is no rail index, then there must be a single rail
+            let rail = opt_rail.unwrap_or(0);
             let m = Max5970::new(&dev, rail, Ohms(0.005), true);
             if let Err(err) = m.set_dac_fast(0x99) {
                 ringbuf_entry!(Trace::Max5970ConfigFailed { u2_index: i, err });

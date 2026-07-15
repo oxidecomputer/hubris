@@ -117,7 +117,6 @@ task_slot!(JEFE, jefe);
 pub(crate) struct EreportStore {
     storage: &'static mut snitch_core::Store<STORE_SIZE>,
     recv: &'static mut [u8; RECV_BUF_SIZE],
-    pub(super) restart_id: Option<ereport_messages::RestartId>,
     //
     // === Stuff for task fault reporting ===
     //
@@ -280,7 +279,6 @@ impl EreportStore {
             panic_buf,
             task_fault_states,
             holding_faults: false,
-            restart_id: None,
             fault_count_buf,
             jefe: Jefe::from(JEFE.get_task_id()),
         }
@@ -316,6 +314,7 @@ impl EreportStore {
 
     pub(crate) fn read_ereports(
         &mut self,
+        current_restart_id: &Option<ereport_messages::RestartId>,
         request_id: ereport_messages::RequestIdV0,
         restart_id: ereport_messages::RestartId,
         begin_ena: ereport_messages::Ena,
@@ -329,7 +328,7 @@ impl EreportStore {
         });
 
         let current_restart_id =
-            self.restart_id.ok_or(EreportReadError::RestartIdNotSet)?;
+            current_restart_id.ok_or(EreportReadError::RestartIdNotSet)?;
         // Skip over a header-sized initial chunk.
         let first_data_byte = size_of::<ereport_messages::ResponseHeader>();
         let mut first_written_ena = None;

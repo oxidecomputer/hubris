@@ -28,6 +28,7 @@ use host_sp_messages::{
 };
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
+use microcbor::Encode;
 use multitimer::{Multitimer, Repeat};
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_assertions::const_assert;
@@ -89,9 +90,6 @@ const A2_REBOOT_DELAY: u64 = 5_000;
 // applies if our current tx_buf/rx_buf are empty (i.e., we don't have a real
 // response to send, and we haven't yet started to receive a request).
 const UART_ZERO_DELAY: u64 = 200;
-
-// How long of a host panic / boot fail message are we willing to keep?
-const MAX_HOST_FAIL_MESSAGE_LEN: usize = 4096;
 
 // How many MAC addresses should we report to the host? Per RFD 320, a gimlet
 // currently needs 5 total:
@@ -233,9 +231,6 @@ const MAX_DTRACE_CONF_LEN: usize = 4096;
 // data for later read back (either by the host itself or by the control plane
 // via MGS).
 struct HostKeyValueStorage {
-    last_boot_fail_reason: u8,
-    last_boot_fail: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
-    last_panic: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
     etc_system: &'static mut [u8; MAX_ETC_SYSTEM_LEN],
     etc_system_len: usize,
     dtrace_conf: &'static mut [u8; MAX_DTRACE_CONF_LEN],
@@ -292,6 +287,8 @@ struct ServerImpl {
     host_kv_storage: HostKeyValueStorage,
     hf_mux_state: Option<HfMuxState>,
 
+    ereporter: Ereporter,
+
     /// Temporary space for inventory data, which is a large `enum`
     scratch: &'static mut host_sp_messages::InventoryData,
 
@@ -331,8 +328,6 @@ impl ServerImpl {
         struct Bufs {
             tx_buf: tx_buf::StaticBufs,
             rx_buf: Vec<u8, MAX_PACKET_SIZE>,
-            last_boot_fail: [u8; MAX_HOST_FAIL_MESSAGE_LEN],
-            last_panic: [u8; MAX_HOST_FAIL_MESSAGE_LEN],
             etc_system: [u8; MAX_ETC_SYSTEM_LEN],
             dtrace_conf: [u8; MAX_DTRACE_CONF_LEN],
             scratch: host_sp_messages::InventoryData,
@@ -346,8 +341,6 @@ impl ServerImpl {
         let &mut Bufs {
             ref mut tx_buf,
             ref mut rx_buf,
-            ref mut last_boot_fail,
-            ref mut last_panic,
             ref mut etc_system,
             ref mut dtrace_conf,
             ref mut scratch,
@@ -361,8 +354,6 @@ impl ServerImpl {
             static BUFS: ClaimOnceCell<Bufs> = ClaimOnceCell::new(Bufs {
                 tx_buf: tx_buf::StaticBufs::new(),
                 rx_buf: Vec::new(),
-                last_boot_fail: [0; MAX_HOST_FAIL_MESSAGE_LEN],
-                last_panic: [0; MAX_HOST_FAIL_MESSAGE_LEN],
                 etc_system: [0; MAX_ETC_SYSTEM_LEN],
                 dtrace_conf: [0; MAX_DTRACE_CONF_LEN],
                 #[cfg(not(any(
@@ -380,6 +371,9 @@ impl ServerImpl {
             });
             BUFS.claim()
         };
+
+        let packrat = Packrat::from(PACKRAT.get_task_id());
+
         Self {
             uart,
             sys,
@@ -399,13 +393,10 @@ impl ServerImpl {
             cp_agent: ControlPlaneAgent::from(
                 CONTROL_PLANE_AGENT.get_task_id(),
             ),
-            packrat: Packrat::from(PACKRAT.get_task_id()),
+            packrat: packrat.clone(),
             sprot: SpRot::from(SPROT.get_task_id()),
             reboot_state: None,
             host_kv_storage: HostKeyValueStorage {
-                last_boot_fail_reason: 0,
-                last_boot_fail,
-                last_panic,
                 etc_system,
                 etc_system_len: 0,
                 dtrace_conf,
@@ -414,6 +405,7 @@ impl ServerImpl {
             hf_mux_state: None,
             last_power_off: None,
             scratch,
+            ereporter: Ereporter::claim_static_resources(packrat),
         }
     }
 
@@ -978,20 +970,31 @@ impl ServerImpl {
                 // Indicate that the host boot failed, so that we can then tell
                 // sequencer why we are asking it to power off the system.
                 self.last_power_off = Some(StateChangeReason::HostBootFailure);
-                // TODO forward to MGS
-                //
-                // For now, copy it into a static var we can pull out via
-                // `humility host boot-fail`.
-                let n = usize::min(
-                    data.len(),
-                    self.host_kv_storage.last_boot_fail.len(),
-                );
-                self.host_kv_storage.last_boot_fail[..n]
-                    .copy_from_slice(&data[..n]);
-                for b in &mut self.host_kv_storage.last_boot_fail[n..] {
-                    *b = 0;
-                }
-                self.host_kv_storage.last_boot_fail_reason = reason;
+
+                // Get the flash index used for the currently booting host
+                let flashidx = match self.hf.get_dev() {
+                    Ok(HfDevSelect::Flash0) => Some(0),
+                    Ok(HfDevSelect::Flash1) => Some(1),
+                    Err(_) => None,
+                };
+
+                // Store the bootfail message in packrat so it can be accessed by MGS in the future
+                // TODO: What to do if this call fails? Without it, we don't have a proper index, but
+                // this would only happen if packrat crashes. We could store some fake info here to
+                // continue preparing an ereport, but THAT is going to be a problem anyway because
+                // we send ereports to, you guessed it: packrat, which just crashed.
+                let response = self
+                    .packrat
+                    .write_host_bootfail(reason, flashidx, data)
+                    .unwrap_lite();
+
+                // ereport!
+                _ = self.ereporter.deliver_ereport(&HostBootFail {
+                    seq: response.seqno,
+                    msglen: response.written,
+                    reason,
+                    flashidx,
+                });
                 Some(SpToHost::Ack)
             }
             HostToSp::HostPanic => {
@@ -1003,19 +1006,27 @@ impl ServerImpl {
                     self.last_power_off = Some(StateChangeReason::HostPanic);
                 }
 
-                // TODO forward to MGS
+                // TODO: The flashidx *at panic time* may not be the *flashidx
+                // used when the panicking host booted*.
                 //
-                // For now, copy it into a static var we can pull out via
-                // `humility host last-panic`.
-                let n = usize::min(
-                    data.len(),
-                    self.host_kv_storage.last_panic.len(),
-                );
-                self.host_kv_storage.last_panic[..n]
-                    .copy_from_slice(&data[..n]);
-                for b in &mut self.host_kv_storage.last_panic[n..] {
-                    *b = 0;
-                }
+                // See https://github.com/oxidecomputer/hubris/issues/2597.
+                let flashidx = None;
+
+                // Store the panic message in packrat so it can be accessed by MGS in the future
+                // TODO: What to do if this call fails? Without it, we don't have a proper index, but
+                // this would only happen if packrat crashes. We could store some fake info here to
+                // continue preparing an ereport, but THAT is going to be a problem anyway because
+                // we send ereports to, you guessed it: packrat, which just crashed.
+                let response =
+                    self.packrat.write_host_panic(flashidx, data).unwrap_lite();
+
+                // ereport!
+                _ = self.ereporter.deliver_ereport(&HostPanic {
+                    seqno: response.seqno,
+                    msglen: response.written,
+                    flashidx,
+                });
+
                 Some(SpToHost::Ack)
             }
             HostToSp::GetStatus => {
@@ -2020,3 +2031,52 @@ mod idl {
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+
+ereports::declare_ereporter! {
+    struct Ereporter<Ereport> {
+        HostPanic(HostPanic),
+        BootPanic(HostBootFail),
+    }
+}
+
+/// An ereport represent a host reported panic
+#[derive(Encode)]
+#[ereport(class = "host.panic", version = 0)]
+struct HostPanic {
+    /// The total number of host panics observed by this invocation of
+    /// host-sp-comms.
+    ///
+    /// This count will wrap, but is guaranteed to never be zero.
+    seqno: u32,
+    /// The length, in bytes, of the stored panic message.
+    ///
+    /// This quantity may be less than the amount received, as it is capped
+    /// by the available storage space allocated (`MAX_HOST_FAIL_MESSAGE_LEN`).
+    msglen: u32,
+    /// The flash boot index, directly correlated to which boot slot we are
+    /// operating from. Currently Some(0) (BSU: A), Some(1) (BSU: B), or None
+    /// (unknown).
+    flashidx: Option<u16>,
+}
+
+/// An ereport represent a host reported boot failure
+#[derive(Encode)]
+#[ereport(class = "host.bootfail", version = 0)]
+struct HostBootFail {
+    /// The total number of host boot failures observed by this invocation
+    /// of host-sp-comms.
+    ///
+    /// This count will wrap, but is guaranteed to never be zero.
+    seq: u32,
+    /// The length, in bytes, of the stored panic message.
+    ///
+    /// This quantity may be less than the amount received, as it is capped
+    /// by the available storage space allocated (`MAX_HOST_FAIL_MESSAGE_LEN`).
+    msglen: u32,
+    /// The reported reason code for the host boot failure
+    reason: u8,
+    /// The flash boot index, directly correlated to which boot slot we are
+    /// operating from. Currently Some(0) (BSU: A), Some(1) (BSU: B), or None
+    /// (unknown).
+    flashidx: Option<u16>,
+}

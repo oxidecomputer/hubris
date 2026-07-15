@@ -18,7 +18,9 @@ pub(crate) struct Tofino {
 
 impl Tofino {
     pub fn new(i2c_task: userlib::TaskId) -> Self {
-        let (i2c_device, rail) = i2c_config::pmbus::v0p8_tf2_vdd_core(i2c_task);
+        let (i2c_device, opt_rail) =
+            i2c_config::pmbus::v0p8_tf2_vdd_core(i2c_task);
+        let rail = opt_rail.unwrap_or(0);
         let vddcore = Raa229618::new(&i2c_device, rail);
         Self {
             policy: TofinoSequencerPolicy::Disabled,
