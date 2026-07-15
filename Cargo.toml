@@ -141,8 +141,8 @@ apob = { git = "https://github.com/oxidecomputer/apob", default-features = false
 # for the migration.
 attest-data = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.4.0", rev = "a0811d06c75c757a6e12c91ed6ea81fde137ba43" }
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.2.1", rev = "a0811d06c75c757a6e12c91ed6ea81fde137ba43" }
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], branch = "james/host-fails" }
-gateway-ereport-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, branch = "james/host-fails" }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
+gateway-ereport-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false }
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.3" }
