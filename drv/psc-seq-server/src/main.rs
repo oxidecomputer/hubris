@@ -202,21 +202,30 @@ counted_ringbuf!(Event, 128, Event::None, no_dedup);
 ///
 /// An entry for each of the rectifier's PMBus status registers (e.g.
 /// `STATUS_WORD`, `STATUS_VOUT`, `STATUS_IOUT`, and so on...) is recorded read
-/// whenever a rectifier's `PWR_OK` pin changes state. Since exactly one of each
-/// register entry is recorded for every `Faulted` and `FaultCleared` entry, we
-/// don't really need to spend extra bytes on counting them, so they are marked
-/// as `count(skip)`.
+/// whenever the state machine starts or finishes a fault recovery process.
+/// Since exactly one of each register entry is recorded for every `Faulted` and
+/// `FaultCleared` entry, we don't really need to spend extra bytes on counting
+/// them, so they are marked as `count(skip)`.
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
-    PowerGoodDeasserted {
+    /// The state machine detected a new fault and started the recovery process.
+    FaultRecoveryStarted {
         now: u64,
         #[count(children)]
         psu: Slot,
     },
-    PowerGoodAsserted {
+    /// The PSU has recovered from the fault and is outputting power again.
+    FaultRecoveryFinished {
         now: u64,
+        #[count(children)]
+        psu: Slot,
+    },
+    /// The new state of the PWR_OK pin.
+    PowerGoodChanged {
+        now: u64,
+        status: Status,
         #[count(children)]
         psu: Slot,
     },
@@ -532,6 +541,9 @@ fn main() -> ! {
     // TODO: if we wanted to kick jefe into a greater-than-A2 state, this'd be
     // where it happens.
 
+    // For logging when a PWR_OK pin changes state
+    let mut last_ok: [Status; PSU_COUNT] = read_power_ok(&sys);
+
     // Poll things.
     sys_set_timer(Some(start_time), notifications::TIMER_MASK);
     let sleep_notifications = all_pin_notifications | notifications::TIMER_MASK;
@@ -544,6 +556,20 @@ fn main() -> ! {
 
         let now = sys_get_timer().now;
         for i in 0..PSU_COUNT {
+            // Log if the PWR_OK pin changed state.
+            if ok[i] != last_ok[i] {
+                ringbuf_entry!(
+                    __TRACE,
+                    Trace::PowerGoodChanged {
+                        now,
+                        status: ok[i],
+                        psu: PSU_SLOTS[i],
+                    }
+                );
+            }
+
+            // Step the state machine, asking it if there's any action we should
+            // take.
             if let Some(action) =
                 psus[i].step(now, present[i], ok[i], &mut ereporter)
             {
@@ -574,6 +600,7 @@ fn main() -> ! {
                 }
             }
         }
+        last_ok = ok;
 
         // Wait for a pin change or timer.
         let n = sys_recv_notification(sleep_notifications);
@@ -724,7 +751,7 @@ impl Psu {
                     });
                     ringbuf_entry!(
                         __TRACE,
-                        Trace::PowerGoodAsserted {
+                        Trace::FaultRecoveryFinished {
                             now,
                             psu: self.slot,
                         }
@@ -755,7 +782,7 @@ impl Psu {
                 if !was_faulted {
                     ringbuf_entry!(
                         __TRACE,
-                        Trace::PowerGoodDeasserted {
+                        Trace::FaultRecoveryStarted {
                             now,
                             psu: self.slot,
                         }
