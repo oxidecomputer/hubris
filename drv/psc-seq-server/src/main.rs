@@ -333,10 +333,10 @@ const INSERT_DEBOUNCE_MS: u64 = 1_000; // Current value is somewhat arbitrary.
 /// asserting OK. Or, conversely, how long to ignore the OK output after
 /// re-enabling a faulted PSU.
 ///
-/// We have observed delays of up to 92 ms in practice. Leaving the PSU enabled
-/// in a fault state shouldn't be destructive, so we've padded this to avoid
-/// flapping.
-const PROBATION_MS: u64 = 1000;
+/// We have observed delays of up to 2s in practice (specifically after a dead
+/// short on the mwocp67's main rail). Leaving the PSU enabled in a fault state
+/// shouldn't be destructive, so we've padded this to avoid flapping.
+const PROBATION_MS: u64 = 4000;
 
 /// How often to check the status of polled inputs.
 ///
@@ -407,7 +407,7 @@ enum PresentState {
     /// `PROBATION_MS`).
     ///
     /// We do this because PSUs have been observed, in practice, taking up to
-    /// ~100ms to assert OK after being enabled.
+    /// 2s to assert OK after being enabled.
     ///
     /// Once the deadline elapses, we'll transition to the `On` state and start
     /// requiring OK to be asserted.
