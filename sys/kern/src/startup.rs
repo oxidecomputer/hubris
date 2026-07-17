@@ -67,7 +67,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // SAFETY: These MUST be the same length to avoid short-circuiting the
     // iterator. We check this in const context. Codegen should assure this is
     // always the case, but can't hurt to cross-check at compile time.
-    let _check: () = const {
+    const _CHECK: () = const {
         let htd_len = HUBRIS_TASK_DESCS.len();
         // SAFETY: This is checked at compile time. Invalid access would lead to
         // a compiler error. We are not observing the contents of any of the

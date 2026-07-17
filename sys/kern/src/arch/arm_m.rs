@@ -1636,9 +1636,9 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // switch to a task to run.
     with_task_table(|tasks| {
         let next = match task::force_fault(tasks, idx, fault) {
-            task::NextTask::Specific(i) => &tasks[i],
+            task::NextTask::Specific(i) => &mut tasks[i],
             task::NextTask::Other => task::select(idx, tasks),
-            task::NextTask::Same => &tasks[idx],
+            task::NextTask::Same => &mut tasks[idx],
         };
 
         if core::ptr::eq(next as *const _, task as *const _) {
