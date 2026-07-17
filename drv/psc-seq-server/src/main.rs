@@ -430,7 +430,7 @@ enum PresentState {
 #[derive(Copy, Clone)]
 enum ProbationReason {
     /// The PSU might not have asserted PWR_OK yet because it was just
-    /// hot-inserted and enabled.
+    /// hot-inserted, or because it might still be powering on from a cold boot.
     Insertion,
     /// The PSU might not have asserted PWR_OK yet because it was just
     /// re-enabled after a fault.
@@ -526,7 +526,17 @@ fn main() -> ! {
                     psu: slot,
                     serial: fruid.serial
                 });
-                PresentState::On { was_faulted: false }
+                // If this was a cold boot, then _maybe_ the PSU hasn't had time
+                // to fully power on and assert PWR_OK yet. We wouldn't want to
+                // interpret that as a fault and disable the PSU, so we ignore
+                // its PWR_OK for a little while by putting it in the
+                // OnProbation state. (We haven't actually seen this happen, but
+                // it seems possible since the MWOCP67 takes so long to assert
+                // PWR_OK.)
+                PresentState::OnProbation {
+                    deadline: start_time.wrapping_add(PROBATION_MS),
+                    reason: ProbationReason::Insertion,
+                }
             } else {
                 // PSU was forced off by our previous incarnation. Schedule it to
                 // turn back on in the future if things clear up.
