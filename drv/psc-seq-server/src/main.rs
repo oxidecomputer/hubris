@@ -410,17 +410,31 @@ enum PresentState {
     },
 
     /// The PSU is enabled, as in the `On` state, but we're not convinced the
-    /// PSU is okay. We enter this state when bringing a PSU out of an observed
-    /// fault state, and it causes us to ignore its OK output for a brief period
-    /// (the deadline parameter, initialized as current time plus
-    /// `PROBATION_MS`).
+    /// PSU is okay. We enter this state when the PSU is first inserted and when
+    /// bringing a PSU out of an observed fault state, and it causes us to
+    /// ignore its OK output for a brief period (the deadline parameter,
+    /// initialized as current time plus `PROBATION_MS`).
     ///
-    /// We do this because PSUs have been observed, in practice, taking up to
-    /// 2s to assert OK after being enabled.
+    /// We do this because PSUs have been observed, in practice, taking up to 2s
+    /// to assert OK after being enabled. The MWOCP67 is much slower to assert
+    /// OK than the MWOCP68 is.
     ///
     /// Once the deadline elapses, we'll transition to the `On` state and start
     /// requiring OK to be asserted.
-    OnProbation { deadline: u64 },
+    OnProbation {
+        deadline: u64,
+        reason: ProbationReason,
+    },
+}
+
+#[derive(Copy, Clone)]
+enum ProbationReason {
+    /// The PSU might not have asserted PWR_OK yet because it was just
+    /// hot-inserted and enabled.
+    Insertion,
+    /// The PSU might not have asserted PWR_OK yet because it was just
+    /// re-enabled after a fault.
+    Fault,
 }
 
 #[unsafe(export_name = "main")]
@@ -714,11 +728,14 @@ impl Psu {
                 // Hello, who are you?
                 self.refresh_fruid(now);
                 if settle_deadline <= now {
-                    // The PSU is still present (since the Present::No case above
-                    // didn't fire) and our deadline has elapsed. Let's treat this
-                    // as valid!
-                    self.state = PsuState::Present(PresentState::On {
-                        was_faulted: false,
+                    // The PSU is still present (since the Present::No case
+                    // above didn't fire) and our deadline has elapsed. Let's
+                    // treat this as a real insertion! It might take some more
+                    // time for PWR_OK to be asserted, so we start in the
+                    // OnProbation state.
+                    self.state = PsuState::Present(PresentState::OnProbation {
+                        deadline: now.wrapping_add(PROBATION_MS),
+                        reason: ProbationReason::Insertion,
                     });
                     let _ = ereporter.deliver_ereport(&PsuInsertedEreport {
                         fields: self.ereport_fields(),
@@ -815,6 +832,7 @@ impl Psu {
                     // learned this the hard way. See #1800.
                     self.state = PsuState::Present(PresentState::OnProbation {
                         deadline: now.saturating_add(PROBATION_MS),
+                        reason: ProbationReason::Fault,
                     });
                     Some(ActionRequired::ReEnableAfterFault)
                 } else {
@@ -822,7 +840,10 @@ impl Psu {
                 }
             }
             (
-                PsuState::Present(PresentState::OnProbation { deadline }),
+                PsuState::Present(PresentState::OnProbation {
+                    deadline,
+                    reason,
+                }),
                 Present::Yes,
                 _,
             ) => {
@@ -833,7 +854,7 @@ impl Psu {
                     // Take PSU out of probation state and start monitoring its
                     // OK line.
                     self.state = PsuState::Present(PresentState::On {
-                        was_faulted: true,
+                        was_faulted: matches!(reason, ProbationReason::Fault),
                     });
                     None
                 } else {
