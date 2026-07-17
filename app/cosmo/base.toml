@@ -132,7 +132,7 @@ notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1696
+stacksize = 1712
 start = true
 task-slots = ["jefe"]
 features = ["cosmo", "ereport"]
@@ -172,7 +172,7 @@ name = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
 priority = 7
 max-sizes = {flash = 32768, ram = 65536 }
-stacksize = 1200
+stacksize = 1232
 start = true
 task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot", "net"]
 notifications = ["timer"]
@@ -259,7 +259,7 @@ uses = ["usart6", "dbgmcu"]
 interrupts = {"usart6.irq" = "usart-irq"}
 priority = 9
 max-sizes = {flash = 76000, ram = 65536}
-stacksize = 7632
+stacksize = 7664
 start = true
 task-slots = ["sys", { cpu_seq = "cosmo_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot", "auxflash"]
 notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
@@ -385,7 +385,7 @@ start = true
 notifications = ["jefe-state-change", "timer"]
 task-slots = ["jefe", "spartan7_loader", "packrat", "sensor"]
 uses = ["mmio_dimms"]
-stacksize = 904
+stacksize = 920
 
 [tasks.auxflash]
 name = "drv-auxflash-server"

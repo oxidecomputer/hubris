@@ -152,7 +152,7 @@ priority = 4
 max-sizes = {flash = 32768, ram = 2048 }
 start = true
 task-slots = ["jefe"]
-stacksize = 1200
+stacksize = 1264
 extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 
 [config]
