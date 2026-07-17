@@ -44,7 +44,10 @@
 //! 1. This approach does not handle recursion, as we have no way to annotate a
 //!    potential upper bound of recursive iterations. Currently, the code
 //!    counts the number of direct recursion instances detected (e.g. self-calls
-//!    of a function), and refuses to resolve call stacks with cycles.
+//!    of a function), and refuses to resolve call stacks with cycles, UNLESS
+//!    a member of the cycle is included on the "allowed_recurses" list or
+//!    "ignored_functions" list, in which case these items are skipped and not
+//!    counted.
 //! 2. This approach does not handle "indirect" branching, which looks something
 //!    like `blx r5` in assembly, and is often (but not exclusively) generated
 //!    when calling a function through a vtable method, like `dyn Format`.
@@ -88,7 +91,12 @@ pub const KNOWN_RECURSORS: &[&str] = &[
     "Vsc7448Spi",
 ];
 
-pub const KNOWN_TO_IGNORE: &[&str] = &["stackblow"];
+pub const KNOWN_TO_IGNORE: &[&str] = &[
+    // Our on-target test framework has an explicit "stackblow" function that
+    // intentionally causes a stack overflow. This unsurprisingly makes the
+    // max stack analysis upset.
+    "stackblow",
+];
 
 /// Configuration for public methods
 #[derive(Debug, Clone)]
