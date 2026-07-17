@@ -277,6 +277,20 @@ enum Trace {
         psu: Slot,
         status_mfr_specific: Result<u8, mwocp6x::Error>,
     },
+}
+
+// Since entries in this ringbuffer contain timestamps, they will never be
+// de-duplicated. Thus, disable it.
+counted_ringbuf!(__TRACE, Trace, 32, Trace::None, no_dedup);
+
+/// I2c error logging is even more verbose than the `Trace` ring buffer because
+/// there are so many failed and retried i2c reads when a PSU is hot-plugged. We
+/// put them in their own ring buffer so they don't drown out all the other
+/// `Trace` events.
+#[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
+enum I2cTrace {
+    #[count(skip)]
+    None,
     I2cError {
         now: u64,
         #[count(children)]
@@ -284,10 +298,9 @@ enum Trace {
         err: mwocp6x::Error,
     },
 }
-
 // Since entries in this ringbuffer contain timestamps, they will never be
 // de-duplicated. Thus, disable it.
-counted_ringbuf!(__TRACE, Trace, 32, Trace::None, no_dedup);
+counted_ringbuf!(__I2C_TRACE, I2cTrace, 32, I2cTrace::None, no_dedup);
 
 /// PSU numbers represented as an enum. This is intended for use with
 /// `counted_ringbuf!`, instead of representing PSU numbers as raw u8s, which
@@ -1053,7 +1066,10 @@ fn retry_i2c_txn<T>(
         match txn() {
             Ok(x) => return Ok(x),
             Err(err) => {
-                ringbuf_entry!(__TRACE, Trace::I2cError { now, psu, err });
+                ringbuf_entry!(
+                    __I2C_TRACE,
+                    I2cTrace::I2cError { now, psu, err }
+                );
 
                 if retries_remaining == 0 {
                     return Err(err);
