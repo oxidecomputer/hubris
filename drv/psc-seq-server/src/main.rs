@@ -203,9 +203,10 @@ counted_ringbuf!(Event, 128, Event::None, no_dedup);
 /// An entry for each of the rectifier's PMBus status registers (e.g.
 /// `STATUS_WORD`, `STATUS_VOUT`, `STATUS_IOUT`, and so on...) is recorded read
 /// whenever the state machine starts or finishes a fault recovery process.
-/// Since exactly one of each register entry is recorded for every `Faulted` and
-/// `FaultCleared` entry, we don't really need to spend extra bytes on counting
-/// them, so they are marked as `count(skip)`.
+/// Since exactly one of each register entry is recorded for every
+/// `FaultRecoveryStarted` and `FaultRecoveryFinished` entry, we don't really
+/// need to spend extra bytes on counting them, so they are marked as
+/// `count(skip)`.
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
 enum Trace {
     #[count(skip)]
