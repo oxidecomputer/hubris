@@ -9,6 +9,7 @@ goblin = { workspace = true }
 capstone = { workspace = true }
 rustc-demangle = { workspace = true }
 leb128 = { workspace = true }
+petgraph = { workspace = true }
 
 build-elf = { path = "../elf" }
 

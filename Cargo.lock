@@ -490,6 +490,7 @@ dependencies = [
  "capstone",
  "goblin",
  "leb128",
+ "petgraph",
  "rustc-demangle",
 ]
 

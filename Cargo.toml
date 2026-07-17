@@ -92,6 +92,7 @@ p256 = { version = "0.13.2", default-features = false, features = ["ecdsa"] }
 panic-halt = { version = "0.2.0", default-features = false }
 paste = { version = "1", default-features = false }
 path-slash = { version = "0.1.3", default-features = false }
+petgraph = { version = "0.8.3", default-features = false, features = ["graphmap", "std"] }
 prettyplease = { version = "0.2.29", default-features = false }
 proc-macro2 = { version = "1", default-features = false }
 proptest = { version = "1.8.0" }

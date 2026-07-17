@@ -28,10 +28,13 @@
 //!     3. Produce a report called [`FunctionData`] for that function which
 //!        contains the name, local stack usage, and a list of all called
 //!        functions by that function
-//! 4. We then start from the entrypoint of the task, `_start`, and recurse
-//!    through each node, to calculate the deepest stack usage of any chain of
-//!    function calls. See [`get_max_stack()`] and [`Resolver`]'s  `resolve_*`
-//!    methods.
+//! 4. We then build a directed graph of all function calls, condense any
+//!    recursive cycles into single nodes (refusing to continue unless the
+//!    cycle is allow-listed, see [`Config::allowed_recurses`]), and calculate
+//!    the deepest stack usage of any chain of function calls with a single
+//!    pass over the graph in dependency (topological) order, starting from
+//!    the entrypoint of the task, `_start`. See [`get_max_stack()`] and
+//!    [`Resolver`]'s `resolve_*` methods.
 //! 5. This "max stack" usage is compared against the `stacksize` for the task
 //!    in the manifest, and compilation fails if the calculated max stack
 //!    exceeds the written stacksize (outside of this crate).
@@ -74,6 +77,13 @@ use capstone::{
     },
 };
 use goblin::elf::{Elf, SectionHeader, Sym};
+use petgraph::{
+    Direction,
+    algo::{condensation, toposort},
+    graph::{Graph, NodeIndex},
+    graphmap::DiGraphMap,
+    visit::Dfs,
+};
 
 pub const KNOWN_RECURSORS: &[&str] = &[
     // slice_error_fail calls slice_error_fail_rt which calls slice_error_fail
@@ -132,24 +142,36 @@ pub struct FunctionReport {
 ///
 /// Typically stored in an [`Rc`] as each node may appear multiple times across
 /// the call graph of a program.
+#[derive(Debug)]
 pub struct ResolvedNode {
-    pub addr: u32,
+    pub addr: NodeAddrKind,
     pub name: String,
     pub local_size: Option<u64>,
     pub max_children: u64,
-    pub children: BTreeMap<u32, Rc<ResolvedNode>>,
+    pub children: Vec<Rc<ResolvedNode>>,
 }
 
 /// A tool for turning a [`FunctionReport`] into a hydrated call graph.
 ///
-/// This visits a call graph of [`FunctionData`] recursively, turning each node
-/// into a memoized `Rc<ResolvedNode>`, and keeps a mapping of all nodes by
-/// address.
+/// Internally, this builds a [`petgraph`] directed graph of all functions,
+/// condenses each strongly connected component (i.e. each recursive cycle)
+/// into a single node, and then computes the max stack usage of every
+/// function with one pass over the resulting graph in reverse topological
+/// order, turning each node into a memoized `Rc<ResolvedNode>`.
+///
+/// Because the condensed graph is guaranteed to be acyclic, every node's
+/// max stack is a context-free property of the node itself, so the results
+/// are independent of the order in which functions are resolved.
 pub struct Resolver {
-    pub call_stack: Vec<u32>,
     pub all_resolved: BTreeMap<u32, Rc<ResolvedNode>>,
     pub fn_items: BTreeMap<u32, FunctionData>,
     pub config: Config,
+    /// The condensed (cycle-free) call graph. Each node is one strongly
+    /// connected component of the function call graph, carrying the base
+    /// addresses of its member functions. `None` until first resolution.
+    condensed: Option<Graph<Vec<u32>, ()>>,
+    /// Maps each function address to its node in [`Self::condensed`].
+    scc_of: BTreeMap<u32, NodeIndex>,
 }
 
 /// Describes where a symbol lives.
@@ -220,6 +242,33 @@ struct FunctionCallCollector<'a> {
     calls: BTreeSet<u32>,
 }
 
+/// This type is used to track the address of a resolved node. Because
+/// Resolved nodes may be part of a cyclical group after petgraph has distilled
+/// calls into "Strongly Connected Components", the node may actually be a
+/// group of multiple functions at distinct addresses.
+#[derive(Debug)]
+pub enum NodeAddrKind {
+    /// A single-function node without cycles
+    Single(u32),
+    /// A multi-function node that contains a cycle
+    Cycle(Vec<u32>),
+}
+
+impl NodeAddrKind {
+    fn fmt_addr(&self) -> String {
+        match self {
+            NodeAddrKind::Single(addr) => format!("0x{addr:08X}"),
+            NodeAddrKind::Cycle(items) => {
+                let items = items
+                    .iter()
+                    .map(|addr| format!("0x{addr:08X}"))
+                    .collect::<Vec<_>>();
+                format!("cycle[{}]", items.join(" <-> "))
+            }
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public methods
 ////////////////////////////////////////////////////////////////////////////////
@@ -235,7 +284,7 @@ pub fn get_max_stack(
     elf: &Path,
     verbose: bool,
 ) -> Result<Vec<(u64, String)>> {
-    let fns = extract_function_items(elf, verbose, &config)?;
+    let fns = extract_function_items(elf, verbose)?;
     let mut resolver = Resolver::new(fns.function_items, &config);
     let node = resolver.resolve_by_name("_start")?;
     let chain = node.worst_chain();
@@ -244,7 +293,7 @@ pub fn get_max_stack(
         .map(|n| (n.local_size.unwrap_or(0), n.name.clone()))
         .collect::<Vec<_>>();
 
-    let missing = resolver.find_missing_nodes()?;
+    let missing = resolver.find_missing_nodes(&["_start"])?;
 
     // Find the largest missing item so that we can add it to the call stack as
     // a "fudge factor" for unresolved dynamic/indirect dispatch.
@@ -261,7 +310,6 @@ pub fn get_max_stack(
 pub fn extract_function_items(
     elf: &Path,
     verbose: bool,
-    config: &Config,
 ) -> Result<FunctionReport> {
     // Open the statically-linked ELF file
     let data = std::fs::read(elf).with_context(|| {
@@ -315,21 +363,6 @@ pub fn extract_function_items(
         for chunk in function.text_ranges.iter() {
             let (data_addr, data) = chunk.text_data(&data, text)?;
             fc.extract_calls(data, data_addr)?;
-        }
-
-        if fc.recursive_calls != 0 {
-            let allow_match = config.match_allowed_recurses(fc.name);
-
-            if let Some(am) = allow_match {
-                // For now, pragmatically, we'll just ignore this recursive
-                // call site.
-                println!(
-                    "WARN: Allowing {} to self-recurse, matching {}",
-                    fc.name, am
-                );
-            } else {
-                bail!("Refusing to handle self-recursion of {}", fc.name);
-            }
         }
 
         fns.insert(
@@ -400,28 +433,16 @@ impl ResolvedNode {
             print!("  ");
         }
         println!(
-            "- 0x{:08X} {} [+{frame_size:?} => {stack_depth}]",
-            self.addr, self.name,
+            "- {} {} [+{frame_size:?} => {stack_depth}]",
+            self.addr.fmt_addr(),
+            self.name,
         );
-        for (_addr, child) in self.children.iter() {
+        for child in self.children.iter() {
             child.debug_all_depth(
                 depth + 1,
                 current_stack + frame_size.unwrap_or(0),
             );
         }
-    }
-
-    /// Used to determine if `self` could be potentially discarded as a dupe
-    pub fn is_same_or_child_of(&self, other: &Self) -> bool {
-        if other.addr == self.addr {
-            return true;
-        }
-        for (_caddr, child) in other.children.iter() {
-            if self.is_same_or_child_of(child) {
-                return true;
-            }
-        }
-        false
     }
 
     /// The max stack used by this node, considering this node's stack usage
@@ -443,9 +464,9 @@ impl ResolvedNode {
         if let Some(child) = self
             .children
             .iter()
-            .find(|c| c.1.max_stack() == self.max_children)
+            .find(|c| c.max_stack() == self.max_children)
         {
-            child.1.worst_chain_inner(chain)
+            child.worst_chain_inner(chain)
         }
     }
 }
@@ -454,122 +475,312 @@ impl Resolver {
     /// Create a new resolver from the given map of [`FunctionData`] items
     pub fn new(fn_items: BTreeMap<u32, FunctionData>, config: &Config) -> Self {
         Self {
-            call_stack: vec![],
             all_resolved: BTreeMap::new(),
             fn_items,
             config: config.clone(),
+            condensed: None,
+            scc_of: BTreeMap::new(),
         }
     }
 
     /// Attempt to resolve a function by name into a [`ResolvedNode`].
     pub fn resolve_by_name(&mut self, entry: &str) -> Result<Rc<ResolvedNode>> {
-        let Some(item) = self.fn_items.iter().find(|(_k, v)| v.name == entry)
-        else {
-            bail!("function '{entry}' not found");
-        };
-        let addr = *(item.0);
+        let addr = self.find_addr_by_name(entry)?;
         self.resolve_addr(addr)
     }
 
     /// Resolve a function by address into a [`ResolvedNode`].
+    ///
+    /// Note that if the function is a member of an allow-listed recursive
+    /// cycle, the returned node represents the whole cycle, not just the
+    /// requested function.
     pub fn resolve_addr(&mut self, addr: u32) -> Result<Rc<ResolvedNode>> {
-        // Have we already resolved this node?
-        if let Some(node) = self.all_resolved.get(&addr) {
-            return Ok(node.clone());
-        }
-
-        // no, we havent. Get the node info from the fn data
-        let Some(item) = self.fn_items.get(&addr) else {
+        self.resolve_all()?;
+        let Some(node) = self.all_resolved.get(&addr) else {
             bail!("no function data for {addr:08X}");
         };
-        self.call_stack.push(addr);
-        let children = item.calls.clone();
-        let name = item.name.clone();
-        let local_size = item.frame_size;
+        Ok(node.clone())
+    }
 
-        let mut res_children = BTreeMap::new();
-        let mut max_children = 0;
-        for child in children {
-            // Is this a recursive callsite?
-            if self.call_stack.contains(&child) {
-                let Some(child_info) = self.fn_items.get(&child) else {
-                    bail!("{child:08X}: no child function data");
-                };
-                let allow_match =
-                    self.config.match_allowed_recurses(&child_info.name);
+    /// Resolve the entire call graph at once (idempotent).
+    ///
+    /// This works in three steps:
+    ///
+    /// 1. Build a directed graph where nodes are function base addresses and
+    ///    an edge `A -> B` means "A contains a call to B".
+    /// 2. Condense the graph: collapse every strongly connected component
+    ///    (i.e. every recursive cycle) into a single node. Multi-function
+    ///    nodes are only permitted if a member matches
+    ///    [`Config::allowed_recurses`]; otherwise we refuse to continue. The
+    ///    result is guaranteed to be acyclic.
+    /// 3. Walk the condensed graph once in reverse topological order (deepest
+    ///    callees first), so that every node's children are fully resolved
+    ///    before the node itself, and record each node's max stack usage.
+    ///
+    /// Because recursion is handled per-cycle rather than per-call-site, the
+    /// outcome does not depend on the order in which functions are visited,
+    /// and a node memoized while breaking one cycle can never be observed
+    /// with a truncated max stack by an unrelated caller.
+    fn resolve_all(&mut self) -> Result<()> {
+        if self.condensed.is_some() {
+            return Ok(());
+        }
 
-                if let Some(am) = allow_match {
-                    // For now, pragmatically, we'll just ignore this recursive
-                    // call site.
+        // Step 1: the function-level call graph.
+        let mut fn_graph = DiGraphMap::<u32, ()>::new();
+        for (addr, data) in &self.fn_items {
+            fn_graph.add_node(*addr);
+            for callee in &data.calls {
+                if !self.fn_items.contains_key(callee) {
+                    bail!(
+                        "no function data for {callee:08X} \
+                         (called from {})",
+                        data.name
+                    );
+                }
+                fn_graph.add_edge(*addr, *callee, ());
+            }
+        }
+
+        // Step 2: condense cycles. Nodes of the condensed graph carry the
+        // list of member function addresses; almost all of them will be
+        // single-member. Passing `make_acyclic = true` removes the
+        // internal edges of each cycle. We'll check self-recursion and intra-
+        // condensed cycles manually below.
+        //
+        // "Condensed" nodes compresses any groups with cycles into a single
+        // node entity, containing a vec of members.
+        let condensed: Graph<Vec<u32>, ()> =
+            condensation(fn_graph.into_graph::<u32>(), true);
+
+        // We build a mapping between "function addresses" to "condensed node
+        // indexes". Some functions may have the same "condensed node index",
+        // as they have been grouped together by the `condensation` step above.
+        let mut scc_of = BTreeMap::new();
+        for idx in condensed.node_indices() {
+            for addr in &condensed[idx] {
+                scc_of.insert(*addr, idx);
+            }
+        }
+
+        // Check each condensed node against the recursion policy
+        for idx in condensed.node_indices() {
+            let members = &condensed[idx];
+
+            // Before we check if there are any recursion *cycles*, we need to
+            // check if any functions are *self* recursive, e.g.:
+            //
+            // ```rust
+            // fn a(x: bool) { if x { a(false) } }
+            // ```
+            //
+            // Our previous call to `condensation` was called with
+            // `make_acyclic`, meaning that self-recursive cycles will not
+            // appear here. We will check for non-self-recursive cycles after
+            // this check.
+            for member in members.iter() {
+                let this = &self.fn_items[member];
+                if this.calls.contains(member) {
+                    if let Some(am) =
+                        self.config.match_allowed_recurses(&this.name)
+                    {
+                        // For now, pragmatically, we'll just ignore this
+                        // recursive call site.
+                        println!(
+                            "WARN: Allowing {} to self-recurse, matching '{}'",
+                            this.name, am
+                        );
+                    } else {
+                        bail!(
+                            "Refusing to handle self-recursion of {}",
+                            this.name
+                        );
+                    }
+                }
+            }
+
+            // If a function has a SINGLE member, then it does not have any
+            // cycles, and we've already checked it is not self-recursive.
+            if members.len() <= 1 {
+                continue;
+            }
+            let names = members
+                .iter()
+                .map(|m| self.fn_items[m].name.as_str())
+                .collect::<Vec<_>>();
+            let allow_match = names
+                .iter()
+                .find_map(|n| self.config.match_allowed_recurses(n));
+            if let Some(am) = allow_match {
+                // We can't reason about how deep an allowed recursive cycle
+                // actually goes, so we assume a single traversal: each
+                // member's stack frame is counted exactly once (see step 3).
+                println!(
+                    "WARN: Allowing recursion between {{{}}}, matching '{}'",
+                    names.join(", "),
+                    am
+                );
+            } else {
+                bail!(
+                    "Refusing to handle recursion between: {}",
+                    names.join(", ")
+                );
+            }
+        }
+
+        // Step 3.1: Sort the nodes topologically, meaning that we order
+        // caller nodes before callee nodes (from "root" to "leaf" order)
+        //
+        // If we had `f(g(h()))`, we would visit f, g, h in that order.
+        let order = toposort(&condensed, None).map_err(|_| {
+            anyhow!("internal error: condensed call graph has a cycle")
+        })?;
+
+        // Step 3.2: We *reverse* the order, so we iterate from "leaf" to "root"
+        // which means that we always visit a callee before we visit callers.
+        //
+        // If we had `f(g(h()))`, we would visit h, g, f in that order.
+        //
+        // This is useful, because we can now render the necessary stack usage
+        // from the deepest part of the call stack first.
+        let mut nodes = BTreeMap::<NodeIndex, Rc<ResolvedNode>>::new();
+        for idx in order.iter().rev().copied() {
+            let members = &condensed[idx];
+
+            // The local stack usage of this node. For an allow-listed
+            // recursive cycle, this is the sum of all members: any single
+            // traversal of the cycle can visit each member at most once,
+            // so the sum is a safe bound for the "recursion executes one
+            // pass" assumption. We keep `None` (functions with no
+            // `.stack_sizes` info) distinct from `Some(0)` for reporting.
+            let mut local_size: Option<u64> = None;
+            for m in members {
+                if let Some(fs) = self.fn_items[m].frame_size {
+                    *local_size.get_or_insert(0) += fs;
+                }
+            }
+
+            // Get the name(s) and address(es) of the functions in this graph
+            // node.
+            let (name, addr) = if let [single] = members.as_slice() {
+                let name = self.fn_items[single].name.clone();
+                let addr = NodeAddrKind::Single(*single);
+                (name, addr)
+            } else {
+                let mut names = members
+                    .iter()
+                    .map(|m| self.fn_items[m].name.as_str())
+                    .collect::<Vec<_>>();
+                names.sort_unstable();
+                let name = format!("cycle[{}]", names.join(" <-> "));
+
+                let mut addrs: Vec<_> = members.iter().copied().collect();
+                addrs.sort_unstable();
+                let addr = NodeAddrKind::Cycle(addrs);
+
+                (name, addr)
+            };
+
+            // We now visit all "successors", which are nodes that are one
+            // "outgoing" hop away from the current node idx. This is every
+            // function that is *called by* the current function.
+            let mut max_children = 0u64;
+            let mut children = Vec::new();
+            for succ in condensed.neighbors_directed(idx, Direction::Outgoing) {
+                // Already resolved: successors precede us in reverse
+                // topological order, so they've already been populated in
+                // `nodes`.
+                let child = &nodes[&succ];
+
+                // Is this an ignored function? Note that for a cycle node,
+                // the composite name contains every member's name, so
+                // ignoring any member ignores the whole cycle.
+                let ignore_match =
+                    self.config.match_ignored_functions(&child.name);
+                if let Some(ignore) = ignore_match {
                     println!(
-                        "WARN: Allowing {} to recurse, matching {}",
-                        child_info.name, am
+                        "WARN: Ignoring {}, matching '{}'",
+                        child.name, ignore
                     );
                     continue;
                 }
 
-                bail!(
-                    "Refusing to handle recursion of {}, {:08X?} + {:08X}",
-                    child_info.name,
-                    self.call_stack,
-                    child
-                );
+                // Not ignored: consider this child node as part of the max
+                // stack analysis
+                max_children = max_children.max(child.max_stack());
+                children.push(child.clone());
             }
 
-            // Resolve the child
-            let rchild = self
-                .resolve_addr(child)
-                .with_context(|| format!("While resolving {}", name))?;
-
-            // Is this an ignored function?
-            let ignore_match =
-                self.config.match_ignored_functions(&rchild.name);
-            if let Some(ignore) = ignore_match {
-                println!("WARN: Ignoring {}, matching {}", rchild.name, ignore);
-                continue;
-            }
-
-            // Keep it!
-            max_children = max_children.max(rchild.max_stack());
-            res_children.insert(child, rchild);
+            let node = Rc::new(ResolvedNode {
+                addr,
+                name,
+                local_size,
+                max_children,
+                children,
+            });
+            nodes.insert(idx, node);
         }
 
-        let new_node = Rc::new(ResolvedNode {
-            addr,
-            name,
-            local_size,
-            max_children,
-            children: res_children,
-        });
-        self.all_resolved.insert(addr, new_node.clone());
-        self.call_stack.pop();
-        Ok(new_node)
+        for (addr, idx) in &scc_of {
+            self.all_resolved.insert(*addr, nodes[idx].clone());
+        }
+        self.condensed = Some(condensed);
+        self.scc_of = scc_of;
+        Ok(())
     }
 
-    /// Finds all functions *not* already resolved by the given [`Resolver`] and
-    /// attempts to resolve them.
+    /// Finds the address of a function by exact function name
+    fn find_addr_by_name(&self, entry: &str) -> Result<u32> {
+        self.fn_items
+            .iter()
+            .find_map(
+                |(addr, v)| {
+                    if v.name == *entry { Some(*addr) } else { None }
+                },
+            )
+            .ok_or_else(|| anyhow!("function '{entry}' not found"))
+    }
+
+    /// Finds all functions *not* reachable from the given list of entry points
     ///
     /// This finds functions that exist in the elf file, but were not visited
     /// while resolving the call graph, likely due to being called indirectly or
     /// through vtable methods.
-    fn find_missing_nodes(&mut self) -> Result<Vec<Rc<ResolvedNode>>> {
-        // Find all of the functions we know about in `fn_items`, and find
-        // any that haven't already been resolved into `all_resolved` from
-        // previous resolution, usually the `_start` entry point
-        let mut found = self
-            .fn_items
-            .keys()
-            .copied()
-            .filter(|addr| !self.all_resolved.contains_key(addr))
-            .collect::<Vec<_>>() // necessary to avoid double borrowing self
-            .into_iter()
-            .map(|addr| self.resolve_addr(addr))
-            .collect::<Result<Vec<_>, _>>()?;
+    fn find_missing_nodes(
+        &mut self,
+        entrypoints: &[&str],
+    ) -> Result<Vec<Rc<ResolvedNode>>> {
+        self.resolve_all()?;
+        let condensed = self.condensed.as_ref().unwrap();
 
-        // Filter out any ignored functions
-        found.retain(|rn| {
-            self.config.match_ignored_functions(&rn.name).is_none()
-        });
+        // Find every node reachable from the previously-requested entry;
+        // those are already accounted for in the entry's max stacks.
+        let mut reached = BTreeSet::new();
+        for entry in entrypoints {
+            let addr = self.find_addr_by_name(entry)?;
+            let mut dfs = Dfs::new(condensed, self.scc_of[&addr]);
+            while let Some(idx) = dfs.next(condensed) {
+                reached.insert(idx);
+            }
+        }
+
+        // Everything else is "missing". Deduplicate cycles (whose members
+        // all share one node) by keying on the node's address, and filter
+        // out any ignored functions.
+        let mut found = Vec::new();
+        for (addr, idx) in &self.scc_of {
+            if reached.contains(idx) {
+                continue;
+            }
+            let node = &self.all_resolved[addr];
+            if let Some(ignore) =
+                self.config.match_ignored_functions(&node.name)
+            {
+                println!("WARN: Ignoring {}, matching '{}'", node.name, ignore);
+                continue;
+            }
+            found.push(node.clone());
+        }
 
         Ok(found)
     }
@@ -817,6 +1028,7 @@ impl FunctionCallCollector<'_> {
             // of self-recursion
             if target == self.base_addr {
                 self.recursive_calls += 1;
+                self.calls.insert(target);
             } else if !self.function_range.contains(&target) {
                 self.calls.insert(target);
             }
@@ -983,4 +1195,167 @@ fn extract_raw_function_data(
     }
 
     Ok(functions)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fd(name: &str, frame: u64, calls: &[u32]) -> FunctionData {
+        FunctionData {
+            name: name.to_string(),
+            frame_size: Some(frame),
+            calls: calls.iter().copied().collect(),
+            missing_calls: 0,
+            recursive_calls: 0,
+        }
+    }
+
+    fn config(allow: &[&str], ignore: &[&str]) -> Config {
+        Config {
+            allowed_recurses: allow.iter().map(|s| s.to_string()).collect(),
+            ignored_functions: ignore.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    fn resolver(fns: &[(u32, FunctionData)], config: &Config) -> Resolver {
+        Resolver::new(fns.iter().cloned().collect(), config)
+    }
+
+    /// A shared child in a diamond must be counted along both paths, and the
+    /// worst chain must pick the deeper one.
+    #[test]
+    fn diamond() {
+        let mut r = resolver(
+            &[
+                (0x1000, fd("start", 0, &[0x2000, 0x3000])),
+                (0x2000, fd("deep", 100, &[0x4000])),
+                (0x3000, fd("shallow", 20, &[0x4000])),
+                (0x4000, fd("shared", 10, &[])),
+            ],
+            &config(&[], &[]),
+        );
+        let root = r.resolve_by_name("start").unwrap();
+        assert_eq!(root.max_stack(), 110);
+        let names = root
+            .worst_chain()
+            .iter()
+            .map(|n| n.name.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(names, ["start", "deep", "shared"]);
+        // The chain frames must sum to the root's max stack.
+        let sum: u64 = root
+            .worst_chain()
+            .iter()
+            .map(|n| n.local_size.unwrap_or(0))
+            .sum();
+        assert_eq!(sum, root.max_stack());
+    }
+
+    /// A call to an address with no function data must be an error naming
+    /// the caller.
+    #[test]
+    fn unknown_callee() {
+        let mut r =
+            resolver(&[(0x1000, fd("start", 0, &[0x9999]))], &config(&[], &[]));
+        let err = r.resolve_by_name("start").unwrap_err().to_string();
+        assert!(err.contains("00009999"), "{err}");
+        assert!(err.contains("start"), "{err}");
+    }
+
+    /// An allow-listed cycle `alpha <-> beta` with a second, non-recursive
+    /// caller of `beta` must produce the same (safe) answer regardless of
+    /// address order. This is a regression test: a resolver that memoizes
+    /// per-path cycle-breaking underestimates the `start -> other -> beta ->
+    /// alpha` chain, or fails outright, depending on which caller resolves
+    /// first.
+    #[test]
+    fn allowed_cycle_is_order_independent() {
+        // start(0) -> { alpha(100), other(20) }
+        // alpha(100) <-> beta(10), allow-listed
+        // other(20) -> beta(10)
+        //
+        // Worst case with "one traversal of the cycle" semantics:
+        // start -> other -> (alpha <-> beta) = 0 + 20 + 110 = 130.
+        for (alpha, beta, other) in
+            [(0x2000, 0x3000, 0x4000), (0x4000, 0x3000, 0x2000)]
+        {
+            let mut r = resolver(
+                &[
+                    (0x1000, fd("start", 0, &[alpha, other])),
+                    (alpha, fd("alpha", 100, &[beta])),
+                    (beta, fd("beta", 10, &[alpha])),
+                    (other, fd("other", 20, &[beta])),
+                ],
+                &config(&["alpha"], &[]),
+            );
+            let root = r.resolve_by_name("start").unwrap();
+            assert_eq!(root.max_stack(), 130);
+        }
+    }
+
+    /// A cycle with no allow-list match must fail, and the error must name
+    /// every member of the cycle.
+    #[test]
+    fn disallowed_cycle_names_all_members() {
+        let mut r = resolver(
+            &[
+                (0x1000, fd("start", 0, &[0x2000])),
+                (0x2000, fd("alpha", 100, &[0x3000])),
+                (0x3000, fd("beta", 10, &[0x2000])),
+            ],
+            &config(&[], &[]),
+        );
+        let err = r.resolve_by_name("start").unwrap_err().to_string();
+        assert!(err.contains("alpha"), "{err}");
+        assert!(err.contains("beta"), "{err}");
+    }
+
+    /// Ignored functions contribute nothing to their callers.
+    #[test]
+    fn ignored_functions_do_not_contribute() {
+        let mut r = resolver(
+            &[
+                (0x1000, fd("start", 0, &[0x2000, 0x3000])),
+                (0x2000, fd("stackblow", 8192, &[])),
+                (0x3000, fd("normal", 32, &[])),
+            ],
+            &config(&[], &["stackblow"]),
+        );
+        let root = r.resolve_by_name("start").unwrap();
+        assert_eq!(root.max_stack(), 32);
+    }
+
+    /// Functions unreachable from the resolved roots are reported as
+    /// missing (each with its own subtree max), and ignored functions are
+    /// excluded from that report.
+    #[test]
+    fn missing_nodes() {
+        let mut r = resolver(
+            &[
+                (0x1000, fd("start", 0, &[])),
+                (0x2000, fd("orphan", 500, &[0x3000])),
+                (0x3000, fd("leaf", 20, &[])),
+            ],
+            &config(&[], &[]),
+        );
+        r.resolve_by_name("start").unwrap();
+        let missing = r.find_missing_nodes(&["start"]).unwrap();
+        let max = missing.iter().map(|n| n.max_stack()).max().unwrap();
+        assert_eq!(max, 520);
+
+        // Same graph, but with the orphan ignored: only the leaf remains.
+        let mut r = resolver(
+            &[
+                (0x1000, fd("start", 0, &[])),
+                (0x2000, fd("orphan", 500, &[0x3000])),
+                (0x3000, fd("leaf", 20, &[])),
+            ],
+            &config(&[], &["orphan"]),
+        );
+        r.resolve_by_name("start").unwrap();
+        let missing = r.find_missing_nodes(&["start"]).unwrap();
+        let max = missing.iter().map(|n| n.max_stack()).max().unwrap();
+        assert_eq!(max, 20);
+    }
 }
