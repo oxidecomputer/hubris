@@ -64,23 +64,12 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // and (2) moving them into RAM where random accesses don't imply wait
     // states.
 
-    // SAFETY: These MUST be the same length to avoid short-circuiting the
-    // iterator. We check this in const context. Codegen should assure this is
-    // always the case, but can't hurt to cross-check at compile time.
-    const _CHECK: () = const {
-        let htd_len = HUBRIS_TASK_DESCS.len();
-        // SAFETY: This is checked at compile time. Invalid access would lead to
-        // a compiler error. We are not observing the contents of any of the
-        // MaybeUninit members of the array, only the length of the array.
-        let htts_len = unsafe {
-            (*core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE)).len()
-        };
-
-        assert!(
-            htd_len == htts_len,
-            "Task Descriptor and Task Table Length Mismatch!"
-        );
-    };
+    // HUBRIS_TASK_DESCS must also be of len HUBRIS_TASK_COUNT, otherwise the
+    // initialization below could short circuit and leave entries uninitialized.
+    const _CHECK: () = assert!(
+        HUBRIS_TASK_DESCS.len() == HUBRIS_TASK_COUNT,
+        "Task Descriptor and Task Table Length Mismatch!"
+    );
 
     // Initialize each task, one at a time, using the task descriptions
     task_table

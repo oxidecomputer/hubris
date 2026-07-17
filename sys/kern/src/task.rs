@@ -5,6 +5,7 @@
 //! Implementation of tasks.
 
 use core::ops::Range;
+use core::ptr::addr_of_mut;
 
 use abi::{
     FaultInfo, FaultSource, Generation, ReplyFaultReason, SchedState, TaskId,
@@ -378,6 +379,17 @@ impl Task {
     /// Returns a mutable reference to the saved machine state for the task.
     pub fn save_mut(&mut self) -> &mut crate::arch::SavedState {
         &mut self.save
+    }
+
+    /// Performs the necessary pointer offset math to convert a pointer to a
+    /// task into a pointer to the arch-specific saved state. This can be used
+    /// to obtain the store/restore address *without* taking a reference to the
+    /// task, which could invalidate provenance.
+    ///
+    /// SAFETY: `this` must point to a valid instance of `Self`, e.g. not null
+    /// and where `this.save` does not wrap around.
+    pub unsafe fn save_ptr(this: *mut Self) -> *mut crate::arch::SavedState {
+        unsafe { addr_of_mut!((*this).save) }
     }
 
     /// Performs the architecture-specific bookkeeping to activate `task` on

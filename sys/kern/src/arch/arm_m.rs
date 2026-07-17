@@ -71,6 +71,7 @@
 //! We'll see.
 
 use core::arch::{self, global_asm};
+use core::ptr::addr_of;
 use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
 use zerocopy::{FromBytes, Immutable, KnownLayout};
@@ -758,17 +759,6 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         }
     }
 
-    // Safety: this, too, is safe in practice but unsafe in API.
-    unsafe {
-        // Configure the timer.
-        let syst = &*cortex_m::peripheral::SYST::PTR;
-        // Program reload value.
-        syst.rvr.write(tick_divisor - 1);
-        // Clear current value.
-        syst.cvr.write(0);
-        // Enable counter and interrupt.
-        syst.csr.modify(|v| v | 0b111);
-    }
     // We are manufacturing authority to interact with the MPU here, because we
     // can't thread a cortex-specific peripheral through an
     // architecture-independent API. This approach might bear revisiting later.
@@ -811,13 +801,40 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         cortex_m::register::psp::write(task.save().psp);
     }
 
-    // Store off the addr of R4, which we will use to restore initial register
-    // state below, and then relinquish our borrow of Task and store the
-    // address to the current task ptr. Note that we are restoring FROM the
-    // saved state, we are NOT writing TO the saved state.
-    let r4_ptr: *const u32 = &task.save_mut().r4;
+    // Relinquish our exclusive borrow of the relevant task, and use *pointer*
+    // method to obtain a pointer to the address we will need to restore initial
+    // state from. We do it this way to avoid invalidating the provenance by
+    // reborrowing the Task, AND we do not use a reference to `r4` specifically,
+    // which would only have the provenance of one `u32`, as we will be reading
+    // ALL of the SavedState in the assembly below.
+    //
+    // Note that we are restoring FROM the saved state, we are NOT writing TO
+    // the saved state, so a `*const u32` will do.
     let task: *mut task::Task = task;
+    // SAFETY: `task` is pointer to a valid task object, therefore doing offset
+    // math on it is sound.
+    let r4_ptr: *const u32 = unsafe {
+        let save_ptr = task::Task::save_ptr(task);
+        addr_of!((*save_ptr).r4)
+    };
     CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+
+    // Finally, we enable systick counting. We don't do this until AFTER we
+    // have set CURRENT_TASK_PTR, as otherwise we could end up interrupting
+    // into systick, falling through to pendsv, and hit an assert that
+    // CURRENT_TASK_PTR is null.
+    //
+    // Safety: this, too, is safe in practice but unsafe in API.
+    unsafe {
+        // Configure the timer.
+        let syst = &*cortex_m::peripheral::SYST::PTR;
+        // Program reload value.
+        syst.rvr.write(tick_divisor - 1);
+        // Clear current value.
+        syst.cvr.write(0);
+        // Enable counter and interrupt.
+        syst.csr.modify(|v| v | 0b111);
+    }
 
     // Run the final pre-kernel assembly sequence to set up the kernel
     // environment!
