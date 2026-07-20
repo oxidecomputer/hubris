@@ -8,6 +8,7 @@ cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 stm32h7 = { workspace = true }
 measurement-handoff = { path = "../../lib/measurement-handoff", optional = true }
+kern = { path = "../../sys/kern" }
 
 [features]
 h743 = ["stm32h7/stm32h743"]

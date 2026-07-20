@@ -42,6 +42,7 @@ pub mod fail;
 pub mod header;
 pub mod kipc;
 pub mod profiling;
+pub mod ptime;
 pub mod startup;
 pub mod syscalls;
 pub mod task;

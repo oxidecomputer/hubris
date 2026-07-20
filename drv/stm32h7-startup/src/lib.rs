@@ -459,5 +459,67 @@ pub mod rolling_timer {
                 }
             }
         }
+
+        pub unsafe fn into_ptimer(self) -> &'static kern::ptime::PTimeVTable {
+            // this is all a bit silly
+            use core::sync::atomic::{AtomicU32, Ordering};
+            fn tickrate() -> u32 {
+                1_000_000
+            }
+
+            fn timekeep() {
+                let tim5 = unsafe { &*device::TIM5::ptr() };
+                let counter = tim5.cnt.read().bits();
+                let mut period = PERIOD.load(Ordering::Relaxed);
+
+                // Does the parity match?
+                let parity = (period & 0b1) ^ (counter >> 31);
+                if parity != 0 {
+                    period += 1;
+                    PERIOD.store(period, Ordering::Relaxed);
+                }
+
+                // Bit  63     (one bit) is unused.
+                // Bits 31..63 (32 bits) are filled by PERIOD
+                // Bits 00..31 (31 bits) are filled by counter
+                // let upper = (period as u64) << 31;
+                // let lower = (now_rolling & 0x7FFF_FFFF) as u64;
+                // let time = upper | lower;
+                // kern::ptime::Instant(time)
+            }
+
+            fn now() -> kern::ptime::Instant {
+                let tim5 = unsafe { &*device::TIM5::ptr() };
+                let counter = tim5.cnt.read().bits();
+                let period = PERIOD.load(Ordering::Relaxed);
+
+                // Bit  63     (one bit) is unused.
+                // Bits 31..63 (32 bits) are filled by PERIOD
+                // Bits 00..31 (31 bits) are filled by (counter & 0x7FFF_FFFF)
+                //
+                // IF the lowest bit of `period` DOES NOT match the uppermost
+                // bit of `counter`, then there has been either a half or full
+                // rollover (0x7FFF_FFFF -> 0x8000_0000, or 0xFFFF_FFFF ->
+                // 0x0000_0000) not accounted for in `period`, so we add
+                // 0x8000_0000.
+                //
+                // Adapted from embassy-stm32's time driver technique
+                let upper = (period as u64) << 31;
+                let lower = (counter ^ ((period & 1) << 31)) as u64;
+                let time = upper + lower;
+                kern::ptime::Instant(time)
+            }
+
+            static PERIOD: AtomicU32 = AtomicU32::new(0);
+            static VTABLE: kern::ptime::PTimeVTable =
+                kern::ptime::PTimeVTable {
+                    now,
+                    timekeep,
+                    tickrate,
+                };
+
+            core::mem::forget(self);
+            &VTABLE
+        }
     }
 }
