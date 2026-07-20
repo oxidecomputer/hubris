@@ -10,6 +10,7 @@ use abi::{
     FaultInfo, FaultSource, Generation, ReplyFaultReason, SchedState, TaskId,
     TaskState, ULease, UsageError,
 };
+use hubris_ptime::{Duration, Instant};
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::descs::{
@@ -17,10 +18,13 @@ use crate::descs::{
     TaskFlags,
 };
 use crate::err::UserError;
-use crate::ptime::Duration;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;
 use crate::time::Timestamp;
 use crate::umem::USlice;
+
+// hate this
+#[unsafe(no_mangle)]
+pub(crate) static mut PTIME_LAST_SWITCH: Instant = Instant(0);
 
 /// Internal representation of a task.
 ///
@@ -425,14 +429,11 @@ impl Task {
     }
 
     pub(crate) fn account_task_active_time(&mut self) {
-        if let Some(ptimer) = crate::ptime::ptimer() {
+        if let Some(ptimer) = hubris_ptime::ptimer() {
             let now = (ptimer.now)();
             let mut old = now;
             unsafe {
-                core::ptr::swap(
-                    &mut old,
-                    &raw mut crate::ptime::PTIME_LAST_SWITCH,
-                );
+                core::ptr::swap(&mut old, &raw mut PTIME_LAST_SWITCH);
             }
             let elapsed = now.0 - old.0;
             self.active.0 += elapsed;

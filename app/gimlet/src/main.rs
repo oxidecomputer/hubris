@@ -235,5 +235,5 @@ fn system_init() {
     let ptime = RollingTimer::new_tim5(&p, 200);
     // SAFETY: we promise to never use TIM5 again.
     let vtable = unsafe { ptime.into_ptimer() };
-    kern::ptime::set_ptime_vtable(vtable);
+    hubris_ptime::set_ptime_vtable(vtable);
 }

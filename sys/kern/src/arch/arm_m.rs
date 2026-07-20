@@ -1089,7 +1089,7 @@ static TICKS: [AtomicU32; 2] = {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn SysTick() {
     crate::profiling::event_timer_isr_enter();
-    if let Some(ptimer) = crate::ptime::ptimer() {
+    if let Some(ptimer) = hubris_ptime::ptimer() {
         (ptimer.timekeep)();
     }
     with_task_table(|tasks| {

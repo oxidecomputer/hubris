@@ -6,6 +6,8 @@
 //!
 //! Currently only used for profiling
 
+#![no_std]
+
 use core::sync::atomic::{AtomicPtr, Ordering};
 
 #[derive(Debug, Clone, Copy)]
@@ -29,10 +31,6 @@ pub struct PTimeVTable {
     pub timekeep: TimeKeepFunc,
     pub tickrate: TickRateFunc,
 }
-
-// hate this
-#[unsafe(no_mangle)]
-pub(crate) static mut PTIME_LAST_SWITCH: Instant = Instant(0);
 
 static PTIME_VTABLE: AtomicPtr<PTimeVTable> =
     AtomicPtr::new(core::ptr::null_mut());

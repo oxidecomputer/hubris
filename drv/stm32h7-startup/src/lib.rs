@@ -460,7 +460,7 @@ pub mod rolling_timer {
             }
         }
 
-        pub unsafe fn into_ptimer(self) -> &'static kern::ptime::PTimeVTable {
+        pub unsafe fn into_ptimer(self) -> &'static hubris_ptime::PTimeVTable {
             // this is all a bit silly
             use core::sync::atomic::{AtomicU32, Ordering};
             fn tickrate() -> u32 {
@@ -485,10 +485,10 @@ pub mod rolling_timer {
                 // let upper = (period as u64) << 31;
                 // let lower = (now_rolling & 0x7FFF_FFFF) as u64;
                 // let time = upper | lower;
-                // kern::ptime::Instant(time)
+                // hubris_ptime::Instant(time)
             }
 
-            fn now() -> kern::ptime::Instant {
+            fn now() -> hubris_ptime::Instant {
                 let tim5 = unsafe { &*device::TIM5::ptr() };
                 let counter = tim5.cnt.read().bits();
                 let period = PERIOD.load(Ordering::Relaxed);
@@ -507,12 +507,12 @@ pub mod rolling_timer {
                 let upper = (period as u64) << 31;
                 let lower = (counter ^ ((period & 1) << 31)) as u64;
                 let time = upper + lower;
-                kern::ptime::Instant(time)
+                hubris_ptime::Instant(time)
             }
 
             static PERIOD: AtomicU32 = AtomicU32::new(0);
-            static VTABLE: kern::ptime::PTimeVTable =
-                kern::ptime::PTimeVTable {
+            static VTABLE: hubris_ptime::PTimeVTable =
+                hubris_ptime::PTimeVTable {
                     now,
                     timekeep,
                     tickrate,
