@@ -61,7 +61,11 @@ fn begin_epitaph() -> &'static mut [u8; EPITAPH_LEN] {
 
     // Safety: we can get a mutable reference to the epitaph because only one
     // execution of this function will successfully set that flag.
-    unsafe { &mut *(&raw mut KERNEL_EPITAPH) }
+    //
+    // NOTE: we still use `&mut *addr_of_mut!` here instead of `&mut` because of
+    // the `static_mut_refs` lint, and instead of `&mut *&raw mut` because of
+    // the `clippy::deref-addrof` lint.
+    unsafe { &mut *core::ptr::addr_of_mut!(KERNEL_EPITAPH) }
 }
 
 #[cfg(not(feature = "nano"))]
