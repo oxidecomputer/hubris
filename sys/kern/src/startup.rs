@@ -51,9 +51,8 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     let task_descs = &HUBRIS_TASK_DESCS;
     // Safety: this reference will remain unique so long as the "only called
     // once per boot" contract on this function is upheld.
-    let task_table: &mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] = unsafe {
-        core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE).as_mut_unchecked()
-    };
+    let task_table: &mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] =
+        unsafe { (&raw mut HUBRIS_TASK_TABLE_SPACE).as_mut_unchecked() };
 
     // Initialize our RAM data structures.
 
@@ -111,7 +110,7 @@ pub(crate) fn with_task_table<R>(body: impl FnOnce(&mut [Task]) -> R) -> R {
     //
     // Get the address of the task table, a MaybeUninit Static
     let task_table: *mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] =
-        core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE);
+        &raw mut HUBRIS_TASK_TABLE_SPACE;
     // Cast the pointer to an *initialized* static, which is sound as
     // MaybeUninit is repr(transparent).
     let task_table: *mut [Task; HUBRIS_TASK_COUNT] = task_table.cast();

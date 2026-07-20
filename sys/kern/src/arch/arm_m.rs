@@ -71,7 +71,6 @@
 //! We'll see.
 
 use core::arch::{self, global_asm};
-use core::ptr::addr_of;
 use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
 use zerocopy::{FromBytes, Immutable, KnownLayout};
@@ -790,9 +789,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // Both these outcomes are safe, even if the second one is annoying.
     #[cfg(armv8m)]
     unsafe {
-        cortex_m::register::msplim::write(
-            core::ptr::addr_of!(_stack_base) as u32
-        );
+        cortex_m::register::msplim::write((&raw const _stack_base) as u32);
     }
 
     // Safety: this is setting the Process (task) stack pointer, which has no
@@ -815,7 +812,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // math on it is sound.
     let r4_ptr: *const u32 = unsafe {
         let save_ptr = task::Task::save_ptr(task);
-        addr_of!((*save_ptr).r4)
+        &raw const (*save_ptr).r4
     };
     CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
 
