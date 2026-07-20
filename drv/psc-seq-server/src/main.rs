@@ -347,9 +347,16 @@ const STARTUP_SETTLE_MS: u64 = 500; // Current value is somewhat arbitrary.
 /// How long to leave a PSU off on fault before attempting to re-enable it.
 const FAULT_OFF_MS: u64 = 5_000; // Current value is somewhat arbitrary.
 
-/// How long to wait after a PSU is inserted, before we attempt to turn it on
-/// (MWOCP68 only). This does double-duty in both debouncing the presence line,
-/// and ensuring that things are firmly mated before activating anything.
+/// How long to wait after a PSU is inserted before entering the OnProbation
+/// state.
+///
+/// We wait to enable the MWOCP68 until after this time has past, which
+/// does double-duty in both debouncing the presence line and ensuring that
+/// things are firmly mated before activating anything.
+///
+/// The MWOCP67, however, automatically enables itself as soon as it's inserted.
+/// The delay isn't as useful in that case, but is still good for debouncing the
+/// presence line.
 const INSERT_DEBOUNCE_MS: u64 = 1_000; // Current value is somewhat arbitrary.
 
 /// How long after exiting a fault state before we require the PSU to start
@@ -413,8 +420,8 @@ enum PresentState {
     },
 
     /// The PSU has just appeared and we're waiting a bit to confirm that it's
-    /// stable before turning it on (MWOCP68 only). (Waiting in this state
-    /// provides some debouncing for contact scrape.)
+    /// stable. (Waiting in this state provides some debouncing for contact
+    /// scrape.)
     NewlyInserted { settle_deadline: u64 },
     /// The PSU has unexpectedly deasserted the OK signal, or failed to assert
     /// it within a reasonable amount of time after being turned on.
