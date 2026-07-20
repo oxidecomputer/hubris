@@ -1,0 +1,16 @@
+[package]
+name = "hubris-ptime"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[features]
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

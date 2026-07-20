@@ -13,7 +13,7 @@ extern crate stm32h7;
 
 use stm32h7::stm32h753 as device;
 
-use drv_stm32h7_startup::ClockConfig;
+use drv_stm32h7_startup::{ClockConfig, rolling_timer::RollingTimer};
 
 use cortex_m_rt::entry;
 
@@ -443,4 +443,10 @@ fn system_init() {
 
     // Turn on the controller.
     p.FMC.bcr1.modify(|_, w| w.fmcen().set_bit());
+
+    // Enable timing
+    let ptime = RollingTimer::new_tim5(&p, 200);
+    // SAFETY: we promise to never use TIM5 again.
+    let vtable = unsafe { ptime.into_ptimer() };
+    hubris_ptime::set_ptime_vtable(vtable);
 }
