@@ -1470,12 +1470,22 @@ impl ServerImpl {
                             .sprot
                             .tq_cert_len(index)
                             .map_err(AttestDataSprotError::from)?;
-                        for o in (0..cert_len).step_by(512) {
+                        for o in (0..cert_len).step_by(SPROT_TRANSFER_SIZE) {
                             let idx: usize = buf_idx + o as usize;
-                            let len = usize::min(512, (cert_len - o) as usize);
+                            let end = usize::min(
+                                SPROT_TRANSFER_SIZE,
+                                (cert_len - o) as usize,
+                            );
+
+                            if idx + end >= buf.len() {
+                                return Err(
+                                    AttestDataSprotError::CommsBufTooSmall
+                                        .into(),
+                                );
+                            }
 
                             self.sprot
-                                .tq_cert(index, o, &mut buf[idx..idx + len])
+                                .tq_cert(index, o, &mut buf[idx..idx + end])
                                 .map_err(AttestDataSprotError::from)?;
                         }
                         cnt += cert_len;
