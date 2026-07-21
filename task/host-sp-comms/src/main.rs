@@ -1513,6 +1513,12 @@ impl ServerImpl {
                         .tq_sign_len()
                         .map_err(AttestDataSprotError::from)?
                         as usize;
+
+                    if sign_len > buf.len() {
+                        return Err(
+                            AttestDataSprotError::CommsBufTooSmall.into()
+                        );
+                    }
                     self.sprot
                         .tq_sign(data, &mut buf[..sign_len])
                         .map_err(AttestDataSprotError::from)?;
