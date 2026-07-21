@@ -565,7 +565,7 @@ impl SpHandler for MgsHandler {
         update: SpUpdatePrepare,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
-            length: update.aux_flash_size + update.sp_image_size,
+            length: update.aux_flash_size.saturating_add(update.sp_image_size),
             component: SpComponent::SP_ITSELF,
             id: update.id,
             slot: 0,
