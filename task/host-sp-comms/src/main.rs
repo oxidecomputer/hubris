@@ -1363,7 +1363,7 @@ impl ServerImpl {
                                 SPROT_TRANSFER_SIZE,
                                 (cert_len - o) as usize,
                             );
-                            if idx + end >= buf.len() {
+                            if idx + end > buf.len() {
                                 return Err(
                                     AttestDataSprotError::CommsBufTooSmall
                                         .into(),
@@ -1403,7 +1403,7 @@ impl ServerImpl {
                             SPROT_TRANSFER_SIZE,
                             (measurement_len - o) as usize,
                         );
-                        if idx + end >= buf.len() {
+                        if idx + end > buf.len() {
                             return Err(
                                 AttestDataSprotError::CommsBufTooSmall.into()
                             );
@@ -1434,7 +1434,7 @@ impl ServerImpl {
                         .attest_len()
                         .map_err(AttestDataSprotError::from)?
                         as usize;
-                    if attest_len >= buf.len() {
+                    if attest_len > buf.len() {
                         return Err(
                             AttestDataSprotError::CommsBufTooSmall.into()
                         );
@@ -1477,7 +1477,7 @@ impl ServerImpl {
                                 (cert_len - o) as usize,
                             );
 
-                            if idx + end >= buf.len() {
+                            if idx + end > buf.len() {
                                 return Err(
                                     AttestDataSprotError::CommsBufTooSmall
                                         .into(),
