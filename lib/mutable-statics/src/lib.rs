@@ -14,6 +14,13 @@
 /// arrange for them to be initialized by a per-array lambda function, and
 /// return a tuple containing mutable references to each, in the order they're
 /// declared.
+///
+/// NOTE: You may prefer this over the `static-cell` crate, as it uses a closure
+/// to initialize each field, which means that if you have a `[T; N]` where `T`
+/// is not zero-initialized, THIS crate will only store a single `T` in `.text`,
+/// whereas static-cell (as of July 2026) will store the entire `[T; N]` into
+/// `.data`, which costs both flash (for the initializer) and RAM (for the
+/// actual static).
 #[macro_export]
 macro_rules! mutable_statics {
     (
@@ -40,23 +47,23 @@ macro_rules! mutable_statics {
                     let __ref = unsafe {
                         &mut $name
                     };
-                    // Safety: unsafe because of dereference of a raw pointer
-                    // (after we cast it) -- safe because we are casting here
-                    // from MaybeUninit<[$t; $n]> to [MaybeUninit<$t>; $n],
-                    // which is safe by definition.
+                    // Dereferencing from `MaybeUninit<[$t; $n]>` to
+                    // `[MaybeUninit<$t>; $n]` (which is safe to do).
                     let __ref: &'static mut [core::mem::MaybeUninit<$t>; $n] =
-                        unsafe {
-                            &mut *(__ref as *mut _ as *mut _)
-                        };
-                    for __u in __ref.iter_mut() {
-                        *__u = core::mem::MaybeUninit::new($init());
-                    }
-                    // Safety: unsafe because of dereference of a raw pointer
-                    // (after we cast it) -- safe because we are casting here
-                    // from [MaybeUninit<$t>; $n] to [$t; $n] after
-                    // initializing.
+                        __ref.as_mut();
+
+                    // Initialize each field using the provided closure (which
+                    // is also safe to do).
+                    __ref
+                        .iter_mut()
+                        .for_each(|mu| { mu.write($init()); });
+
+                    // Safety: unsafe because of the transmute, from
+                    // `&'static [MaybeUninit<$t>; $n]` to `&'static [$t; $n]`,
+                    // safe because we are only doing so after initializing
+                    // every field
                     let __ref: &'static mut [$t; $n] = unsafe {
-                        &mut *(__ref as *mut _ as *mut _)
+                        core::mem::transmute(__ref)
                     };
                     __ref
                 }
