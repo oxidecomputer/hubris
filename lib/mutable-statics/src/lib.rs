@@ -58,10 +58,13 @@ macro_rules! mutable_statics {
                         .iter_mut()
                         .for_each(|mu| { mu.write($init()); });
 
-                    // Safety: unsafe because of the transmute, from
-                    // `&'static [MaybeUninit<$t>; $n]` to `&'static [$t; $n]`,
-                    // safe because we are only doing so after initializing
-                    // every field
+                    // Safety: unsafe because of the transmute:
+                    //
+                    // from: `&'static mut [MaybeUninit<$t>; $n]`
+                    // to:   `&'static mut [$t; $n]`
+                    //
+                    // which is safe here because we are only doing so after
+                    // initializing every field with `MaybeUninit::write`.
                     let __ref: &'static mut [$t; $n] = unsafe {
                         core::mem::transmute(__ref)
                     };
