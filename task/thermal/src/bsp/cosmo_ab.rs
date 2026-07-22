@@ -125,16 +125,12 @@ impl Bsp {
         Ok(())
     }
 
-    pub fn read_fan_rpms<F, G, H>(
+    pub fn read_fan_rpms(
         &mut self,
-        mut on_success: F,
-        mut on_error: G,
-        _on_missing: H,
-    ) where
-        F: FnMut(&SensorId, f32),
-        G: FnMut(&SensorId, SensorReadError),
-        H: FnMut(&SensorId),
-    {
+        mut on_success: impl FnMut(&SensorId, f32),
+        mut on_error: impl FnMut(&SensorId, SensorReadError),
+        _on_missing: impl FnMut(&SensorId),
+    ) {
         for (idx, sensor) in sensors::MAX31790_SPEED_SENSORS.iter().enumerate()
         {
             // TODO: Why does this use idx?
@@ -151,6 +147,20 @@ impl Bsp {
             match fctrl.fan_rpm() {
                 Ok(reading) => on_success(sensor, reading.0.into()),
                 Err(e) => on_error(sensor, SensorReadError::I2cError(e)),
+            }
+        }
+    }
+
+    pub fn read_misc_sensors(
+        &mut self,
+        i2c_task: TaskId,
+        mut on_success: impl FnMut(&SensorId, f32),
+        mut on_error: impl FnMut(&SensorId, SensorReadError),
+    ) {
+        for s in self.misc_sensors.iter() {
+            match s.read_temp(i2c_task) {
+                Ok(v) => on_success(&s.sensor_id, v.0),
+                Err(e) => on_error(&s.sensor_id, e),
             }
         }
     }

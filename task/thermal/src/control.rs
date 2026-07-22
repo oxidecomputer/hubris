@@ -54,7 +54,7 @@ pub enum Device {
 pub struct TemperatureSensor {
     device: Device,
     builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
-    sensor_id: SensorId,
+    pub sensor_id: SensorId,
 }
 
 impl TemperatureSensor {
@@ -70,7 +70,10 @@ impl TemperatureSensor {
             sensor_id,
         }
     }
-    fn read_temp(&self, i2c_task: TaskId) -> Result<Celsius, SensorReadError> {
+    pub fn read_temp(
+        &self,
+        i2c_task: TaskId,
+    ) -> Result<Celsius, SensorReadError> {
         let dev = (self.builder)(i2c_task);
         let t = match &self.device {
             Device::Tmp117 => Tmp117::new(&dev).read_temperature()?,
@@ -1110,16 +1113,15 @@ impl<'a> ThermalControl<'a> {
         );
 
         // Read miscellaneous temperature data and log it to the sensors task
-        for s in self.bsp.misc_sensors.iter() {
-            match s.read_temp(self.i2c_task) {
-                Ok(v) => self.sensor_api.post_now(s.sensor_id, v.0),
-                Err(e) => {
-                    ringbuf_entry!(Trace::MiscReadFailed(s.sensor_id, e));
-                    self.err_blackbox.push(s.sensor_id, e);
-                    self.sensor_api.nodata_now(s.sensor_id, e.into())
-                }
-            }
-        }
+        self.bsp.read_misc_sensors(
+            self.i2c_task,
+            |id, value| self.sensor_api.post_now(*id, value),
+            |id, error| {
+                ringbuf_entry!(Trace::MiscReadFailed(*id, error));
+                self.err_blackbox.push(*id, error);
+                self.sensor_api.nodata_now(*id, error.into())
+            },
+        );
 
         // We read the power mode right before reading sensors, to avoid
         // potential TOCTOU issues; some sensors cannot be read if they are not
