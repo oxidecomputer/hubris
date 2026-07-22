@@ -5,17 +5,21 @@
 //! BSP for the Cosmo rev A hardware
 
 use crate::{
+    Fan,
     control::{
-        ChannelType, ControllerInitError, Device, FanControl, Fans,
-        InputChannel, Max31790State, PidConfig, TemperatureSensor,
+        ChannelType, ControllerInitError, Device, FanControl, InputChannel,
+        Max31790State, PidConfig, TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
 pub use drv_cpu_seq_api::SeqError;
 use drv_cpu_seq_api::{PowerState, Sequencer, StateChangeReason};
 use task_sensor_api::SensorId;
-use task_thermal_api::ThermalProperties;
-use userlib::{TaskId, UnwrapLite, task_slot, units::Celsius};
+use task_thermal_api::{SensorReadError, ThermalError, ThermalProperties};
+use userlib::{
+    TaskId, UnwrapLite, task_slot,
+    units::{Celsius, PWMDuty},
+};
 
 task_slot!(SEQ, cosmo_seq);
 
@@ -108,20 +112,77 @@ impl Bsp {
         }
     }
 
-    // We assume Cosmo fan presence cannot change
-    pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
-        // Awkwardly build the fan array, because there's not a great way to
-        // build a fixed-size array from a function
-        let mut fans = Fans::new();
-        for i in 0..NUM_FANS {
-            fans[i] = Some(sensors::MAX31790_SPEED_SENSORS[i]);
-        }
-        Ok(fans)
+    pub fn update_fan_presence<F, G>(
+        &mut self,
+        _on_added: F,
+        _on_remove: G,
+    ) -> Result<(), SeqError>
+    where
+        F: Fn(&Fan),
+        G: Fn(&Fan),
+    {
+        // Our fans are always here, never added or removed!
+        Ok(())
     }
 
-    pub fn fan_sensor_id(&self, i: usize) -> SensorId {
-        sensors::MAX31790_SPEED_SENSORS[i]
+    pub fn read_fan_rpms<F, G, H>(
+        &mut self,
+        mut on_success: F,
+        mut on_error: G,
+        _on_missing: H,
+    ) where
+        F: FnMut(&SensorId, f32),
+        G: FnMut(&SensorId, SensorReadError),
+        H: FnMut(&SensorId),
+    {
+        for (idx, sensor) in sensors::MAX31790_SPEED_SENSORS.iter().enumerate()
+        {
+            // TODO: Why does this use idx?
+            let fctrl_res = self.fan_control(Fan::from(idx));
+            let fctrl = match fctrl_res {
+                Ok(f) => f,
+                Err(e) => {
+                    on_error(sensor, SensorReadError::from(e));
+                    continue;
+                }
+            };
+
+            // TODO(AJM): Keep last fan RPM?
+            match fctrl.fan_rpm() {
+                Ok(reading) => on_success(sensor, reading.0.into()),
+                Err(e) => on_error(sensor, SensorReadError::I2cError(e)),
+            }
+        }
     }
+
+    // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
+    // even if some fail. return the LAST error if any.
+    pub fn set_all_fan_rpms(
+        &mut self,
+        duty: PWMDuty,
+    ) -> Result<(), ThermalError> {
+        let mut last_err = Ok(());
+        for idx in 0..NUM_FANS {
+            let fctrl_res = self.fan_control(Fan::from(idx));
+            let fctrl = match fctrl_res {
+                Ok(f) => f,
+                Err(e) => {
+                    last_err = Err(ThermalError::from(e));
+                    continue;
+                }
+            };
+
+            if fctrl.set_pwm(duty).is_err() {
+                last_err = Err(ThermalError::DeviceError);
+            }
+        }
+
+        last_err
+    }
+
+    // pub fn fan_sensor_id(&self, i: usize) -> SensorId {
+    //     sensors::MAX31790_SPEED_SENSORS[i]
+    // }
 
     pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
