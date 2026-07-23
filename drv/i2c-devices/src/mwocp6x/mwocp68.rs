@@ -315,6 +315,11 @@ impl Mwocp68 {
             Operation::MfrMaxTemp3 => PmbusValue::from(
                 pmbus_read!(self.device, MFR_MAX_TEMP_3)?.get()?,
             ),
+            Operation::Operation => {
+                let (val, width) = pmbus_read!(self.device, OPERATION)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
             Operation::ReadTempClipP | Operation::ReadTempClipN => {
                 return Err(Error::UnsupportedCommand { cmd: op as u8 });
             }
