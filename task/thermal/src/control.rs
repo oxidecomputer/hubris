@@ -934,9 +934,10 @@ impl<'a> ThermalControl<'a> {
     /// Returns an error if the control loop failed to read critical sensors;
     /// the caller should set us to some kind of fail-safe mode if this
     /// occurs.
-    pub fn run_control(&mut self) -> Result<(), ThermalError> {
-        let now_ms = sys_get_timer().now;
-
+    fn run_control_inner(
+        &mut self,
+        now_ms: u64,
+    ) -> Result<ControlResult, ThermalError> {
         // When the power mode changes, we may require a new set of sensors to
         // be online.  Reset the control state, waiting for all newly-required
         // sensors to come online before re-entering the control loop.
@@ -959,33 +960,74 @@ impl<'a> ThermalControl<'a> {
         self.bsp
             .read_dynamic_inputs_back_from_sensor_api(&self.sensor_api);
 
-        let control_result = match &mut self.state {
+        // Run a common analysis pass first, regardless of state. Don't take any
+        // side effectful actions yet though.
+        let mut all_nominal = true;
+        let mut any_power_down = None;
+        let mut any_critical = None;
+        let mut worst_margin = f32::MAX;
+
+        // Remember, positive margin means that all parts are happily
+        // below their max temperature; negative means someone is
+        // overheating.  We want to pick the _smallest_ margin, since
+        // that's the part which is most overheated.
+        let f = |sensor_id, v, model| {
+            if let TemperatureReading::Valid(v) = v {
+                let worst_case = v.worst_case(now_ms, &model);
+                let temperature = worst_case.worst_case_temp;
+                all_nominal &= model.is_nominal(temperature);
+                if model.should_power_down(temperature) {
+                    any_power_down = Some((sensor_id, worst_case));
+                }
+                if model.is_critical(temperature) {
+                    any_critical = Some((sensor_id, worst_case));
+                }
+                worst_margin = worst_margin.min(model.margin(temperature).0);
+            }
+
+            // Hidden assumption here! ALL `TemperatureReading`s here will be
+            // valid, UNLESS:
+            //
+            // 1. We are in Boot state and we allow missing inputs, which will
+            //    skip anything we haven't heard yet (but will report `false`
+            //    for `bsp.all_inputs_present()`)
+            // 2. For input sensors: the given input is not active in this
+            //    power state
+            // 3. For dynamic sensors: The given dynamic input has not been
+            //    given to us to activate
+            //
+            // We don't necessarily *check* that is the case though, and we
+            // might want to in the for_each_temp(_allow_missing_inputs)
+            // functions!
+        };
+        match self.state {
             ThermalControlState::Boot => {
-                let mut any_power_down = None;
-                let mut worst_margin = f32::MAX;
+                self.bsp.for_each_temp_allow_missing_inputs(f)
+            }
+            ThermalControlState::Running { .. } => self.bsp.for_each_temp(f),
+            ThermalControlState::Critical { .. } => self.bsp.for_each_temp(f),
+            ThermalControlState::FanParty => self.bsp.for_each_temp(f),
+            ThermalControlState::Uncontrollable => {
+                return Ok(ControlResult::PowerDown);
+            }
+        }
 
-                let f = |sensor_id, v, model| {
-                    match v {
-                        TemperatureReading::Valid(v) => {
-                            let worst_case = v.worst_case(now_ms, &model);
-                            let temperature = worst_case.worst_case_temp;
-                            if model.should_power_down(temperature) {
-                                any_power_down = Some((sensor_id, worst_case));
-                            }
-                            worst_margin =
-                                worst_margin.min(model.margin(temperature).0);
-                        }
-                        TemperatureReading::Inactive => {
-                            // Inactive sensors are ignored, but do not gate us
-                            // from transitioning to `Running`
-                        }
-                    }
-                };
-                self.bsp.for_each_temp_allow_missing_inputs(f);
+        // In any state, if we've reached the "any_power_down" threshold, then
+        // it's time to go.
+        if let Some(due_to) = any_power_down {
+            return Ok(self.transition_to_uncontrollable_due_to(due_to, now_ms));
+        }
 
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
-                } else if self.bsp.all_inputs_present() {
+        let all_nominal = all_nominal;
+        let any_critical = any_critical;
+        let worst_margin = worst_margin;
+
+        // TODO(AJM): I think we could dedupe some of the code below, basically
+        // working backwards and checking if we "qualify" for each state, though
+        // that's a bit more invasive of a change
+        Ok(match &mut self.state {
+            ThermalControlState::Boot => {
+                if self.bsp.all_inputs_present() {
                     self.transition_to_running(worst_margin, now_ms)
                 } else {
                     ControlResult::Pwm(PWMDuty(
@@ -994,34 +1036,7 @@ impl<'a> ThermalControl<'a> {
                 }
             }
             ThermalControlState::Running { pid } => {
-                let mut any_power_down = None;
-                let mut any_critical = None;
-                let mut worst_margin = f32::MAX;
-
-                // Remember, positive margin means that all parts are happily
-                // below their max temperature; negative means someone is
-                // overheating.  We want to pick the _smallest_ margin, since
-                // that's the part which is most overheated.
-                let f = |sensor_id, v, model| {
-                    if let TemperatureReading::Valid(v) = v {
-                        let worst_case = v.worst_case(now_ms, &model);
-                        let temperature = worst_case.worst_case_temp;
-                        if model.should_power_down(temperature) {
-                            any_power_down = Some((sensor_id, worst_case));
-                        }
-                        if model.is_critical(temperature) {
-                            any_critical = Some((sensor_id, worst_case));
-                        }
-
-                        worst_margin =
-                            worst_margin.min(model.margin(temperature).0);
-                    }
-                };
-                self.bsp.for_each_temp(f);
-
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
-                } else if let Some(due_to) = any_critical {
+                if let Some(due_to) = any_critical {
                     self.transition_to_critical(due_to, now_ms)
                 } else {
                     // We adjust the worst component margin by our target
@@ -1041,30 +1056,9 @@ impl<'a> ThermalControl<'a> {
                 }
             }
             ThermalControlState::Critical { .. } => {
-                let mut all_nominal = true;
-                let mut any_still_critical = false;
-                let mut any_power_down = None;
-                let mut worst_margin = f32::MAX;
-                let f = |sensor_id, v, model| {
-                    if let TemperatureReading::Valid(v) = v {
-                        let worst_case = v.worst_case(now_ms, &model);
-                        let temperature = worst_case.worst_case_temp;
-                        all_nominal &= model.is_nominal(temperature);
-                        any_still_critical |= model.is_critical(temperature);
-                        if model.should_power_down(temperature) {
-                            any_power_down = Some((sensor_id, worst_case));
-                        }
-                        worst_margin =
-                            worst_margin.min(model.margin(temperature).0);
-                    }
-                };
-                self.bsp.for_each_temp(f);
-
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
-                } else if all_nominal {
+                if all_nominal {
                     self.transition_to_running(worst_margin, now_ms)
-                } else if !any_still_critical {
+                } else if !any_critical.is_some() {
                     // If all temperatures have gone below critical, but are
                     // still above nominal, stop the overheat timeout but
                     // continue running at 100% PWM until things go below
@@ -1077,30 +1071,7 @@ impl<'a> ThermalControl<'a> {
                 }
             }
             ThermalControlState::FanParty => {
-                let mut all_nominal = true;
-                let mut any_power_down = None;
-                let mut any_critical = None;
-                let mut worst_margin = f32::MAX;
-                let f = |sensor_id, v, model| {
-                    if let TemperatureReading::Valid(v) = v {
-                        let worst_case = v.worst_case(now_ms, &model);
-                        let temperature = worst_case.worst_case_temp;
-                        all_nominal &= model.is_nominal(temperature);
-                        if model.should_power_down(temperature) {
-                            any_power_down = Some((sensor_id, worst_case));
-                        }
-                        if model.is_critical(temperature) {
-                            any_critical = Some((sensor_id, worst_case));
-                        }
-                        worst_margin =
-                            worst_margin.min(model.margin(temperature).0);
-                    }
-                };
-                self.bsp.for_each_temp(f);
-
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
-                } else if let Some(due_to) = any_critical {
+                if let Some(due_to) = any_critical {
                     // If anything's gone over critical, transition back to the
                     // `Critical` state.
                     self.transition_to_critical(due_to, now_ms)
@@ -1113,13 +1084,22 @@ impl<'a> ThermalControl<'a> {
                 }
             }
             ThermalControlState::Uncontrollable => ControlResult::PowerDown,
-        };
+        })
+    }
 
+    /// An extremely simple thermal control loop.
+    ///
+    /// Returns an error if the control loop failed to read critical sensors;
+    /// the caller should set us to some kind of fail-safe mode if this
+    /// occurs.
+    pub fn run_control(&mut self) -> Result<(), ThermalError> {
+        let now_ms = sys_get_timer().now;
+        let control_result = self.run_control_inner(now_ms)?;
         match control_result {
             ControlResult::Pwm(target_pwm) => {
                 // Send the new RPM to all of our fans
                 ringbuf_entry!(Trace::ControlPwm(target_pwm.0));
-                self.set_pwm(Ok(target_pwm), now_ms)?;
+                self.set_pwm(Ok(target_pwm), now_ms)
             }
             ControlResult::PowerDown => {
                 ringbuf_entry!(Trace::PowerDownAt(sys_get_timer().now));
@@ -1129,10 +1109,9 @@ impl<'a> ThermalControl<'a> {
                     ringbuf_entry!(Trace::PowerDownFailed(e));
                 }
                 self.set_pwm(Err(task_sensor_api::NoData::DeviceOff), now_ms)?;
+                Ok(())
             }
         }
-
-        Ok(())
     }
 
     /// Transition the control state to the normal control regime.

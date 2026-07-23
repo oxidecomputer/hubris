@@ -270,6 +270,7 @@ impl Bsp {
 
     pub fn all_inputs_present(&self) -> bool {
         self.inputs.iter().all(|i| i.last_reading.is_some())
+        // && self.dynamic_inputs...
     }
 
     // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
