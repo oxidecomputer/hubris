@@ -8,17 +8,17 @@ use crate::{
     Fan,
     control::{
         ChannelType, ControllerInitError, Device, FanControl, InputChannel,
-        Max31790State, PidConfig, TemperatureReading, TemperatureSensor,
-        TimestampedTemperatureReading, unexpected_failure,
+        Max31790State, PidConfig, ReadingOutcome, TemperatureReading,
+        TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
 pub use drv_cpu_seq_api::SeqError;
 use drv_cpu_seq_api::{PowerState, Sequencer, StateChangeReason};
-use task_sensor_api::{NoData, Sensor, SensorError, SensorId};
+use task_sensor_api::{Sensor, SensorId};
 use task_thermal_api::{SensorReadError, ThermalError, ThermalProperties};
 use userlib::{
-    TaskId, UnwrapLite, task_slot,
+    TaskId, UnwrapLite, sys_get_timer, task_slot,
     units::{Celsius, PWMDuty},
 };
 
@@ -75,7 +75,7 @@ bitflags::bitflags! {
 }
 
 impl Bsp {
-    pub fn fan_control(
+    fn fan_control(
         &mut self,
         fan: crate::Fan,
     ) -> Result<FanControl<'_>, ControllerInitError> {
@@ -124,9 +124,9 @@ impl Bsp {
 
     pub fn read_fan_rpms(
         &mut self,
-        mut on_success: impl FnMut(&SensorId, f32) -> u64,
-        mut on_error: impl FnMut(&SensorId, SensorReadError) -> u64,
-        _on_missing: impl FnMut(&SensorId) -> u64,
+        mut on_success: impl FnMut(&SensorId, f32, u64),
+        mut on_error: impl FnMut(&SensorId, SensorReadError),
+        _on_missing: impl FnMut(&SensorId),
     ) {
         for (idx, sensor) in sensors::MAX31790_SPEED_SENSORS.iter().enumerate()
         {
@@ -140,9 +140,11 @@ impl Bsp {
                 }
             };
 
+            // TODO: Record state!
+            let now = sys_get_timer().now;
             // TODO(AJM): Keep last fan RPM?
             match fctrl.fan_rpm() {
-                Ok(reading) => on_success(sensor, reading.0.into()),
+                Ok(reading) => on_success(sensor, reading.0.into(), now),
                 Err(e) => on_error(sensor, SensorReadError::I2cError(e)),
             };
         }
@@ -151,12 +153,14 @@ impl Bsp {
     pub fn read_misc_sensors(
         &mut self,
         i2c_task: TaskId,
-        mut on_success: impl FnMut(&SensorId, f32) -> u64,
-        mut on_error: impl FnMut(&SensorId, SensorReadError) -> u64,
+        mut on_success: impl FnMut(&SensorId, f32, u64),
+        mut on_error: impl FnMut(&SensorId, SensorReadError),
     ) {
         for s in self.misc_sensors.iter() {
+            // TODO: Record state!
+            let now = sys_get_timer().now;
             match s.read_temp(i2c_task) {
-                Ok(v) => on_success(&s.sensor_id, v.0),
+                Ok(v) => on_success(&s.sensor_id, v.0, now),
                 Err(e) => on_error(&s.sensor_id, e),
             };
         }
@@ -166,75 +170,24 @@ impl Bsp {
         &mut self,
         mode: PowerBitmask,
         i2c_task: TaskId,
-        mut on_success: impl FnMut(&SensorId, f32) -> u64,
-        mut on_unexp_error: impl FnMut(&InputChannel, SensorReadError) -> u64,
-        mut on_error: impl FnMut(&InputChannel, SensorReadError) -> u64,
-        mut on_unpowered: impl FnMut(&SensorId) -> u64,
+        mut on_success: impl FnMut(&SensorId, f32, u64),
+        mut on_unexp_error: impl FnMut(&SensorId, SensorReadError),
+        mut on_error: impl FnMut(&SensorId, SensorReadError),
+        mut on_unpowered: impl FnMut(&SensorId),
     ) {
-        // NOTE(AJM): This combines what used to be two passes before with
-        // `read_sensors` and `run_control`. Previously, the former would read
-        // all of the sensors and post them to the sensor task, and the latter
-        // would read them back and store them as state. Now, I do that all in
-        // just the first pass during `read_sensors`. This has *some* side
-        // effect, as before we wouldn't retain state unless we were running
-        // control, but now we always do. HOWEVER, this is not observable state,
-        // as Manual mode does nothing with this persistence, and whenever we
-        // enter the Auto state (which does control), we purge all the old
-        // values anyway!
+        // TODO: Just make this an iterator and hoist the match up to the caller
+        // instead of mapping closures
         for s in self.inputs.iter_mut() {
-            if !mode.intersects(s.power_mode_mask) {
-                let _now = on_unpowered(&s.sensor.sensor_id);
-                s.last_reading = Some(TemperatureReading::Inactive);
-                continue;
-            }
-
-            match s.sensor.read_temp(i2c_task) {
-                Ok(v) => {
-                    let now = on_success(&s.sensor.sensor_id, v.0);
-                    s.last_reading = Some(TemperatureReading::Valid(
-                        TimestampedTemperatureReading {
-                            time_ms: now,
-                            value: v,
-                        },
-                    ));
+            match s.do_reading(mode, &i2c_task) {
+                ReadingOutcome::Unpowered { id } => on_unpowered(&id),
+                ReadingOutcome::AcceptableMissing { id, err } => {
+                    on_error(&id, err)
                 }
-                Err(e) => {
-                    // The current `unexpected_failure` comes from
-                    // `read_sensors`, which is only deciding whether it's worth
-                    // logging about. In either case, it will push NoData to the
-                    // sensor api.
-                    let e1 = e.clone();
-                    if unexpected_failure(s, e) {
-                        let _now = on_unexp_error(s, e);
-                    } else {
-                        let _now = on_error(s, e);
-                    }
-
-                    // However, when we later would have stored the state value
-                    // for persistence in `run_control`, that used slightly
-                    // different logic, ONLY clearing the persisted value if:
-                    //
-                    // - The sensor is not present AND removable
-                    // - The sensor is error prone
-                    //
-                    // Replicate that logic here, doing some type shenanigans
-                    // because we aren't round-tripping through the Sensor API
-                    // anymore.
-                    let e2 = NoData::from(e1);
-                    let e3 = SensorError::from(e2);
-                    match (s.ty, e3) {
-                        (ChannelType::Removable, SensorError::NotPresent) => {
-                            s.last_reading = None;
-                        }
-                        (ChannelType::RemovableAndErrorProne, _) => {
-                            s.last_reading = None;
-                        }
-                        _ => {
-                            // In all other cases, just leave whatever the last
-                            // present value was so that the state estimation
-                            // can continue estimating state.
-                        }
-                    }
+                ReadingOutcome::UnacceptableMissing { id, err } => {
+                    on_unexp_error(&id, err)
+                }
+                ReadingOutcome::Success { id, now, value } => {
+                    on_success(&id, value.0, now)
                 }
             };
         }
@@ -269,7 +222,7 @@ impl Bsp {
     }
 
     pub fn all_inputs_present(&self) -> bool {
-        self.inputs.iter().all(|i| i.last_reading.is_some())
+        self.inputs.iter().all(|i| i.last_reading().is_some())
         // && self.dynamic_inputs...
     }
 
@@ -280,11 +233,11 @@ impl Bsp {
         mut f: impl FnMut(SensorId, TemperatureReading, ThermalProperties),
     ) {
         let iter = self.inputs.iter().filter_map(|input| {
-            let last = input.last_reading?;
-            Some((input.sensor.sensor_id, last, input.model))
+            let last = input.last_reading()?;
+            Some((input.sensor_id(), last, input.model()))
         });
         for (sensor_id, reading, model) in iter {
-            f(sensor_id, reading, model);
+            f(sensor_id, *reading, model);
         }
 
         // for _dinput in self.dynamic_inputs...
@@ -299,15 +252,15 @@ impl Bsp {
         mut f: impl FnMut(SensorId, TemperatureReading, ThermalProperties),
     ) {
         for input in self.inputs.iter() {
-            let reading = input.last_reading.unwrap_lite();
-            f(input.sensor.sensor_id, reading, input.model);
+            let reading = input.last_reading().unwrap_lite();
+            f(input.sensor_id(), *reading, input.model());
         }
 
         // for _dinput in self.dynamic_inputs...
     }
 
     pub fn reset_all_values(&mut self) {
-        self.inputs.iter_mut().for_each(|i| i.last_reading = None);
+        self.inputs.iter_mut().for_each(|i| i.reset_value());
         // self.dynamic_inputs...
     }
 

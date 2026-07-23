@@ -20,7 +20,7 @@ use drv_i2c_devices::{
 };
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_sensor_api::{Sensor as SensorApi, SensorId};
+use task_sensor_api::{NoData, Sensor as SensorApi, SensorError, SensorId};
 use task_thermal_api::{SensorReadError, ThermalAutoState, ThermalProperties};
 use userlib::{
     TaskId, sys_get_timer,
@@ -129,18 +129,18 @@ impl<'a> FanControl<'a> {
 /// particular component in the system.
 pub(crate) struct InputChannel {
     /// Temperature sensor
-    pub sensor: TemperatureSensor,
+    sensor: TemperatureSensor,
 
     /// Thermal properties of the associated component
-    pub model: ThermalProperties,
+    model: ThermalProperties,
 
     /// Mask with bits set based on the Bsp's `power_mode` bits
-    pub power_mode_mask: PowerBitmask,
+    power_mode_mask: PowerBitmask,
 
     /// Channel type
-    pub ty: ChannelType,
+    ty: ChannelType,
 
-    pub last_reading: Option<TemperatureReading>,
+    last_reading: Option<TemperatureReading>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -183,6 +183,25 @@ pub(crate) enum ChannelType {
     RemovableAndErrorProne,
 }
 
+pub enum ReadingOutcome {
+    Unpowered {
+        id: SensorId,
+    },
+    AcceptableMissing {
+        id: SensorId,
+        err: SensorReadError,
+    },
+    UnacceptableMissing {
+        id: SensorId,
+        err: SensorReadError,
+    },
+    Success {
+        id: SensorId,
+        now: u64,
+        value: Celsius,
+    },
+}
+
 impl InputChannel {
     #[allow(dead_code)] // not all BSPS
     pub const fn new(
@@ -197,6 +216,90 @@ impl InputChannel {
             power_mode_mask,
             ty,
             last_reading: None,
+        }
+    }
+
+    pub fn last_reading(&self) -> Option<&TemperatureReading> {
+        self.last_reading.as_ref()
+    }
+
+    pub fn reset_value(&mut self) {
+        self.last_reading = None;
+    }
+
+    pub fn sensor_id(&self) -> SensorId {
+        self.sensor.sensor_id
+    }
+
+    pub fn model(&self) -> ThermalProperties {
+        self.model
+    }
+
+    pub fn do_reading(
+        &mut self,
+        mode: PowerBitmask,
+        i2c_task: &TaskId,
+    ) -> ReadingOutcome {
+        let id = self.sensor.sensor_id;
+        if !mode.intersects(self.power_mode_mask) {
+            self.last_reading = Some(TemperatureReading::Inactive);
+            return ReadingOutcome::Unpowered { id };
+        }
+
+        match self.sensor.read_temp(*i2c_task) {
+            Ok(value) => {
+                // TODO: Slightly different time than will be reported! We can
+                // fix this by providing the time instead of the helper
+                // functions that get the now time for us.
+                // let now = on_success(&s.sensor.sensor_id, v.0);
+                let now = sys_get_timer().now;
+
+                self.last_reading = Some(TemperatureReading::Valid(
+                    TimestampedTemperatureReading {
+                        time_ms: now,
+                        value,
+                    },
+                ));
+                ReadingOutcome::Success { id, now, value }
+            }
+            Err(e) => {
+                // However, when we later would have stored the state value
+                // for persistence in `run_control`, that used slightly
+                // different logic, ONLY clearing the persisted value if:
+                //
+                // - The sensor is not present AND removable
+                // - The sensor is error prone
+                //
+                // Replicate that logic here, doing some type shenanigans
+                // because we aren't round-tripping through the Sensor API
+                // anymore.
+                let e1 = e.clone();
+                let e2 = NoData::from(e1);
+                let e3 = SensorError::from(e2);
+                match (self.ty, e3) {
+                    (ChannelType::Removable, SensorError::NotPresent) => {
+                        self.last_reading = None;
+                    }
+                    (ChannelType::RemovableAndErrorProne, _) => {
+                        self.last_reading = None;
+                    }
+                    _ => {
+                        // In all other cases, just leave whatever the last
+                        // present value was so that the state estimation
+                        // can continue estimating state.
+                    }
+                }
+
+                // The current `unexpected_failure` comes from
+                // `read_sensors`, which is only deciding whether it's worth
+                // logging about. In either case, it will push NoData to the
+                // sensor api.
+                if unexpected_failure(self, e) {
+                    ReadingOutcome::UnacceptableMissing { id, err: e }
+                } else {
+                    ReadingOutcome::AcceptableMissing { id, err: e }
+                }
+            }
         }
     }
 }
@@ -872,26 +975,26 @@ impl<'a> ThermalControl<'a> {
     pub fn read_sensors(&mut self) {
         // Read fan data and log it to the sensors task
         self.bsp.read_fan_rpms(
-            |id, value| self.sensor_api.post_now(*id, value),
+            |id, value, now| self.sensor_api.post(*id, value, now),
             |id, error| {
                 ringbuf_entry!(Trace::FanReadFailed(*id, error));
                 self.err_blackbox.push(*id, error);
-                self.sensor_api.nodata_now(*id, error.into())
+                self.sensor_api.nodata_now(*id, error.into());
             },
             |id| {
                 self.sensor_api
-                    .nodata_now(*id, task_sensor_api::NoData::DeviceNotPresent)
+                    .nodata_now(*id, task_sensor_api::NoData::DeviceNotPresent);
             },
         );
 
         // Read miscellaneous temperature data and log it to the sensors task
         self.bsp.read_misc_sensors(
             self.i2c_task,
-            |id, value| self.sensor_api.post_now(*id, value),
+            |id, value, now| self.sensor_api.post(*id, value, now),
             |id, error| {
                 ringbuf_entry!(Trace::MiscReadFailed(*id, error));
                 self.err_blackbox.push(*id, error);
-                self.sensor_api.nodata_now(*id, error.into())
+                self.sensor_api.nodata_now(*id, error.into());
             },
         );
 
@@ -902,25 +1005,23 @@ impl<'a> ThermalControl<'a> {
         self.bsp.read_inputs(
             power_mode,
             self.i2c_task,
-            |id, value| self.sensor_api.post_now(*id, value),
-            |s, error| {
+            |id, value, now| self.sensor_api.post(*id, value, now),
+            |id, error| {
+                let id = *id;
                 // Record an error errors if the sensor is not removable
                 // or we get a unexpected error from a removable sensor
-                ringbuf_entry!(Trace::SensorReadFailed(
-                    s.sensor.sensor_id,
-                    error
-                ));
-                self.err_blackbox.push(s.sensor.sensor_id, error);
-                self.sensor_api.nodata_now(s.sensor.sensor_id, error.into())
+                ringbuf_entry!(Trace::SensorReadFailed(id, error));
+                self.err_blackbox.push(id, error);
+                self.sensor_api.nodata_now(id, error.into());
             },
-            |s, error| {
-                self.sensor_api.nodata_now(s.sensor.sensor_id, error.into())
+            |id, error| {
+                self.sensor_api.nodata_now(*id, error.into());
             },
             |id| {
                 // If the device isn't supposed to be on in the current power
                 // state, then record it as Off in the sensors task.
                 self.sensor_api
-                    .nodata_now(*id, task_sensor_api::NoData::DeviceOff)
+                    .nodata_now(*id, task_sensor_api::NoData::DeviceOff);
             },
         );
 
