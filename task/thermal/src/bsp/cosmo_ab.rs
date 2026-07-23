@@ -47,7 +47,7 @@ pub const USE_CONTROLLER: bool = true;
 
 pub(crate) struct Bsp {
     /// Controlled sensors
-    pub inputs: &'static [InputChannel; NUM_TEMPERATURE_INPUTS],
+    pub priv_inputs: &'static [InputChannel; NUM_TEMPERATURE_INPUTS],
     pub dynamic_inputs: &'static [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS],
 
     /// Monitored sensors
@@ -165,6 +165,27 @@ impl Bsp {
         }
     }
 
+    pub fn read_inputs(
+        &mut self,
+        mode: PowerBitmask,
+        i2c_task: TaskId,
+        mut on_success: impl FnMut(&SensorId, f32),
+        mut on_error: impl FnMut(&InputChannel, SensorReadError),
+        mut on_unpowered: impl FnMut(&SensorId),
+    ) {
+        for s in self.priv_inputs.iter() {
+            if !mode.intersects(s.power_mode_mask) {
+                on_unpowered(&s.sensor.sensor_id);
+                continue;
+            }
+
+            match s.sensor.read_temp(i2c_task) {
+                Ok(v) => on_success(&s.sensor.sensor_id, v.0),
+                Err(e) => on_error(s, e),
+            }
+        }
+    }
+
     // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
     // even if some fail. return the LAST error if any.
     pub fn set_all_fan_rpms(
@@ -215,7 +236,7 @@ impl Bsp {
                 max_output: 100.0,
             },
 
-            inputs: &INPUTS,
+            priv_inputs: &INPUTS,
             dynamic_inputs: &[],
 
             // We monitor and log all of the air temperatures

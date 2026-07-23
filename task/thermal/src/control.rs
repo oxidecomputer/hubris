@@ -131,16 +131,16 @@ impl<'a> FanControl<'a> {
 /// particular component in the system.
 pub(crate) struct InputChannel {
     /// Temperature sensor
-    sensor: TemperatureSensor,
+    pub sensor: TemperatureSensor,
 
     /// Thermal properties of the associated component
-    model: ThermalProperties,
+    pub model: ThermalProperties,
 
     /// Mask with bits set based on the Bsp's `power_mode` bits
-    power_mode_mask: PowerBitmask,
+    pub power_mode_mask: PowerBitmask,
 
     /// Channel type
-    ty: ChannelType,
+    pub ty: ChannelType,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -1126,41 +1126,41 @@ impl<'a> ThermalControl<'a> {
         // We read the power mode right before reading sensors, to avoid
         // potential TOCTOU issues; some sensors cannot be read if they are not
         // powered.
+        let unexpected_failure = |s: &InputChannel, e: SensorReadError| {
+            let removable = matches!(
+                s.ty,
+                ChannelType::Removable | ChannelType::RemovableAndErrorProne
+            );
+            let removed =
+                e == SensorReadError::I2cError(ResponseCode::NoDevice);
+            !(removable && removed)
+        };
+
         let power_mode = self.bsp.power_mode();
-        for s in self.bsp.inputs.iter() {
-            if power_mode.intersects(s.power_mode_mask) {
-                match s.sensor.read_temp(self.i2c_task) {
-                    Ok(v) => self.sensor_api.post_now(s.sensor.sensor_id, v.0),
-                    Err(e) => {
-                        // Record an error errors if the sensor is not removable
-                        // or we get a unexpected error from a removable sensor
-                        if !(matches!(
-                            s.ty,
-                            ChannelType::Removable
-                                | ChannelType::RemovableAndErrorProne
-                        ) && e
-                            == SensorReadError::I2cError(
-                                ResponseCode::NoDevice,
-                            ))
-                        {
-                            ringbuf_entry!(Trace::SensorReadFailed(
-                                s.sensor.sensor_id,
-                                e
-                            ));
-                            self.err_blackbox.push(s.sensor.sensor_id, e);
-                        }
-                        self.sensor_api.nodata_now(s.sensor.sensor_id, e.into())
-                    }
+
+        self.bsp.read_inputs(
+            power_mode,
+            self.i2c_task,
+            |id, value| self.sensor_api.post_now(*id, value),
+            |s, error| {
+                // Record an error errors if the sensor is not removable
+                // or we get a unexpected error from a removable sensor
+                if unexpected_failure(s, error) {
+                    ringbuf_entry!(Trace::SensorReadFailed(
+                        s.sensor.sensor_id,
+                        error
+                    ));
+                    self.err_blackbox.push(s.sensor.sensor_id, error);
                 }
-            } else {
+                self.sensor_api.nodata_now(s.sensor.sensor_id, error.into())
+            },
+            |id| {
                 // If the device isn't supposed to be on in the current power
                 // state, then record it as Off in the sensors task.
-                self.sensor_api.nodata_now(
-                    s.sensor.sensor_id,
-                    task_sensor_api::NoData::DeviceOff,
-                )
-            }
-        }
+                self.sensor_api
+                    .nodata_now(*id, task_sensor_api::NoData::DeviceOff);
+            },
+        );
 
         // Note that this function does not send data about dynamic temperature
         // inputs to the `sensors` task!  This is because we don't know what
@@ -1191,6 +1191,18 @@ impl<'a> ThermalControl<'a> {
         // in `self.state`.  When we're in the `Boot` state, this will leave the
         // value as `None`; when we're `Running`, it will maintain the previous
         // state, estimating a new temperature with the thermal model.
+        self.bsp.read_inputs(
+            self.power_mode,
+            self.i2c_task,
+            |id, value| {
+                self.state.write_temperature(
+                    todo!("idx, not id!"),
+                    todo!("reading, not f32!"),
+                )
+            },
+            todo!(),
+            todo!(),
+        );
         for (i, s) in self.bsp.inputs.iter().enumerate() {
             if self.power_mode.intersects(s.power_mode_mask) {
                 let sensor_id = s.sensor.sensor_id;
