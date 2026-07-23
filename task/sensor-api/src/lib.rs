@@ -221,14 +221,18 @@ impl From<NoData> for SensorError {
 impl Sensor {
     /// Post the given data with a timestamp of now
     #[inline]
-    pub fn post_now(&self, id: SensorId, value: f32) {
-        self.post(id, value, sys_get_timer().now)
+    pub fn post_now(&self, id: SensorId, value: f32) -> u64 {
+        let now = sys_get_timer().now;
+        self.post(id, value, now);
+        now
     }
 
     /// Post the given `NoData` error with a timestamp of now
     #[inline]
-    pub fn nodata_now(&self, id: SensorId, nodata: NoData) {
-        self.nodata(id, nodata, sys_get_timer().now)
+    pub fn nodata_now(&self, id: SensorId, nodata: NoData) -> u64 {
+        let now = sys_get_timer().now;
+        self.nodata(id, nodata, now);
+        now
     }
 }
 
