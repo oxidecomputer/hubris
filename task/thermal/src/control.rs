@@ -107,60 +107,31 @@ impl<D> Fan<D> {
     }
 }
 
+pub enum FanPresence {
+    Present {
+        fan_id: u8,
+        new: bool,
+    },
+    #[allow(dead_code)] // Some bsps don't have removable fans
+    NotPresent {
+        fan_id: u8,
+        new: bool,
+    },
+}
+
 pub enum FanReading {
     PresentSuccess {
-        new: bool,
         rpm: Rpm,
         sensor_id: SensorId,
-        fan_id: u8,
     },
     PresentError {
         error: SensorReadError,
         sensor_id: SensorId,
-        fan_id: u8,
     },
+    #[allow(dead_code)] // Some bsps don't have removable fans
     NotPresent {
-        new: bool,
-        fan_id: u8,
+        sensor_id: SensorId,
     },
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-/// Enum representing any of our fan controller types, bound to one of their
-/// fans.  This lets us handle heterogeneous fan controller ICs generically
-/// (although there's only one at the moment)
-#[allow(dead_code)] // a typical BSP uses only _one_ of these
-pub enum FanControl<'a> {
-    Max31790(&'a Max31790, drv_i2c_devices::max31790::Fan),
-    Emc2305(&'a Emc2305, drv_i2c_devices::emc2305::Fan),
-}
-
-impl<'a> FanControl<'a> {
-    pub fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ResponseCode> {
-        match self {
-            Self::Max31790(m, fan) => m.set_pwm(*fan, pwm),
-            Self::Emc2305(m, fan) => m.set_pwm(*fan, pwm),
-        }
-    }
-
-    pub fn fan_rpm(&self) -> Result<Rpm, ResponseCode> {
-        match self {
-            Self::Max31790(m, fan) => m.fan_rpm(*fan),
-            Self::Emc2305(m, fan) => m.fan_rpm(*fan),
-        }
-    }
-
-    pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
-        match self {
-            Self::Max31790(m, _fan) => m.set_watchdog(wd),
-            Self::Emc2305(m, _fan) => {
-                // The EMC2305 doesn't support setting the watchdog time, just
-                // whether it's enabled or disabled
-                m.set_watchdog(!matches!(wd, I2cWatchdog::Disabled))
-            }
-        }
-    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1013,20 +984,15 @@ impl<'a> ThermalControl<'a> {
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
 
-    /// Reads all temperature and fan RPM sensors, posting their results
-    /// to the sensors task API.
-    ///
-    /// Records failed sensor reads and failed posts to the sensors task in
-    /// the local ringbuf.  In addition, records the first few failed sensor
-    /// read in `self.err_blackbox` for later investigation.
-    pub fn read_sensors(&mut self) {
+    /// Get latest fan presence state
+    pub fn update_fan_presence(&mut self) {
         // Try to configure the fan watchdog, if not yet configured
         //
         // With its longest timeout of 30 seconds, this is longer than it takes
         // to flash on Gimlet -- and right on the edge of how long it takes to
         // dump. On some platforms and/or under some conditions, "humility dump"
         // might be able to induce the watchdog to kick, which may induce a
-        // fight-or-flight reaction for whomever is near the fans when they
+        // flight-or-fight reaction for whomever is near the fans when they
         // blast off...
         if !self.fan_watchdog_configured {
             match self.set_watchdog(I2cWatchdog::ThirtySeconds) {
@@ -1038,43 +1004,49 @@ impl<'a> ThermalControl<'a> {
             }
         }
 
-        // Read fan data and log it to the sensors task
-        match self.bsp.read_fan_rpms() {
-            Ok(riter) => {
-                for reading in riter {
-                    match reading {
-                        FanReading::PresentSuccess {
-                            new,
-                            rpm,
-                            sensor_id,
-                            fan_id,
-                        } => {
-                            if new {
-                                ringbuf_entry!(Trace::FanAdded(fan_id));
-                            }
-                            self.sensor_api.post_now(sensor_id, rpm.0 as f32)
+        match self.bsp.read_fan_presence() {
+            Ok(piter) => {
+                for fan in piter {
+                    match fan {
+                        FanPresence::Present { fan_id, new } if new => {
+                            ringbuf_entry!(Trace::FanAdded(fan_id));
                         }
-                        FanReading::PresentError {
-                            error,
-                            sensor_id,
-                            fan_id,
-                        } => {
-                            ringbuf_entry!(Trace::FanReadFailed(
-                                sensor_id, error
-                            ));
-                            self.err_blackbox.push(sensor_id, error);
-                            self.sensor_api.nodata_now(sensor_id, error.into());
+                        FanPresence::NotPresent { fan_id, new } if new => {
+                            ringbuf_entry!(Trace::FanRemoved(fan_id));
                         }
-                        FanReading::NotPresent { new, fan_id } => {
-                            if new {
-                                ringbuf_entry!(Trace::FanRemoved(fan_id));
-                            }
-                        }
+                        _ => {}
                     }
                 }
             }
-            Err(e) => {
-                ringbuf_entry!(Trace::FanPresenceUpdateFailed(e))
+            Err(e) => ringbuf_entry!(Trace::FanPresenceUpdateFailed(e)),
+        }
+    }
+
+    /// Reads all temperature and fan RPM sensors, posting their results
+    /// to the sensors task API.
+    ///
+    /// Records failed sensor reads and failed posts to the sensors task in
+    /// the local ringbuf.  In addition, records the first few failed sensor
+    /// read in `self.err_blackbox` for later investigation.
+    pub fn read_sensors(&mut self) {
+        // Read fan data and log it to the sensors task
+        for reading in self.bsp.read_fan_rpms() {
+            match reading {
+                FanReading::PresentSuccess { rpm, sensor_id } => {
+                    self.sensor_api.post_now(sensor_id, rpm.0 as f32)
+                }
+                FanReading::PresentError { error, sensor_id } => {
+                    ringbuf_entry!(Trace::FanReadFailed(sensor_id, error));
+                    self.err_blackbox.push(sensor_id, error);
+                    self.sensor_api.nodata_now(sensor_id, error.into());
+                }
+                FanReading::NotPresent { sensor_id } => {
+                    // Invalidate fan speed readings in the sensors task
+                    self.sensor_api.nodata_now(
+                        sensor_id,
+                        task_sensor_api::NoData::DeviceNotPresent,
+                    );
+                }
             }
         }
 
@@ -1308,8 +1280,7 @@ impl<'a> ThermalControl<'a> {
                 if let Err(e) = self.bsp.power_down() {
                     ringbuf_entry!(Trace::PowerDownFailed(e));
                 }
-                self.set_pwm(Err(task_sensor_api::NoData::DeviceOff), now_ms)?;
-                Ok(())
+                self.set_pwm(Err(task_sensor_api::NoData::DeviceOff), now_ms)
             }
         }
     }
@@ -1514,16 +1485,7 @@ impl<'a> ThermalControl<'a> {
         &mut self,
         wd: I2cWatchdog,
     ) -> Result<(), ThermalError> {
-        let mut result = Ok(());
-
-        todo!();
-        // self.bsp.for_each_fctrl(|fctrl| {
-        //     if fctrl.set_watchdog(wd).is_err() {
-        //         result = Err(ThermalError::DeviceError);
-        //     }
-        // })?;
-
-        result
+        self.bsp.set_all_watchdogs(wd)
     }
 
     pub fn get_state(&self) -> ThermalAutoState {

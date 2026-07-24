@@ -191,6 +191,11 @@ pub const MAX_FANS: u8 = 6;
 pub struct Fan(u8);
 
 impl Fan {
+    /// Create a new fan
+    ///
+    /// This panics if idx is out of range, and is intended to be used
+    /// at compile time for building constant values. Prefer `TryFrom`
+    /// at runtime when handling user provided data.
     pub const fn new_const(idx: u8) -> Self {
         if idx >= MAX_FANS {
             panic!("Out of range!");

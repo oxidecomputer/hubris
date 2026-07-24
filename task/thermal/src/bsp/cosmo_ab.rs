@@ -6,18 +6,19 @@
 
 use crate::{
     control::{
-        ChannelType, ControllerInitError, Device, FanControl, FanReading,
-        InputChannel, InputChannelMetadata, InputStatus, Max31790State,
-        PidConfig, TemperatureSensor,
+        ChannelType, Device, FanPresence, FanReading, InputChannel,
+        InputChannelMetadata, InputStatus, Max31790State, PidConfig,
+        TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
 pub use drv_cpu_seq_api::SeqError;
 use drv_cpu_seq_api::{PowerState, Sequencer, StateChangeReason};
+use drv_i2c_devices::max31790::I2cWatchdog;
 use task_sensor_api::{Sensor, SensorId};
 use task_thermal_api::{SensorReadError, ThermalError, ThermalProperties};
 use userlib::{
-    TaskId, UnwrapLite, sys_get_timer, task_slot,
+    TaskId, UnwrapLite, task_slot,
     units::{Celsius, PWMDuty},
 };
 
@@ -49,6 +50,8 @@ pub(crate) struct Bsp {
     /// Monitored sensors
     misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
+    fans_added: bool,
+
     /// Fans
     fans: &'static mut [Fan; NUM_FANS],
 
@@ -77,22 +80,6 @@ bitflags::bitflags! {
 }
 
 impl Bsp {
-    // fn fan_control(
-    //     &mut self,
-    //     fan: crate::Fan,
-    // ) -> Result<FanControl<'_>, ControllerInitError> {
-    //     let fctrl = self.fctrl.try_initialize()?;
-    //     Ok(FanControl::Max31790(fctrl, fan.0.try_into().unwrap_lite()))
-    // }
-
-    // pub fn for_each_fctrl(
-    //     &mut self,
-    //     mut fctrl: impl FnMut(FanControl<'_>),
-    // ) -> Result<(), ControllerInitError> {
-    //     fctrl(self.fan_control(0.into())?);
-    //     Ok(())
-    // }
-
     pub fn power_down(&self) -> Result<(), SeqError> {
         self.seq.set_state_with_reason(
             PowerState::A2,
@@ -111,25 +98,40 @@ impl Bsp {
         }
     }
 
-    pub fn read_fan_rpms(
+    pub fn read_fan_presence(
         &mut self,
-    ) -> Result<impl Iterator<Item = FanReading>, SeqError> {
+    ) -> Result<impl Iterator<Item = FanPresence>, SeqError> {
+        let report_new = !self.fans_added;
+        self.fans_added = true;
+        Ok(self.fans.iter().map(move |f| FanPresence::Present {
+            fan_id: f.bsp_data.into(),
+            new: report_new,
+        }))
+    }
+
+    pub fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading> {
+        // Try to initialize the fan controller once at the start of the loop
         let mut fctrl =
             self.fctrl.try_initialize().map_err(SensorReadError::from);
 
-        Ok(self.fans.iter_mut().map(move |f| {
-            let was_present = f.last_reading.is_some();
-            let res = fctrl.as_mut().map_err(|e| *e).and_then(|fc| {
+        // TODO: Maybe there's a way to make this a method on Fan that we can
+        // call, kind of like InputStatus?
+        self.fans.iter_mut().map(move |f| {
+            // If initialization failed, then we short circuit to return that
+            // original error, copied for each fan we're going to report.
+            let fctrl = fctrl.as_mut().map_err(|e| *e);
+
+            // If it was a success, attempt to read the RPMs, and either report
+            // that success or that error for each fan rpm.
+            let res = fctrl.and_then(|fc| {
                 fc.fan_rpm(f.bsp_data).map_err(SensorReadError::I2cError)
             });
             match res {
                 Ok(rpm) => {
                     f.last_reading = Some(rpm);
                     FanReading::PresentSuccess {
-                        new: !was_present,
                         rpm,
                         sensor_id: f.rpm_sensor_id,
-                        fan_id: f.bsp_data.into(),
                     }
                 }
                 Err(error) => {
@@ -137,11 +139,10 @@ impl Bsp {
                     FanReading::PresentError {
                         error,
                         sensor_id: f.rpm_sensor_id,
-                        fan_id: f.bsp_data.into(),
                     }
                 }
             }
-        }))
+        })
     }
 
     pub fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor> {
@@ -208,35 +209,37 @@ impl Bsp {
         // self.dynamic_inputs...
     }
 
+    pub fn set_all_watchdogs(
+        &mut self,
+        watchdog: I2cWatchdog,
+    ) -> Result<(), ThermalError> {
+        // Only one watchdog to configure here!
+        self.fctrl
+            .try_initialize()?
+            .set_watchdog(watchdog)
+            .map_err(|_| ThermalError::DeviceError)
+    }
+
     // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
     // even if some fail. return the LAST error if any.
     pub fn set_all_fan_rpms(
         &mut self,
         duty: PWMDuty,
     ) -> Result<(), ThermalError> {
-        // let mut last_err = Ok(());
-        // for idx in 0..NUM_FANS {
-        //     let fctrl_res = self.fan_control(Fan::from(idx));
-        //     let fctrl = match fctrl_res {
-        //         Ok(f) => f,
-        //         Err(e) => {
-        //             last_err = Err(ThermalError::from(e));
-        //             continue;
-        //         }
-        //     };
+        let fctrl = self.fctrl.try_initialize()?;
+        let mut any_err = false;
 
-        //     if fctrl.set_pwm(duty).is_err() {
-        //         last_err = Err(ThermalError::DeviceError);
-        //     }
-        // }
+        // Note: DON'T short circuit here!
+        for fan in self.fans.iter_mut() {
+            any_err |= fctrl.set_pwm(fan.bsp_data, duty).is_err();
+        }
 
-        // last_err
-        todo!()
+        if any_err {
+            Err(ThermalError::DeviceError)
+        } else {
+            Ok(())
+        }
     }
-
-    // pub fn fan_sensor_id(&self, i: usize) -> SensorId {
-    //     sensors::MAX31790_SPEED_SENSORS[i]
-    // }
 
     pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
@@ -268,6 +271,7 @@ impl Bsp {
 
             inputs: INPUTS_ONCE.claim(),
             fans: FANS_ONCE.claim(),
+            fans_added: false,
 
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,

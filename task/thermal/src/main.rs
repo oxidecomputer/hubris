@@ -341,9 +341,11 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         let now = sys_get_timer().now;
         if bits.has_timer_fired(notifications::TIMER_MASK) {
+            // See if any fans were removed or added since last iteration
+            self.control.update_fan_presence();
+
             // We *always* read sensor data, which does not touch the control
-            // loop; this simply posts results to the `sensors` task. This also
-            // updates the presence status of fans.
+            // loop; this simply posts results to the `sensors` task.
             self.control.read_sensors();
 
             match self.mode {
