@@ -85,6 +85,46 @@ impl TemperatureSensor {
     }
 }
 
+/// Represents the indvidual fans in the system
+///
+/// Depending on the system we have diferent numbers of fans structured in
+/// different ways. Not all fans are guaranteed to be there at all times so
+/// their corresponding sensor is an `Option`. We should not read the RPM of
+/// fans which are not present and their PWM should only be driven low.
+pub struct Fan<D> {
+    pub rpm_sensor_id: SensorId,
+    pub last_reading: Option<Rpm>,
+    pub bsp_data: D,
+}
+
+impl<D> Fan<D> {
+    pub const fn new(rpm_sensor_id: SensorId, bsp_data: D) -> Self {
+        Self {
+            rpm_sensor_id,
+            last_reading: None,
+            bsp_data,
+        }
+    }
+}
+
+pub enum FanReading {
+    PresentSuccess {
+        new: bool,
+        rpm: Rpm,
+        sensor_id: SensorId,
+        fan_id: u8,
+    },
+    PresentError {
+        error: SensorReadError,
+        sensor_id: SensorId,
+        fan_id: u8,
+    },
+    NotPresent {
+        new: bool,
+        fan_id: u8,
+    },
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Enum representing any of our fan controller types, bound to one of their
@@ -973,15 +1013,20 @@ impl<'a> ThermalControl<'a> {
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
 
-    /// Get latest fan presence state
-    pub fn update_fan_presence(&mut self) {
+    /// Reads all temperature and fan RPM sensors, posting their results
+    /// to the sensors task API.
+    ///
+    /// Records failed sensor reads and failed posts to the sensors task in
+    /// the local ringbuf.  In addition, records the first few failed sensor
+    /// read in `self.err_blackbox` for later investigation.
+    pub fn read_sensors(&mut self) {
         // Try to configure the fan watchdog, if not yet configured
         //
         // With its longest timeout of 30 seconds, this is longer than it takes
         // to flash on Gimlet -- and right on the edge of how long it takes to
         // dump. On some platforms and/or under some conditions, "humility dump"
         // might be able to induce the watchdog to kick, which may induce a
-        // flight-or-fight reaction for whomever is near the fans when they
+        // fight-or-flight reaction for whomever is near the fans when they
         // blast off...
         if !self.fan_watchdog_configured {
             match self.set_watchdog(I2cWatchdog::ThirtySeconds) {
@@ -993,36 +1038,45 @@ impl<'a> ThermalControl<'a> {
             }
         }
 
-        let result = self.bsp.update_fan_presence(
-            |fan| ringbuf_entry!(Trace::FanAdded(*fan)),
-            |fan| ringbuf_entry!(Trace::FanRemoved(*fan)),
-        );
-
-        if let Err(e) = result {
-            ringbuf_entry!(Trace::FanPresenceUpdateFailed(e));
-        }
-    }
-
-    /// Reads all temperature and fan RPM sensors, posting their results
-    /// to the sensors task API.
-    ///
-    /// Records failed sensor reads and failed posts to the sensors task in
-    /// the local ringbuf.  In addition, records the first few failed sensor
-    /// read in `self.err_blackbox` for later investigation.
-    pub fn read_sensors(&mut self) {
         // Read fan data and log it to the sensors task
-        self.bsp.read_fan_rpms(
-            |id, value, now| self.sensor_api.post(*id, value, now),
-            |id, error| {
-                ringbuf_entry!(Trace::FanReadFailed(*id, error));
-                self.err_blackbox.push(*id, error);
-                self.sensor_api.nodata_now(*id, error.into());
-            },
-            |id| {
-                self.sensor_api
-                    .nodata_now(*id, task_sensor_api::NoData::DeviceNotPresent);
-            },
-        );
+        match self.bsp.read_fan_rpms() {
+            Ok(riter) => {
+                for reading in riter {
+                    match reading {
+                        FanReading::PresentSuccess {
+                            new,
+                            rpm,
+                            sensor_id,
+                            fan_id,
+                        } => {
+                            if new {
+                                ringbuf_entry!(Trace::FanAdded(fan_id));
+                            }
+                            self.sensor_api.post_now(sensor_id, rpm.0 as f32)
+                        }
+                        FanReading::PresentError {
+                            error,
+                            sensor_id,
+                            fan_id,
+                        } => {
+                            ringbuf_entry!(Trace::FanReadFailed(
+                                sensor_id, error
+                            ));
+                            self.err_blackbox.push(sensor_id, error);
+                            self.sensor_api.nodata_now(sensor_id, error.into());
+                        }
+                        FanReading::NotPresent { new, fan_id } => {
+                            if new {
+                                ringbuf_entry!(Trace::FanRemoved(fan_id));
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                ringbuf_entry!(Trace::FanPresenceUpdateFailed(e))
+            }
+        }
 
         // Read miscellaneous temperature data and log it to the sensors task
         //
@@ -1462,11 +1516,12 @@ impl<'a> ThermalControl<'a> {
     ) -> Result<(), ThermalError> {
         let mut result = Ok(());
 
-        self.bsp.for_each_fctrl(|fctrl| {
-            if fctrl.set_watchdog(wd).is_err() {
-                result = Err(ThermalError::DeviceError);
-            }
-        })?;
+        todo!();
+        // self.bsp.for_each_fctrl(|fctrl| {
+        //     if fctrl.set_watchdog(wd).is_err() {
+        //         result = Err(ThermalError::DeviceError);
+        //     }
+        // })?;
 
         result
     }

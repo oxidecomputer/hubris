@@ -5,11 +5,10 @@
 //! BSP for the Cosmo rev A hardware
 
 use crate::{
-    Fan,
     control::{
-        ChannelType, ControllerInitError, Device, FanControl, InputChannel,
-        InputChannelMetadata, InputStatus, Max31790State, PidConfig,
-        TemperatureSensor,
+        ChannelType, ControllerInitError, Device, FanControl, FanReading,
+        InputChannel, InputChannelMetadata, InputStatus, Max31790State,
+        PidConfig, TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
@@ -50,6 +49,9 @@ pub(crate) struct Bsp {
     /// Monitored sensors
     misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
+    /// Fans
+    fans: &'static mut [Fan; NUM_FANS],
+
     /// Fan control IC
     fctrl: Max31790State,
 
@@ -75,21 +77,21 @@ bitflags::bitflags! {
 }
 
 impl Bsp {
-    fn fan_control(
-        &mut self,
-        fan: crate::Fan,
-    ) -> Result<FanControl<'_>, ControllerInitError> {
-        let fctrl = self.fctrl.try_initialize()?;
-        Ok(FanControl::Max31790(fctrl, fan.0.try_into().unwrap_lite()))
-    }
+    // fn fan_control(
+    //     &mut self,
+    //     fan: crate::Fan,
+    // ) -> Result<FanControl<'_>, ControllerInitError> {
+    //     let fctrl = self.fctrl.try_initialize()?;
+    //     Ok(FanControl::Max31790(fctrl, fan.0.try_into().unwrap_lite()))
+    // }
 
-    pub fn for_each_fctrl(
-        &mut self,
-        mut fctrl: impl FnMut(FanControl<'_>),
-    ) -> Result<(), ControllerInitError> {
-        fctrl(self.fan_control(0.into())?);
-        Ok(())
-    }
+    // pub fn for_each_fctrl(
+    //     &mut self,
+    //     mut fctrl: impl FnMut(FanControl<'_>),
+    // ) -> Result<(), ControllerInitError> {
+    //     fctrl(self.fan_control(0.into())?);
+    //     Ok(())
+    // }
 
     pub fn power_down(&self) -> Result<(), SeqError> {
         self.seq.set_state_with_reason(
@@ -109,45 +111,37 @@ impl Bsp {
         }
     }
 
-    pub fn update_fan_presence<F, G>(
-        &mut self,
-        _on_added: F,
-        _on_remove: G,
-    ) -> Result<(), SeqError>
-    where
-        F: Fn(&Fan),
-        G: Fn(&Fan),
-    {
-        // Our fans are always here, never added or removed!
-        Ok(())
-    }
-
     pub fn read_fan_rpms(
         &mut self,
-        mut on_success: impl FnMut(&SensorId, f32, u64),
-        mut on_error: impl FnMut(&SensorId, SensorReadError),
-        _on_missing: impl FnMut(&SensorId),
-    ) {
-        for (idx, sensor) in sensors::MAX31790_SPEED_SENSORS.iter().enumerate()
-        {
-            // TODO: Why does this use idx?
-            let fctrl_res = self.fan_control(Fan::from(idx));
-            let fctrl = match fctrl_res {
-                Ok(f) => f,
-                Err(e) => {
-                    on_error(sensor, SensorReadError::from(e));
-                    continue;
-                }
-            };
+    ) -> Result<impl Iterator<Item = FanReading>, SeqError> {
+        let mut fctrl =
+            self.fctrl.try_initialize().map_err(SensorReadError::from);
 
-            // TODO: Record state!
-            let now = sys_get_timer().now;
-            // TODO(AJM): Keep last fan RPM?
-            match fctrl.fan_rpm() {
-                Ok(reading) => on_success(sensor, reading.0.into(), now),
-                Err(e) => on_error(sensor, SensorReadError::I2cError(e)),
-            };
-        }
+        Ok(self.fans.iter_mut().map(move |f| {
+            let was_present = f.last_reading.is_some();
+            let res = fctrl.as_mut().map_err(|e| *e).and_then(|fc| {
+                fc.fan_rpm(f.bsp_data).map_err(SensorReadError::I2cError)
+            });
+            match res {
+                Ok(rpm) => {
+                    f.last_reading = Some(rpm);
+                    FanReading::PresentSuccess {
+                        new: !was_present,
+                        rpm,
+                        sensor_id: f.rpm_sensor_id,
+                        fan_id: f.bsp_data.into(),
+                    }
+                }
+                Err(error) => {
+                    f.last_reading = None;
+                    FanReading::PresentError {
+                        error,
+                        sensor_id: f.rpm_sensor_id,
+                        fan_id: f.bsp_data.into(),
+                    }
+                }
+            }
+        }))
     }
 
     pub fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor> {
@@ -220,23 +214,24 @@ impl Bsp {
         &mut self,
         duty: PWMDuty,
     ) -> Result<(), ThermalError> {
-        let mut last_err = Ok(());
-        for idx in 0..NUM_FANS {
-            let fctrl_res = self.fan_control(Fan::from(idx));
-            let fctrl = match fctrl_res {
-                Ok(f) => f,
-                Err(e) => {
-                    last_err = Err(ThermalError::from(e));
-                    continue;
-                }
-            };
+        // let mut last_err = Ok(());
+        // for idx in 0..NUM_FANS {
+        //     let fctrl_res = self.fan_control(Fan::from(idx));
+        //     let fctrl = match fctrl_res {
+        //         Ok(f) => f,
+        //         Err(e) => {
+        //             last_err = Err(ThermalError::from(e));
+        //             continue;
+        //         }
+        //     };
 
-            if fctrl.set_pwm(duty).is_err() {
-                last_err = Err(ThermalError::DeviceError);
-            }
-        }
+        //     if fctrl.set_pwm(duty).is_err() {
+        //         last_err = Err(ThermalError::DeviceError);
+        //     }
+        // }
 
-        last_err
+        // last_err
+        todo!()
     }
 
     // pub fn fan_sensor_id(&self, i: usize) -> SensorId {
@@ -249,9 +244,13 @@ impl Bsp {
 
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());
+
         static INPUTS_ONCE: static_cell::ClaimOnceCell<
             [InputChannel; NUM_TEMPERATURE_INPUTS],
         > = static_cell::ClaimOnceCell::new(INPUTS);
+
+        static FANS_ONCE: static_cell::ClaimOnceCell<[Fan; NUM_FANS]> =
+            static_cell::ClaimOnceCell::new(FANS);
 
         Self {
             seq,
@@ -268,6 +267,7 @@ impl Bsp {
             },
 
             inputs: INPUTS_ONCE.claim(),
+            fans: FANS_ONCE.claim(),
 
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,
@@ -322,6 +322,35 @@ const T6_THERMALS: ThermalProperties = ThermalProperties {
     power_down_temperature: Celsius(115f32),
     temperature_slew_deg_per_sec: 0.5,
 };
+
+// Our "bonus data" is a u8 that represents the fan's index in the i2c register
+type Fan = crate::control::Fan<drv_i2c_devices::max31790::Fan>;
+const FANS: [Fan; NUM_FANS] = [
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[0],
+        drv_i2c_devices::max31790::Fan::new_const(0),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[1],
+        drv_i2c_devices::max31790::Fan::new_const(1),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[2],
+        drv_i2c_devices::max31790::Fan::new_const(2),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[3],
+        drv_i2c_devices::max31790::Fan::new_const(3),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[4],
+        drv_i2c_devices::max31790::Fan::new_const(4),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[5],
+        drv_i2c_devices::max31790::Fan::new_const(5),
+    ),
+];
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(&InputChannelMetadata::new(

@@ -64,17 +64,6 @@ use userlib::{
     units::{Celsius, PWMDuty},
 };
 
-// We define our own Fan type, as we may have more fans than any single
-// controller supports.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Fan(u8);
-
-impl From<usize> for Fan {
-    fn from(index: usize) -> Self {
-        Fan(index as u8)
-    }
-}
-
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
@@ -152,8 +141,8 @@ enum Trace {
         remaining: usize,
     },
     FanPresenceUpdateFailed(SeqError),
-    FanAdded(Fan),
-    FanRemoved(Fan),
+    FanAdded(u8),
+    FanRemoved(u8),
     PowerDownAt(u64),
     AddedDynamicInput(usize),
     RemovedDynamicInput(usize),
@@ -352,11 +341,9 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         let now = sys_get_timer().now;
         if bits.has_timer_fired(notifications::TIMER_MASK) {
-            // See if any fans were removed or added since last iteration
-            self.control.update_fan_presence();
-
             // We *always* read sensor data, which does not touch the control
-            // loop; this simply posts results to the `sensors` task.
+            // loop; this simply posts results to the `sensors` task. This also
+            // updates the presence status of fans.
             self.control.read_sensors();
 
             match self.mode {

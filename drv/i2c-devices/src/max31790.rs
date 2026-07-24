@@ -190,6 +190,22 @@ pub const MAX_FANS: u8 = 6;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Fan(u8);
 
+impl Fan {
+    pub const fn new_const(idx: u8) -> Self {
+        if idx >= MAX_FANS {
+            panic!("Out of range!");
+        } else {
+            Self(idx)
+        }
+    }
+}
+
+impl From<Fan> for u8 {
+    fn from(val: Fan) -> Self {
+        val.0
+    }
+}
+
 impl TryFrom<u8> for Fan {
     type Error = ();
     /// Fans are based on a 0-based index. This should *not* be the number
