@@ -8,8 +8,7 @@ use crate::{
     Fan,
     control::{
         ChannelType, ControllerInitError, Device, FanControl, InputChannel,
-        Max31790State, PidConfig, ReadingOutcome, TemperatureReading,
-        TemperatureSensor,
+        Max31790State, PidConfig, TemperatureReading, TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
@@ -166,31 +165,8 @@ impl Bsp {
         }
     }
 
-    pub fn read_inputs(
-        &mut self,
-        mode: PowerBitmask,
-        i2c_task: TaskId,
-        mut on_success: impl FnMut(&SensorId, f32, u64),
-        mut on_unexp_error: impl FnMut(&SensorId, SensorReadError),
-        mut on_error: impl FnMut(&SensorId, SensorReadError),
-        mut on_unpowered: impl FnMut(&SensorId),
-    ) {
-        // TODO: Just make this an iterator and hoist the match up to the caller
-        // instead of mapping closures
-        for s in self.inputs.iter_mut() {
-            match s.do_reading(mode, &i2c_task) {
-                ReadingOutcome::Unpowered { id } => on_unpowered(&id),
-                ReadingOutcome::AcceptableMissing { id, err } => {
-                    on_error(&id, err)
-                }
-                ReadingOutcome::UnacceptableMissing { id, err } => {
-                    on_unexp_error(&id, err)
-                }
-                ReadingOutcome::Success { id, now, value } => {
-                    on_success(&id, value.0, now)
-                }
-            };
-        }
+    pub fn inputs_mut(&mut self) -> impl Iterator<Item = &mut InputChannel> {
+        self.inputs.iter_mut()
     }
 
     // TODO: This probably needs to exist, but for cosmo we have no dynamic

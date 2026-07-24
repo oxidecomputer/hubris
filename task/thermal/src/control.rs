@@ -1002,28 +1002,30 @@ impl<'a> ThermalControl<'a> {
         // potential TOCTOU issues; some sensors cannot be read if they are not
         // powered.
         let power_mode = self.bsp.power_mode();
-        self.bsp.read_inputs(
-            power_mode,
-            self.i2c_task,
-            |id, value, now| self.sensor_api.post(*id, value, now),
-            |id, error| {
-                let id = *id;
-                // Record an error errors if the sensor is not removable
-                // or we get a unexpected error from a removable sensor
-                ringbuf_entry!(Trace::SensorReadFailed(id, error));
-                self.err_blackbox.push(id, error);
-                self.sensor_api.nodata_now(id, error.into());
-            },
-            |id, error| {
-                self.sensor_api.nodata_now(*id, error.into());
-            },
-            |id| {
-                // If the device isn't supposed to be on in the current power
-                // state, then record it as Off in the sensors task.
-                self.sensor_api
-                    .nodata_now(*id, task_sensor_api::NoData::DeviceOff);
-            },
-        );
+        for input in self.bsp.inputs_mut() {
+            let res = input.do_reading(power_mode, &self.i2c_task);
+            match res {
+                ReadingOutcome::Unpowered { id } => {
+                    // If the device isn't supposed to be on in the current
+                    // power state, then record it as Off in the sensors task.
+                    self.sensor_api
+                        .nodata_now(id, task_sensor_api::NoData::DeviceOff);
+                }
+                ReadingOutcome::AcceptableMissing { id, err } => {
+                    self.sensor_api.nodata_now(id, err.into());
+                }
+                ReadingOutcome::UnacceptableMissing { id, err } => {
+                    // Record an error errors if the sensor is not removable
+                    // or we get a unexpected error from a removable sensor
+                    ringbuf_entry!(Trace::SensorReadFailed(id, err));
+                    self.err_blackbox.push(id, err);
+                    self.sensor_api.nodata_now(id, err.into());
+                }
+                ReadingOutcome::Success { id, now, value } => {
+                    self.sensor_api.post(id, value.0, now);
+                }
+            }
+        }
 
         // Note that this function does not send data about dynamic temperature
         // inputs to the `sensors` task!  This is because we don't know what
