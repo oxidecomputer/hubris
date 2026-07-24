@@ -122,10 +122,15 @@ enum MgsMessage {
     },
     SerialConsoleKeepAlive,
     SerialConsoleDetach,
-    UpdatePrepare {
+    SpUpdatePrepare {
+        id: UpdateId,
+        aux_flash_size: u32,
+        sp_image_size: u32,
+    },
+    ComponentUpdatePrepare {
         component: SpComponent,
         id: UpdateId,
-        length: u32,
+        total_size: u32,
         slot: u16,
     },
     UpdateChunk {
