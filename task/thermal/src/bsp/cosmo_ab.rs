@@ -8,7 +8,8 @@ use crate::{
     Fan,
     control::{
         ChannelType, ControllerInitError, Device, FanControl, InputChannel,
-        Max31790State, PidConfig, TemperatureReading, TemperatureSensor,
+        InputChannelMetadata, Max31790State, PidConfig, TemperatureReading,
+        TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
@@ -350,7 +351,7 @@ const T6_THERMALS: ThermalProperties = ThermalProperties {
 };
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
-    InputChannel::new(
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_a,
@@ -359,8 +360,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         M2_THERMALS,
         PowerBitmask::A0,
         ChannelType::Removable,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_b,
@@ -369,8 +370,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         M2_THERMALS,
         PowerBitmask::A0,
         ChannelType::Removable,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::CPU,
             devices::sbtsi_cpu,
@@ -379,8 +380,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         CPU_THERMALS,
         PowerBitmask::A0,
         ChannelType::MustBePresent,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::Tmp451(drv_i2c_devices::tmp451::Target::Remote),
             devices::tmp451_t6,
@@ -391,9 +392,9 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         // controlled by the host OS.
         PowerBitmask::T6,
         ChannelType::MustBePresent,
-    ),
+    )),
     // U.2 drives
-    InputChannel::new(
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n0,
@@ -402,8 +403,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n1,
@@ -412,8 +413,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n2,
@@ -422,8 +423,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n3,
@@ -432,8 +433,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n4,
@@ -442,8 +443,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n5,
@@ -452,8 +453,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n6,
@@ -462,8 +463,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n7,
@@ -472,8 +473,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n8,
@@ -482,8 +483,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n9,
@@ -492,7 +493,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
+    )),
 ];
 
 const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [

@@ -125,9 +125,7 @@ impl<'a> FanControl<'a> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// An `InputChannel` represents a temperature sensor associated with a
-/// particular component in the system.
-pub(crate) struct InputChannel {
+pub(crate) struct InputChannelMetadata {
     /// Temperature sensor
     sensor: TemperatureSensor,
 
@@ -139,7 +137,12 @@ pub(crate) struct InputChannel {
 
     /// Channel type
     ty: ChannelType,
+}
 
+/// An `InputChannel` represents a temperature sensor associated with a
+/// particular component in the system.
+pub(crate) struct InputChannel {
+    metadata: &'static InputChannelMetadata,
     last_reading: Option<TemperatureReading>,
 }
 
@@ -183,18 +186,17 @@ pub(crate) enum ChannelType {
     RemovableAndErrorProne,
 }
 
-pub enum ReadingOutcome {
-    Unpowered {
-        id: SensorId,
-    },
-    AcceptableMissing {
-        id: SensorId,
-        err: SensorReadError,
-    },
-    UnacceptableMissing {
-        id: SensorId,
-        err: SensorReadError,
-    },
+/// The outcome of [`InputChannel::do_reading()`].
+pub enum InputReadingOutcome {
+    /// Sensor was not read because the power mode indicated that it would not
+    /// be enabled in this state.
+    Unpowered { id: SensorId },
+    /// This sensor was missing, but it's okay because it was either Removable
+    /// and not there, or Removable and Error Prone and had any kind of error.
+    AcceptableMissing { id: SensorId, err: SensorReadError },
+    /// Any read error that didn't match the "Acceptable" cases listed above.
+    UnacceptableMissing { id: SensorId, err: SensorReadError },
+    /// We read the data! Hooray!
     Success {
         id: SensorId,
         now: u64,
@@ -202,7 +204,16 @@ pub enum ReadingOutcome {
     },
 }
 
-impl InputChannel {
+/// InputChannelMetadata is the constant description portion of an InputChannel.
+///
+/// We split it off because InputChannel is mutable to contain the last state,
+/// and if we left it inlined, then we would end up including all of this
+/// metadata in RAM, despite never changing it! So instead, we break it off and
+/// have InputChannel hold an `&'static` reference instead, so we only waste
+/// a wee little pointer (4 bytes) to flash space in each InputChannel entry,
+/// instead of (at the time of writing) 36 bytes, which for example in Cosmo
+/// that has 14 input channels, is over 500 bytes of RAM!
+impl InputChannelMetadata {
     #[allow(dead_code)] // not all BSPS
     pub const fn new(
         sensor: TemperatureSensor,
@@ -215,6 +226,15 @@ impl InputChannel {
             model,
             power_mode_mask,
             ty,
+        }
+    }
+}
+
+impl InputChannel {
+    #[allow(dead_code)] // not all BSPS
+    pub const fn new(metadata: &'static InputChannelMetadata) -> Self {
+        Self {
+            metadata,
             last_reading: None,
         }
     }
@@ -228,44 +248,41 @@ impl InputChannel {
     }
 
     pub fn sensor_id(&self) -> SensorId {
-        self.sensor.sensor_id
+        self.metadata.sensor.sensor_id
     }
 
     pub fn model(&self) -> ThermalProperties {
-        self.model
+        self.metadata.model
     }
 
     pub fn do_reading(
         &mut self,
         mode: PowerBitmask,
         i2c_task: &TaskId,
-    ) -> ReadingOutcome {
-        let id = self.sensor.sensor_id;
-        if !mode.intersects(self.power_mode_mask) {
+    ) -> InputReadingOutcome {
+        let id = self.metadata.sensor.sensor_id;
+
+        // If we're not supposed to be on, don't even ask.
+        if !mode.intersects(self.metadata.power_mode_mask) {
             self.last_reading = Some(TemperatureReading::Inactive);
-            return ReadingOutcome::Unpowered { id };
+            return InputReadingOutcome::Unpowered { id };
         }
 
-        match self.sensor.read_temp(*i2c_task) {
+        match self.metadata.sensor.read_temp(*i2c_task) {
             Ok(value) => {
-                // TODO: Slightly different time than will be reported! We can
-                // fix this by providing the time instead of the helper
-                // functions that get the now time for us.
-                // let now = on_success(&s.sensor.sensor_id, v.0);
                 let now = sys_get_timer().now;
-
                 self.last_reading = Some(TemperatureReading::Valid(
                     TimestampedTemperatureReading {
                         time_ms: now,
                         value,
                     },
                 ));
-                ReadingOutcome::Success { id, now, value }
+                InputReadingOutcome::Success { id, now, value }
             }
             Err(e) => {
-                // However, when we later would have stored the state value
-                // for persistence in `run_control`, that used slightly
-                // different logic, ONLY clearing the persisted value if:
+                // This is mimicing the old state value logic for deciding if
+                // we persist the data in `run_control`, that ONLY cleared the
+                // persisted value if:
                 //
                 // - The sensor is not present AND removable
                 // - The sensor is error prone
@@ -276,7 +293,7 @@ impl InputChannel {
                 let e1 = e.clone();
                 let e2 = NoData::from(e1);
                 let e3 = SensorError::from(e2);
-                match (self.ty, e3) {
+                match (self.metadata.ty, e3) {
                     (ChannelType::Removable, SensorError::NotPresent) => {
                         self.last_reading = None;
                     }
@@ -290,14 +307,25 @@ impl InputChannel {
                     }
                 }
 
-                // The current `unexpected_failure` comes from
-                // `read_sensors`, which is only deciding whether it's worth
-                // logging about. In either case, it will push NoData to the
-                // sensor api.
-                if unexpected_failure(self, e) {
-                    ReadingOutcome::UnacceptableMissing { id, err: e }
+                // This logic comes from what was done in `read_sensors`,
+                // which is only deciding whether it's worth logging about.
+                // In either case, it will push NoData to the sensor api.
+                //
+                // This is *not* the same logic that is used above to decide
+                // whether we clear the previous state or not, despite being
+                // *very* similar!
+                let removable = matches!(
+                    self.metadata.ty,
+                    ChannelType::Removable
+                        | ChannelType::RemovableAndErrorProne
+                );
+                let removed =
+                    e == SensorReadError::I2cError(ResponseCode::NoDevice);
+                let unexpected_failure = !(removable && removed);
+                if unexpected_failure {
+                    InputReadingOutcome::UnacceptableMissing { id, err: e }
                 } else {
-                    ReadingOutcome::AcceptableMissing { id, err: e }
+                    InputReadingOutcome::AcceptableMissing { id, err: e }
                 }
             }
         }
@@ -1005,23 +1033,23 @@ impl<'a> ThermalControl<'a> {
         for input in self.bsp.inputs_mut() {
             let res = input.do_reading(power_mode, &self.i2c_task);
             match res {
-                ReadingOutcome::Unpowered { id } => {
+                InputReadingOutcome::Unpowered { id } => {
                     // If the device isn't supposed to be on in the current
                     // power state, then record it as Off in the sensors task.
                     self.sensor_api
                         .nodata_now(id, task_sensor_api::NoData::DeviceOff);
                 }
-                ReadingOutcome::AcceptableMissing { id, err } => {
+                InputReadingOutcome::AcceptableMissing { id, err } => {
                     self.sensor_api.nodata_now(id, err.into());
                 }
-                ReadingOutcome::UnacceptableMissing { id, err } => {
+                InputReadingOutcome::UnacceptableMissing { id, err } => {
                     // Record an error errors if the sensor is not removable
                     // or we get a unexpected error from a removable sensor
                     ringbuf_entry!(Trace::SensorReadFailed(id, err));
                     self.err_blackbox.push(id, err);
                     self.sensor_api.nodata_now(id, err.into());
                 }
-                ReadingOutcome::Success { id, now, value } => {
+                InputReadingOutcome::Success { id, now, value } => {
                     self.sensor_api.post(id, value.0, now);
                 }
             }
@@ -1471,13 +1499,4 @@ impl<'a> ThermalControl<'a> {
             .nodata_now(sensor_id, task_sensor_api::NoData::DeviceNotPresent);
         Ok(())
     }
-}
-
-pub fn unexpected_failure(s: &InputChannel, e: SensorReadError) -> bool {
-    let removable = matches!(
-        s.ty,
-        ChannelType::Removable | ChannelType::RemovableAndErrorProne
-    );
-    let removed = e == SensorReadError::I2cError(ResponseCode::NoDevice);
-    !(removable && removed)
 }
