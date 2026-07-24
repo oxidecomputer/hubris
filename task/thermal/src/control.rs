@@ -204,6 +204,13 @@ pub enum InputReadingOutcome {
     },
 }
 
+/// Status of a regular or dynamic input
+pub struct InputStatus<'a> {
+    pub id: SensorId,
+    pub reading: &'a TemperatureReading,
+    pub model: &'a ThermalProperties,
+}
+
 /// InputChannelMetadata is the constant description portion of an InputChannel.
 ///
 /// We split it off because InputChannel is mutable to contain the last state,
@@ -239,20 +246,24 @@ impl InputChannel {
         }
     }
 
-    pub fn last_reading(&self) -> Option<&TemperatureReading> {
-        self.last_reading.as_ref()
+    pub fn has_reading(&self) -> bool {
+        self.last_reading.is_some()
+    }
+
+    /// Get current stored status.
+    ///
+    /// Returns None if we do not have a reading stored.
+    pub fn status(&self) -> Option<InputStatus<'_>> {
+        let reading = self.last_reading.as_ref()?;
+        Some(InputStatus {
+            id: self.metadata.sensor.sensor_id,
+            reading,
+            model: &self.metadata.model,
+        })
     }
 
     pub fn reset_value(&mut self) {
         self.last_reading = None;
-    }
-
-    pub fn sensor_id(&self) -> SensorId {
-        self.metadata.sensor.sensor_id
-    }
-
-    pub fn model(&self) -> ThermalProperties {
-        self.metadata.model
     }
 
     pub fn do_reading(
@@ -290,10 +301,8 @@ impl InputChannel {
                 // Replicate that logic here, doing some type shenanigans
                 // because we aren't round-tripping through the Sensor API
                 // anymore.
-                let e1 = e.clone();
-                let e2 = NoData::from(e1);
-                let e3 = SensorError::from(e2);
-                match (self.metadata.ty, e3) {
+                let se = SensorError::from(NoData::from(e));
+                match (self.metadata.ty, se) {
                     (ChannelType::Removable, SensorError::NotPresent) => {
                         self.last_reading = None;
                     }
@@ -1016,15 +1025,19 @@ impl<'a> ThermalControl<'a> {
         );
 
         // Read miscellaneous temperature data and log it to the sensors task
-        self.bsp.read_misc_sensors(
-            self.i2c_task,
-            |id, value, now| self.sensor_api.post(*id, value, now),
-            |id, error| {
-                ringbuf_entry!(Trace::MiscReadFailed(*id, error));
-                self.err_blackbox.push(*id, error);
-                self.sensor_api.nodata_now(*id, error.into());
-            },
-        );
+        //
+        // We don't retain state for misc sensors, as that is all stored in the
+        // sensor task itself. We're just in charge of polling them.
+        for s in self.bsp.misc_sensors() {
+            match s.read_temp(self.i2c_task) {
+                Ok(v) => self.sensor_api.post_now(s.sensor_id, v.0),
+                Err(e) => {
+                    ringbuf_entry!(Trace::MiscReadFailed(s.sensor_id, e));
+                    self.err_blackbox.push(s.sensor_id, e);
+                    self.sensor_api.nodata_now(s.sensor_id, e.into())
+                }
+            }
+        }
 
         // We read the power mode right before reading sensors, to avoid
         // potential TOCTOU issues; some sensors cannot be read if they are not
@@ -1033,11 +1046,8 @@ impl<'a> ThermalControl<'a> {
         for input in self.bsp.inputs_mut() {
             let res = input.do_reading(power_mode, &self.i2c_task);
             match res {
-                InputReadingOutcome::Unpowered { id } => {
-                    // If the device isn't supposed to be on in the current
-                    // power state, then record it as Off in the sensors task.
-                    self.sensor_api
-                        .nodata_now(id, task_sensor_api::NoData::DeviceOff);
+                InputReadingOutcome::Success { id, now, value } => {
+                    self.sensor_api.post(id, value.0, now);
                 }
                 InputReadingOutcome::AcceptableMissing { id, err } => {
                     self.sensor_api.nodata_now(id, err.into());
@@ -1049,8 +1059,11 @@ impl<'a> ThermalControl<'a> {
                     self.err_blackbox.push(id, err);
                     self.sensor_api.nodata_now(id, err.into());
                 }
-                InputReadingOutcome::Success { id, now, value } => {
-                    self.sensor_api.post(id, value.0, now);
+                InputReadingOutcome::Unpowered { id } => {
+                    // If the device isn't supposed to be on in the current
+                    // power state, then record it as Off in the sensors task.
+                    self.sensor_api
+                        .nodata_now(id, task_sensor_api::NoData::DeviceOff);
                 }
             }
         }
@@ -1102,16 +1115,16 @@ impl<'a> ThermalControl<'a> {
         // below their max temperature; negative means someone is
         // overheating.  We want to pick the _smallest_ margin, since
         // that's the part which is most overheated.
-        let f = |sensor_id, v, model| {
-            if let TemperatureReading::Valid(v) = v {
+        let f = |InputStatus { id, reading, model }| {
+            if let TemperatureReading::Valid(v) = reading {
                 let worst_case = v.worst_case(now_ms, &model);
                 let temperature = worst_case.worst_case_temp;
                 all_nominal &= model.is_nominal(temperature);
                 if model.should_power_down(temperature) {
-                    any_power_down = Some((sensor_id, worst_case));
+                    any_power_down = Some((id, worst_case));
                 }
                 if model.is_critical(temperature) {
-                    any_critical = Some((sensor_id, worst_case));
+                    any_critical = Some((id, worst_case));
                 }
                 worst_margin = worst_margin.min(model.margin(temperature).0);
             }
@@ -1128,20 +1141,22 @@ impl<'a> ThermalControl<'a> {
             //    given to us to activate
             //
             // We don't necessarily *check* that is the case though, and we
-            // might want to in the for_each_temp(_allow_missing_inputs)
+            // might want to in the all_inputs(_allow_missing_inputs)
             // functions!
         };
         match self.state {
             ThermalControlState::Boot => {
-                self.bsp.for_each_temp_allow_missing_inputs(f)
+                self.bsp.all_inputs_allow_missing().for_each(f)
             }
-            ThermalControlState::Running { .. } => self.bsp.for_each_temp(f),
-            ThermalControlState::Critical { .. } => self.bsp.for_each_temp(f),
-            ThermalControlState::FanParty => self.bsp.for_each_temp(f),
+            ThermalControlState::Running { .. }
+            | ThermalControlState::Critical { .. }
+            | ThermalControlState::FanParty => {
+                self.bsp.all_inputs().for_each(f)
+            }
             ThermalControlState::Uncontrollable => {
                 return Ok(ControlResult::PowerDown);
             }
-        }
+        };
 
         // In any state, if we've reached the "any_power_down" threshold, then
         // it's time to go.
@@ -1189,7 +1204,7 @@ impl<'a> ThermalControl<'a> {
             ThermalControlState::Critical { .. } => {
                 if all_nominal {
                     self.transition_to_running(worst_margin, now_ms)
-                } else if !any_critical.is_some() {
+                } else if any_critical.is_none() {
                     // If all temperatures have gone below critical, but are
                     // still above nominal, stop the overheat timeout but
                     // continue running at 100% PWM until things go below

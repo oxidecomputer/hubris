@@ -8,7 +8,7 @@ use crate::{
     Fan,
     control::{
         ChannelType, ControllerInitError, Device, FanControl, InputChannel,
-        InputChannelMetadata, Max31790State, PidConfig, TemperatureReading,
+        InputChannelMetadata, InputStatus, Max31790State, PidConfig,
         TemperatureSensor,
     },
     i2c_config::{devices, sensors},
@@ -150,20 +150,8 @@ impl Bsp {
         }
     }
 
-    pub fn read_misc_sensors(
-        &mut self,
-        i2c_task: TaskId,
-        mut on_success: impl FnMut(&SensorId, f32, u64),
-        mut on_error: impl FnMut(&SensorId, SensorReadError),
-    ) {
-        for s in self.misc_sensors.iter() {
-            // TODO: Record state!
-            let now = sys_get_timer().now;
-            match s.read_temp(i2c_task) {
-                Ok(v) => on_success(&s.sensor_id, v.0, now),
-                Err(e) => on_error(&s.sensor_id, e),
-            };
-        }
+    pub fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor> {
+        self.misc_sensors.iter()
     }
 
     pub fn inputs_mut(&mut self) -> impl Iterator<Item = &mut InputChannel> {
@@ -199,41 +187,26 @@ impl Bsp {
     }
 
     pub fn all_inputs_present(&self) -> bool {
-        self.inputs.iter().all(|i| i.last_reading().is_some())
+        self.inputs.iter().all(InputChannel::has_reading)
         // && self.dynamic_inputs...
     }
 
     // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
     // Inputs and Dynamic Inputs that are missing will be skipped.
-    pub fn for_each_temp_allow_missing_inputs(
+    pub fn all_inputs_allow_missing(
         &self,
-        mut f: impl FnMut(SensorId, TemperatureReading, ThermalProperties),
-    ) {
-        let iter = self.inputs.iter().filter_map(|input| {
-            let last = input.last_reading()?;
-            Some((input.sensor_id(), last, input.model()))
-        });
-        for (sensor_id, reading, model) in iter {
-            f(sensor_id, *reading, model);
-        }
-
-        // for _dinput in self.dynamic_inputs...
+    ) -> impl Iterator<Item = InputStatus<'_>> {
+        self.inputs.iter().filter_map(InputChannel::status)
+        // .zip(self.dynamic_inputs...)
     }
 
     // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
     // All inputs MUST have a previous reading or this will panic, though the
     // readings may be allowed to be Missing if the model allows it. Dynamic
     // inputs that are not present will be skipped.
-    pub fn for_each_temp(
-        &self,
-        mut f: impl FnMut(SensorId, TemperatureReading, ThermalProperties),
-    ) {
-        for input in self.inputs.iter() {
-            let reading = input.last_reading().unwrap_lite();
-            f(input.sensor_id(), *reading, input.model());
-        }
-
-        // for _dinput in self.dynamic_inputs...
+    pub fn all_inputs(&self) -> impl Iterator<Item = InputStatus<'_>> {
+        self.inputs.iter().map(|input| input.status().unwrap_lite())
+        // .zip(self.dynamic_inputs...)
     }
 
     pub fn reset_all_values(&mut self) {
@@ -484,7 +457,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
     )),
-    InputChannel::new(&&InputChannelMetadata::new(
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n9,
