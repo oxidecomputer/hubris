@@ -2,12 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::cell::Cell;
-
-use crate::{
-    Fan, ThermalError, Trace,
-    bsp::{self, Bsp, PowerBitmask},
-};
+use crate::{ThermalError, Trace, bsp::PowerBitmask};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
     TempSensor,
@@ -22,10 +17,10 @@ use drv_i2c_devices::{
 };
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_sensor_api::{Reading, Sensor as SensorApi, SensorError, SensorId};
+use task_sensor_api::{NoData, Sensor as SensorApi, SensorError, SensorId};
 use task_thermal_api::{SensorReadError, ThermalAutoState, ThermalProperties};
 use userlib::{
-    TaskId, UnwrapLite, sys_get_timer,
+    TaskId, sys_get_timer,
     units::{Celsius, PWMDuty, Rpm},
 };
 
@@ -54,7 +49,7 @@ pub enum Device {
 pub struct TemperatureSensor {
     device: Device,
     builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
-    sensor_id: SensorId,
+    pub sensor_id: SensorId,
 }
 
 impl TemperatureSensor {
@@ -70,7 +65,10 @@ impl TemperatureSensor {
             sensor_id,
         }
     }
-    fn read_temp(&self, i2c_task: TaskId) -> Result<Celsius, SensorReadError> {
+    pub fn read_temp(
+        &self,
+        i2c_task: TaskId,
+    ) -> Result<Celsius, SensorReadError> {
         let dev = (self.builder)(i2c_task);
         let t = match &self.device {
             Device::Tmp117 => Tmp117::new(&dev).read_temperature()?,
@@ -90,83 +88,52 @@ impl TemperatureSensor {
 /// different ways. Not all fans are guaranteed to be there at all times so
 /// their corresponding sensor is an `Option`. We should not read the RPM of
 /// fans which are not present and their PWM should only be driven low.
-#[derive(Copy, Clone)]
-pub struct Fans<const N: usize>([Option<SensorId>; N]);
+pub struct Fan<D> {
+    pub rpm_sensor_id: SensorId,
+    pub last_reading: Option<Rpm>,
+    pub bsp_data: D,
+}
 
-impl core::ops::Index<usize> for Fans<{ bsp::NUM_FANS }> {
-    type Output = Option<SensorId>;
-
-    fn index(&self, index: usize) -> &Option<SensorId> {
-        &self.0[index]
+impl<D> Fan<D> {
+    pub const fn new(rpm_sensor_id: SensorId, bsp_data: D) -> Self {
+        Self {
+            rpm_sensor_id,
+            last_reading: None,
+            bsp_data,
+        }
     }
 }
 
-impl core::ops::IndexMut<usize> for Fans<{ bsp::NUM_FANS }> {
-    fn index_mut(&mut self, index: usize) -> &mut Option<SensorId> {
-        &mut self.0[index]
-    }
+pub enum FanPresence {
+    Present {
+        fan_id: u8,
+        new: bool,
+    },
+    #[allow(dead_code)] // Some bsps don't have removable fans
+    NotPresent {
+        fan_id: u8,
+        new: bool,
+    },
 }
 
-impl Fans<{ bsp::NUM_FANS }> {
-    pub fn new() -> Self {
-        Self([None; bsp::NUM_FANS])
-    }
-    pub fn is_present(&self, index: crate::Fan) -> bool {
-        self.0[index.0 as usize].is_some()
-    }
-    pub fn enumerate(
-        &self,
-    ) -> impl Iterator<Item = (usize, &Option<SensorId>)> {
-        self.0.iter().enumerate()
-    }
-    pub fn as_fans(&self) -> impl Iterator<Item = Fan> + '_ {
-        self.enumerate().map(|(f, _s)| Fan::from(f))
-    }
+pub enum FanReading {
+    PresentSuccess {
+        rpm: Rpm,
+        sensor_id: SensorId,
+    },
+    PresentError {
+        error: SensorReadError,
+        sensor_id: SensorId,
+    },
+    #[allow(dead_code)] // Some bsps don't have removable fans
+    NotPresent {
+        sensor_id: SensorId,
+    },
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Enum representing any of our fan controller types, bound to one of their
-/// fans.  This lets us handle heterogeneous fan controller ICs generically
-/// (although there's only one at the moment)
-#[allow(dead_code)] // a typical BSP uses only _one_ of these
-pub enum FanControl<'a> {
-    Max31790(&'a Max31790, drv_i2c_devices::max31790::Fan),
-    Emc2305(&'a Emc2305, drv_i2c_devices::emc2305::Fan),
-}
-
-impl<'a> FanControl<'a> {
-    fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ResponseCode> {
-        match self {
-            Self::Max31790(m, fan) => m.set_pwm(*fan, pwm),
-            Self::Emc2305(m, fan) => m.set_pwm(*fan, pwm),
-        }
-    }
-
-    pub fn fan_rpm(&self) -> Result<Rpm, ResponseCode> {
-        match self {
-            Self::Max31790(m, fan) => m.fan_rpm(*fan),
-            Self::Emc2305(m, fan) => m.fan_rpm(*fan),
-        }
-    }
-
-    pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
-        match self {
-            Self::Max31790(m, _fan) => m.set_watchdog(wd),
-            Self::Emc2305(m, _fan) => {
-                // The EMC2305 doesn't support setting the watchdog time, just
-                // whether it's enabled or disabled
-                m.set_watchdog(!matches!(wd, I2cWatchdog::Disabled))
-            }
-        }
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-/// An `InputChannel` represents a temperature sensor associated with a
-/// particular component in the system.
-pub(crate) struct InputChannel {
+pub(crate) struct InputChannelMetadata {
     /// Temperature sensor
     sensor: TemperatureSensor,
 
@@ -178,6 +145,13 @@ pub(crate) struct InputChannel {
 
     /// Channel type
     ty: ChannelType,
+}
+
+/// An `InputChannel` represents a temperature sensor associated with a
+/// particular component in the system.
+pub(crate) struct InputChannel {
+    metadata: &'static InputChannelMetadata,
+    last_reading: Option<TemperatureReading>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -220,7 +194,41 @@ pub(crate) enum ChannelType {
     RemovableAndErrorProne,
 }
 
-impl InputChannel {
+/// The outcome of [`InputChannel::do_reading()`].
+pub enum InputReadingOutcome {
+    /// Sensor was not read because the power mode indicated that it would not
+    /// be enabled in this state.
+    Unpowered { id: SensorId },
+    /// This sensor was missing, but it's okay because it was either Removable
+    /// and not there, or Removable and Error Prone and had any kind of error.
+    AcceptableMissing { id: SensorId, err: SensorReadError },
+    /// Any read error that didn't match the "Acceptable" cases listed above.
+    UnacceptableMissing { id: SensorId, err: SensorReadError },
+    /// We read the data! Hooray!
+    Success {
+        id: SensorId,
+        now: u64,
+        value: Celsius,
+    },
+}
+
+/// Status of a regular or dynamic input
+pub struct InputStatus<'a> {
+    pub id: SensorId,
+    pub reading: &'a TemperatureReading,
+    pub model: &'a ThermalProperties,
+}
+
+/// InputChannelMetadata is the constant description portion of an InputChannel.
+///
+/// We split it off because InputChannel is mutable to contain the last state,
+/// and if we left it inlined, then we would end up including all of this
+/// metadata in RAM, despite never changing it! So instead, we break it off and
+/// have InputChannel hold an `&'static` reference instead, so we only waste
+/// a wee little pointer (4 bytes) to flash space in each InputChannel entry,
+/// instead of (at the time of writing) 36 bytes, which for example in Cosmo
+/// that has 14 input channels, is over 500 bytes of RAM!
+impl InputChannelMetadata {
     #[allow(dead_code)] // not all BSPS
     pub const fn new(
         sensor: TemperatureSensor,
@@ -233,6 +241,110 @@ impl InputChannel {
             model,
             power_mode_mask,
             ty,
+        }
+    }
+}
+
+impl InputChannel {
+    #[allow(dead_code)] // not all BSPS
+    pub const fn new(metadata: &'static InputChannelMetadata) -> Self {
+        Self {
+            metadata,
+            last_reading: None,
+        }
+    }
+
+    pub fn has_reading(&self) -> bool {
+        self.last_reading.is_some()
+    }
+
+    /// Get current stored status.
+    ///
+    /// Returns None if we do not have a reading stored.
+    pub fn status(&self) -> Option<InputStatus<'_>> {
+        let reading = self.last_reading.as_ref()?;
+        Some(InputStatus {
+            id: self.metadata.sensor.sensor_id,
+            reading,
+            model: &self.metadata.model,
+        })
+    }
+
+    pub fn reset_value(&mut self) {
+        self.last_reading = None;
+    }
+
+    pub fn do_reading(
+        &mut self,
+        mode: PowerBitmask,
+        i2c_task: &TaskId,
+    ) -> InputReadingOutcome {
+        let id = self.metadata.sensor.sensor_id;
+
+        // If we're not supposed to be on, don't even ask.
+        if !mode.intersects(self.metadata.power_mode_mask) {
+            self.last_reading = Some(TemperatureReading::Inactive);
+            return InputReadingOutcome::Unpowered { id };
+        }
+
+        match self.metadata.sensor.read_temp(*i2c_task) {
+            Ok(value) => {
+                let now = sys_get_timer().now;
+                self.last_reading = Some(TemperatureReading::Valid(
+                    TimestampedTemperatureReading {
+                        time_ms: now,
+                        value,
+                    },
+                ));
+                InputReadingOutcome::Success { id, now, value }
+            }
+            Err(e) => {
+                // This is mimicing the old state value logic for deciding if
+                // we persist the data in `run_control`, that ONLY cleared the
+                // persisted value if:
+                //
+                // - The sensor is not present AND removable
+                // - The sensor is error prone
+                //
+                // Replicate that logic here, doing some type shenanigans
+                // because we aren't round-tripping through the Sensor API
+                // anymore.
+                let se = SensorError::from(NoData::from(e));
+                match (self.metadata.ty, se) {
+                    (ChannelType::Removable, SensorError::NotPresent) => {
+                        self.last_reading = None;
+                    }
+                    (ChannelType::RemovableAndErrorProne, _) => {
+                        self.last_reading = None;
+                    }
+                    _ => {
+                        // In all other cases, just leave whatever the last
+                        // present value was so that the state estimation
+                        // can continue estimating state.
+                    }
+                }
+
+                // This logic comes from what was done in `read_sensors`,
+                // which is only deciding whether it's worth logging about.
+                // In either case, it will push NoData to the sensor api.
+                //
+                // This is *not* the same logic that is used above to decide
+                // whether we clear the previous state or not, despite being
+                // *very* similar!
+                let removable = matches!(
+                    self.metadata.ty,
+                    ChannelType::Removable
+                        | ChannelType::RemovableAndErrorProne
+                );
+                let removed =
+                    e == SensorReadError::I2cError(ResponseCode::NoDevice);
+                let unexpected_failure = !(removable && removed);
+                if unexpected_failure {
+                    InputReadingOutcome::UnacceptableMissing { id, err: e }
+                } else {
+                    InputReadingOutcome::AcceptableMissing { id, err: e }
+                }
+            }
         }
     }
 }
@@ -250,8 +362,11 @@ impl InputChannel {
 /// many of them could be present, but their thermal properties could vary
 /// depending on what's plugged in.
 #[derive(Clone, Copy)]
+#[allow(dead_code)] // Not all bsps have dynamic inputs
 pub(crate) struct DynamicInputChannel {
-    model: ThermalProperties,
+    pub sensor_id: SensorId,
+    pub model: ThermalProperties,
+    pub last_reading: Option<TemperatureReading>,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -435,9 +550,9 @@ impl From<ControllerInitError> for SensorReadError {
 /// This object uses slices of sensors and fans, which must be owned
 /// elsewhere; the standard pattern is to create static arrays in a
 /// `struct Bsp` which is conditionally included based on board name.
-pub(crate) struct ThermalControl<'a> {
+pub(crate) struct ThermalControl<'a, B: BspInterface> {
     /// Reference to board-specific parameters
-    bsp: &'a mut Bsp,
+    bsp: &'a mut B,
 
     /// I2C task
     i2c_task: TaskId,
@@ -458,12 +573,6 @@ pub(crate) struct ThermalControl<'a> {
     /// PID parameters, pulled from the BSP by default but user-modifiable
     pid_config: PidConfig,
 
-    /// Dynamic inputs are fixed in number but configured at runtime.
-    ///
-    /// `None` values in this list are ignored.
-    dynamic_inputs:
-        [Option<DynamicInputChannel>; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
-
     /// Records details on the first sensor read failures since the thermal loop
     /// entered the `Uncontrollable` state and the system was powered off.
     ///
@@ -473,9 +582,6 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Previous value of `err_blackbox`, copied over at power-down
     prev_err_blackbox: &'static mut ThermalSensorErrors,
-
-    /// Fans for the system
-    fans: Fans<{ bsp::NUM_FANS }>,
 
     /// Last group PWM control value
     last_pwm: PWMDuty,
@@ -491,7 +597,7 @@ pub(crate) struct ThermalControl<'a> {
 /// Represents the state of a temperature sensor, which either has a valid
 /// reading or is marked as inactive (due to power state or being missing)
 #[derive(Copy, Clone, Debug)]
-enum TemperatureReading {
+pub enum TemperatureReading {
     /// Normal reading, timestamped using monotonic system time
     Valid(TimestampedTemperatureReading),
 
@@ -501,9 +607,9 @@ enum TemperatureReading {
 
 /// Represents a temperature reading at the time at which it was taken
 #[derive(Copy, Clone, Debug)]
-struct TimestampedTemperatureReading {
-    time_ms: u64,
-    value: Celsius,
+pub struct TimestampedTemperatureReading {
+    pub time_ms: u64,
+    pub value: Celsius,
 }
 
 /// Represents a worst-case temperature reading from the thermal model,
@@ -625,12 +731,6 @@ impl Default for OneSidedPidState {
     }
 }
 
-const TEMPERATURE_ARRAY_SIZE: usize =
-    bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS;
-
-type DynamicChannelsArray =
-    [Option<DynamicInputChannel>; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS];
-
 /// This corresponds to states shown in RFD 276
 ///
 /// All of our temperature arrays contain, in order
@@ -733,13 +833,10 @@ enum ThermalControlState {
     ///
     /// (dynamic sensors must report in *if* they are present, i.e. not `None`
     /// in the `dynamic_inputs` array)
-    Boot { values: OptionalTemperatureArray },
+    Boot,
 
     /// Normal happy control loop
-    Running {
-        values: TemperatureArray,
-        pid: OneSidedPidState,
-    },
+    Running { pid: OneSidedPidState },
 
     //
     // === Overheated control regime states ===
@@ -748,7 +845,6 @@ enum ThermalControlState {
     /// critical temperature ranges.  We turn on fans at high power and record
     /// the time at which we entered this state.
     Critical {
-        values: TemperatureArray,
         /// The time at which we transitioned to the `Critical` state *this*
         /// time, either from `Running` or from FAN PARTY!!!.
         start_time: u64,
@@ -764,181 +860,12 @@ enum ThermalControlState {
     /// This gives us an opportunity to recover from overheating by running the
     /// fans aggressively without also deciding to give up and kill ourselves
     /// while things are improving but not fast enough.
-    FanParty { values: TemperatureArray },
+    FanParty,
 
     /// The system cannot control the temperature; power down and wait for
     /// intervention from higher up the stack.
-    Uncontrollable(
-        // we keep the values array around to avoid losing ownership
-        OptionalTemperatureArray,
-    ),
+    Uncontrollable,
 }
-
-impl ThermalControlState {
-    /// Sets all temperature readings to `None` and returns the array
-    fn reset_values(&mut self) -> OptionalTemperatureArray {
-        match self {
-            ThermalControlState::Boot { values }
-            | ThermalControlState::Uncontrollable(values) => {
-                values.reset_values()
-            }
-            ThermalControlState::Running { values, .. }
-            | ThermalControlState::Critical { values, .. }
-            | ThermalControlState::FanParty { values } => values.reset_values(),
-        }
-    }
-}
-
-/// Abstractions over temperature array data
-///
-/// We have three main types:
-/// - A `RawTemperatureArray` is allocated in static memory using
-///   `mutable_statics!` and provides the underlying storage for other array
-///   types.  It stores optional temperature readings in `Cell`s, so that it can
-///   be passed around by shared reference.
-/// - A [`OptionalTemperatureArray`] is a thin wrapper around a
-///   `&'static RawTemperatureArray`, providing getters / setters / iterators.
-/// - A [`TemperatureArray`] is a thin wrapper around a
-///   `&'static RawTemperatureArray` which guarantees that all of the
-///   temperatures in the array are `Some(..)`.
-///
-/// This module exists to preserve the `TemperatureArray` invariants (or at
-/// least make it harder to mess with them; someone could get at the inner
-/// `&'static RawTemperatureArray and poke values directly, but let's just not
-/// do that).
-mod temperature_array {
-    use super::{
-        Bsp, Cell, DynamicChannelsArray, SensorId, TEMPERATURE_ARRAY_SIZE,
-        TemperatureReading, ThermalProperties, UnwrapLite,
-    };
-
-    /// Array of optional temperature readings
-    ///
-    /// The array contains `Cell` objects so that it can be passed by shared
-    /// reference; otherwise, it becomes hard to transition between states in
-    /// the state machine because we can't move out a `&mut RawTemperatureArray`
-    pub type RawTemperatureArray =
-        [Cell<Option<TemperatureReading>>; TEMPERATURE_ARRAY_SIZE];
-
-    /// Type representing an array of optional temperature readings
-    #[derive(Copy, Clone)]
-    pub(crate) struct OptionalTemperatureArray(&'static RawTemperatureArray);
-
-    impl OptionalTemperatureArray {
-        /// Builds a new optional temperature array
-        ///
-        /// Values are left unchanged (e.g. they are *not* set to `None`)
-        pub fn new(data: &'static RawTemperatureArray) -> Self {
-            Self(data)
-        }
-
-        /// Resets all values to `None`, returning a copy of the array
-        pub fn reset_values(&self) -> Self {
-            for i in self.0 {
-                i.set(None);
-            }
-            *self
-        }
-
-        /// Returns a [`TemperatureArray`] if all values are `Some(..)`
-        pub fn as_temperature_array(&self) -> Option<TemperatureArray> {
-            if self.0.iter().all(|c| c.get().is_some()) {
-                Some(TemperatureArray(self.0))
-            } else {
-                None
-            }
-        }
-
-        /// Temperature state iterator with `Option<TemperatureReading>` values
-        pub fn zip_temperatures<'a>(
-            &'a self,
-            bsp: &'a Bsp,
-            dynamic_channels: &'a DynamicChannelsArray,
-        ) -> impl Iterator<
-            Item = (SensorId, Option<TemperatureReading>, ThermalProperties),
-        > + use<'a> {
-            zip_temperatures(bsp, self.0, dynamic_channels, |v| v)
-        }
-
-        /// Sets the temperature at index `i` to a value
-        ///
-        /// # Panics
-        /// If `i` is out of range for the array
-        pub fn set(&self, i: usize, value: TemperatureReading) {
-            self.0[i].set(Some(value))
-        }
-    }
-
-    /// Array of temperature values
-    ///
-    /// This stores an array of `Option<TemperatureReading>`, but values are
-    /// guaranteed to be `Some(..)` by construction.
-    #[derive(Copy, Clone)]
-    pub struct TemperatureArray(&'static RawTemperatureArray);
-
-    impl TemperatureArray {
-        /// Returns an `OptionalTemperatureArray` with all values set to `None`
-        pub fn reset_values(&self) -> OptionalTemperatureArray {
-            let opt = OptionalTemperatureArray::new(self.0);
-            opt.reset_values()
-        }
-
-        /// Sets the temperature at index `i` to a value
-        ///
-        /// # Panics
-        /// If `i` is out of range for the array
-        pub fn set(&self, i: usize, value: TemperatureReading) {
-            self.0[i].set(Some(value))
-        }
-
-        /// Temperature state iterator with `TemperatureReading` values
-        pub fn zip_temperatures<'a>(
-            &'a self,
-            bsp: &'a Bsp,
-            dynamic_channels: &'a DynamicChannelsArray,
-        ) -> impl Iterator<
-            Item = (SensorId, TemperatureReading, ThermalProperties),
-        > + use<'a> {
-            zip_temperatures(bsp, self.0, dynamic_channels, |v| v.unwrap_lite())
-        }
-    }
-
-    /// Returns an iterator over tuples of `(sensor_id, value, thermal model)`
-    ///
-    /// The `values` array contains static and dynamic values (in order);
-    /// this function will panic if sizes are mismatched.
-    ///
-    /// Every dynamic input is represented by an `Option<DynamicInputChannel>`.
-    /// If the input is not present right now, it will be `None`, but will
-    /// continue to take up space to preserve ordering.
-    ///
-    /// In cases where dynamic inputs are not present (i.e. they are `None` in
-    /// the array), the iterator will skip that entire tuple.
-    fn zip_temperatures<'a, U: 'static>(
-        bsp: &'a Bsp,
-        values: &'a RawTemperatureArray,
-        dynamic_channels: &'a DynamicChannelsArray,
-        f: fn(Option<TemperatureReading>) -> U,
-    ) -> impl Iterator<Item = (SensorId, U, ThermalProperties)> + use<'a, U>
-    {
-        assert_eq!(values.len(), bsp.inputs.len() + bsp.dynamic_inputs.len());
-        assert_eq!(bsp.dynamic_inputs.len(), dynamic_channels.len());
-        bsp.inputs
-            .iter()
-            .map(|i| Some((i.sensor.sensor_id, i.model)))
-            .chain(
-                dynamic_channels
-                    .iter()
-                    .zip(bsp.dynamic_inputs.iter().cloned())
-                    .map(|(i, s)| i.map(|i| (s, i.model))),
-            )
-            .zip(values.iter().map(move |v| f(v.get())))
-            .filter_map(|(model, v)| model.map(|(id, t)| (id, v, t)))
-    }
-}
-use temperature_array::{
-    OptionalTemperatureArray, RawTemperatureArray, TemperatureArray,
-};
 
 enum ControlResult {
     Pwm(PWMDuty),
@@ -950,49 +877,7 @@ struct OverheatTimer {
     critical_ms: u64,
 }
 
-impl ThermalControlState {
-    fn write_temperature(&mut self, index: usize, reading: Reading) {
-        let r = TemperatureReading::Valid(TimestampedTemperatureReading {
-            time_ms: reading.timestamp,
-            value: Celsius(reading.value),
-        });
-        match self {
-            ThermalControlState::Boot { values } => {
-                values.set(index, r);
-            }
-            ThermalControlState::Running { values, .. }
-            | ThermalControlState::Critical { values, .. }
-            | ThermalControlState::FanParty { values, .. } => {
-                values.set(index, r);
-            }
-            ThermalControlState::Uncontrollable(..) => (),
-        }
-    }
-
-    fn write_temperature_inactive(&mut self, index: usize) {
-        match self {
-            ThermalControlState::Boot { values } => {
-                values.set(index, TemperatureReading::Inactive);
-            }
-            ThermalControlState::Running { values, .. }
-            | ThermalControlState::Critical { values, .. }
-            | ThermalControlState::FanParty { values, .. } => {
-                values.set(index, TemperatureReading::Inactive);
-            }
-            ThermalControlState::Uncontrollable(..) => (),
-        }
-    }
-}
-
-fn claim_static_resources() -> &'static RawTemperatureArray {
-    mutable_statics::mutable_statics! {
-        static mut TEMPERATURE_ARRAY:
-            [Cell<Option<TemperatureReading>>; TEMPERATURE_ARRAY_SIZE]
-            = [|| Cell::new(None); _];
-    }
-}
-
-impl<'a> ThermalControl<'a> {
+impl<'a, B: BspInterface> ThermalControl<'a, B> {
     /// Constructs a new `ThermalControl` based on a `struct Bsp`. This
     /// requires that every BSP has the same internal structure,
     ///
@@ -1000,7 +885,7 @@ impl<'a> ThermalControl<'a> {
     /// This function can only be called once, because it claims mutable static
     /// buffers.
     pub fn new(
-        bsp: &'a mut Bsp,
+        bsp: &'a mut B,
         i2c_task: TaskId,
         sensor_api: SensorApi,
     ) -> Self {
@@ -1011,24 +896,17 @@ impl<'a> ThermalControl<'a> {
                 ClaimOnceCell::new([ThermalSensorErrors::new(); 2]);
             BLACKBOXEN.claim()
         };
-        let pid_config = bsp.pid_config;
 
-        let data = claim_static_resources();
         Self {
             bsp,
             i2c_task,
             sensor_api,
             target_margin: Celsius(0.0f32),
-            state: ThermalControlState::Boot {
-                values: OptionalTemperatureArray::new(data),
-            },
-            pid_config,
+            state: ThermalControlState::Boot,
+            pid_config: B::PID_CONFIG,
 
             power_mode: PowerBitmask::empty(), // no sensors active
 
-            dynamic_inputs: [None; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
-
-            fans: Fans::new(),
             last_pwm: PWMDuty(0),
 
             err_blackbox,
@@ -1089,7 +967,7 @@ impl<'a> ThermalControl<'a> {
         self.reset_state();
 
         // Reset the PID configuration from the BSP
-        self.pid_config = self.bsp.pid_config;
+        self.pid_config = B::PID_CONFIG;
 
         // Set the target_margin to 0, indicating no overcooling
         self.target_margin = Celsius(0.0f32);
@@ -1097,8 +975,8 @@ impl<'a> ThermalControl<'a> {
 
     /// Resets the control state
     fn reset_state(&mut self) {
-        let values = self.state.reset_values();
-        self.state = ThermalControlState::Boot { values };
+        self.bsp.reset_all_values();
+        self.state = ThermalControlState::Boot;
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
 
@@ -1122,17 +1000,19 @@ impl<'a> ThermalControl<'a> {
             }
         }
 
-        match self.bsp.get_fan_presence() {
-            Ok(next) => {
-                for fan in next.as_fans() {
-                    if !self.fans.is_present(fan) && next.is_present(fan) {
-                        ringbuf_entry!(Trace::FanAdded(fan));
-                    } else if self.fans.is_present(fan) && !next.is_present(fan)
-                    {
-                        ringbuf_entry!(Trace::FanRemoved(fan));
+        match self.bsp.read_fan_presence() {
+            Ok(piter) => {
+                for fan in piter {
+                    match fan {
+                        FanPresence::Present { fan_id, new } if new => {
+                            ringbuf_entry!(Trace::FanAdded(fan_id));
+                        }
+                        FanPresence::NotPresent { fan_id, new } if new => {
+                            ringbuf_entry!(Trace::FanRemoved(fan_id));
+                        }
+                        _ => {}
                     }
                 }
-                self.fans = next;
             }
             Err(e) => ringbuf_entry!(Trace::FanPresenceUpdateFailed(e)),
         }
@@ -1146,36 +1026,31 @@ impl<'a> ThermalControl<'a> {
     /// read in `self.err_blackbox` for later investigation.
     pub fn read_sensors(&mut self) {
         // Read fan data and log it to the sensors task
-        for (index, sensor_id) in self.fans.enumerate() {
-            if let Some(sensor_id) = sensor_id {
-                match self
-                    .bsp
-                    .fan_control(Fan::from(index))
-                    .map_err(SensorReadError::from)
-                    .and_then(|ctrl| {
-                        ctrl.fan_rpm().map_err(SensorReadError::I2cError)
-                    }) {
-                    Ok(reading) => {
-                        self.sensor_api.post_now(*sensor_id, reading.0.into())
-                    }
-                    Err(e) => {
-                        ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
-                        self.err_blackbox.push(*sensor_id, e);
-                        self.sensor_api.nodata_now(*sensor_id, e.into())
-                    }
+        for reading in self.bsp.read_fan_rpms() {
+            match reading {
+                FanReading::PresentSuccess { rpm, sensor_id } => {
+                    self.sensor_api.post_now(sensor_id, rpm.0 as f32)
                 }
-            } else {
-                // Invalidate fan speed readings in the sensors task
-                let sensor_id = self.bsp.fan_sensor_id(index);
-                self.sensor_api.nodata_now(
-                    sensor_id,
-                    task_sensor_api::NoData::DeviceNotPresent,
-                );
+                FanReading::PresentError { error, sensor_id } => {
+                    ringbuf_entry!(Trace::FanReadFailed(sensor_id, error));
+                    self.err_blackbox.push(sensor_id, error);
+                    self.sensor_api.nodata_now(sensor_id, error.into());
+                }
+                FanReading::NotPresent { sensor_id } => {
+                    // Invalidate fan speed readings in the sensors task
+                    self.sensor_api.nodata_now(
+                        sensor_id,
+                        task_sensor_api::NoData::DeviceNotPresent,
+                    );
+                }
             }
         }
 
         // Read miscellaneous temperature data and log it to the sensors task
-        for s in self.bsp.misc_sensors.iter() {
+        //
+        // We don't retain state for misc sensors, as that is all stored in the
+        // sensor task itself. We're just in charge of polling them.
+        for s in self.bsp.misc_sensors() {
             match s.read_temp(self.i2c_task) {
                 Ok(v) => self.sensor_api.post_now(s.sensor_id, v.0),
                 Err(e) => {
@@ -1190,38 +1065,28 @@ impl<'a> ThermalControl<'a> {
         // potential TOCTOU issues; some sensors cannot be read if they are not
         // powered.
         let power_mode = self.bsp.power_mode();
-        for s in self.bsp.inputs.iter() {
-            if power_mode.intersects(s.power_mode_mask) {
-                match s.sensor.read_temp(self.i2c_task) {
-                    Ok(v) => self.sensor_api.post_now(s.sensor.sensor_id, v.0),
-                    Err(e) => {
-                        // Record an error errors if the sensor is not removable
-                        // or we get a unexpected error from a removable sensor
-                        if !(matches!(
-                            s.ty,
-                            ChannelType::Removable
-                                | ChannelType::RemovableAndErrorProne
-                        ) && e
-                            == SensorReadError::I2cError(
-                                ResponseCode::NoDevice,
-                            ))
-                        {
-                            ringbuf_entry!(Trace::SensorReadFailed(
-                                s.sensor.sensor_id,
-                                e
-                            ));
-                            self.err_blackbox.push(s.sensor.sensor_id, e);
-                        }
-                        self.sensor_api.nodata_now(s.sensor.sensor_id, e.into())
-                    }
+        for input in self.bsp.inputs_mut() {
+            let res = input.do_reading(power_mode, &self.i2c_task);
+            match res {
+                InputReadingOutcome::Success { id, now, value } => {
+                    self.sensor_api.post(id, value.0, now);
                 }
-            } else {
-                // If the device isn't supposed to be on in the current power
-                // state, then record it as Off in the sensors task.
-                self.sensor_api.nodata_now(
-                    s.sensor.sensor_id,
-                    task_sensor_api::NoData::DeviceOff,
-                )
+                InputReadingOutcome::AcceptableMissing { id, err } => {
+                    self.sensor_api.nodata_now(id, err.into());
+                }
+                InputReadingOutcome::UnacceptableMissing { id, err } => {
+                    // Record an error errors if the sensor is not removable
+                    // or we get a unexpected error from a removable sensor
+                    ringbuf_entry!(Trace::SensorReadFailed(id, err));
+                    self.err_blackbox.push(id, err);
+                    self.sensor_api.nodata_now(id, err.into());
+                }
+                InputReadingOutcome::Unpowered { id } => {
+                    // If the device isn't supposed to be on in the current
+                    // power state, then record it as Off in the sensors task.
+                    self.sensor_api
+                        .nodata_now(id, task_sensor_api::NoData::DeviceOff);
+                }
             }
         }
 
@@ -1235,9 +1100,10 @@ impl<'a> ThermalControl<'a> {
     /// Returns an error if the control loop failed to read critical sensors;
     /// the caller should set us to some kind of fail-safe mode if this
     /// occurs.
-    pub fn run_control(&mut self) -> Result<(), ThermalError> {
-        let now_ms = sys_get_timer().now;
-
+    fn run_control_inner(
+        &mut self,
+        now_ms: u64,
+    ) -> Result<ControlResult, ThermalError> {
         // When the power mode changes, we may require a new set of sensors to
         // be online.  Reset the control state, waiting for all newly-required
         // sensors to come online before re-entering the control loop.
@@ -1248,122 +1114,98 @@ impl<'a> ThermalControl<'a> {
             self.reset_state();
         }
 
-        // Load sensor readings from the `sensors` API.
-        //
-        // If the most recent reading is an error, then leave the previous value
-        // in `self.state`.  When we're in the `Boot` state, this will leave the
-        // value as `None`; when we're `Running`, it will maintain the previous
-        // state, estimating a new temperature with the thermal model.
-        for (i, s) in self.bsp.inputs.iter().enumerate() {
-            if self.power_mode.intersects(s.power_mode_mask) {
-                let sensor_id = s.sensor.sensor_id;
-                let r = self.sensor_api.get_reading(sensor_id);
-                match r {
-                    Ok(r) => {
-                        self.state.write_temperature(i, r);
-                    }
-                    Err(SensorError::NotPresent)
-                        if s.ty == ChannelType::Removable =>
-                    {
-                        // Ignore errors if the sensor is removable and the
-                        // error indicates that it's not present.
-                        self.state.write_temperature_inactive(i);
-                    }
-                    Err(_) if s.ty == ChannelType::RemovableAndErrorProne => {
-                        // Ignore all errors if this device is error-prone
-                        self.state.write_temperature_inactive(i);
-                    }
-                    Err(_) => (),
-                }
-            } else {
-                self.state.write_temperature_inactive(i);
-            }
-        }
+        // `input` sensors have all been read during `read_sensors`.
 
         // The dynamic inputs don't depend on power mode; instead, they are
         // assumed to be present when a model exists in `self.dynamic_inputs`;
         // this model is set by external callers using
         // `update_dynamic_input` and `remove_dynamic_input`.
-        for (i, sensor_id) in self.bsp.dynamic_inputs.iter().enumerate() {
-            let index = i + self.bsp.inputs.len();
-            match self.dynamic_inputs[i] {
-                Some(..) => {
-                    if let Ok(r) = self.sensor_api.get_reading(*sensor_id) {
-                        self.state.write_temperature(index, r);
-                    }
+        //
+        // TODO(AJM): Should we be doing this in `read_sensors` instead of
+        // `run_control`?
+        self.bsp
+            .read_dynamic_inputs_back_from_sensor_api(&self.sensor_api);
+
+        // Run a common analysis pass first, regardless of state. Don't take any
+        // side effectful actions yet though.
+        let mut all_nominal = true;
+        let mut any_power_down = None;
+        let mut any_critical = None;
+        let mut worst_margin = f32::MAX;
+
+        // Remember, positive margin means that all parts are happily
+        // below their max temperature; negative means someone is
+        // overheating.  We want to pick the _smallest_ margin, since
+        // that's the part which is most overheated.
+        let f = |InputStatus { id, reading, model }| {
+            if let TemperatureReading::Valid(v) = reading {
+                let worst_case = v.worst_case(now_ms, &model);
+                let temperature = worst_case.worst_case_temp;
+                all_nominal &= model.is_nominal(temperature);
+                if model.should_power_down(temperature) {
+                    any_power_down = Some((id, worst_case));
                 }
-                None => self.state.write_temperature_inactive(index),
+                if model.is_critical(temperature) {
+                    any_critical = Some((id, worst_case));
+                }
+                worst_margin = worst_margin.min(model.margin(temperature).0);
             }
+
+            // Hidden assumption here! ALL `TemperatureReading`s here will be
+            // valid, UNLESS:
+            //
+            // 1. We are in Boot state and we allow missing inputs, which will
+            //    skip anything we haven't heard yet (but will report `false`
+            //    for `bsp.all_inputs_present()`)
+            // 2. For input sensors: the given input is not active in this
+            //    power state
+            // 3. For dynamic sensors: The given dynamic input has not been
+            //    given to us to activate
+            //
+            // We don't necessarily *check* that is the case though, and we
+            // might want to in the all_inputs(_allow_missing_inputs)
+            // functions!
+        };
+        match self.state {
+            ThermalControlState::Boot => {
+                self.bsp.all_inputs_allow_missing().for_each(f)
+            }
+            ThermalControlState::Running { .. }
+            | ThermalControlState::Critical { .. }
+            | ThermalControlState::FanParty => {
+                self.bsp.all_inputs().for_each(f)
+            }
+            ThermalControlState::Uncontrollable => {
+                return Ok(ControlResult::PowerDown);
+            }
+        };
+
+        // In any state, if we've reached the "any_power_down" threshold, then
+        // it's time to go.
+        if let Some(due_to) = any_power_down {
+            return Ok(self.transition_to_uncontrollable_due_to(due_to, now_ms));
         }
 
-        let control_result = match &mut self.state {
-            ThermalControlState::Boot { values } => {
-                let mut any_power_down = None;
-                let mut worst_margin = f32::MAX;
-                for (sensor_id, v, model) in
-                    values.zip_temperatures(self.bsp, &self.dynamic_inputs)
-                {
-                    match v {
-                        Some(TemperatureReading::Valid(v)) => {
-                            let worst_case = v.worst_case(now_ms, &model);
-                            let temperature = worst_case.worst_case_temp;
-                            if model.should_power_down(temperature) {
-                                any_power_down = Some((sensor_id, worst_case));
-                            }
-                            worst_margin =
-                                worst_margin.min(model.margin(temperature).0);
-                        }
-                        Some(TemperatureReading::Inactive) => {
-                            // Inactive sensors are ignored, but do not gate us
-                            // from transitioning to `Running`
-                        }
+        let all_nominal = all_nominal;
+        let any_critical = any_critical;
+        let worst_margin = worst_margin;
 
-                        None => (),
-                    }
-                }
-
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
-                } else if let Some(values) = values.as_temperature_array() {
-                    self.transition_to_running(worst_margin, now_ms, values)
+        // TODO(AJM): I think we could dedupe some of the code below, basically
+        // working backwards and checking if we "qualify" for each state, though
+        // that's a bit more invasive of a change
+        Ok(match &mut self.state {
+            ThermalControlState::Boot => {
+                if self.bsp.all_inputs_present() {
+                    self.transition_to_running(worst_margin, now_ms)
                 } else {
                     ControlResult::Pwm(PWMDuty(
                         self.pid_config.max_output as u8,
                     ))
                 }
             }
-            ThermalControlState::Running { values, pid } => {
-                let mut any_power_down = None;
-                let mut any_critical = None;
-                let mut worst_margin = f32::MAX;
-
-                // Remember, positive margin means that all parts are happily
-                // below their max temperature; negative means someone is
-                // overheating.  We want to pick the _smallest_ margin, since
-                // that's the part which is most overheated.
-                for (sensor_id, v, model) in
-                    values.zip_temperatures(self.bsp, &self.dynamic_inputs)
-                {
-                    if let TemperatureReading::Valid(v) = v {
-                        let worst_case = v.worst_case(now_ms, &model);
-                        let temperature = worst_case.worst_case_temp;
-                        if model.should_power_down(temperature) {
-                            any_power_down = Some((sensor_id, worst_case));
-                        }
-                        if model.is_critical(temperature) {
-                            any_critical = Some((sensor_id, worst_case));
-                        }
-
-                        worst_margin =
-                            worst_margin.min(model.margin(temperature).0);
-                    }
-                }
-
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
-                } else if let Some(due_to) = any_critical {
-                    let values = *values;
-                    self.transition_to_critical(due_to, now_ms, values)
+            ThermalControlState::Running { pid } => {
+                if let Some(due_to) = any_critical {
+                    self.transition_to_critical(due_to, now_ms)
                 } else {
                     // We adjust the worst component margin by our target
                     // margin, which must be > 0.  This effectively tells the
@@ -1381,94 +1223,51 @@ impl<'a> ThermalControl<'a> {
                     ControlResult::Pwm(PWMDuty(pwm as u8))
                 }
             }
-            ThermalControlState::Critical { values, .. } => {
-                let mut all_nominal = true;
-                let mut any_still_critical = false;
-                let mut any_power_down = None;
-                let mut worst_margin = f32::MAX;
-
-                for (sensor_id, v, model) in
-                    values.zip_temperatures(self.bsp, &self.dynamic_inputs)
-                {
-                    if let TemperatureReading::Valid(v) = v {
-                        let worst_case = v.worst_case(now_ms, &model);
-                        let temperature = worst_case.worst_case_temp;
-                        all_nominal &= model.is_nominal(temperature);
-                        any_still_critical |= model.is_critical(temperature);
-                        if model.should_power_down(temperature) {
-                            any_power_down = Some((sensor_id, worst_case));
-                        }
-                        worst_margin =
-                            worst_margin.min(model.margin(temperature).0);
-                    }
-                }
-
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
-                } else if all_nominal {
-                    let values = *values;
-                    self.transition_to_running(worst_margin, now_ms, values)
-                } else if !any_still_critical {
+            ThermalControlState::Critical { .. } => {
+                if all_nominal {
+                    self.transition_to_running(worst_margin, now_ms)
+                } else if any_critical.is_none() {
                     // If all temperatures have gone below critical, but are
                     // still above nominal, stop the overheat timeout but
                     // continue running at 100% PWM until things go below
                     // nominal.
-                    let values = *values;
-                    self.transition_to_fan_party(now_ms, values)
+                    self.transition_to_fan_party(now_ms)
                 } else {
                     ControlResult::Pwm(PWMDuty(
                         self.pid_config.max_output as u8,
                     ))
                 }
             }
-            ThermalControlState::FanParty { values } => {
-                let mut all_nominal = true;
-                let mut any_power_down = None;
-                let mut any_critical = None;
-                let mut worst_margin = f32::MAX;
-
-                for (sensor_id, v, model) in
-                    values.zip_temperatures(self.bsp, &self.dynamic_inputs)
-                {
-                    if let TemperatureReading::Valid(v) = v {
-                        let worst_case = v.worst_case(now_ms, &model);
-                        let temperature = worst_case.worst_case_temp;
-                        all_nominal &= model.is_nominal(temperature);
-                        if model.should_power_down(temperature) {
-                            any_power_down = Some((sensor_id, worst_case));
-                        }
-                        if model.is_critical(temperature) {
-                            any_critical = Some((sensor_id, worst_case));
-                        }
-                        worst_margin =
-                            worst_margin.min(model.margin(temperature).0);
-                    }
-                }
-
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
-                } else if let Some(due_to) = any_critical {
+            ThermalControlState::FanParty => {
+                if let Some(due_to) = any_critical {
                     // If anything's gone over critical, transition back to the
                     // `Critical` state.
-                    let values = *values;
-                    self.transition_to_critical(due_to, now_ms, values)
+                    self.transition_to_critical(due_to, now_ms)
                 } else if all_nominal {
-                    let values = *values;
-                    self.transition_to_running(worst_margin, now_ms, values)
+                    self.transition_to_running(worst_margin, now_ms)
                 } else {
                     ControlResult::Pwm(PWMDuty(
                         self.pid_config.max_output as u8,
                     ))
                 }
             }
-            ThermalControlState::Uncontrollable(..) => ControlResult::PowerDown,
-        };
+            ThermalControlState::Uncontrollable => ControlResult::PowerDown,
+        })
+    }
 
+    /// An extremely simple thermal control loop.
+    ///
+    /// Returns an error if the control loop failed to read critical sensors;
+    /// the caller should set us to some kind of fail-safe mode if this
+    /// occurs.
+    pub fn run_control(&mut self) -> Result<(), ThermalError> {
+        let now_ms = sys_get_timer().now;
+        let control_result = self.run_control_inner(now_ms)?;
         match control_result {
             ControlResult::Pwm(target_pwm) => {
                 // Send the new RPM to all of our fans
                 ringbuf_entry!(Trace::ControlPwm(target_pwm.0));
-                self.set_pwm(Ok(target_pwm), now_ms)?;
+                self.set_pwm(Ok(target_pwm), now_ms)
             }
             ControlResult::PowerDown => {
                 ringbuf_entry!(Trace::PowerDownAt(sys_get_timer().now));
@@ -1477,11 +1276,9 @@ impl<'a> ThermalControl<'a> {
                 if let Err(e) = self.bsp.power_down() {
                     ringbuf_entry!(Trace::PowerDownFailed(e));
                 }
-                self.set_pwm(Err(task_sensor_api::NoData::DeviceOff), now_ms)?;
+                self.set_pwm(Err(task_sensor_api::NoData::DeviceOff), now_ms)
             }
         }
-
-        Ok(())
     }
 
     /// Transition the control state to the normal control regime.
@@ -1492,7 +1289,6 @@ impl<'a> ThermalControl<'a> {
         &mut self,
         worst_margin: f32,
         now_ms: u64,
-        values: TemperatureArray,
     ) -> ControlResult {
         self.record_leaving_critical(now_ms);
         self.record_leaving_overheat(now_ms);
@@ -1502,7 +1298,7 @@ impl<'a> ThermalControl<'a> {
         let mut pid = OneSidedPidState::default();
         let pwm =
             pid.run(&self.pid_config, self.target_margin.0 - worst_margin);
-        self.state = ThermalControlState::Running { values, pid };
+        self.state = ThermalControlState::Running { pid };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
 
         ControlResult::Pwm(PWMDuty(pwm as u8))
@@ -1514,7 +1310,6 @@ impl<'a> ThermalControl<'a> {
         &mut self,
         (sensor_id, worst_case): (SensorId, WorstCaseTemperature),
         now_ms: u64,
-        values: TemperatureArray,
     ) -> ControlResult {
         let WorstCaseTemperature {
             worst_case_temp,
@@ -1530,10 +1325,7 @@ impl<'a> ThermalControl<'a> {
             temperature: last_reading,
             age_s,
         });
-        self.state = ThermalControlState::Critical {
-            values,
-            start_time: now_ms,
-        };
+        self.state = ThermalControlState::Critical { start_time: now_ms };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
         if self.overheat_timer.is_none() {
             self.overheat_timer = Some(OverheatTimer {
@@ -1548,13 +1340,9 @@ impl<'a> ThermalControl<'a> {
     /// Transition the control state to `FanParty` (from `Critical`), in
     /// response to all component temperatures dropping below their critical
     /// thresholds.
-    fn transition_to_fan_party(
-        &mut self,
-        now_ms: u64,
-        values: TemperatureArray,
-    ) -> ControlResult {
+    fn transition_to_fan_party(&mut self, now_ms: u64) -> ControlResult {
         self.record_leaving_critical(now_ms);
-        self.state = ThermalControlState::FanParty { values };
+        self.state = ThermalControlState::FanParty;
         ringbuf_entry!(Trace::AutoState(self.get_state()));
 
         // It's PARTY TIME!!!!
@@ -1598,8 +1386,8 @@ impl<'a> ThermalControl<'a> {
         self.record_leaving_critical(now_ms);
         self.record_leaving_overheat(now_ms);
 
-        let values = self.state.reset_values();
-        self.state = ThermalControlState::Uncontrollable(values);
+        self.bsp.reset_all_values();
+        self.state = ThermalControlState::Uncontrollable;
         ringbuf_entry!(Trace::AutoState(self.get_state()));
 
         ControlResult::PowerDown
@@ -1678,25 +1466,7 @@ impl<'a> ThermalControl<'a> {
             }
         };
         self.last_pwm = pwm;
-        let mut last_err = Ok(());
-        for (index, sensor_id) in self.fans.enumerate() {
-            // If a fan is missing, keep its PWM signal low
-            let pwm = match sensor_id {
-                Some(_) => pwm,
-                None => PWMDuty(0),
-            };
-            if let Err(e) = self
-                .bsp
-                .fan_control(Fan::from(index))
-                .map_err(ThermalError::from)
-                .and_then(|fan| {
-                    fan.set_pwm(pwm).map_err(|_| ThermalError::DeviceError)
-                })
-            {
-                last_err = Err(e);
-            }
-        }
-        last_err
+        self.bsp.set_all_fan_rpms(pwm)
     }
 
     /// Attempts to set the PWM of every fan to whatever the previous value was.
@@ -1711,26 +1481,18 @@ impl<'a> ThermalControl<'a> {
         &mut self,
         wd: I2cWatchdog,
     ) -> Result<(), ThermalError> {
-        let mut result = Ok(());
-
-        self.bsp.for_each_fctrl(|fctrl| {
-            if fctrl.set_watchdog(wd).is_err() {
-                result = Err(ThermalError::DeviceError);
-            }
-        })?;
-
-        result
+        self.bsp.set_all_watchdogs(wd)
     }
 
     pub fn get_state(&self) -> ThermalAutoState {
         match self.state {
-            ThermalControlState::Boot { .. } => ThermalAutoState::Boot,
+            ThermalControlState::Boot => ThermalAutoState::Boot,
             ThermalControlState::Running { .. } => ThermalAutoState::Running,
             ThermalControlState::Critical { .. } => ThermalAutoState::Critical,
-            ThermalControlState::Uncontrollable(..) => {
+            ThermalControlState::Uncontrollable => {
                 ThermalAutoState::Uncontrollable
             }
-            ThermalControlState::FanParty { .. } => ThermalAutoState::FanParty,
+            ThermalControlState::FanParty => ThermalAutoState::FanParty,
         }
     }
 
@@ -1739,16 +1501,15 @@ impl<'a> ThermalControl<'a> {
         index: usize,
         model: ThermalProperties,
     ) -> Result<(), ThermalError> {
-        #[allow(clippy::absurd_extreme_comparisons)]
-        if index >= bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS {
-            return Err(ThermalError::InvalidIndex);
-        }
         // If we're adding a new dynamic input, then reset the state to `Boot`,
         // ensuring that we'll wait for that channel to provide us with at least
         // one valid reading before resuming the PID loop.
-        if self.dynamic_inputs[index].is_none() {
+        //
+        // TODO(AJM): We just ignore it if there was already a dynamic input
+        // there already?
+        let is_new = self.bsp.update_dynamic_input(index, model)?;
+        if is_new {
             ringbuf_entry!(Trace::AddedDynamicInput(index));
-            self.dynamic_inputs[index] = Some(DynamicInputChannel { model });
             self.reset_state();
         }
         Ok(())
@@ -1758,20 +1519,74 @@ impl<'a> ThermalControl<'a> {
         &mut self,
         index: usize,
     ) -> Result<(), ThermalError> {
-        #[allow(clippy::absurd_extreme_comparisons)]
-        if index >= bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS {
-            Err(ThermalError::InvalidIndex)
-        } else {
-            ringbuf_entry!(Trace::RemovedDynamicInput(index));
-            self.dynamic_inputs[index] = None;
+        let sensor_id = self.bsp.remove_dynamic_input(index)?;
+        ringbuf_entry!(Trace::RemovedDynamicInput(index));
 
-            // Post this reading to the sensors task as well
-            let sensor_id = self.bsp.dynamic_inputs[index];
-            self.sensor_api.nodata_now(
-                sensor_id,
-                task_sensor_api::NoData::DeviceNotPresent,
-            );
-            Ok(())
-        }
+        // Post this reading to the sensors task as well
+        self.sensor_api
+            .nodata_now(sensor_id, task_sensor_api::NoData::DeviceNotPresent);
+        Ok(())
     }
+}
+
+pub trait BspInterface {
+    const PID_CONFIG: PidConfig;
+
+    fn power_down(&self) -> Result<(), crate::SeqError>;
+
+    fn power_mode(&self) -> PowerBitmask;
+
+    fn read_fan_presence(
+        &mut self,
+    ) -> Result<impl Iterator<Item = FanPresence>, crate::SeqError>;
+
+    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading>;
+
+    fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor>;
+
+    fn inputs_mut(&mut self) -> impl Iterator<Item = &mut InputChannel>;
+
+    // TODO: This probably needs to exist, but for cosmo we have no dynamic
+    // inputs to read back. This should read from the api and store the state
+    fn read_dynamic_inputs_back_from_sensor_api(
+        &mut self,
+        sensor_api: &task_sensor_api::Sensor,
+    );
+
+    // returns Ok(true) if this was a new input
+    fn update_dynamic_input(
+        &mut self,
+        index: usize,
+        model: ThermalProperties,
+    ) -> Result<bool, ThermalError>;
+
+    // sets last_reading to Some(Missing), returns sensor id
+    fn remove_dynamic_input(
+        &mut self,
+        index: usize,
+    ) -> Result<SensorId, ThermalError>;
+
+    fn all_inputs_present(&self) -> bool;
+
+    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
+    // Inputs and Dynamic Inputs that are missing will be skipped.
+    fn all_inputs_allow_missing(&self)
+    -> impl Iterator<Item = InputStatus<'_>>;
+
+    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
+    // All inputs MUST have a previous reading or this will panic, though the
+    // readings may be allowed to be Missing if the model allows it. Dynamic
+    // inputs that are not present will be skipped.
+    fn all_inputs(&self) -> impl Iterator<Item = InputStatus<'_>>;
+
+    fn reset_all_values(&mut self);
+
+    fn set_all_watchdogs(
+        &mut self,
+        watchdog: I2cWatchdog,
+    ) -> Result<(), ThermalError>;
+
+    // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
+    // even if some fail. return the LAST error if any.
+    fn set_all_fan_rpms(&mut self, duty: PWMDuty) -> Result<(), ThermalError>;
 }

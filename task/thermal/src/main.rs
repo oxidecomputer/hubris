@@ -64,17 +64,6 @@ use userlib::{
     units::{Celsius, PWMDuty},
 };
 
-// We define our own Fan type, as we may have more fans than any single
-// controller supports.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Fan(u8);
-
-impl From<usize> for Fan {
-    fn from(index: usize) -> Self {
-        Fan(index as u8)
-    }
-}
-
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
@@ -152,8 +141,8 @@ enum Trace {
         remaining: usize,
     },
     FanPresenceUpdateFailed(SeqError),
-    FanAdded(Fan),
-    FanRemoved(Fan),
+    FanAdded(u8),
+    FanRemoved(u8),
     PowerDownAt(u64),
     AddedDynamicInput(usize),
     RemovedDynamicInput(usize),
@@ -164,16 +153,16 @@ counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-struct ServerImpl<'a> {
+struct ServerImpl<'a, B: control::BspInterface> {
     mode: ThermalMode,
-    control: ThermalControl<'a>,
+    control: ThermalControl<'a, B>,
     deadline: u64,
     runtime: u64,
 }
 
 const TIMER_INTERVAL: u64 = 1000;
 
-impl<'a> ServerImpl<'a> {
+impl<'a, B: control::BspInterface> ServerImpl<'a, B> {
     /// Configures the control loop to run in manual mode, loading the given
     /// PWM value immediately to all fans.
     ///
@@ -214,7 +203,9 @@ impl<'a> ServerImpl<'a> {
     }
 }
 
-impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
+impl<'a, B: control::BspInterface> idl::InOrderThermalImpl
+    for ServerImpl<'a, B>
+{
     fn get_mode(
         &mut self,
         _: &RecvMessage,
@@ -344,7 +335,7 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
     }
 }
 
-impl<'a> NotificationHandler for ServerImpl<'a> {
+impl<'a, B: control::BspInterface> NotificationHandler for ServerImpl<'a, B> {
     fn current_notification_mask(&self) -> u32 {
         notifications::TIMER_MASK
     }

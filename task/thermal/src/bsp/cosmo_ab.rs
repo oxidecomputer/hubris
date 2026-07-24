@@ -6,16 +6,21 @@
 
 use crate::{
     control::{
-        ChannelType, ControllerInitError, Device, FanControl, Fans,
-        InputChannel, Max31790State, PidConfig, TemperatureSensor,
+        ChannelType, Device, FanPresence, FanReading, InputChannel,
+        InputChannelMetadata, InputStatus, Max31790State, PidConfig,
+        TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
 pub use drv_cpu_seq_api::SeqError;
 use drv_cpu_seq_api::{PowerState, Sequencer, StateChangeReason};
-use task_sensor_api::SensorId;
-use task_thermal_api::ThermalProperties;
-use userlib::{TaskId, UnwrapLite, task_slot, units::Celsius};
+use drv_i2c_devices::max31790::I2cWatchdog;
+use task_sensor_api::{Sensor, SensorId};
+use task_thermal_api::{SensorReadError, ThermalError, ThermalProperties};
+use userlib::{
+    TaskId, UnwrapLite, task_slot,
+    units::{Celsius, PWMDuty},
+};
 
 task_slot!(SEQ, cosmo_seq);
 
@@ -28,35 +33,33 @@ const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
 
 // The control loop is driven by CPU, NIC, and BMC temperatures
 // XXX we should also monitor DIMM temperatures here
-pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
+const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
     + sensors::NUM_TMP451_TEMPERATURE_SENSORS
     + NUM_NVME_BMC_TEMPERATURE_SENSORS;
 
-// Every temperature sensor on Cosmo is owned by this task
-pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 0;
-
 // We've got 6 fans, driven from a single MAX31790 IC
-pub const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
+const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
 
 /// This controller is tuned and ready to go
 pub const USE_CONTROLLER: bool = true;
 
 pub(crate) struct Bsp {
     /// Controlled sensors
-    pub inputs: &'static [InputChannel; NUM_TEMPERATURE_INPUTS],
-    pub dynamic_inputs: &'static [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS],
+    inputs: &'static mut [InputChannel; NUM_TEMPERATURE_INPUTS],
 
     /// Monitored sensors
-    pub misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
+    misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
+
+    fans_added: bool,
+
+    /// Fans
+    fans: &'static mut [Fan; NUM_FANS],
 
     /// Fan control IC
     fctrl: Max31790State,
 
     /// Handle to the sequencer task, to query power state
     seq: Sequencer,
-
-    /// Tuning for the PID controller
-    pub pid_config: PidConfig,
 }
 
 bitflags::bitflags! {
@@ -73,24 +76,18 @@ bitflags::bitflags! {
     }
 }
 
-impl Bsp {
-    pub fn fan_control(
-        &mut self,
-        fan: crate::Fan,
-    ) -> Result<FanControl<'_>, ControllerInitError> {
-        let fctrl = self.fctrl.try_initialize()?;
-        Ok(FanControl::Max31790(fctrl, fan.0.try_into().unwrap_lite()))
-    }
+impl crate::control::BspInterface for Bsp {
+    // Based on experimental tuning!
+    const PID_CONFIG: PidConfig = PidConfig {
+        zero: 35.0,
+        gain_p: 5.0,
+        gain_i: 0.0135,
+        gain_d: 5.0,
+        min_output: 0.0,
+        max_output: 100.0,
+    };
 
-    pub fn for_each_fctrl(
-        &mut self,
-        mut fctrl: impl FnMut(FanControl<'_>),
-    ) -> Result<(), ControllerInitError> {
-        fctrl(self.fan_control(0.into())?);
-        Ok(())
-    }
-
-    pub fn power_down(&self) -> Result<(), SeqError> {
+    fn power_down(&self) -> Result<(), SeqError> {
         self.seq.set_state_with_reason(
             PowerState::A2,
             StateChangeReason::Overheat,
@@ -98,7 +95,7 @@ impl Bsp {
         Ok(())
     }
 
-    pub fn power_mode(&self) -> PowerBitmask {
+    fn power_mode(&self) -> PowerBitmask {
         match self.seq.get_state() {
             PowerState::A0PlusHP => PowerBitmask::A0_PLUS_HP,
             PowerState::A0 | PowerState::A0Reset => PowerBitmask::A0,
@@ -108,21 +105,148 @@ impl Bsp {
         }
     }
 
-    // We assume Cosmo fan presence cannot change
-    pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
-        // Awkwardly build the fan array, because there's not a great way to
-        // build a fixed-size array from a function
-        let mut fans = Fans::new();
-        for i in 0..NUM_FANS {
-            fans[i] = Some(sensors::MAX31790_SPEED_SENSORS[i]);
+    fn read_fan_presence(
+        &mut self,
+    ) -> Result<impl Iterator<Item = FanPresence>, SeqError> {
+        let report_new = !self.fans_added;
+        self.fans_added = true;
+        Ok(self.fans.iter().map(move |f| FanPresence::Present {
+            fan_id: f.bsp_data.into(),
+            new: report_new,
+        }))
+    }
+
+    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading> {
+        // Try to initialize the fan controller once at the start of the loop
+        let mut fctrl =
+            self.fctrl.try_initialize().map_err(SensorReadError::from);
+
+        // TODO: Maybe there's a way to make this a method on Fan that we can
+        // call, kind of like InputStatus?
+        self.fans.iter_mut().map(move |f| {
+            // If initialization failed, then we short circuit to return that
+            // original error, copied for each fan we're going to report.
+            let fctrl = fctrl.as_mut().map_err(|e| *e);
+
+            // If it was a success, attempt to read the RPMs, and either report
+            // that success or that error for each fan rpm.
+            let res = fctrl.and_then(|fc| {
+                fc.fan_rpm(f.bsp_data).map_err(SensorReadError::I2cError)
+            });
+            match res {
+                Ok(rpm) => {
+                    f.last_reading = Some(rpm);
+                    FanReading::PresentSuccess {
+                        rpm,
+                        sensor_id: f.rpm_sensor_id,
+                    }
+                }
+                Err(error) => {
+                    f.last_reading = None;
+                    FanReading::PresentError {
+                        error,
+                        sensor_id: f.rpm_sensor_id,
+                    }
+                }
+            }
+        })
+    }
+
+    fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor> {
+        self.misc_sensors.iter()
+    }
+
+    fn inputs_mut(&mut self) -> impl Iterator<Item = &mut InputChannel> {
+        self.inputs.iter_mut()
+    }
+
+    // TODO: This probably needs to exist, but for cosmo we have no dynamic
+    // inputs to read back. This should read from the api and store the state
+    fn read_dynamic_inputs_back_from_sensor_api(
+        &mut self,
+        _sensor_api: &Sensor,
+    ) {
+        // No dynamic inputs here
+    }
+
+    // returns Ok(true) if this was a new input
+    fn update_dynamic_input(
+        &mut self,
+        _index: usize,
+        _model: ThermalProperties,
+    ) -> Result<bool, ThermalError> {
+        // No dynamic inputs here, todo: static assert this
+        Err(ThermalError::InvalidIndex)
+    }
+
+    // sets last_reading to Some(Missing), returns sensor id
+    fn remove_dynamic_input(
+        &mut self,
+        _index: usize,
+    ) -> Result<SensorId, ThermalError> {
+        // No dynamic inputs here, todo: static assert this
+        Err(ThermalError::InvalidIndex)
+    }
+
+    fn all_inputs_present(&self) -> bool {
+        self.inputs.iter().all(InputChannel::has_reading)
+        // && self.dynamic_inputs...
+    }
+
+    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
+    // Inputs and Dynamic Inputs that are missing will be skipped.
+    fn all_inputs_allow_missing(
+        &self,
+    ) -> impl Iterator<Item = InputStatus<'_>> {
+        self.inputs.iter().filter_map(InputChannel::status)
+        // .zip(self.dynamic_inputs...)
+    }
+
+    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
+    // All inputs MUST have a previous reading or this will panic, though the
+    // readings may be allowed to be Missing if the model allows it. Dynamic
+    // inputs that are not present will be skipped.
+    fn all_inputs(&self) -> impl Iterator<Item = InputStatus<'_>> {
+        self.inputs.iter().map(|input| input.status().unwrap_lite())
+        // .zip(self.dynamic_inputs...)
+    }
+
+    fn reset_all_values(&mut self) {
+        self.inputs.iter_mut().for_each(|i| i.reset_value());
+        // self.dynamic_inputs...
+    }
+
+    fn set_all_watchdogs(
+        &mut self,
+        watchdog: I2cWatchdog,
+    ) -> Result<(), ThermalError> {
+        // Only one watchdog to configure here!
+        self.fctrl
+            .try_initialize()?
+            .set_watchdog(watchdog)
+            .map_err(|_| ThermalError::DeviceError)
+    }
+
+    // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
+    // even if some fail. return the LAST error if any.
+    fn set_all_fan_rpms(&mut self, duty: PWMDuty) -> Result<(), ThermalError> {
+        let fctrl = self.fctrl.try_initialize()?;
+        let mut any_err = false;
+
+        // Note: DON'T short circuit here!
+        for fan in self.fans.iter_mut() {
+            any_err |= fctrl.set_pwm(fan.bsp_data, duty).is_err();
         }
-        Ok(fans)
-    }
 
-    pub fn fan_sensor_id(&self, i: usize) -> SensorId {
-        sensors::MAX31790_SPEED_SENSORS[i]
+        if any_err {
+            Err(ThermalError::DeviceError)
+        } else {
+            Ok(())
+        }
     }
+}
 
+impl Bsp {
     pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
         let fctrl = Max31790State::new(&devices::max31790(i2c_task)[0]);
@@ -130,22 +254,20 @@ impl Bsp {
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());
 
+        static INPUTS_ONCE: static_cell::ClaimOnceCell<
+            [InputChannel; NUM_TEMPERATURE_INPUTS],
+        > = static_cell::ClaimOnceCell::new(INPUTS);
+
+        static FANS_ONCE: static_cell::ClaimOnceCell<[Fan; NUM_FANS]> =
+            static_cell::ClaimOnceCell::new(FANS);
+
         Self {
             seq,
             fctrl,
 
-            // Based on experimental tuning!
-            pid_config: PidConfig {
-                zero: 35.0,
-                gain_p: 5.0,
-                gain_i: 0.0135,
-                gain_d: 5.0,
-                min_output: 0.0,
-                max_output: 100.0,
-            },
-
-            inputs: &INPUTS,
-            dynamic_inputs: &[],
+            inputs: INPUTS_ONCE.claim(),
+            fans: FANS_ONCE.claim(),
+            fans_added: false,
 
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,
@@ -201,8 +323,37 @@ const T6_THERMALS: ThermalProperties = ThermalProperties {
     temperature_slew_deg_per_sec: 0.5,
 };
 
+// Our "bonus data" is a u8 that represents the fan's index in the i2c register
+type Fan = crate::control::Fan<drv_i2c_devices::max31790::Fan>;
+const FANS: [Fan; NUM_FANS] = [
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[0],
+        drv_i2c_devices::max31790::Fan::new_const(0),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[1],
+        drv_i2c_devices::max31790::Fan::new_const(1),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[2],
+        drv_i2c_devices::max31790::Fan::new_const(2),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[3],
+        drv_i2c_devices::max31790::Fan::new_const(3),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[4],
+        drv_i2c_devices::max31790::Fan::new_const(4),
+    ),
+    Fan::new(
+        sensors::MAX31790_SPEED_SENSORS[5],
+        drv_i2c_devices::max31790::Fan::new_const(5),
+    ),
+];
+
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
-    InputChannel::new(
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_a,
@@ -211,8 +362,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         M2_THERMALS,
         PowerBitmask::A0,
         ChannelType::Removable,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_b,
@@ -221,8 +372,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         M2_THERMALS,
         PowerBitmask::A0,
         ChannelType::Removable,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::CPU,
             devices::sbtsi_cpu,
@@ -231,8 +382,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         CPU_THERMALS,
         PowerBitmask::A0,
         ChannelType::MustBePresent,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::Tmp451(drv_i2c_devices::tmp451::Target::Remote),
             devices::tmp451_t6,
@@ -243,9 +394,9 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         // controlled by the host OS.
         PowerBitmask::T6,
         ChannelType::MustBePresent,
-    ),
+    )),
     // U.2 drives
-    InputChannel::new(
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n0,
@@ -254,8 +405,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n1,
@@ -264,8 +415,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n2,
@@ -274,8 +425,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n3,
@@ -284,8 +435,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n4,
@@ -294,8 +445,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n5,
@@ -304,8 +455,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n6,
@@ -314,8 +465,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n7,
@@ -324,8 +475,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n8,
@@ -334,8 +485,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::U2,
             devices::nvme_bmc_u2_n9,
@@ -344,7 +495,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         U2_THERMALS,
         PowerBitmask::A0,
         ChannelType::RemovableAndErrorProne,
-    ),
+    )),
 ];
 
 const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [
