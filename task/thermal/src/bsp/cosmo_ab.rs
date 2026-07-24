@@ -60,9 +60,6 @@ pub(crate) struct Bsp {
 
     /// Handle to the sequencer task, to query power state
     seq: Sequencer,
-
-    /// Tuning for the PID controller
-    pub pid_config: PidConfig,
 }
 
 bitflags::bitflags! {
@@ -79,8 +76,18 @@ bitflags::bitflags! {
     }
 }
 
-impl Bsp {
-    pub fn power_down(&self) -> Result<(), SeqError> {
+impl crate::control::BspInterface for Bsp {
+    // Based on experimental tuning!
+    const PID_CONFIG: PidConfig = PidConfig {
+        zero: 35.0,
+        gain_p: 5.0,
+        gain_i: 0.0135,
+        gain_d: 5.0,
+        min_output: 0.0,
+        max_output: 100.0,
+    };
+
+    fn power_down(&self) -> Result<(), SeqError> {
         self.seq.set_state_with_reason(
             PowerState::A2,
             StateChangeReason::Overheat,
@@ -88,7 +95,7 @@ impl Bsp {
         Ok(())
     }
 
-    pub fn power_mode(&self) -> PowerBitmask {
+    fn power_mode(&self) -> PowerBitmask {
         match self.seq.get_state() {
             PowerState::A0PlusHP => PowerBitmask::A0_PLUS_HP,
             PowerState::A0 | PowerState::A0Reset => PowerBitmask::A0,
@@ -98,7 +105,7 @@ impl Bsp {
         }
     }
 
-    pub fn read_fan_presence(
+    fn read_fan_presence(
         &mut self,
     ) -> Result<impl Iterator<Item = FanPresence>, SeqError> {
         let report_new = !self.fans_added;
@@ -109,7 +116,7 @@ impl Bsp {
         }))
     }
 
-    pub fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading> {
+    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading> {
         // Try to initialize the fan controller once at the start of the loop
         let mut fctrl =
             self.fctrl.try_initialize().map_err(SensorReadError::from);
@@ -145,17 +152,17 @@ impl Bsp {
         })
     }
 
-    pub fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor> {
+    fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor> {
         self.misc_sensors.iter()
     }
 
-    pub fn inputs_mut(&mut self) -> impl Iterator<Item = &mut InputChannel> {
+    fn inputs_mut(&mut self) -> impl Iterator<Item = &mut InputChannel> {
         self.inputs.iter_mut()
     }
 
     // TODO: This probably needs to exist, but for cosmo we have no dynamic
     // inputs to read back. This should read from the api and store the state
-    pub fn read_dynamic_inputs_back_from_sensor_api(
+    fn read_dynamic_inputs_back_from_sensor_api(
         &mut self,
         _sensor_api: &Sensor,
     ) {
@@ -163,7 +170,7 @@ impl Bsp {
     }
 
     // returns Ok(true) if this was a new input
-    pub fn update_dynamic_input(
+    fn update_dynamic_input(
         &mut self,
         _index: usize,
         _model: ThermalProperties,
@@ -173,7 +180,7 @@ impl Bsp {
     }
 
     // sets last_reading to Some(Missing), returns sensor id
-    pub fn remove_dynamic_input(
+    fn remove_dynamic_input(
         &mut self,
         _index: usize,
     ) -> Result<SensorId, ThermalError> {
@@ -181,14 +188,14 @@ impl Bsp {
         Err(ThermalError::InvalidIndex)
     }
 
-    pub fn all_inputs_present(&self) -> bool {
+    fn all_inputs_present(&self) -> bool {
         self.inputs.iter().all(InputChannel::has_reading)
         // && self.dynamic_inputs...
     }
 
     // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
     // Inputs and Dynamic Inputs that are missing will be skipped.
-    pub fn all_inputs_allow_missing(
+    fn all_inputs_allow_missing(
         &self,
     ) -> impl Iterator<Item = InputStatus<'_>> {
         self.inputs.iter().filter_map(InputChannel::status)
@@ -199,17 +206,17 @@ impl Bsp {
     // All inputs MUST have a previous reading or this will panic, though the
     // readings may be allowed to be Missing if the model allows it. Dynamic
     // inputs that are not present will be skipped.
-    pub fn all_inputs(&self) -> impl Iterator<Item = InputStatus<'_>> {
+    fn all_inputs(&self) -> impl Iterator<Item = InputStatus<'_>> {
         self.inputs.iter().map(|input| input.status().unwrap_lite())
         // .zip(self.dynamic_inputs...)
     }
 
-    pub fn reset_all_values(&mut self) {
+    fn reset_all_values(&mut self) {
         self.inputs.iter_mut().for_each(|i| i.reset_value());
         // self.dynamic_inputs...
     }
 
-    pub fn set_all_watchdogs(
+    fn set_all_watchdogs(
         &mut self,
         watchdog: I2cWatchdog,
     ) -> Result<(), ThermalError> {
@@ -222,10 +229,7 @@ impl Bsp {
 
     // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
     // even if some fail. return the LAST error if any.
-    pub fn set_all_fan_rpms(
-        &mut self,
-        duty: PWMDuty,
-    ) -> Result<(), ThermalError> {
+    fn set_all_fan_rpms(&mut self, duty: PWMDuty) -> Result<(), ThermalError> {
         let fctrl = self.fctrl.try_initialize()?;
         let mut any_err = false;
 
@@ -240,7 +244,9 @@ impl Bsp {
             Ok(())
         }
     }
+}
 
+impl Bsp {
     pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
         let fctrl = Max31790State::new(&devices::max31790(i2c_task)[0]);
@@ -258,16 +264,6 @@ impl Bsp {
         Self {
             seq,
             fctrl,
-
-            // Based on experimental tuning!
-            pid_config: PidConfig {
-                zero: 35.0,
-                gain_p: 5.0,
-                gain_i: 0.0135,
-                gain_d: 5.0,
-                min_output: 0.0,
-                max_output: 100.0,
-            },
 
             inputs: INPUTS_ONCE.claim(),
             fans: FANS_ONCE.claim(),

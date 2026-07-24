@@ -2,10 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{
-    ThermalError, Trace,
-    bsp::{Bsp, PowerBitmask},
-};
+use crate::{ThermalError, Trace, bsp::PowerBitmask};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
     TempSensor,
@@ -553,9 +550,9 @@ impl From<ControllerInitError> for SensorReadError {
 /// This object uses slices of sensors and fans, which must be owned
 /// elsewhere; the standard pattern is to create static arrays in a
 /// `struct Bsp` which is conditionally included based on board name.
-pub(crate) struct ThermalControl<'a> {
+pub(crate) struct ThermalControl<'a, B: BspInterface> {
     /// Reference to board-specific parameters
-    bsp: &'a mut Bsp,
+    bsp: &'a mut B,
 
     /// I2C task
     i2c_task: TaskId,
@@ -880,7 +877,7 @@ struct OverheatTimer {
     critical_ms: u64,
 }
 
-impl<'a> ThermalControl<'a> {
+impl<'a, B: BspInterface> ThermalControl<'a, B> {
     /// Constructs a new `ThermalControl` based on a `struct Bsp`. This
     /// requires that every BSP has the same internal structure,
     ///
@@ -888,7 +885,7 @@ impl<'a> ThermalControl<'a> {
     /// This function can only be called once, because it claims mutable static
     /// buffers.
     pub fn new(
-        bsp: &'a mut Bsp,
+        bsp: &'a mut B,
         i2c_task: TaskId,
         sensor_api: SensorApi,
     ) -> Self {
@@ -899,7 +896,6 @@ impl<'a> ThermalControl<'a> {
                 ClaimOnceCell::new([ThermalSensorErrors::new(); 2]);
             BLACKBOXEN.claim()
         };
-        let pid_config = bsp.pid_config;
 
         Self {
             bsp,
@@ -907,7 +903,7 @@ impl<'a> ThermalControl<'a> {
             sensor_api,
             target_margin: Celsius(0.0f32),
             state: ThermalControlState::Boot,
-            pid_config,
+            pid_config: B::PID_CONFIG,
 
             power_mode: PowerBitmask::empty(), // no sensors active
 
@@ -971,7 +967,7 @@ impl<'a> ThermalControl<'a> {
         self.reset_state();
 
         // Reset the PID configuration from the BSP
-        self.pid_config = self.bsp.pid_config;
+        self.pid_config = B::PID_CONFIG;
 
         // Set the target_margin to 0, indicating no overcooling
         self.target_margin = Celsius(0.0f32);
@@ -1531,4 +1527,66 @@ impl<'a> ThermalControl<'a> {
             .nodata_now(sensor_id, task_sensor_api::NoData::DeviceNotPresent);
         Ok(())
     }
+}
+
+pub trait BspInterface {
+    const PID_CONFIG: PidConfig;
+
+    fn power_down(&self) -> Result<(), crate::SeqError>;
+
+    fn power_mode(&self) -> PowerBitmask;
+
+    fn read_fan_presence(
+        &mut self,
+    ) -> Result<impl Iterator<Item = FanPresence>, crate::SeqError>;
+
+    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading>;
+
+    fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor>;
+
+    fn inputs_mut(&mut self) -> impl Iterator<Item = &mut InputChannel>;
+
+    // TODO: This probably needs to exist, but for cosmo we have no dynamic
+    // inputs to read back. This should read from the api and store the state
+    fn read_dynamic_inputs_back_from_sensor_api(
+        &mut self,
+        sensor_api: &task_sensor_api::Sensor,
+    );
+
+    // returns Ok(true) if this was a new input
+    fn update_dynamic_input(
+        &mut self,
+        index: usize,
+        model: ThermalProperties,
+    ) -> Result<bool, ThermalError>;
+
+    // sets last_reading to Some(Missing), returns sensor id
+    fn remove_dynamic_input(
+        &mut self,
+        index: usize,
+    ) -> Result<SensorId, ThermalError>;
+
+    fn all_inputs_present(&self) -> bool;
+
+    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
+    // Inputs and Dynamic Inputs that are missing will be skipped.
+    fn all_inputs_allow_missing(&self)
+    -> impl Iterator<Item = InputStatus<'_>>;
+
+    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
+    // All inputs MUST have a previous reading or this will panic, though the
+    // readings may be allowed to be Missing if the model allows it. Dynamic
+    // inputs that are not present will be skipped.
+    fn all_inputs(&self) -> impl Iterator<Item = InputStatus<'_>>;
+
+    fn reset_all_values(&mut self);
+
+    fn set_all_watchdogs(
+        &mut self,
+        watchdog: I2cWatchdog,
+    ) -> Result<(), ThermalError>;
+
+    // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
+    // even if some fail. return the LAST error if any.
+    fn set_all_fan_rpms(&mut self, duty: PWMDuty) -> Result<(), ThermalError>;
 }
