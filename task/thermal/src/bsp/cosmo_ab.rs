@@ -6,9 +6,8 @@
 
 use crate::{
     control::{
-        ChannelType, Device, FanPresence, FanReading, InputChannel,
-        InputChannelMetadata, InputReadingOutcome, InputStatus, Max31790State,
-        PidConfig, TemperatureSensor,
+        ChannelType, FanPresence, FanReading, InputReadingOutcome, InputStatus,
+        Max31790State, PidConfig,
     },
     i2c_config::{devices, sensors},
 };
@@ -20,6 +19,13 @@ use task_thermal_api::{SensorReadError, ThermalError, ThermalProperties};
 use userlib::{
     TaskId, UnwrapLite, task_slot,
     units::{Celsius, PWMDuty},
+};
+
+// This BSP uses i2c temperature inputs
+#[path = "./common/i2c_temp_input.rs"]
+mod i2c_temp_input;
+use i2c_temp_input::{
+    Device, InputChannel, InputChannelMetadata, TemperatureSensor,
 };
 
 task_slot!(SEQ, cosmo_seq);
@@ -160,10 +166,9 @@ impl crate::control::BspInterface for Bsp {
         &self,
     ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>
     {
-        self.misc_sensors.iter().map(|s| {
-            let res = s.read_temp(self.i2c_task);
-            (s.sensor_id, res)
-        })
+        self.misc_sensors
+            .iter()
+            .map(|s| (s.sensor_id, s.read_temp(self.i2c_task)))
     }
 
     fn read_inputs(

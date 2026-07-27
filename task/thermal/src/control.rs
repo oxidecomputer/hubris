@@ -3,84 +3,17 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{ThermalError, Trace, bsp::PowerBitmask};
-use drv_i2c_api::{I2cDevice, ResponseCode};
-use drv_i2c_devices::{
-    TempSensor,
-    emc2305::Emc2305,
-    max31790::{I2cWatchdog, Max31790},
-    nvme_bmc::NvmeBmc,
-    pct2075::Pct2075,
-    sbtsi::Sbtsi,
-    tmp117::Tmp117,
-    tmp451::Tmp451,
-    tse2004av::Tse2004Av,
-};
+use drv_i2c_devices::max31790::I2cWatchdog;
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_sensor_api::{NoData, Sensor as SensorApi, SensorError, SensorId};
+use task_sensor_api::{Sensor as SensorApi, SensorId};
 use task_thermal_api::{SensorReadError, ThermalAutoState, ThermalProperties};
 use userlib::{
-    TaskId, sys_get_timer,
+    sys_get_timer,
     units::{Celsius, PWMDuty, Rpm},
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-
-/// Type containing all of our temperature sensor types, so we can store them
-/// generically in an array.  These are all `I2cDevice`s, so functions on
-/// this `enum` return an `drv_i2c_api::ResponseCode`.
-#[allow(dead_code, clippy::upper_case_acronyms)]
-pub enum Device {
-    Tmp117,
-    Tmp451(drv_i2c_devices::tmp451::Target),
-    CPU,
-    Dimm,
-    U2,
-    M2,
-    LM75,
-}
-
-/// Represents a sensor in the system.
-///
-/// The sensor includes a device type, used to decide how to read it;
-/// a free function that returns the raw `I2cDevice`, so that this can be
-/// `const`); and the sensor ID, to post data to the `sensors` task.
-#[allow(dead_code)] // not all BSPS
-pub struct TemperatureSensor {
-    device: Device,
-    builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
-    pub sensor_id: SensorId,
-}
-
-impl TemperatureSensor {
-    #[allow(dead_code)] // not all BSPS
-    pub const fn new(
-        device: Device,
-        builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
-        sensor_id: SensorId,
-    ) -> Self {
-        Self {
-            device,
-            builder,
-            sensor_id,
-        }
-    }
-    pub fn read_temp(
-        &self,
-        i2c_task: TaskId,
-    ) -> Result<Celsius, SensorReadError> {
-        let dev = (self.builder)(i2c_task);
-        let t = match &self.device {
-            Device::Tmp117 => Tmp117::new(&dev).read_temperature()?,
-            Device::CPU => Sbtsi::new(&dev).read_temperature()?,
-            Device::Tmp451(t) => Tmp451::new(&dev, *t).read_temperature()?,
-            Device::Dimm => Tse2004Av::new(&dev).read_temperature()?,
-            Device::U2 | Device::M2 => NvmeBmc::new(&dev).read_temperature()?,
-            Device::LM75 => Pct2075::new(&dev).read_temperature()?,
-        };
-        Ok(t)
-    }
-}
 
 /// Represents the indvidual fans in the system
 ///
@@ -90,6 +23,8 @@ impl TemperatureSensor {
 /// fans which are not present and their PWM should only be driven low.
 pub struct Fan<D> {
     pub rpm_sensor_id: SensorId,
+    // TODO(AJM): Distinguish between "have never heard from" and "have heard
+    // from but has since gone missing"?
     pub last_reading: Option<Rpm>,
     pub bsp_data: D,
 }
@@ -132,27 +67,6 @@ pub enum FanReading {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-pub(crate) struct InputChannelMetadata {
-    /// Temperature sensor
-    sensor: TemperatureSensor,
-
-    /// Thermal properties of the associated component
-    model: ThermalProperties,
-
-    /// Mask with bits set based on the Bsp's `power_mode` bits
-    power_mode_mask: PowerBitmask,
-
-    /// Channel type
-    ty: ChannelType,
-}
-
-/// An `InputChannel` represents a temperature sensor associated with a
-/// particular component in the system.
-pub(crate) struct InputChannel {
-    metadata: &'static InputChannelMetadata,
-    last_reading: Option<TemperatureReading>,
-}
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[allow(dead_code)] // a typical BSP uses only a subset of these.
@@ -219,136 +133,6 @@ pub struct InputStatus<'a> {
     pub model: &'a ThermalProperties,
 }
 
-/// InputChannelMetadata is the constant description portion of an InputChannel.
-///
-/// We split it off because InputChannel is mutable to contain the last state,
-/// and if we left it inlined, then we would end up including all of this
-/// metadata in RAM, despite never changing it! So instead, we break it off and
-/// have InputChannel hold an `&'static` reference instead, so we only waste
-/// a wee little pointer (4 bytes) to flash space in each InputChannel entry,
-/// instead of (at the time of writing) 36 bytes, which for example in Cosmo
-/// that has 14 input channels, is over 500 bytes of RAM!
-impl InputChannelMetadata {
-    #[allow(dead_code)] // not all BSPS
-    pub const fn new(
-        sensor: TemperatureSensor,
-        model: ThermalProperties,
-        power_mode_mask: PowerBitmask,
-        ty: ChannelType,
-    ) -> Self {
-        Self {
-            sensor,
-            model,
-            power_mode_mask,
-            ty,
-        }
-    }
-}
-
-impl InputChannel {
-    #[allow(dead_code)] // not all BSPS
-    pub const fn new(metadata: &'static InputChannelMetadata) -> Self {
-        Self {
-            metadata,
-            last_reading: None,
-        }
-    }
-
-    pub fn has_reading(&self) -> bool {
-        self.last_reading.is_some()
-    }
-
-    /// Get current stored status.
-    ///
-    /// Returns None if we do not have a reading stored.
-    pub fn status(&self) -> Option<InputStatus<'_>> {
-        let reading = self.last_reading.as_ref()?;
-        Some(InputStatus {
-            id: self.metadata.sensor.sensor_id,
-            reading,
-            model: &self.metadata.model,
-        })
-    }
-
-    pub fn reset_value(&mut self) {
-        self.last_reading = None;
-    }
-
-    pub fn do_reading(
-        &mut self,
-        mode: PowerBitmask,
-        i2c_task: &TaskId,
-    ) -> InputReadingOutcome {
-        let id = self.metadata.sensor.sensor_id;
-
-        // If we're not supposed to be on, don't even ask.
-        if !mode.intersects(self.metadata.power_mode_mask) {
-            self.last_reading = Some(TemperatureReading::Inactive);
-            return InputReadingOutcome::Unpowered { id };
-        }
-
-        match self.metadata.sensor.read_temp(*i2c_task) {
-            Ok(value) => {
-                let now = sys_get_timer().now;
-                self.last_reading = Some(TemperatureReading::Valid(
-                    TimestampedTemperatureReading {
-                        time_ms: now,
-                        value,
-                    },
-                ));
-                InputReadingOutcome::Success { id, now, value }
-            }
-            Err(e) => {
-                // This is mimicing the old state value logic for deciding if
-                // we persist the data in `run_control`, that ONLY cleared the
-                // persisted value if:
-                //
-                // - The sensor is not present AND removable
-                // - The sensor is error prone
-                //
-                // Replicate that logic here, doing some type shenanigans
-                // because we aren't round-tripping through the Sensor API
-                // anymore.
-                let se = SensorError::from(NoData::from(e));
-                match (self.metadata.ty, se) {
-                    (ChannelType::Removable, SensorError::NotPresent) => {
-                        self.last_reading = Some(TemperatureReading::Inactive);
-                    }
-                    (ChannelType::RemovableAndErrorProne, _) => {
-                        self.last_reading = Some(TemperatureReading::Inactive);
-                    }
-                    _ => {
-                        // In all other cases, just leave whatever the last
-                        // present value was so that the state estimation
-                        // can continue estimating state.
-                    }
-                }
-
-                // This logic comes from what was done in `read_sensors`,
-                // which is only deciding whether it's worth logging about.
-                // In either case, it will push NoData to the sensor api.
-                //
-                // This is *not* the same logic that is used above to decide
-                // whether we clear the previous state or not, despite being
-                // *very* similar!
-                let removable = matches!(
-                    self.metadata.ty,
-                    ChannelType::Removable
-                        | ChannelType::RemovableAndErrorProne
-                );
-                let removed =
-                    e == SensorReadError::I2cError(ResponseCode::NoDevice);
-                let unexpected_failure = !(removable && removed);
-                if unexpected_failure {
-                    InputReadingOutcome::UnacceptableMissing { id, err: e }
-                } else {
-                    InputReadingOutcome::AcceptableMissing { id, err: e }
-                }
-            }
-        }
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 /// A `DynamicInputChannel` represents a temperature input channel with thermal
@@ -408,140 +192,33 @@ impl ThermalSensorErrors {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Tracks whether a MAX31790 fan controller has been initialized, and
-/// initializes it on demand when accessed, if necessary.
-///
-/// Because initializing the fan controller can fail due to a transient bus
-/// error, we don't panic if an initial attempt to initialize it as soon as the
-/// `thermal` task starts fails. Because the fan controller's I2C watchdog will
-/// simply run the fans at 100% if we aren't able to talk to it right away, the
-/// `thermal` task should keep running, publishing sensor measurements, and
-/// periodically trying to reach the fan controller until we're able to
-/// initialize it successfully. Thus, we wrap it in this struct to track whether
-/// it's been successfully initialized yet.
-pub(crate) struct Max31790State {
-    max31790: Max31790,
-    initialized: bool,
-}
+// /// Helper function to retry initialization several times, logging errors
+// pub(crate) fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(
+//     mut init: F,
+// ) {
+//     // When we first start up, try to initialize the fan controller a few
+//     // times, in case there's a transient I2C error.
+//     for remaining in (0..3).rev() {
+//         if init().is_ok() {
+//             break;
+//         }
+//         ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
+//     }
+// }
 
-impl Max31790State {
-    #[allow(dead_code)]
-    pub(crate) fn new(dev: &I2cDevice) -> Self {
-        let mut this = Self {
-            max31790: Max31790::new(dev),
-            initialized: false,
-        };
-        retry_init(|| this.initialize().map(|_| ()));
-        this
-    }
+// pub(crate) struct ControllerInitError(pub(crate) ResponseCode);
 
-    /// Access the fan controller, attempting to initialize it if it has not yet
-    /// been initialized.
-    #[inline]
-    #[allow(dead_code)]
-    pub(crate) fn try_initialize(
-        &mut self,
-    ) -> Result<&mut Max31790, ControllerInitError> {
-        if self.initialized {
-            return Ok(&mut self.max31790);
-        }
+// impl From<ControllerInitError> for ThermalError {
+//     fn from(_: ControllerInitError) -> Self {
+//         ThermalError::FanControllerUninitialized
+//     }
+// }
 
-        self.initialize()
-    }
-
-    // Slow path that actually performs initialization. This is "outlined" so
-    // that we can avoid pushing a stack frame in the case where we just need to
-    // check a bool and return a pointer.
-    #[inline(never)]
-    fn initialize(&mut self) -> Result<&mut Max31790, ControllerInitError> {
-        self.max31790.initialize().map_err(|e| {
-            ringbuf_entry!(Trace::FanControllerInitError(e));
-            ControllerInitError(e)
-        })?;
-
-        self.initialized = true;
-        ringbuf_entry!(Trace::FanControllerInitialized);
-        Ok(&mut self.max31790)
-    }
-}
-
-/// Tracks whether a EMC2305 fan controller has been initialized, and
-/// initializes it on demand when accessed, if necessary.
-///
-/// This is copy-pasted from [`Max31790`]
-pub(crate) struct Emc2305State {
-    emc2305: Emc2305,
-    fan_count: u8,
-    initialized: bool,
-}
-
-impl Emc2305State {
-    #[allow(dead_code)]
-    pub(crate) fn new(dev: &I2cDevice, fan_count: u8) -> Self {
-        let mut this = Self {
-            emc2305: Emc2305::new(dev),
-            fan_count,
-            initialized: false,
-        };
-        retry_init(|| this.initialize().map(|_| ()));
-        this
-    }
-
-    /// Access the fan controller, attempting to initialize it if it has not yet
-    /// been initialized.
-    #[inline]
-    #[allow(dead_code)]
-    pub(crate) fn try_initialize(
-        &mut self,
-    ) -> Result<&mut Emc2305, ControllerInitError> {
-        if self.initialized {
-            return Ok(&mut self.emc2305);
-        }
-
-        self.initialize()
-    }
-
-    // Slow path that actually performs initialization. This is "outlined" so
-    // that we can avoid pushing a stack frame in the case where we just need to
-    // check a bool and return a pointer.
-    #[inline(never)]
-    fn initialize(&mut self) -> Result<&mut Emc2305, ControllerInitError> {
-        self.emc2305.initialize(self.fan_count).map_err(|e| {
-            ringbuf_entry!(Trace::FanControllerInitError(e));
-            ControllerInitError(e)
-        })?;
-
-        self.initialized = true;
-        ringbuf_entry!(Trace::FanControllerInitialized);
-        Ok(&mut self.emc2305)
-    }
-}
-
-/// Helper function to retry initialization several times, logging errors
-fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(mut init: F) {
-    // When we first start up, try to initialize the fan controller a few
-    // times, in case there's a transient I2C error.
-    for remaining in (0..3).rev() {
-        if init().is_ok() {
-            break;
-        }
-        ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
-    }
-}
-
-pub(crate) struct ControllerInitError(ResponseCode);
-
-impl From<ControllerInitError> for ThermalError {
-    fn from(_: ControllerInitError) -> Self {
-        ThermalError::FanControllerUninitialized
-    }
-}
-
-impl From<ControllerInitError> for SensorReadError {
-    fn from(ControllerInitError(code): ControllerInitError) -> Self {
-        SensorReadError::I2cError(code)
-    }
-}
+// impl From<ControllerInitError> for SensorReadError {
+//     fn from(ControllerInitError(code): ControllerInitError) -> Self {
+//         SensorReadError::I2cError(code)
+//     }
+// }
 
 ////////////////////////////////////////////////////////////////////////////////
 
