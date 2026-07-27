@@ -7,6 +7,7 @@
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::max31790::Max31790;
 use ringbuf::ringbuf_entry;
+use task_sensor_api::SensorId;
 use task_thermal_api::{SensorReadError, ThermalError};
 
 use crate::{
@@ -136,4 +137,26 @@ impl From<ControllerInitError> for SensorReadError {
     fn from(ControllerInitError(code): ControllerInitError) -> Self {
         SensorReadError::I2cError(code)
     }
+}
+
+pub(crate) const fn make_consecutive_fans<const N: usize>(
+    sensors: &'static [SensorId; N],
+) -> [crate::control::Fan<drv_i2c_devices::max31790::Fan>; N] {
+    const ONE: crate::control::Fan<drv_i2c_devices::max31790::Fan> =
+        crate::control::Fan::new(
+            SensorId::new(0),
+            drv_i2c_devices::max31790::Fan::new_const(0),
+        );
+
+    let mut out = [ONE; N];
+    let mut idx = 0;
+    while idx < N {
+        out[idx] = crate::control::Fan::new(
+            sensors[idx],
+            drv_i2c_devices::max31790::Fan::new_const(idx as u8),
+        );
+        idx += 1;
+    }
+
+    out
 }

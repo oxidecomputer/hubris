@@ -313,32 +313,8 @@ const T6_THERMALS: ThermalProperties = ThermalProperties {
 
 // Our "bonus data" is a u8 that represents the fan's index in the i2c register
 type Fan = crate::control::Fan<drv_i2c_devices::max31790::Fan>;
-const FANS: [Fan; NUM_FANS] = [
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[0],
-        drv_i2c_devices::max31790::Fan::new_const(0),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[1],
-        drv_i2c_devices::max31790::Fan::new_const(1),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[2],
-        drv_i2c_devices::max31790::Fan::new_const(2),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[3],
-        drv_i2c_devices::max31790::Fan::new_const(3),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[4],
-        drv_i2c_devices::max31790::Fan::new_const(4),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[5],
-        drv_i2c_devices::max31790::Fan::new_const(5),
-    ),
-];
+const FANS: [Fan; NUM_FANS] =
+    max31790::make_consecutive_fans(&sensors::MAX31790_SPEED_SENSORS);
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(&InputChannelMetadata::new(
