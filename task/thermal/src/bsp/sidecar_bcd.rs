@@ -5,8 +5,8 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    ChannelType, FanPresence, FanReading, InputStatus, PidConfig,
-    TemperatureReading, TimestampedTemperatureReading,
+    ChannelType, FanPresence, InputStatus, PidConfig, TemperatureReading,
+    TimestampedTemperatureReading,
 };
 use crate::control::{DynamicInputChannel, FanStatus};
 use drv_i2c_devices::max31790::Max31790;
@@ -142,18 +142,13 @@ impl crate::control::BspInterface for Bsp {
             .enumerate()
             .map(|(fan_id, (present, c))| {
                 let fan_id = fan_id as u8;
-                let was = c.last_reading.is_some();
+                let was = c.is_present;
                 let new = was ^ present;
+                c.is_present = new;
 
                 if present {
-                    // If this fan *wasn't* here before, and *is* now, we
-                    // haven't polled it yet. Mark it as present but invalid.
-                    if c.last_reading.is_none() {
-                        c.last_reading = Some(FanReading::Invalid);
-                    }
                     FanPresence::Present { fan_id, new }
                 } else {
-                    c.last_reading = None;
                     FanPresence::NotPresent { fan_id, new }
                 }
             });
@@ -315,7 +310,7 @@ impl crate::control::BspInterface for Bsp {
         let mut any_err = false;
         let mut set_all = |fctrl: &mut Max31790, fans: &mut [Fan]| {
             for fan in fans.iter_mut() {
-                let val = if fan.last_reading.is_none() {
+                let val = if !fan.is_present {
                     userlib::units::PWMDuty(0)
                 } else {
                     duty

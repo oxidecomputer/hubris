@@ -24,14 +24,8 @@ use userlib::{
 #[allow(dead_code)] // Not all bsps have fans!
 pub struct Fan<D> {
     pub rpm_sensor_id: SensorId,
-    pub last_reading: Option<FanReading>,
+    pub is_present: bool,
     pub bsp_data: D,
-}
-
-#[allow(dead_code)] // Not all bsps have fans!
-pub enum FanReading {
-    Valid,
-    Invalid,
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
@@ -39,7 +33,7 @@ impl<D> Fan<D> {
     pub const fn new(rpm_sensor_id: SensorId, bsp_data: D) -> Self {
         Self {
             rpm_sensor_id,
-            last_reading: None,
+            is_present: false,
             bsp_data,
         }
     }

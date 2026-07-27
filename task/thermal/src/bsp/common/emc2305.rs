@@ -7,11 +7,12 @@
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::emc2305::Emc2305;
 use ringbuf::ringbuf_entry;
+use task_sensor_api::SensorId;
 use task_thermal_api::{SensorReadError, ThermalError};
 
 use crate::{
     __RINGBUF, Trace,
-    control::{Fan, FanReading, FanStatus},
+    control::{Fan, FanStatus},
 };
 
 /// Tracks whether a Emc2305 fan controller has been initialized, and
@@ -76,7 +77,7 @@ impl Emc2305State {
         // call, kind of like InputStatus?
         fans.iter_mut().map(move |f| {
             let sensor_id = f.rpm_sensor_id;
-            if f.last_reading.is_none() {
+            if !f.is_present {
                 return FanStatus::NotPresent { sensor_id };
             }
 
@@ -90,14 +91,8 @@ impl Emc2305State {
                 fc.fan_rpm(f.bsp_data).map_err(SensorReadError::I2cError)
             });
             match res {
-                Ok(rpm) => {
-                    f.last_reading = Some(FanReading::Valid);
-                    FanStatus::PresentSuccess { rpm, sensor_id }
-                }
-                Err(error) => {
-                    f.last_reading = Some(FanReading::Invalid);
-                    FanStatus::PresentError { error, sensor_id }
-                }
+                Ok(rpm) => FanStatus::PresentSuccess { rpm, sensor_id },
+                Err(error) => FanStatus::PresentError { error, sensor_id },
             }
         })
     }
@@ -129,4 +124,28 @@ impl From<ControllerInitError> for SensorReadError {
     fn from(ControllerInitError(code): ControllerInitError) -> Self {
         SensorReadError::I2cError(code)
     }
+}
+
+#[allow(dead_code)]
+pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
+    sensors: &'static [SensorId; N],
+) -> [crate::control::Fan<drv_i2c_devices::emc2305::Fan>; N] {
+    const ONE: crate::control::Fan<drv_i2c_devices::emc2305::Fan> =
+        crate::control::Fan::new(
+            SensorId::new(0),
+            drv_i2c_devices::emc2305::Fan::new_const(0),
+        );
+
+    let mut out = [ONE; N];
+    let mut idx = 0;
+    while idx < N {
+        out[idx] = crate::control::Fan::new(
+            sensors[idx],
+            drv_i2c_devices::emc2305::Fan::new_const(idx as u8),
+        );
+        out[idx].is_present = true;
+        idx += 1;
+    }
+
+    out
 }

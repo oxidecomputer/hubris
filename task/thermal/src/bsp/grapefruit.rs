@@ -222,24 +222,9 @@ impl Bsp {
 }
 
 type Fan = crate::control::Fan<drv_i2c_devices::emc2305::Fan>;
-const FANS: [Fan; NUM_FANS] = [
-    Fan::new(
-        sensors::EMC2305_SPEED_SENSORS[0],
-        drv_i2c_devices::emc2305::Fan::new_const(0),
-    ),
-    Fan::new(
-        sensors::EMC2305_SPEED_SENSORS[1],
-        drv_i2c_devices::emc2305::Fan::new_const(1),
-    ),
-    Fan::new(
-        sensors::EMC2305_SPEED_SENSORS[2],
-        drv_i2c_devices::emc2305::Fan::new_const(2),
-    ),
-    Fan::new(
-        sensors::EMC2305_SPEED_SENSORS[3],
-        drv_i2c_devices::emc2305::Fan::new_const(3),
-    ),
-];
+const FANS: [Fan; NUM_FANS] = emc2305::make_consecutive_nonremovable_fans(
+    &sensors::EMC2305_SPEED_SENSORS,
+);
 
 // This is completely made up!
 const LM75_THERMALS: ThermalProperties = ThermalProperties {

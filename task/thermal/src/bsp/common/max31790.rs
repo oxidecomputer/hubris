@@ -14,7 +14,7 @@ use crate::{
     // control::{ControllerInitError, retry_init},
     __RINGBUF,
     Trace,
-    control::{Fan, FanReading, FanStatus},
+    control::{Fan, FanStatus},
 };
 
 /// Tracks whether a MAX31790 fan controller has been initialized, and
@@ -84,7 +84,7 @@ impl Max31790State {
         // call, kind of like InputStatus?
         fans.iter_mut().map(move |f| {
             let sensor_id = f.rpm_sensor_id;
-            if f.last_reading.is_none() {
+            if !f.is_present {
                 return FanStatus::NotPresent { sensor_id };
             }
 
@@ -98,14 +98,8 @@ impl Max31790State {
                 fc.fan_rpm(f.bsp_data).map_err(SensorReadError::I2cError)
             });
             match res {
-                Ok(rpm) => {
-                    f.last_reading = Some(FanReading::Valid);
-                    FanStatus::PresentSuccess { rpm, sensor_id }
-                }
-                Err(error) => {
-                    f.last_reading = Some(FanReading::Invalid);
-                    FanStatus::PresentError { error, sensor_id }
-                }
+                Ok(rpm) => FanStatus::PresentSuccess { rpm, sensor_id },
+                Err(error) => FanStatus::PresentError { error, sensor_id },
             }
         })
     }
@@ -140,7 +134,7 @@ impl From<ControllerInitError> for SensorReadError {
 }
 
 #[allow(dead_code)]
-pub(crate) const fn make_consecutive_fans<const N: usize>(
+pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
     sensors: &'static [SensorId; N],
 ) -> [crate::control::Fan<drv_i2c_devices::max31790::Fan>; N] {
     const ONE: crate::control::Fan<drv_i2c_devices::max31790::Fan> =
@@ -156,6 +150,7 @@ pub(crate) const fn make_consecutive_fans<const N: usize>(
             sensors[idx],
             drv_i2c_devices::max31790::Fan::new_const(idx as u8),
         );
+        out[idx].is_present = true;
         idx += 1;
     }
 

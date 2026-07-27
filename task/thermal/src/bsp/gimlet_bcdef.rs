@@ -368,8 +368,9 @@ const T6_THERMALS: ThermalProperties = ThermalProperties {
 
 // Our "bonus data" is a u8 that represents the fan's index in the i2c register
 type Fan = crate::control::Fan<drv_i2c_devices::max31790::Fan>;
-const FANS: [Fan; NUM_FANS] =
-    max31790::make_consecutive_fans(&sensors::MAX31790_SPEED_SENSORS);
+const FANS: [Fan; NUM_FANS] = max31790::make_consecutive_nonremovable_fans(
+    &sensors::MAX31790_SPEED_SENSORS,
+);
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     // The M.2 devices are polled first deliberately: they're only polled if
