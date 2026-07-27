@@ -21,6 +21,7 @@ use userlib::{
 /// different ways. Not all fans are guaranteed to be there at all times so
 /// their corresponding sensor is an `Option`. We should not read the RPM of
 /// fans which are not present and their PWM should only be driven low.
+#[allow(dead_code)] // Not all bsps have fans!
 pub struct Fan<D> {
     pub rpm_sensor_id: SensorId,
     // TODO(AJM): Distinguish between "have never heard from" and "have heard
@@ -29,6 +30,7 @@ pub struct Fan<D> {
     pub bsp_data: D,
 }
 
+#[allow(dead_code)] // Not all bsps have fans!
 impl<D> Fan<D> {
     pub const fn new(rpm_sensor_id: SensorId, bsp_data: D) -> Self {
         Self {
@@ -39,6 +41,7 @@ impl<D> Fan<D> {
     }
 }
 
+#[allow(dead_code)] // Not all bsps have fans!
 pub enum FanPresence {
     Present {
         fan_id: u8,
@@ -51,6 +54,7 @@ pub enum FanPresence {
     },
 }
 
+#[allow(dead_code)] // Not all bsps have fans!
 pub enum FanReading {
     PresentSuccess {
         rpm: Rpm,
@@ -109,6 +113,7 @@ pub(crate) enum ChannelType {
 }
 
 /// The outcome of [`InputChannel::do_reading()`].
+#[allow(dead_code)] // Not all bsps have inputs!
 pub enum InputReadingOutcome {
     /// Sensor was not read because the power mode indicated that it would not
     /// be enabled in this state.
@@ -192,36 +197,6 @@ impl ThermalSensorErrors {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// /// Helper function to retry initialization several times, logging errors
-// pub(crate) fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(
-//     mut init: F,
-// ) {
-//     // When we first start up, try to initialize the fan controller a few
-//     // times, in case there's a transient I2C error.
-//     for remaining in (0..3).rev() {
-//         if init().is_ok() {
-//             break;
-//         }
-//         ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
-//     }
-// }
-
-// pub(crate) struct ControllerInitError(pub(crate) ResponseCode);
-
-// impl From<ControllerInitError> for ThermalError {
-//     fn from(_: ControllerInitError) -> Self {
-//         ThermalError::FanControllerUninitialized
-//     }
-// }
-
-// impl From<ControllerInitError> for SensorReadError {
-//     fn from(ControllerInitError(code): ControllerInitError) -> Self {
-//         SensorReadError::I2cError(code)
-//     }
-// }
-
-////////////////////////////////////////////////////////////////////////////////
-
 /// The thermal control loop.
 ///
 /// This object uses slices of sensors and fans, which must be owned
@@ -271,6 +246,7 @@ pub(crate) struct ThermalControl<'a, B: BspInterface> {
 /// Represents the state of a temperature sensor, which either has a valid
 /// reading or is marked as inactive (due to power state or being missing)
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)] // Not all bsps have inputs!
 pub enum TemperatureReading {
     /// Normal reading, timestamped using monotonic system time
     Valid(TimestampedTemperatureReading),

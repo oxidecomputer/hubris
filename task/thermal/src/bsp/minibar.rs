@@ -4,30 +4,15 @@
 
 //! BSP for Minibar
 
-use crate::control::{
-    ControllerInitError, FanControl, Fans, InputChannel, PidConfig,
-    TemperatureSensor,
-};
+use crate::control::PidConfig;
 use task_sensor_api::SensorId;
+use task_thermal_api::{ThermalError, ThermalProperties};
 use userlib::TaskId;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 ////////////////////////////////////////////////////////////////////////////////
 // Constants!
-
-// Air temperature sensors, which aren't used in the control loop
-const NUM_TEMPERATURE_SENSORS: usize = 0;
-
-// Temperature inputs (I2C devices), which are used in the control loop.
-pub const NUM_TEMPERATURE_INPUTS: usize = 0;
-
-// External temperature inputs, which are provided to the task over IPC
-// In practice, these are our transceivers.
-pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 0;
-
-// Number of individual fans - Minibar has none!
-pub const NUM_FANS: usize = 0;
 
 // Run the PID loop on startup
 pub const USE_CONTROLLER: bool = false;
@@ -43,71 +28,122 @@ bitflags::bitflags! {
 pub enum SeqError {}
 
 #[allow(dead_code)]
-pub(crate) struct Bsp {
-    /// Controlled sensors
-    pub inputs: &'static [InputChannel; NUM_TEMPERATURE_INPUTS],
-    pub dynamic_inputs: &'static [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS],
+pub(crate) struct Bsp {}
 
-    /// Monitored sensors
-    pub misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
+impl crate::control::BspInterface for Bsp {
+    const PID_CONFIG: PidConfig = PidConfig {
+        zero: 0.,
+        gain_p: 0.,
+        gain_i: 0.,
+        gain_d: 0.,
+        min_output: 0.,
+        max_output: 100.,
+    };
 
-    pub pid_config: PidConfig,
-}
-
-impl Bsp {
-    pub fn fan_control(
-        &self,
-        _fan: crate::Fan,
-    ) -> Result<crate::control::FanControl<'_>, ControllerInitError> {
-        // Because we have zero fans, nothing should ever call fan_control.
-        unreachable!()
-    }
-
-    pub fn for_each_fctrl(
-        &self,
-        mut _fctrl: impl FnMut(FanControl<'_>),
-    ) -> Result<(), ControllerInitError> {
-        // This one's reeeeal easy.
+    fn power_down(&self) -> Result<(), crate::SeqError> {
         Ok(())
     }
 
-    pub fn power_mode(&self) -> PowerBitmask {
+    fn power_mode(&self) -> PowerBitmask {
         PowerBitmask::empty()
     }
 
-    pub fn power_down(&self) -> Result<(), SeqError> {
+    fn read_fan_presence(
+        &mut self,
+    ) -> Result<
+        impl Iterator<Item = crate::control::FanPresence>,
+        crate::SeqError,
+    > {
+        Ok(core::iter::empty())
+    }
+
+    fn read_fan_rpms(
+        &mut self,
+    ) -> impl Iterator<Item = crate::control::FanReading> {
+        core::iter::empty()
+    }
+
+    fn read_misc_sensors(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            SensorId,
+            Result<userlib::units::Celsius, task_thermal_api::SensorReadError>,
+        ),
+    > {
+        core::iter::empty()
+    }
+
+    fn read_inputs(
+        &mut self,
+        _mode: PowerBitmask,
+    ) -> impl Iterator<Item = crate::control::InputReadingOutcome> {
+        core::iter::empty()
+    }
+
+    fn read_dynamic_inputs_back_from_sensor_api(
+        &mut self,
+        _sensor_api: &task_sensor_api::Sensor,
+    ) {
+        // no dynamic inputs
+    }
+
+    // returns Ok(true) if this was a new input
+    fn update_dynamic_input(
+        &mut self,
+        _index: usize,
+        _model: ThermalProperties,
+    ) -> Result<bool, ThermalError> {
+        // No dynamic inputs here, todo: static assert this
+        Err(ThermalError::InvalidIndex)
+    }
+
+    // sets last_reading to Some(Missing), returns sensor id
+    fn remove_dynamic_input(
+        &mut self,
+        _index: usize,
+    ) -> Result<SensorId, ThermalError> {
+        // No dynamic inputs here, todo: static assert this
+        Err(ThermalError::InvalidIndex)
+    }
+
+    fn all_inputs_present(&self) -> bool {
+        true
+    }
+
+    fn all_inputs_allow_missing(
+        &self,
+    ) -> impl Iterator<Item = crate::control::InputStatus<'_>> {
+        core::iter::empty()
+    }
+
+    fn all_inputs(
+        &self,
+    ) -> impl Iterator<Item = crate::control::InputStatus<'_>> {
+        core::iter::empty()
+    }
+
+    fn reset_all_values(&mut self) {
+        // nothing to reset!
+    }
+
+    fn set_all_watchdogs(
+        &mut self,
+        _watchdog: drv_i2c_devices::max31790::I2cWatchdog,
+    ) -> Result<(), task_thermal_api::ThermalError> {
         Ok(())
     }
 
-    pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
-        Ok(Fans::new())
-    }
-
-    pub fn fan_sensor_id(&self, _i: usize) -> SensorId {
-        panic!("no fans, this should not be called");
-    }
-
-    pub fn new(_i2c_task: TaskId) -> Self {
-        Self {
-            // PID config doesn't matter since we have no fans.
-            pid_config: PidConfig {
-                zero: 0.,
-                gain_p: 0.,
-                gain_i: 0.,
-                gain_d: 0.,
-                min_output: 0.,
-                max_output: 100.,
-            },
-
-            inputs: &INPUTS,
-            dynamic_inputs: &[],
-
-            // We monitor and log all of the air temperatures
-            misc_sensors: &MISC_SENSORS,
-        }
+    fn set_all_fan_duty(
+        &mut self,
+        _duty: userlib::units::PWMDuty,
+    ) -> Result<(), task_thermal_api::ThermalError> {
+        Ok(())
     }
 }
 
-const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [];
-
-const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [];
+impl Bsp {
+    pub fn new(_i2c_task: TaskId) -> Self {
+        Self {}
+    }
+}

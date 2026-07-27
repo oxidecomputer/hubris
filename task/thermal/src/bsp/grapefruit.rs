@@ -61,8 +61,6 @@ pub(crate) struct Bsp {
     fans_added: bool,
     i2c_task: TaskId,
 
-    pub pid_config: PidConfig,
-
     fctrl: Emc2305State,
 }
 
@@ -220,16 +218,6 @@ impl Bsp {
             static_cell::ClaimOnceCell::new(FANS);
 
         Self {
-            // TODO: this is all made up, copied from tuned Gimlet values
-            pid_config: PidConfig {
-                zero: 35.0,
-                gain_p: 1.75,
-                gain_i: 0.0135,
-                gain_d: 0.4,
-                min_output: 15.0,
-                max_output: 100.0,
-            },
-
             fans_added: false,
             fans: FANS_ONCE.claim(),
 

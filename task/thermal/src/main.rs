@@ -135,8 +135,11 @@ enum Trace {
     PowerModeChanged(PowerBitmask),
     PowerDownFailed(SeqError),
     ControlError(#[count(children)] ThermalError),
+    #[allow(dead_code)] // no fans? no trace!
     FanControllerInitialized,
+    #[allow(dead_code)] // no fans? no trace!
     FanControllerInitError(#[count(children)] ResponseCode),
+    #[allow(dead_code)] // no fans? no trace!
     FanControllerInitRetry {
         remaining: usize,
     },
