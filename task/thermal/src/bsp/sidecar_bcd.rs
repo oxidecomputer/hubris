@@ -144,7 +144,7 @@ impl crate::control::BspInterface for Bsp {
                 let fan_id = fan_id as u8;
                 let was = c.is_present;
                 let new = was ^ present;
-                c.is_present = new;
+                c.is_present = present;
 
                 if present {
                     FanPresence::Present { fan_id, new }

@@ -159,7 +159,7 @@ impl InputChannel {
     }
 
     pub fn reset_value(&mut self, mode: PowerBitmask) {
-        if mode.intersects(self.metadata.power_mode_mask) {
+        if !mode.intersects(self.metadata.power_mode_mask) {
             self.last_reading = TemperatureReading::Unpowered;
         } else {
             self.last_reading = TemperatureReading::NotYetQueried;
