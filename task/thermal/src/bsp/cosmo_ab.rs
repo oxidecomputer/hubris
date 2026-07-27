@@ -7,7 +7,7 @@
 use crate::{
     control::{
         ChannelType, FanPresence, FanReading, InputReadingOutcome, InputStatus,
-        Max31790State, PidConfig,
+        PidConfig,
     },
     i2c_config::{devices, sensors},
 };
@@ -17,7 +17,7 @@ use drv_i2c_devices::max31790::I2cWatchdog;
 use task_sensor_api::{Sensor, SensorId};
 use task_thermal_api::{SensorReadError, ThermalError, ThermalProperties};
 use userlib::{
-    TaskId, UnwrapLite, task_slot,
+    TaskId, task_slot,
     units::{Celsius, PWMDuty},
 };
 
@@ -27,6 +27,10 @@ mod i2c_temp_input;
 use i2c_temp_input::{
     Device, InputChannel, InputChannelMetadata, TemperatureSensor,
 };
+
+#[path = "./common/max31790.rs"]
+mod max31790;
+use max31790::Max31790State;
 
 task_slot!(SEQ, cosmo_seq);
 
@@ -127,48 +131,17 @@ impl crate::control::BspInterface for Bsp {
     }
 
     fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading> {
-        // Try to initialize the fan controller once at the start of the loop
-        let mut fctrl =
-            self.fctrl.try_initialize().map_err(SensorReadError::from);
-
-        // TODO: Maybe there's a way to make this a method on Fan that we can
-        // call, kind of like InputStatus?
-        self.fans.iter_mut().map(move |f| {
-            // If initialization failed, then we short circuit to return that
-            // original error, copied for each fan we're going to report.
-            let fctrl = fctrl.as_mut().map_err(|e| *e);
-
-            // If it was a success, attempt to read the RPMs, and either report
-            // that success or that error for each fan rpm.
-            let res = fctrl.and_then(|fc| {
-                fc.fan_rpm(f.bsp_data).map_err(SensorReadError::I2cError)
-            });
-            match res {
-                Ok(rpm) => {
-                    f.last_reading = Some(rpm);
-                    FanReading::PresentSuccess {
-                        rpm,
-                        sensor_id: f.rpm_sensor_id,
-                    }
-                }
-                Err(error) => {
-                    f.last_reading = None;
-                    FanReading::PresentError {
-                        error,
-                        sensor_id: f.rpm_sensor_id,
-                    }
-                }
-            }
-        })
+        self.fctrl.read_fan_rpms(self.fans)
     }
 
     fn read_misc_sensors(
         &self,
     ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>
     {
-        self.misc_sensors
-            .iter()
-            .map(|s| (s.sensor_id, s.read_temp(self.i2c_task)))
+        self.misc_sensors.iter().map(|s| {
+            let res = s.read_temp(self.i2c_task);
+            (s.sensor_id, res)
+        })
     }
 
     fn read_inputs(
@@ -215,20 +188,13 @@ impl crate::control::BspInterface for Bsp {
     }
 
     // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
-    // Inputs and Dynamic Inputs that are missing will be skipped.
-    fn all_inputs_allow_missing(
-        &self,
-    ) -> impl Iterator<Item = InputStatus<'_>> {
-        self.inputs.iter().filter_map(InputChannel::status)
-        // .zip(self.dynamic_inputs...)
-    }
-
-    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
     // All inputs MUST have a previous reading or this will panic, though the
     // readings may be allowed to be Missing if the model allows it. Dynamic
     // inputs that are not present will be skipped.
-    fn all_inputs(&self) -> impl Iterator<Item = InputStatus<'_>> {
-        self.inputs.iter().map(|input| input.status().unwrap_lite())
+    fn all_present_inputs_status(
+        &self,
+    ) -> impl Iterator<Item = InputStatus<'_>> {
+        self.inputs.iter().filter_map(|input| input.status())
         // .zip(self.dynamic_inputs...)
     }
 

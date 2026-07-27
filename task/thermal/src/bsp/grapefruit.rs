@@ -10,7 +10,6 @@ use drv_i2c_devices::max31790::I2cWatchdog;
 use task_sensor_api::SensorId;
 use task_thermal_api::{ThermalError, ThermalProperties};
 use userlib::TaskId;
-use userlib::UnwrapLite;
 use userlib::units::{Celsius, PWMDuty};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -153,20 +152,13 @@ impl crate::control::BspInterface for Bsp {
     }
 
     // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
-    // Inputs and Dynamic Inputs that are missing will be skipped.
-    fn all_inputs_allow_missing(
-        &self,
-    ) -> impl Iterator<Item = InputStatus<'_>> {
-        self.inputs.iter().filter_map(InputChannel::status)
-        // .zip(self.dynamic_inputs...)
-    }
-
-    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
     // All inputs MUST have a previous reading or this will panic, though the
     // readings may be allowed to be Missing if the model allows it. Dynamic
     // inputs that are not present will be skipped.
-    fn all_inputs(&self) -> impl Iterator<Item = InputStatus<'_>> {
-        self.inputs.iter().map(|input| input.status().unwrap_lite())
+    fn all_present_inputs_status(
+        &self,
+    ) -> impl Iterator<Item = InputStatus<'_>> {
+        self.inputs.iter().filter_map(|input| input.status())
         // .zip(self.dynamic_inputs...)
     }
 

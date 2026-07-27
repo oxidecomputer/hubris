@@ -25,7 +25,7 @@ use userlib::{
 pub struct Fan<D> {
     pub rpm_sensor_id: SensorId,
     // TODO(AJM): Distinguish between "have never heard from" and "have heard
-    // from but has since gone missing"?
+    // from but has since gone missing"? Like TemperatureReading?
     pub last_reading: Option<Rpm>,
     pub bsp_data: D,
 }
@@ -134,7 +134,7 @@ pub enum InputReadingOutcome {
 /// Status of a regular or dynamic input
 pub struct InputStatus<'a> {
     pub id: SensorId,
-    pub reading: &'a TemperatureReading,
+    pub reading: &'a TimestampedTemperatureReading,
     pub model: &'a ThermalProperties,
 }
 
@@ -251,7 +251,8 @@ pub enum TemperatureReading {
     /// Normal reading, timestamped using monotonic system time
     Valid(TimestampedTemperatureReading),
 
-    /// This sensor is not used in the current power state
+    /// This sensor is not used in the current power state, or has not been
+    /// read since changing operational state of the device
     Inactive,
 }
 
@@ -787,14 +788,34 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         let mut any_power_down = None;
         let mut any_critical = None;
         let mut worst_margin = f32::MAX;
+        let all_inputs_present = self.bsp.all_inputs_present();
+
+        // TODO(AJM): Assert all present if !Boot
+        match self.state {
+            ThermalControlState::Uncontrollable => {
+                return Ok(ControlResult::PowerDown);
+            }
+            ThermalControlState::Boot => {
+                // We allow boot to be missing present items
+            }
+            ThermalControlState::Running { .. }
+            | ThermalControlState::Critical { .. }
+            | ThermalControlState::FanParty => {
+                // TODO: Should this just move us back to the Boot state? This
+                // should not be possible by construction, as moving from
+                // Invalid to Valid reading is "latching" unless we reset the
+                // state.
+                assert!(all_inputs_present);
+            }
+        };
 
         // Remember, positive margin means that all parts are happily
         // below their max temperature; negative means someone is
         // overheating.  We want to pick the _smallest_ margin, since
         // that's the part which is most overheated.
-        let f = |InputStatus { id, reading, model }| {
-            if let TemperatureReading::Valid(v) = reading {
-                let worst_case = v.worst_case(now_ms, model);
+        self.bsp.all_present_inputs_status().for_each(
+            |InputStatus { id, reading, model }| {
+                let worst_case = reading.worst_case(now_ms, model);
                 let temperature = worst_case.worst_case_temp;
                 all_nominal &= model.is_nominal(temperature);
                 if model.should_power_down(temperature) {
@@ -804,36 +825,8 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
                     any_critical = Some((id, worst_case));
                 }
                 worst_margin = worst_margin.min(model.margin(temperature).0);
-            }
-
-            // Hidden assumption here! ALL `TemperatureReading`s here will be
-            // valid, UNLESS:
-            //
-            // 1. We are in Boot state and we allow missing inputs, which will
-            //    skip anything we haven't heard yet (but will report `false`
-            //    for `bsp.all_inputs_present()`)
-            // 2. For input sensors: the given input is not active in this
-            //    power state
-            // 3. For dynamic sensors: The given dynamic input has not been
-            //    given to us to activate
-            //
-            // We don't necessarily *check* that is the case though, and we
-            // might want to in the all_inputs(_allow_missing_inputs)
-            // functions!
-        };
-        match self.state {
-            ThermalControlState::Boot => {
-                self.bsp.all_inputs_allow_missing().for_each(f)
-            }
-            ThermalControlState::Running { .. }
-            | ThermalControlState::Critical { .. }
-            | ThermalControlState::FanParty => {
-                self.bsp.all_inputs().for_each(f)
-            }
-            ThermalControlState::Uncontrollable => {
-                return Ok(ControlResult::PowerDown);
-            }
-        };
+            },
+        );
 
         // In any state, if we've reached the "any_power_down" threshold, then
         // it's time to go.
@@ -850,7 +843,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // that's a bit more invasive of a change
         Ok(match &mut self.state {
             ThermalControlState::Boot => {
-                if self.bsp.all_inputs_present() {
+                if all_inputs_present {
                     self.transition_to_running(worst_margin, now_ms)
                 } else {
                     ControlResult::Pwm(PWMDuty(
@@ -1229,15 +1222,11 @@ pub trait BspInterface {
     fn all_inputs_present(&self) -> bool;
 
     // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
-    // Inputs and Dynamic Inputs that are missing will be skipped.
-    fn all_inputs_allow_missing(&self)
-    -> impl Iterator<Item = InputStatus<'_>>;
-
-    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
-    // All inputs MUST have a previous reading or this will panic, though the
-    // readings may be allowed to be Missing if the model allows it. Dynamic
-    // inputs that are not present will be skipped.
-    fn all_inputs(&self) -> impl Iterator<Item = InputStatus<'_>>;
+    // Inputs or Dynamic Inputs that are Invalid will be skipped. Dynamic Inputs
+    // that are not present will be skipped.
+    fn all_present_inputs_status(
+        &self,
+    ) -> impl Iterator<Item = InputStatus<'_>>;
 
     fn reset_all_values(&mut self);
 

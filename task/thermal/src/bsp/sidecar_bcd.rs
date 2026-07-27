@@ -215,14 +215,7 @@ impl crate::control::BspInterface for Bsp {
         todo!()
     }
 
-    fn all_inputs_allow_missing(
-        &self,
-    ) -> impl Iterator<Item = crate::control::InputStatus<'_>> {
-        todo!();
-        core::iter::empty()
-    }
-
-    fn all_inputs(
+    fn all_present_inputs_status(
         &self,
     ) -> impl Iterator<Item = crate::control::InputStatus<'_>> {
         todo!();
