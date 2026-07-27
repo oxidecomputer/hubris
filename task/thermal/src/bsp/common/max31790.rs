@@ -139,6 +139,7 @@ impl From<ControllerInitError> for SensorReadError {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) const fn make_consecutive_fans<const N: usize>(
     sensors: &'static [SensorId; N],
 ) -> [crate::control::Fan<drv_i2c_devices::max31790::Fan>; N] {
