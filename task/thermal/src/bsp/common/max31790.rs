@@ -13,7 +13,7 @@ use crate::{
     // control::{ControllerInitError, retry_init},
     __RINGBUF,
     Trace,
-    control::{Fan, FanReading},
+    control::{Fan, FanReading, FanStatus},
 };
 
 /// Tracks whether a MAX31790 fan controller has been initialized, and
@@ -75,13 +75,18 @@ impl Max31790State {
     pub(crate) fn read_fan_rpms(
         &mut self,
         fans: &mut [Fan<drv_i2c_devices::max31790::Fan>],
-    ) -> impl Iterator<Item = FanReading> {
+    ) -> impl Iterator<Item = FanStatus> {
         // Try to initialize the fan controller once at the start of the loop
         let mut fctrl = self.try_initialize().map_err(SensorReadError::from);
 
         // TODO: Maybe there's a way to make this a method on Fan that we can
         // call, kind of like InputStatus?
         fans.iter_mut().map(move |f| {
+            let sensor_id = f.rpm_sensor_id;
+            if f.last_reading.is_none() {
+                return FanStatus::NotPresent { sensor_id };
+            }
+
             // If initialization failed, then we short circuit to return that
             // original error, copied for each fan we're going to report.
             let fctrl = fctrl.as_mut().map_err(|e| *e);
@@ -93,18 +98,12 @@ impl Max31790State {
             });
             match res {
                 Ok(rpm) => {
-                    f.last_reading = Some(rpm);
-                    FanReading::PresentSuccess {
-                        rpm,
-                        sensor_id: f.rpm_sensor_id,
-                    }
+                    f.last_reading = Some(FanReading::Valid);
+                    FanStatus::PresentSuccess { rpm, sensor_id }
                 }
                 Err(error) => {
-                    f.last_reading = None;
-                    FanReading::PresentError {
-                        error,
-                        sensor_id: f.rpm_sensor_id,
-                    }
+                    f.last_reading = Some(FanReading::Invalid);
+                    FanStatus::PresentError { error, sensor_id }
                 }
             }
         })

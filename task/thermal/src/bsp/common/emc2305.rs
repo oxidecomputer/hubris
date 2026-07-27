@@ -11,7 +11,7 @@ use task_thermal_api::{SensorReadError, ThermalError};
 
 use crate::{
     __RINGBUF, Trace,
-    control::{Fan, FanReading},
+    control::{Fan, FanStatus},
 };
 
 /// Tracks whether a Emc2305 fan controller has been initialized, and
@@ -68,7 +68,7 @@ impl Emc2305State {
     pub(crate) fn read_fan_rpms(
         &mut self,
         fans: &mut [Fan<drv_i2c_devices::emc2305::Fan>],
-    ) -> impl Iterator<Item = FanReading> {
+    ) -> impl Iterator<Item = FanStatus> {
         // Try to initialize the fan controller once at the start of the loop
         let mut fctrl = self.try_initialize().map_err(SensorReadError::from);
 
@@ -87,14 +87,14 @@ impl Emc2305State {
             match res {
                 Ok(rpm) => {
                     f.last_reading = Some(rpm);
-                    FanReading::PresentSuccess {
+                    FanStatus::PresentSuccess {
                         rpm,
                         sensor_id: f.rpm_sensor_id,
                     }
                 }
                 Err(error) => {
                     f.last_reading = None;
-                    FanReading::PresentError {
+                    FanStatus::PresentError {
                         error,
                         sensor_id: f.rpm_sensor_id,
                     }

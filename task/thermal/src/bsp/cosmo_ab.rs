@@ -6,7 +6,7 @@
 
 use crate::{
     control::{
-        ChannelType, FanPresence, FanReading, InputReadingOutcome, InputStatus,
+        ChannelType, FanPresence, FanStatus, InputReadingOutcome, InputStatus,
         PidConfig,
     },
     i2c_config::{devices, sensors},
@@ -130,7 +130,7 @@ impl crate::control::BspInterface for Bsp {
         }))
     }
 
-    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading> {
+    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanStatus> {
         self.fctrl.read_fan_rpms(self.fans)
     }
 
@@ -195,7 +195,7 @@ impl crate::control::BspInterface for Bsp {
         &self,
     ) -> impl Iterator<Item = InputStatus<'_>> {
         self.inputs.iter().filter_map(|input| input.status())
-        // .zip(self.dynamic_inputs...)
+        // .chain(self.dynamic_inputs...)
     }
 
     fn reset_all_values(&mut self) {

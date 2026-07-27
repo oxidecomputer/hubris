@@ -59,7 +59,7 @@ impl crate::control::BspInterface for Bsp {
 
     fn read_fan_rpms(
         &mut self,
-    ) -> impl Iterator<Item = crate::control::FanReading> {
+    ) -> impl Iterator<Item = crate::control::FanStatus> {
         core::iter::empty()
     }
 

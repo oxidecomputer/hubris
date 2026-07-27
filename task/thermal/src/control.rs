@@ -24,10 +24,14 @@ use userlib::{
 #[allow(dead_code)] // Not all bsps have fans!
 pub struct Fan<D> {
     pub rpm_sensor_id: SensorId,
-    // TODO(AJM): Distinguish between "have never heard from" and "have heard
-    // from but has since gone missing"? Like TemperatureReading?
-    pub last_reading: Option<Rpm>,
+    pub last_reading: Option<FanReading>,
     pub bsp_data: D,
+}
+
+pub enum FanReading {
+    // Valid(Rpm),
+    Valid,
+    Invalid,
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
@@ -55,7 +59,7 @@ pub enum FanPresence {
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
-pub enum FanReading {
+pub enum FanStatus {
     PresentSuccess {
         rpm: Rpm,
         sensor_id: SensorId,
@@ -156,6 +160,22 @@ pub(crate) struct DynamicInputChannel {
     pub sensor_id: SensorId,
     pub model: ThermalProperties,
     pub last_reading: Option<TemperatureReading>,
+}
+
+impl DynamicInputChannel {
+    #[allow(dead_code)]
+    pub(crate) const fn new(sensor_id: SensorId) -> Self {
+        Self {
+            sensor_id,
+            model: ThermalProperties {
+                target_temperature: Celsius(0.),
+                critical_temperature: Celsius(0.),
+                power_down_temperature: Celsius(0.),
+                temperature_slew_deg_per_sec: 0.,
+            },
+            last_reading: None,
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -674,15 +694,15 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // Read fan data and log it to the sensors task
         for reading in self.bsp.read_fan_rpms() {
             match reading {
-                FanReading::PresentSuccess { rpm, sensor_id } => {
+                FanStatus::PresentSuccess { rpm, sensor_id } => {
                     self.sensor_api.post_now(sensor_id, rpm.0.into())
                 }
-                FanReading::PresentError { error, sensor_id } => {
+                FanStatus::PresentError { error, sensor_id } => {
                     ringbuf_entry!(Trace::FanReadFailed(sensor_id, error));
                     self.err_blackbox.push(sensor_id, error);
                     self.sensor_api.nodata_now(sensor_id, error.into());
                 }
-                FanReading::NotPresent { sensor_id } => {
+                FanStatus::NotPresent { sensor_id } => {
                     // Invalidate fan speed readings in the sensors task
                     self.sensor_api.nodata_now(
                         sensor_id,
@@ -1188,7 +1208,7 @@ pub trait BspInterface {
         &mut self,
     ) -> Result<impl Iterator<Item = FanPresence>, crate::SeqError>;
 
-    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading>;
+    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanStatus>;
 
     fn read_misc_sensors(
         &self,
