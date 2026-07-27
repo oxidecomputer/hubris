@@ -5,19 +5,32 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    ChannelType, ControllerInitError, Device, FanControl, Fans, InputChannel,
-    Max31790State, PidConfig, TemperatureSensor,
+    ChannelType, PidConfig, TemperatureReading, TimestampedTemperatureReading,
 };
+use crate::control::{DynamicInputChannel, FanReading};
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use task_sensor_api::SensorId;
+use task_thermal_api::SensorReadError;
+use task_thermal_api::ThermalError;
 use task_thermal_api::ThermalProperties;
 use userlib::{TaskId, UnwrapLite, task_slot, units::Celsius};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 use i2c_config::sensors;
+
+// This BSP uses i2c temperature inputs
+#[path = "./common/i2c_temp_input.rs"]
+mod i2c_temp_input;
+use i2c_temp_input::{
+    Device, InputChannel, InputChannelMetadata, TemperatureSensor,
+};
+
+#[path = "./common/max31790.rs"]
+mod max31790;
+use max31790::Max31790State;
 
 task_slot!(SEQUENCER, sequencer);
 
@@ -58,8 +71,9 @@ bitflags::bitflags! {
 #[allow(dead_code)]
 pub(crate) struct Bsp {
     /// Controlled sensors
-    pub inputs: &'static [InputChannel; NUM_TEMPERATURE_INPUTS],
-    pub dynamic_inputs: &'static [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS],
+    pub inputs: &'static mut [InputChannel; NUM_TEMPERATURE_INPUTS],
+    pub dynamic_inputs:
+        &'static mut [DynamicInputChannel; NUM_DYNAMIC_TEMPERATURE_INPUTS],
 
     /// Monitored sensors
     pub misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
@@ -69,75 +83,28 @@ pub(crate) struct Bsp {
     fctrl_west: Max31790State,
 
     seq: Sequencer,
+    i2c_task: TaskId,
 
     pub pid_config: PidConfig,
 }
 
-impl Bsp {
-    pub fn fan_control(
-        &mut self,
-        fan: crate::Fan,
-    ) -> Result<crate::control::FanControl<'_>, ControllerInitError> {
-        //
-        // Fan module 0/1 are on the east max31790; fan module 2/3 are on west
-        // max31790. Each fan module has two fans which are not mapped in a
-        // straightforward way. Additionally, our MAX31790 code has zero-indexed
-        // fan indices, but the part's datasheet and schematic symbol are
-        // one-indexed. Here is the mapping of the system level index to
-        // controller and fan index:
-        //
-        // System Index    Controller     Fan           MAX31790 Fan (Datasheet)
-        //     0            East           ESE           2 (3)
-        //     1            East           ENE           3 (4)
-        //     2            East           SE            0 (1)
-        //     3            East           NE            1 (2)
-        //     4            West           SW            2 (3)
-        //     5            West           NW            3 (4)
-        //     6            West           WSW           0 (1)
-        //     7            West           WNW           1 (2)
-        //
+impl crate::control::BspInterface for Bsp {
+    // TODO: this is all made up, copied from tuned Gimlet values
+    const PID_CONFIG: PidConfig = PidConfig {
+        zero: 35.0,
+        gain_p: 1.75,
+        gain_i: 0.0135,
+        gain_d: 0.4,
+        min_output: 0.0,
+        max_output: 100.0,
+    };
 
-        // The supplied `fan` is the System Index. From that we can map to a fan
-        // and controller.
-        let (fan_logical, controller) = if fan.0 < 4 {
-            (fan.0, &mut self.fctrl_east)
-        } else if fan.0 < 8 {
-            (fan.0 - 4, &mut self.fctrl_west)
-        } else {
-            panic!();
-        };
-        // These are hooked up weird on the board; handle that here
-        let fan_physical = match fan_logical {
-            0 => 2,
-            1 => 3,
-            2 => 0,
-            3 => 1,
-            _ => panic!(),
-        };
-        Ok(FanControl::Max31790(
-            controller.try_initialize()?,
-            fan_physical.try_into().unwrap_lite(),
-        ))
+    fn power_down(&self) -> Result<(), crate::SeqError> {
+        self.seq
+            .set_tofino_seq_policy(TofinoSequencerPolicy::Disabled)
     }
 
-    pub fn for_each_fctrl(
-        &mut self,
-        mut fctrl: impl FnMut(FanControl<'_>),
-    ) -> Result<(), ControllerInitError> {
-        let mut last_err = Ok(());
-        // Run the function on each fan control chip
-        match self.fan_control(0.into()) {
-            Ok(c) => fctrl(c),
-            Err(e) => last_err = Err(e),
-        }
-        match self.fan_control(4.into()) {
-            Ok(c) => fctrl(c),
-            Err(e) => last_err = Err(e),
-        }
-        last_err
-    }
-
-    pub fn power_mode(&self) -> PowerBitmask {
+    fn power_mode(&self) -> PowerBitmask {
         match self.seq.tofino_seq_state() {
             Ok(r) => match r {
                 TofinoSeqState::A0 => PowerBitmask::A0,
@@ -150,28 +117,240 @@ impl Bsp {
         }
     }
 
-    pub fn power_down(&self) -> Result<(), SeqError> {
-        self.seq
-            .set_tofino_seq_policy(TofinoSequencerPolicy::Disabled)
+    fn read_fan_presence(
+        &mut self,
+    ) -> Result<
+        impl Iterator<Item = crate::control::FanPresence>,
+        crate::SeqError,
+    > {
+        todo!();
+        Ok(core::iter::empty())
     }
 
-    pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
-        let presence = self.seq.fan_module_presence()?;
-        let mut next = Fans::new();
-        for (i, present) in presence.0.iter().enumerate() {
-            // two fans per module
-            let idx = i * 2;
-            if *present {
-                next[idx] = Some(sensors::MAX31790_SPEED_SENSORS[idx]);
-                next[idx + 1] = Some(sensors::MAX31790_SPEED_SENSORS[idx + 1]);
-            }
+    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading> {
+        // TODO: This is wrong, I think
+        // self.fctrl_east
+        //     .read_fan_rpms(self.fans)
+        //     .chain(self.fctrl_west.read_fan_rpms(self.fans))
+        todo!();
+        core::iter::empty()
+    }
+
+    fn read_misc_sensors(
+        &self,
+    ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>
+    {
+        self.misc_sensors.iter().map(|s| {
+            let res = s.read_temp(self.i2c_task);
+            (s.sensor_id, res)
+        })
+    }
+
+    fn read_inputs(
+        &mut self,
+        mode: PowerBitmask,
+    ) -> impl Iterator<Item = crate::control::InputReadingOutcome> {
+        let task = &self.i2c_task;
+        self.inputs
+            .iter_mut()
+            .map(move |i| i.do_reading(mode, task))
+    }
+
+    fn read_dynamic_inputs_back_from_sensor_api(
+        &mut self,
+        sensor_api: &task_sensor_api::Sensor,
+    ) {
+        self.dynamic_inputs
+            .iter_mut()
+            .filter(|di| di.last_reading.is_some())
+            .for_each(|di| {
+                let res = sensor_api.get_reading(di.sensor_id).map(|r| {
+                    TemperatureReading::Valid(TimestampedTemperatureReading {
+                        time_ms: r.timestamp,
+                        value: Celsius(r.value),
+                    })
+                });
+                di.last_reading = Some(match res {
+                    Ok(r) => r,
+                    Err(_) => TemperatureReading::Inactive,
+                });
+            });
+    }
+
+    fn update_dynamic_input(
+        &mut self,
+        index: usize,
+        model: ThermalProperties,
+    ) -> Result<bool, ThermalError> {
+        let Some(di) = self.dynamic_inputs.get_mut(index) else {
+            return Err(ThermalError::InvalidIndex);
+        };
+        if di.last_reading.is_some() {
+            // TODO: I think the old code just ignored this?
+            return Ok(false);
         }
-        Ok(next)
+        di.model = model;
+        di.last_reading = Some(TemperatureReading::Inactive);
+        Ok(true)
     }
 
-    pub fn fan_sensor_id(&self, i: usize) -> SensorId {
-        sensors::MAX31790_SPEED_SENSORS[i]
+    fn remove_dynamic_input(
+        &mut self,
+        index: usize,
+    ) -> Result<SensorId, ThermalError> {
+        let Some(di) = self.dynamic_inputs.get_mut(index) else {
+            return Err(ThermalError::InvalidIndex);
+        };
+        // TODO: do we return an err if this was already removed? Check old code
+        di.last_reading = None;
+        Ok(di.sensor_id)
     }
+
+    fn all_inputs_present(&self) -> bool {
+        // self.inputs.iter().all(InputChannel::has_reading)
+        //     && self
+        //         .dynamic_inputs
+        //         .iter()
+        //         .all(DynamicInputChannel::has_reading)
+        todo!()
+    }
+
+    fn all_inputs_allow_missing(
+        &self,
+    ) -> impl Iterator<Item = crate::control::InputStatus<'_>> {
+        todo!();
+        core::iter::empty()
+    }
+
+    fn all_inputs(
+        &self,
+    ) -> impl Iterator<Item = crate::control::InputStatus<'_>> {
+        todo!();
+        core::iter::empty()
+    }
+
+    fn reset_all_values(&mut self) {
+        todo!()
+    }
+
+    fn set_all_watchdogs(
+        &mut self,
+        watchdog: drv_i2c_devices::max31790::I2cWatchdog,
+    ) -> Result<(), ThermalError> {
+        // Try setting both, NOT returning early if either failed
+        let res_east = self
+            .fctrl_east
+            .try_initialize()
+            .map_err(ThermalError::from)
+            .and_then(|east| {
+                east.set_watchdog(watchdog)
+                    .map_err(|_| ThermalError::DeviceError)
+            });
+        let res_west = self
+            .fctrl_west
+            .try_initialize()
+            .map_err(ThermalError::from)
+            .and_then(|west| {
+                west.set_watchdog(watchdog)
+                    .map_err(|_| ThermalError::DeviceError)
+            });
+
+        match (res_east, res_west) {
+            (Err(e), _) => Err(e),
+            (_, Err(w)) => Err(w),
+            (Ok(()), Ok(())) => Ok(()),
+        }
+    }
+
+    fn set_all_fan_duty(
+        &mut self,
+        duty: userlib::units::PWMDuty,
+    ) -> Result<(), ThermalError> {
+        todo!()
+    }
+}
+
+impl Bsp {
+    // pub fn fan_control(
+    //     &mut self,
+    //     fan: crate::Fan,
+    // ) -> Result<crate::control::FanControl<'_>, ControllerInitError> {
+    //     //
+    //     // Fan module 0/1 are on the east max31790; fan module 2/3 are on west
+    //     // max31790. Each fan module has two fans which are not mapped in a
+    //     // straightforward way. Additionally, our MAX31790 code has zero-indexed
+    //     // fan indices, but the part's datasheet and schematic symbol are
+    //     // one-indexed. Here is the mapping of the system level index to
+    //     // controller and fan index:
+    //     //
+    //     // System Index    Controller     Fan           MAX31790 Fan (Datasheet)
+    //     //     0            East           ESE           2 (3)
+    //     //     1            East           ENE           3 (4)
+    //     //     2            East           SE            0 (1)
+    //     //     3            East           NE            1 (2)
+    //     //     4            West           SW            2 (3)
+    //     //     5            West           NW            3 (4)
+    //     //     6            West           WSW           0 (1)
+    //     //     7            West           WNW           1 (2)
+    //     //
+
+    //     // The supplied `fan` is the System Index. From that we can map to a fan
+    //     // and controller.
+    //     let (fan_logical, controller) = if fan.0 < 4 {
+    //         (fan.0, &mut self.fctrl_east)
+    //     } else if fan.0 < 8 {
+    //         (fan.0 - 4, &mut self.fctrl_west)
+    //     } else {
+    //         panic!();
+    //     };
+    //     // These are hooked up weird on the board; handle that here
+    //     let fan_physical = match fan_logical {
+    //         0 => 2,
+    //         1 => 3,
+    //         2 => 0,
+    //         3 => 1,
+    //         _ => panic!(),
+    //     };
+    //     Ok(FanControl::Max31790(
+    //         controller.try_initialize()?,
+    //         fan_physical.try_into().unwrap_lite(),
+    //     ))
+    // }
+
+    // pub fn for_each_fctrl(
+    //     &mut self,
+    //     mut fctrl: impl FnMut(FanControl<'_>),
+    // ) -> Result<(), ControllerInitError> {
+    //     let mut last_err = Ok(());
+    //     // Run the function on each fan control chip
+    //     match self.fan_control(0.into()) {
+    //         Ok(c) => fctrl(c),
+    //         Err(e) => last_err = Err(e),
+    //     }
+    //     match self.fan_control(4.into()) {
+    //         Ok(c) => fctrl(c),
+    //         Err(e) => last_err = Err(e),
+    //     }
+    //     last_err
+    // }
+
+    // pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
+    //     let presence = self.seq.fan_module_presence()?;
+    //     let mut next = Fans::new();
+    //     for (i, present) in presence.0.iter().enumerate() {
+    //         // two fans per module
+    //         let idx = i * 2;
+    //         if *present {
+    //             next[idx] = Some(sensors::MAX31790_SPEED_SENSORS[idx]);
+    //             next[idx + 1] = Some(sensors::MAX31790_SPEED_SENSORS[idx + 1]);
+    //         }
+    //     }
+    //     Ok(next)
+    // }
+
+    // pub fn fan_sensor_id(&self, i: usize) -> SensorId {
+    //     sensors::MAX31790_SPEED_SENSORS[i]
+    // }
 
     pub fn new(i2c_task: TaskId) -> Self {
         // Handle for the sequencer task, which we check for power state and
@@ -180,6 +359,10 @@ impl Bsp {
 
         let fctrl_east = Max31790State::new(&devices::max31790_east(i2c_task));
         let fctrl_west = Max31790State::new(&devices::max31790_west(i2c_task));
+
+        static INPUTS_ONCE: static_cell::ClaimOnceCell<
+            [InputChannel; NUM_TEMPERATURE_INPUTS],
+        > = static_cell::ClaimOnceCell::new(INPUTS);
 
         Self {
             seq,
@@ -196,12 +379,14 @@ impl Bsp {
                 max_output: 100.0,
             },
 
-            inputs: &INPUTS,
-            dynamic_inputs:
-                &drv_transceivers_api::TRANSCEIVER_TEMPERATURE_SENSORS,
+            inputs: INPUTS_ONCE.claim(),
+            dynamic_inputs: todo!(),
+            // dynamic_inputs:
+            // &drv_transceivers_api::TRANSCEIVER_TEMPERATURE_SENSORS,
 
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,
+            i2c_task,
         }
     }
 }
@@ -226,7 +411,7 @@ const VSC7448_THERMALS: ThermalProperties = ThermalProperties {
 };
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
-    InputChannel::new(
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::Tmp451(Target::Remote),
             devices::tmp451_tf2,
@@ -235,8 +420,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         TF2_THERMALS,
         PowerBitmask::A0,
         ChannelType::MustBePresent,
-    ),
-    InputChannel::new(
+    )),
+    InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::Tmp451(Target::Remote),
             devices::tmp451_vsc7448,
@@ -245,7 +430,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         VSC7448_THERMALS,
         PowerBitmask::A0_OR_A2,
         ChannelType::MustBePresent,
-    ),
+    )),
 ];
 
 const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [
