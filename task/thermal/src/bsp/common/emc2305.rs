@@ -4,13 +4,14 @@
 
 //! Common types and helpers for Emc2305 Fan Controller
 
-use drv_i2c_api::I2cDevice;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::emc2305::Emc2305;
 use ringbuf::ringbuf_entry;
+use task_thermal_api::{SensorReadError, ThermalError};
 
 use crate::{
-    Trace,
-    control::{ControllerInitError, retry_init},
+    __RINGBUF, Trace,
+    control::{Fan, FanReading},
 };
 
 /// Tracks whether a Emc2305 fan controller has been initialized, and
@@ -62,5 +63,71 @@ impl Emc2305State {
         self.initialized = true;
         ringbuf_entry!(Trace::FanControllerInitialized);
         Ok(&mut self.emc2305)
+    }
+
+    pub(crate) fn read_fan_rpms(
+        &mut self,
+        fans: &mut [Fan<drv_i2c_devices::emc2305::Fan>],
+    ) -> impl Iterator<Item = FanReading> {
+        // Try to initialize the fan controller once at the start of the loop
+        let mut fctrl = self.try_initialize().map_err(SensorReadError::from);
+
+        // TODO: Maybe there's a way to make this a method on Fan that we can
+        // call, kind of like InputStatus?
+        fans.iter_mut().map(move |f| {
+            // If initialization failed, then we short circuit to return that
+            // original error, copied for each fan we're going to report.
+            let fctrl = fctrl.as_mut().map_err(|e| *e);
+
+            // If it was a success, attempt to read the RPMs, and either report
+            // that success or that error for each fan rpm.
+            let res = fctrl.and_then(|fc| {
+                fc.fan_rpm(f.bsp_data).map_err(SensorReadError::I2cError)
+            });
+            match res {
+                Ok(rpm) => {
+                    f.last_reading = Some(rpm);
+                    FanReading::PresentSuccess {
+                        rpm,
+                        sensor_id: f.rpm_sensor_id,
+                    }
+                }
+                Err(error) => {
+                    f.last_reading = None;
+                    FanReading::PresentError {
+                        error,
+                        sensor_id: f.rpm_sensor_id,
+                    }
+                }
+            }
+        })
+    }
+}
+
+/// Helper function to retry initialization several times, logging errors
+pub(crate) fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(
+    mut init: F,
+) {
+    // When we first start up, try to initialize the fan controller a few
+    // times, in case there's a transient I2C error.
+    for remaining in (0..3).rev() {
+        if init().is_ok() {
+            break;
+        }
+        ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
+    }
+}
+
+pub(crate) struct ControllerInitError(pub(crate) ResponseCode);
+
+impl From<ControllerInitError> for ThermalError {
+    fn from(_: ControllerInitError) -> Self {
+        ThermalError::FanControllerUninitialized
+    }
+}
+
+impl From<ControllerInitError> for SensorReadError {
+    fn from(ControllerInitError(code): ControllerInitError) -> Self {
+        SensorReadError::I2cError(code)
     }
 }
