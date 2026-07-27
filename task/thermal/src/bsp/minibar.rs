@@ -107,7 +107,7 @@ impl crate::control::BspInterface for Bsp {
         Err(ThermalError::InvalidIndex)
     }
 
-    fn all_inputs_present(&self) -> bool {
+    fn all_inputs_queried(&self) -> bool {
         true
     }
 

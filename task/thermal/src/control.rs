@@ -153,11 +153,28 @@ pub struct InputStatus<'a> {
 pub(crate) struct DynamicInputChannel {
     pub sensor_id: SensorId,
     pub model: ThermalProperties,
-    pub last_reading: Option<TemperatureReading>,
+    pub last_reading: DynamicTemperatureReading,
 }
 
+/// Represents the state of a temperature sensor, which either has a valid
+/// reading or is marked as inactive (due to power state or being missing)
+#[derive(Copy, Clone, Debug)]
+#[allow(dead_code)] // Not all bsps have inputs!
+pub enum DynamicTemperatureReading {
+    /// Device has not been enabled
+    Disabled,
+
+    /// The device is powered in the current mode, but has not yet been
+    /// queried successfully
+    NotYetQueried,
+
+    /// This device has been queried successfully at least once, and this
+    /// contains the most recent valid reply
+    ValidAtLeastOnce(TimestampedTemperatureReading),
+}
+
+#[allow(dead_code)]
 impl DynamicInputChannel {
-    #[allow(dead_code)]
     pub(crate) const fn new(sensor_id: SensorId) -> Self {
         Self {
             sensor_id,
@@ -167,7 +184,19 @@ impl DynamicInputChannel {
                 power_down_temperature: Celsius(0.),
                 temperature_slew_deg_per_sec: 0.,
             },
-            last_reading: None,
+            last_reading: DynamicTemperatureReading::Disabled,
+        }
+    }
+
+    pub(crate) fn has_been_queried(&self) -> bool {
+        match self.last_reading {
+            // Not queried? No!
+            DynamicTemperatureReading::NotYetQueried => false,
+
+            // Either the input is disabled (so we have done all the querying
+            // necessary), or it has been valid in the past.
+            DynamicTemperatureReading::Disabled => true,
+            DynamicTemperatureReading::ValidAtLeastOnce(..) => true,
         }
     }
 }
@@ -262,12 +291,19 @@ pub(crate) struct ThermalControl<'a, B: BspInterface> {
 #[derive(Copy, Clone, Debug)]
 #[allow(dead_code)] // Not all bsps have inputs!
 pub enum TemperatureReading {
-    /// Normal reading, timestamped using monotonic system time
-    Valid(TimestampedTemperatureReading),
+    /// Device is not powered, and has not been read
+    Unpowered,
 
-    /// This sensor is not used in the current power state, or has not been
-    /// read since changing operational state of the device
-    Inactive,
+    /// The device is powered in the current mode, but has not yet been
+    /// queried successfully
+    NotYetQueried,
+
+    /// The device is removable, and has been removed
+    Disconnected,
+
+    /// This device has been queried successfully at least once, and this
+    /// contains the most recent valid reply
+    ValidAtLeastOnce(TimestampedTemperatureReading),
 }
 
 /// Represents a temperature reading at the time at which it was taken
@@ -802,15 +838,15 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         let mut any_power_down = None;
         let mut any_critical = None;
         let mut worst_margin = f32::MAX;
-        let all_inputs_present = self.bsp.all_inputs_present();
+        let all_inputs_queried = self.bsp.all_inputs_queried();
 
-        // TODO(AJM): Assert all present if !Boot
+        // TODO(AJM): Assert all queried if !Boot
         match self.state {
             ThermalControlState::Uncontrollable => {
                 return Ok(ControlResult::PowerDown);
             }
             ThermalControlState::Boot => {
-                // We allow boot to be missing present items
+                // We allow boot to have not yet queried all items successfully
             }
             ThermalControlState::Running { .. }
             | ThermalControlState::Critical { .. }
@@ -819,7 +855,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
                 // should not be possible by construction, as moving from
                 // Invalid to Valid reading is "latching" unless we reset the
                 // state.
-                assert!(all_inputs_present);
+                assert!(all_inputs_queried);
             }
         };
 
@@ -857,7 +893,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // that's a bit more invasive of a change
         Ok(match &mut self.state {
             ThermalControlState::Boot => {
-                if all_inputs_present {
+                if all_inputs_queried {
                     self.transition_to_running(worst_margin, now_ms)
                 } else {
                     ControlResult::Pwm(PWMDuty(
@@ -1233,7 +1269,7 @@ pub trait BspInterface {
         index: usize,
     ) -> Result<SensorId, ThermalError>;
 
-    fn all_inputs_present(&self) -> bool;
+    fn all_inputs_queried(&self) -> bool;
 
     // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
     // Inputs or Dynamic Inputs that are Invalid will be skipped. Dynamic Inputs

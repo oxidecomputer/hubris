@@ -182,15 +182,11 @@ impl crate::control::BspInterface for Bsp {
         Err(ThermalError::InvalidIndex)
     }
 
-    fn all_inputs_present(&self) -> bool {
-        self.inputs.iter().all(InputChannel::has_reading)
+    fn all_inputs_queried(&self) -> bool {
+        self.inputs.iter().all(InputChannel::has_been_queried)
         // && self.dynamic_inputs...
     }
 
-    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
-    // All inputs MUST have a previous reading or this will panic, though the
-    // readings may be allowed to be Missing if the model allows it. Dynamic
-    // inputs that are not present will be skipped.
     fn all_present_inputs_status(
         &self,
     ) -> impl Iterator<Item = InputStatus<'_>> {
@@ -199,7 +195,8 @@ impl crate::control::BspInterface for Bsp {
     }
 
     fn reset_all_values(&mut self) {
-        self.inputs.iter_mut().for_each(|i| i.reset_value());
+        let power = self.power_mode();
+        self.inputs.iter_mut().for_each(|i| i.reset_value(power));
         // self.dynamic_inputs...
     }
 

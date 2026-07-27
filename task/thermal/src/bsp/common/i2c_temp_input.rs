@@ -124,19 +124,31 @@ impl InputChannel {
     pub const fn new(metadata: &'static InputChannelMetadata) -> Self {
         Self {
             metadata,
-            last_reading: TemperatureReading::Inactive,
+            last_reading: TemperatureReading::NotYetQueried,
         }
     }
 
-    pub fn has_reading(&self) -> bool {
-        matches!(self.last_reading, TemperatureReading::Valid(..))
+    pub fn has_been_queried(&self) -> bool {
+        match self.last_reading {
+            // If we haven't queried it, then no!
+            TemperatureReading::NotYetQueried => false,
+
+            // If we have queried it, and it is not relevant in the current
+            // state, or removable and disconnected, or we've gotten data for
+            // it at least once, it has been queried!
+            TemperatureReading::Unpowered => true,
+            TemperatureReading::Disconnected => true,
+            TemperatureReading::ValidAtLeastOnce(..) => true,
+        }
     }
 
     /// Get current stored status.
     ///
     /// Returns None if we do not have a reading stored.
     pub fn status(&self) -> Option<InputStatus<'_>> {
-        let TemperatureReading::Valid(ref reading) = self.last_reading else {
+        let TemperatureReading::ValidAtLeastOnce(ref reading) =
+            self.last_reading
+        else {
             return None;
         };
         Some(InputStatus {
@@ -146,8 +158,12 @@ impl InputChannel {
         })
     }
 
-    pub fn reset_value(&mut self) {
-        self.last_reading = TemperatureReading::Inactive;
+    pub fn reset_value(&mut self, mode: PowerBitmask) {
+        if mode.intersects(self.metadata.power_mode_mask) {
+            self.last_reading = TemperatureReading::Unpowered;
+        } else {
+            self.last_reading = TemperatureReading::NotYetQueried;
+        }
     }
 
     pub fn do_reading(
@@ -159,18 +175,19 @@ impl InputChannel {
 
         // If we're not supposed to be on, don't even ask.
         if !mode.intersects(self.metadata.power_mode_mask) {
-            self.last_reading = TemperatureReading::Inactive;
+            self.last_reading = TemperatureReading::Unpowered;
             return InputReadingOutcome::Unpowered { id };
         }
 
         match self.metadata.sensor.read_temp(*i2c_task) {
             Ok(value) => {
                 let now = sys_get_timer().now;
-                self.last_reading =
-                    TemperatureReading::Valid(TimestampedTemperatureReading {
+                self.last_reading = TemperatureReading::ValidAtLeastOnce(
+                    TimestampedTemperatureReading {
                         time_ms: now,
                         value,
-                    });
+                    },
+                );
                 InputReadingOutcome::Success { id, now, value }
             }
             Err(e) => {
@@ -187,10 +204,10 @@ impl InputChannel {
                 let se = SensorError::from(NoData::from(e));
                 match (self.metadata.ty, se) {
                     (ChannelType::Removable, SensorError::NotPresent) => {
-                        self.last_reading = TemperatureReading::Inactive;
+                        self.last_reading = TemperatureReading::Disconnected;
                     }
                     (ChannelType::RemovableAndErrorProne, _) => {
-                        self.last_reading = TemperatureReading::Inactive;
+                        self.last_reading = TemperatureReading::Disconnected;
                     }
                     _ => {
                         // In all other cases, just leave whatever the last
