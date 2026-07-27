@@ -280,17 +280,6 @@ macro_rules! ringbuf {
 #[macro_export]
 macro_rules! ringbuf {
     ($name:ident, $t:ty, $n:expr, $init:expr $(,)?) => {
-        // `N` may not be 0, and constructing a zero-length ringbuf results in a
-        // compiler error. This is necessary because ringbuf entries are written
-        // to using unchecked indexing, which is always valid because the index
-        // has already been modulo'd to the ringbuf's length...unless the length
-        // is 0, in which case reading the 0th index is *also* an out of bounds
-        // read. Luckily, nobody has ever wanted to make a zero-length ringbuf,
-        // so this hasn't been an issue in practice, but let's stop you from
-        // doing it here just in case.
-        const _: () = {
-            assert!($n > 0, "ringbufs may not be zero-length");
-        };
         static $name: $crate::StaticCell<$crate::Ringbuf<$t, u16, $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
@@ -303,17 +292,6 @@ macro_rules! ringbuf {
             });
     };
     ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup $(,)?) => {
-        // `N` may not be 0, and constructing a zero-length ringbuf results in a
-        // compiler error. This is necessary because ringbuf entries are written
-        // to using unchecked indexing, which is always valid because the index
-        // has already been modulo'd to the ringbuf's length...unless the length
-        // is 0, in which case reading the 0th index is *also* an out of bounds
-        // read. Luckily, nobody has ever wanted to make a zero-length ringbuf,
-        // so this hasn't been an issue in practice, but let's stop you from
-        // doing it here just in case.
-        const _: () = {
-            assert!($n > 0, "ringbufs may not be zero-length");
-        };
         static $name: $crate::StaticCell<$crate::Ringbuf<$t, () $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
@@ -358,17 +336,6 @@ macro_rules! ringbuf {
 #[macro_export]
 macro_rules! counted_ringbuf {
     ($name:ident, $t:ident, $n:expr, $init:expr $(,)?) => {
-        // `N` may not be 0, and constructing a zero-length ringbuf results in a
-        // compiler error. This is necessary because ringbuf entries are written
-        // to using unchecked indexing, which is always valid because the index
-        // has already been modulo'd to the ringbuf's length...unless the length
-        // is 0, in which case reading the 0th index is *also* an out of bounds
-        // read. Luckily, nobody has ever wanted to make a zero-length ringbuf,
-        // so this hasn't been an issue in practice, but let's stop you from
-        // doing it here just in case.
-        const _: () = {
-            assert!($n > 0, "ringbufs may not be zero-length");
-        };
         static $name: $crate::CountedRingbuf<$t, u16, $n> =
             $crate::CountedRingbuf {
                 ringbuf: $crate::StaticCell::new($crate::Ringbuf {
@@ -384,17 +351,6 @@ macro_rules! counted_ringbuf {
             };
     };
     ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup $(,)?) => {
-        // `N` may not be 0, and constructing a zero-length ringbuf results in a
-        // compiler error. This is necessary because ringbuf entries are written
-        // to using unchecked indexing, which is always valid because the index
-        // has already been modulo'd to the ringbuf's length...unless the length
-        // is 0, in which case reading the 0th index is *also* an out of bounds
-        // read. Luckily, nobody has ever wanted to make a zero-length ringbuf,
-        // so this hasn't been an issue in practice, but let's stop you from
-        // doing it here just in case.
-        const _: () = {
-            assert!($n > 0, "ringbufs may not be zero-length");
-        };
         static $name: $crate::CountedRingbuf<$t, (), $n> =
             $crate::CountedRingbuf {
                 ringbuf: $crate::StaticCell::new($crate::Ringbuf {
@@ -691,7 +647,27 @@ where
 }
 
 impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
+    // Ensure that `N` is not zero by producing a compile-time error if anyone
+    // tries to construct a zero-length ringbuf. This is necessary because
+    // ringbuf entries are written to using unchecked indexing, which is always
+    // valid because the index has already been modulo'd to the ringbuf's
+    // length...unless the length is 0, in which case reading the 0th index is
+    // *also* an out of bounds read. Luckily, nobody has ever wanted to make a
+    // zero-length ringbuf, so this hasn't been an issue in practice, but let's
+    // stop you from doing it here just in case.
+    //
+    // Sadly, using a `const` block with an `assert!` in it somehow does not
+    // fail to build, but the "assertion"-using-a-bool-as-an-array-index trick
+    // does work. I don't know why.
+    const RINGBUF_LEN_MUST_BE_NONZERO: () = [()][(N > 0) as usize];
+
     fn do_record(&mut self, last: usize, line: u16, count: C, payload: &T) {
+        // Force the compile-time assertion that the length is nonzero to be
+        // evaluated. Clippy complains (not unreasonably), that this let-binding
+        // is not actually doing anything, which is true, but that's on purpose
+        // here.
+        #[allow(clippy::let_unit_value)]
+        let _ = Self::RINGBUF_LEN_MUST_BE_NONZERO;
         // Either we were unable to reuse the entry, or the last index was out
         // of range (perhaps because this is the first insertion). We're going
         // to advance last and wrap if required. This uses a wrapping_add
@@ -720,11 +696,11 @@ impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
             // returns `None`...but it seems nicer to also elide the bounds
             // check, given that we *just* did one of our own!
             //
-            // Note that this requires the `const` assertion that `N > 0` in the
-            // ringbuf macro in order to actually be safe, as a zero-length
-            // ringbuf is the one exception to the guarantee that having
-            // modulo'd the index (or having done our weird modulo-like thing,
-            // technically) ensures that it is in bounds.
+            // Note that this requires the `const` assertion that `N > 0` above
+            // in order to actually be safe, as a zero-length ringbuf is the one
+            // exception to the guarantee that having modulo'd the index (or
+            // having done our weird modulo-like thing, technically) ensures
+            // that it is in bounds.
             self.buffer.get_unchecked_mut(ndx)
         };
         *ent = RingbufEntry {
