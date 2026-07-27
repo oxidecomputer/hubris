@@ -391,7 +391,7 @@ fn main() -> ! {
     ringbuf_entry!(Trace::Start);
 
     let mut bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&mut bsp, i2c_task, sensor_api);
+    let control = ThermalControl::new(&mut bsp, sensor_api);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;

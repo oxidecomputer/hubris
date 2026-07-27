@@ -7,8 +7,8 @@
 use crate::{
     control::{
         ChannelType, Device, FanPresence, FanReading, InputChannel,
-        InputChannelMetadata, InputStatus, Max31790State, PidConfig,
-        TemperatureSensor,
+        InputChannelMetadata, InputReadingOutcome, InputStatus, Max31790State,
+        PidConfig, TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
@@ -201,12 +201,24 @@ impl crate::control::BspInterface for Bsp {
         })
     }
 
-    fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor> {
-        self.misc_sensors.iter()
+    fn read_misc_sensors(
+        &self,
+    ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>
+    {
+        self.misc_sensors.iter().map(|s| {
+            let res = s.read_temp(self.i2c_task);
+            (s.sensor_id, res)
+        })
     }
 
-    fn inputs_mut(&mut self) -> impl Iterator<Item = &mut InputChannel> {
-        self.inputs.iter_mut()
+    fn read_inputs(
+        &mut self,
+        mode: PowerBitmask,
+    ) -> impl Iterator<Item = InputReadingOutcome> {
+        let task = &self.i2c_task;
+        self.inputs
+            .iter_mut()
+            .map(move |i| i.do_reading(mode, task))
     }
 
     // TODO: This probably needs to exist, but for gimlet we have no dynamic
@@ -278,7 +290,7 @@ impl crate::control::BspInterface for Bsp {
 
     // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
     // even if some fail. return the LAST error if any.
-    fn set_all_fan_rpms(&mut self, duty: PWMDuty) -> Result<(), ThermalError> {
+    fn set_all_fan_duty(&mut self, duty: PWMDuty) -> Result<(), ThermalError> {
         let fctrl = self.fctrl.try_initialize()?;
         let mut any_err = false;
 

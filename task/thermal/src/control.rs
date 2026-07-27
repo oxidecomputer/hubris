@@ -312,10 +312,10 @@ impl InputChannel {
                 let se = SensorError::from(NoData::from(e));
                 match (self.metadata.ty, se) {
                     (ChannelType::Removable, SensorError::NotPresent) => {
-                        self.last_reading = None;
+                        self.last_reading = Some(TemperatureReading::Inactive);
                     }
                     (ChannelType::RemovableAndErrorProne, _) => {
-                        self.last_reading = None;
+                        self.last_reading = Some(TemperatureReading::Inactive);
                     }
                     _ => {
                         // In all other cases, just leave whatever the last
@@ -553,9 +553,6 @@ impl From<ControllerInitError> for SensorReadError {
 pub(crate) struct ThermalControl<'a, B: BspInterface> {
     /// Reference to board-specific parameters
     bsp: &'a mut B,
-
-    /// I2C task
-    i2c_task: TaskId,
 
     /// Task to which we should post sensor data updates
     sensor_api: SensorApi,
@@ -884,11 +881,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
     /// # Panics
     /// This function can only be called once, because it claims mutable static
     /// buffers.
-    pub fn new(
-        bsp: &'a mut B,
-        i2c_task: TaskId,
-        sensor_api: SensorApi,
-    ) -> Self {
+    pub fn new(bsp: &'a mut B, sensor_api: SensorApi) -> Self {
         use static_cell::ClaimOnceCell;
 
         let [err_blackbox, prev_err_blackbox] = {
@@ -899,7 +892,6 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
 
         Self {
             bsp,
-            i2c_task,
             sensor_api,
             target_margin: Celsius(0.0f32),
             state: ThermalControlState::Boot,
@@ -1029,7 +1021,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         for reading in self.bsp.read_fan_rpms() {
             match reading {
                 FanReading::PresentSuccess { rpm, sensor_id } => {
-                    self.sensor_api.post_now(sensor_id, rpm.0 as f32)
+                    self.sensor_api.post_now(sensor_id, rpm.0.into())
                 }
                 FanReading::PresentError { error, sensor_id } => {
                     ringbuf_entry!(Trace::FanReadFailed(sensor_id, error));
@@ -1050,13 +1042,13 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         //
         // We don't retain state for misc sensors, as that is all stored in the
         // sensor task itself. We're just in charge of polling them.
-        for s in self.bsp.misc_sensors() {
-            match s.read_temp(self.i2c_task) {
-                Ok(v) => self.sensor_api.post_now(s.sensor_id, v.0),
+        for (id, res) in self.bsp.read_misc_sensors() {
+            match res {
+                Ok(v) => self.sensor_api.post_now(id, v.0),
                 Err(e) => {
-                    ringbuf_entry!(Trace::MiscReadFailed(s.sensor_id, e));
-                    self.err_blackbox.push(s.sensor_id, e);
-                    self.sensor_api.nodata_now(s.sensor_id, e.into())
+                    ringbuf_entry!(Trace::MiscReadFailed(id, e));
+                    self.err_blackbox.push(id, e);
+                    self.sensor_api.nodata_now(id, e.into())
                 }
             }
         }
@@ -1065,8 +1057,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // potential TOCTOU issues; some sensors cannot be read if they are not
         // powered.
         let power_mode = self.bsp.power_mode();
-        for input in self.bsp.inputs_mut() {
-            let res = input.do_reading(power_mode, &self.i2c_task);
+        for res in self.bsp.read_inputs(power_mode) {
             match res {
                 InputReadingOutcome::Success { id, now, value } => {
                     self.sensor_api.post(id, value.0, now);
@@ -1111,6 +1102,17 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         self.power_mode = self.bsp.power_mode();
         if prev_power_mode != self.power_mode {
             ringbuf_entry!(Trace::PowerModeChanged(self.power_mode));
+            // TODO(AJM): the old code would now re-populate the state from the
+            // sensor task, while we continue on to now do control with all
+            // empty state. This potentially delays us in "Boot" mode for one
+            // extra tick which is 1s. We could return early here and ask `main`
+            // to re-run `read_sensors` for us, or run it automatically here.
+            // Either way though, this would now trigger *extra* I2C traffic,
+            // which is disappointing.
+            //
+            // Perhaps `reset_state` *shouldn't* clear `bsp.reset_all_values()`,
+            // since the old code wouldn't have sent `NoData` to all of the
+            // sensors?
             self.reset_state();
         }
 
@@ -1139,7 +1141,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // that's the part which is most overheated.
         let f = |InputStatus { id, reading, model }| {
             if let TemperatureReading::Valid(v) = reading {
-                let worst_case = v.worst_case(now_ms, &model);
+                let worst_case = v.worst_case(now_ms, model);
                 let temperature = worst_case.worst_case_temp;
                 all_nominal &= model.is_nominal(temperature);
                 if model.should_power_down(temperature) {
@@ -1466,7 +1468,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
             }
         };
         self.last_pwm = pwm;
-        self.bsp.set_all_fan_rpms(pwm)
+        self.bsp.set_all_fan_duty(pwm)
     }
 
     /// Attempts to set the PWM of every fan to whatever the previous value was.
@@ -1542,9 +1544,14 @@ pub trait BspInterface {
 
     fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanReading>;
 
-    fn misc_sensors(&self) -> impl Iterator<Item = &TemperatureSensor>;
+    fn read_misc_sensors(
+        &self,
+    ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>;
 
-    fn inputs_mut(&mut self) -> impl Iterator<Item = &mut InputChannel>;
+    fn read_inputs(
+        &mut self,
+        mode: PowerBitmask,
+    ) -> impl Iterator<Item = InputReadingOutcome>;
 
     // TODO: This probably needs to exist, but for cosmo we have no dynamic
     // inputs to read back. This should read from the api and store the state
@@ -1588,5 +1595,5 @@ pub trait BspInterface {
 
     // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
     // even if some fail. return the LAST error if any.
-    fn set_all_fan_rpms(&mut self, duty: PWMDuty) -> Result<(), ThermalError>;
+    fn set_all_fan_duty(&mut self, duty: PWMDuty) -> Result<(), ThermalError>;
 }
