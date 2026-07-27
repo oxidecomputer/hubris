@@ -28,8 +28,8 @@ pub struct Fan<D> {
     pub bsp_data: D,
 }
 
+#[allow(dead_code)] // Not all bsps have fans!
 pub enum FanReading {
-    // Valid(Rpm),
     Valid,
     Invalid,
 }
