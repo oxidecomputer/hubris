@@ -4,6 +4,13 @@
 
 //! I2C device drivers
 //!
+//! WARNING: The directory structure of this crate is load-bearing! When the i2c
+//! codegen needs a `validate()` function for a device named `foo`, it searches
+//! for an appropriate driver in this crate at the exact path `src/foo.rs`. If
+//! the file has a different name or is inside a subdirectory, the build will
+//! fail (unless you set `validate-with-raw-read = true` for the device in the
+//! manifest).
+//!
 //! This crate contains (generally) all I2C device drivers, including:
 //!
 //! - [`adm127x`]: ADM1272 or ADM1273 hot swap controller

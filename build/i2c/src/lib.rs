@@ -108,6 +108,15 @@ struct I2cDevice {
     /// device is removable
     #[serde(default)]
     removable: bool,
+
+    /// We typically expect that each device will have a driver in
+    /// `drv-i2c-devices` that implements the `Validate` trait, doing some
+    /// device-specific validation (like checking the model number via PMBus).
+    /// If there is no driver, then codegen will fail - _unless_ you set this to
+    /// true to opt in to a generic, fallback implementation of `Validate` that
+    /// just checks whether the device ACKs a PMBus read.
+    #[serde(default)]
+    validate_with_raw_read: bool,
 }
 
 impl I2cDevice {
@@ -1217,6 +1226,9 @@ impl ConfigGenerator {
         // breaking -- with apologies, dear reader, if that's what brings you
         // here!
         //
+        // Apology accepted. Perhaps this should be completely redesigned, but
+        // I've at least made it so the build will now fail with a helpful error
+        // message if the device driver isn't found.
         use cargo_metadata::MetadataCommand;
 
         let metadata = MetadataCommand::new()
@@ -1280,6 +1292,26 @@ impl ConfigGenerator {
         // here, it must be updated there as well.
         for (index, device) in self.devices.iter().enumerate() {
             if drivers.contains(&device.device) {
+                if device.validate_with_raw_read {
+                    bail!(
+                        "Device '{}{}{}' set `validate-with-raw-read = true`, \
+                        but that was probably a mistake because this device \
+                        already has a driver in `drv-i2c-devices` that should \
+                        be able to perform better, device-specific validation.",
+                        device.device,
+                        device
+                            .name
+                            .as_ref()
+                            .map(|name| format!(" {}", name))
+                            .unwrap_or_default(),
+                        device
+                            .refdes
+                            .as_ref()
+                            .map(|refdes| format!(" {:?}", refdes))
+                            .unwrap_or_default()
+                    );
+                }
+
                 let driver = device.device.to_case(Case::UpperCamel);
                 let out = self.generate_device(device, 24);
 
@@ -1296,6 +1328,25 @@ impl ConfigGenerator {
                     device = device.device,
                 )?;
             } else {
+                if !device.validate_with_raw_read {
+                    bail!(
+                        "Device '{}{}{}' has no driver in `drv-i2c-devices`. \
+                        You must either add a driver that implements the \
+                        `Validate` trait or set `validate-with-raw-read = \
+                        true` to opt in to a generic implementation instead.",
+                        device.device,
+                        device
+                            .name
+                            .as_ref()
+                            .map(|name| format!(" {}", name))
+                            .unwrap_or_default(),
+                        device
+                            .refdes
+                            .as_ref()
+                            .map(|refdes| format!(" {:?}", refdes))
+                            .unwrap_or_default()
+                    );
+                }
                 let out = self.generate_device(device, 20);
                 write!(
                     &mut self.output,
@@ -1799,6 +1850,7 @@ pub struct I2cDeviceDescription {
     pub sensors: Vec<DeviceSensor>,
     pub device_id: Option<String>,
     pub name: Option<String>,
+    pub validate_with_raw_read: bool,
     /// If this is a PMBus device, this field contains additional data about the
     /// PMBus device to be used for generating PMBus-y code.
     pub pmbus: Option<PmbusDeviceDescription>,
@@ -1891,6 +1943,7 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
                 sensors,
                 device_id,
                 name: device.name,
+                validate_with_raw_read: device.validate_with_raw_read,
                 pmbus,
             }
         },
