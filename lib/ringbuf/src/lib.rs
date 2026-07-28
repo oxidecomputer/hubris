@@ -655,19 +655,13 @@ impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
     // *also* an out of bounds read. Luckily, nobody has ever wanted to make a
     // zero-length ringbuf, so this hasn't been an issue in practice, but let's
     // stop you from doing it here just in case.
-    //
-    // Sadly, using a `const` block with an `assert!` in it somehow does not
-    // fail to build, but the "assertion"-using-a-bool-as-an-array-index trick
-    // does work. I don't know why.
-    const RINGBUF_LEN_MUST_BE_NONZERO: () = [()][(N > 0) as usize];
+    pub const RINGBUF_LEN_MUST_BE_NONZERO: bool = {
+        let is_nonzero = N > 0;
+        assert!(is_nonzero, "ringbuf length must be greater than 0");
+        is_nonzero
+    };
 
     fn do_record(&mut self, last: usize, line: u16, count: C, payload: &T) {
-        // Force the compile-time assertion that the length is nonzero to be
-        // evaluated. Clippy complains (not unreasonably), that this let-binding
-        // is not actually doing anything, which is true, but that's on purpose
-        // here.
-        #[allow(clippy::let_unit_value)]
-        let _ = Self::RINGBUF_LEN_MUST_BE_NONZERO;
         // Either we were unable to reuse the entry, or the last index was out
         // of range (perhaps because this is the first insertion). We're going
         // to advance last and wrap if required. This uses a wrapping_add
@@ -700,7 +694,9 @@ impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
             // in order to actually be safe, as a zero-length ringbuf is the one
             // exception to the guarantee that having modulo'd the index (or
             // having done our weird modulo-like thing, technically) ensures
-            // that it is in bounds.
+            // that it is in bounds. So, force that to actually be evaluated
+            // here, so it fails at the location of the unsafe block comment. :)
+            let _is_nonzero = Self::RINGBUF_LEN_MUST_BE_NONZERO;
             self.buffer.get_unchecked_mut(ndx)
         };
         *ent = RingbufEntry {
