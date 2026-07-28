@@ -50,9 +50,6 @@ const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
 // We've got 6 fans, driven from a single MAX31790 IC
 const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
 
-/// This controller is tuned and ready to go
-pub const USE_CONTROLLER: bool = true;
-
 pub(crate) struct Bsp {
     /// Controlled sensors
     inputs: &'static mut [InputChannel; NUM_TEMPERATURE_INPUTS],
@@ -90,6 +87,9 @@ bitflags::bitflags! {
 }
 
 impl crate::control::BspInterface for Bsp {
+    /// This controller is tuned and ready to go
+    const USE_CONTROLLER: bool = true;
+
     // Based on experimental tuning!
     const PID_CONFIG: PidConfig = PidConfig {
         zero: 35.0,

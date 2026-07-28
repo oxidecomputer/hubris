@@ -11,14 +11,6 @@ use userlib::TaskId;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-////////////////////////////////////////////////////////////////////////////////
-// Constants!
-
-// Run the PID loop on startup
-pub const USE_CONTROLLER: bool = false;
-
-////////////////////////////////////////////////////////////////////////////////
-
 bitflags::bitflags! {
     #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     pub struct PowerBitmask: u32 {}
@@ -31,6 +23,9 @@ pub enum SeqError {}
 pub(crate) struct Bsp {}
 
 impl crate::control::BspInterface for Bsp {
+    // Run the PID loop on startup
+    const USE_CONTROLLER: bool = false;
+
     const PID_CONFIG: PidConfig = PidConfig {
         zero: 0.,
         gain_p: 0.,

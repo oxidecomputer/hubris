@@ -36,9 +36,6 @@ const NUM_TEMPERATURE_INPUTS: usize = 1;
 // Number of individual fans
 const NUM_FANS: usize = 4;
 
-// Run the PID loop on startup
-pub const USE_CONTROLLER: bool = true;
-
 ////////////////////////////////////////////////////////////////////////////////
 
 bitflags::bitflags! {
@@ -64,7 +61,10 @@ pub(crate) struct Bsp {
 }
 
 impl crate::control::BspInterface for Bsp {
-    //             // TODO: this is all made up, copied from tuned Gimlet values
+    // Run the PID loop on startup
+    const USE_CONTROLLER: bool = true;
+
+    // TODO: this is all made up, copied from tuned Gimlet values
     const PID_CONFIG: PidConfig = PidConfig {
         zero: 35.0,
         gain_p: 1.75,

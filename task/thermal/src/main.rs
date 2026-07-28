@@ -47,7 +47,7 @@ mod control;
 
 use crate::{
     bsp::{Bsp, PowerBitmask, SeqError},
-    control::ThermalControl,
+    control::{BspInterface, ThermalControl},
 };
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::I2cWatchdog;
@@ -405,7 +405,7 @@ fn main() -> ! {
         deadline,
         runtime: 0,
     };
-    if bsp::USE_CONTROLLER {
+    if <Bsp as BspInterface>::USE_CONTROLLER {
         server.set_mode_auto().unwrap_lite();
     } else {
         server.set_mode_manual(PWMDuty(0)).unwrap_lite();

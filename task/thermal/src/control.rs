@@ -1227,65 +1227,136 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
     }
 }
 
+/// The platform/bsp specific interface contract for the thermal control loop
+///
+/// ## Important terms:
+///
+/// * Fans: The fans of a system, consisting of both the output controlled in
+///   PWM duty cycle percentages, as well as a sensor monitoring the measured
+///   RPM of the fans.
+/// * Inputs: Temperature sensors that are actively polled by the thermal
+///   control loop. Typically I2C based. This includes both permananently
+///   attached sensors as well as removable sensors. Some Inputs may only be
+///   active in a subset of power states. When present and active, the data from
+///   these inputs are used as part of the PID control loop. The readings from
+///   these sensors are also reported to the Sensors API.
+/// * Misc Sensors: Temperature sensors that are actively polled by the thermal
+///   control loop and reported to the Sensors API, but are not used as inputs
+///   to the PID control loop. Misc sensors are active in all power states.
+/// * Dynamic Inputs: Temperature sensors that are NOT actively polled by the
+///   thermal control loop, from which readings are instead obtained by querying
+///   the sensor API. These readings are used as inputs to the PID control loop.
+///   By default, all Dynamic Inputs are not marked as present, and require an
+///   external command (via IPC) to provide the necessary thermal model, and
+///   inform the control loop that the sensors are active and should be queried.
+/// * Watchdogs: Features of the external fan controllers that automatically
+///   move the fans to their highest commanded speed when not communicated with
+///   for a configured time duration.
 pub trait BspInterface {
+    /// Default [`PidConfig`] to use when in automatic control mode
     const PID_CONFIG: PidConfig;
 
+    /// Run the PID loop on startup
+    const USE_CONTROLLER: bool;
+
+    /// Instruct the sequencer to power down the system
     fn power_down(&self) -> Result<(), crate::SeqError>;
 
+    /// The current power mode reported by the sequencer
     fn power_mode(&self) -> PowerBitmask;
 
+    /// An iterator representing the presence of each Fan of the system
+    ///
+    /// Typically reported by the sequencer, or always present in non-variable
+    /// configurations.
     fn read_fan_presence(
         &mut self,
     ) -> Result<impl Iterator<Item = FanPresence>, crate::SeqError>;
 
+    /// Return an iterator of the current status of each fan. The iterator may
+    /// be lazy, meaning that failure to exhaust the iterator means that not all
+    /// fans will be actively read.
     fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanStatus>;
 
+    /// Return an iterator of the current status of each misc sensor. The
+    /// iterator may be lazy, meaning that faulure to exhaust the iterator means
+    /// that not all sensors will be actively queried.
     fn read_misc_sensors(
         &self,
     ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>;
 
+    /// Return an iterator of the current status of each input. The iterator
+    /// reports whether the input is powered, present, and whether the latest
+    /// query was successful. This updates the state of the sensor, which is
+    /// obtained by calling [`Self::all_present_inputs_status()`], which unlike
+    /// this API, retains the latest valid value, in case of transient read
+    /// failures.
     fn read_inputs(
         &mut self,
         mode: PowerBitmask,
     ) -> impl Iterator<Item = InputReadingOutcome>;
 
-    // TODO: This probably needs to exist, but for cosmo we have no dynamic
-    // inputs to read back. This should read from the api and store the state
+    /// Reads back all dynamic inputs that are currently marked as present. The
+    /// information from this querying can be obtained by calling
+    /// [`Self::all_present_inputs_status()`].
     fn read_dynamic_inputs_back_from_sensor_api(
         &mut self,
         sensor_api: &task_sensor_api::Sensor,
     );
 
-    // returns Ok(true) if this was a new input
+    /// Set the given dynamic input as present, and configured with the given
+    /// model.
+    ///
+    /// Returns `Ok(true)` when the input was not previously present. Returns
+    /// `Ok(false)` if the input was already present, and the new model was
+    /// ignored. Returns an error if the given index was invalid.
     fn update_dynamic_input(
         &mut self,
         index: usize,
         model: ThermalProperties,
     ) -> Result<bool, ThermalError>;
 
-    // sets last_reading to Some(Missing), returns sensor id
+    /// Set the given dynamic as not present.
+    ///
+    /// Returns Ok if the given index was valid, otherwise returns an error.
+    /// Does not indicate whether the input was previously present or not.
     fn remove_dynamic_input(
         &mut self,
         index: usize,
     ) -> Result<SensorId, ThermalError>;
 
+    /// Have all powered inputs (regular and dynamic) been queried?
+    ///
+    /// This is used to determine whether it is appropriate to leave the `Boot`
+    /// state. A sensor is considered to be queried if it is:
+    ///
+    /// * Unpowered
+    /// * Not present and marked as removable
+    /// * Has ever received a valid reply (even if not currently responding)
     fn all_inputs_queried(&self) -> bool;
 
-    // Visit all temperature sensors, first the inputs, then the dynamic_inputs.
-    // Inputs or Dynamic Inputs that are Invalid will be skipped. Dynamic Inputs
-    // that are not present will be skipped.
+    /// Visit all temperature sensors, first the inputs, then the dynamic
+    /// inputs. Only yields inputs that are powered, present (if removable), and
+    /// have ever received a valid reading. [`Self::all_inputs_queried()`]
+    /// should be used to determine if all inputs necessary to leave the Boot
+    /// state are present.
     fn all_present_inputs_status(
         &self,
     ) -> impl Iterator<Item = InputStatus<'_>>;
 
+    /// For any input that has received a valid reading, mark it as not
+    /// received.
     fn reset_all_values(&mut self);
 
+    /// Set all fan controller watchdogs to the given duration
     fn set_all_watchdogs(
         &mut self,
         watchdog: I2cWatchdog,
     ) -> Result<(), ThermalError>;
 
-    // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
-    // even if some fail. return the LAST error if any.
+    /// Attempt to set all fan outputs to the given duty cycle. If a fan is
+    /// removable and not present set the duty to 0. Attempts to set ALL duty
+    /// cycles, even if some setting operations fail. In case of any failures,
+    /// the most recent error is returned.
     fn set_all_fan_duty(&mut self, duty: PWMDuty) -> Result<(), ThermalError>;
 }
