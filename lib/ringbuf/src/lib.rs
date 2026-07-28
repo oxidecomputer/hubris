@@ -647,6 +647,20 @@ where
 }
 
 impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
+    // Ensure that `N` is not zero by producing a compile-time error if anyone
+    // tries to construct a zero-length ringbuf. This is necessary because
+    // ringbuf entries are written to using unchecked indexing, which is always
+    // valid because the index has already been modulo'd to the ringbuf's
+    // length...unless the length is 0, in which case reading the 0th index is
+    // *also* an out of bounds read. Luckily, nobody has ever wanted to make a
+    // zero-length ringbuf, so this hasn't been an issue in practice, but let's
+    // stop you from doing it here just in case.
+    pub const RINGBUF_LEN_MUST_BE_NONZERO: bool = {
+        let is_nonzero = N > 0;
+        assert!(is_nonzero, "ringbuf length must be greater than 0");
+        is_nonzero
+    };
+
     fn do_record(&mut self, last: usize, line: u16, count: C, payload: &T) {
         // Either we were unable to reuse the entry, or the last index was out
         // of range (perhaps because this is the first insertion). We're going
@@ -675,6 +689,14 @@ impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
             // `self.buffer.get_mut(ndx)` and then silently nop'ing if it
             // returns `None`...but it seems nicer to also elide the bounds
             // check, given that we *just* did one of our own!
+            //
+            // Note that this requires the `const` assertion that `N > 0` above
+            // in order to actually be safe, as a zero-length ringbuf is the one
+            // exception to the guarantee that having modulo'd the index (or
+            // having done our weird modulo-like thing, technically) ensures
+            // that it is in bounds. So, force that to actually be evaluated
+            // here, so it fails at the location of the unsafe block comment. :)
+            let _is_nonzero = Self::RINGBUF_LEN_MUST_BE_NONZERO;
             self.buffer.get_unchecked_mut(ndx)
         };
         *ent = RingbufEntry {
