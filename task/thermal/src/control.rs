@@ -1243,12 +1243,17 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
 /// * Misc Sensors: Temperature sensors that are actively polled by the thermal
 ///   control loop and reported to the Sensors API, but are not used as inputs
 ///   to the PID control loop. Misc sensors are active in all power states.
+///     * Example: The six TMP117 air sensors on Cosmo, which monitor the
+///       ambient air temperature within the sled.
 /// * Dynamic Inputs: Temperature sensors that are NOT actively polled by the
 ///   thermal control loop, from which readings are instead obtained by querying
 ///   the sensor API. These readings are used as inputs to the PID control loop.
 ///   By default, all Dynamic Inputs are not marked as present, and require an
 ///   external command (via IPC) to provide the necessary thermal model, and
 ///   inform the control loop that the sensors are active and should be queried.
+///     * Example: Transceivers (xcvrs) 0..32 on Sidecar, which are managed by
+///       the `transceivers-server` task, which monitors when an xcvr has been
+///       added and removed, and monitors the temperature of any present xcvr.
 /// * Watchdogs: Features of the external fan controllers that automatically
 ///   move the fans to their highest commanded speed when not communicated with
 ///   for a configured time duration.
