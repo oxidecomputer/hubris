@@ -4,10 +4,9 @@
 
 //! MWOCP68-3600 Murata power shelf
 
-use super::{FIRMWARE_REVISION_LEN, parse_firmware_revision};
 use crate::mwocp6x::{
-    BootLoaderCommand, Error, FirmwareRev, MfrId, ModelNumber, SerialNumber,
-    UpdateState,
+    BootLoaderCommand, Error, FIRMWARE_REVISION_LEN, FirmwareRev, MfrId,
+    ModelNumber, SerialNumber, UpdateState, parse_firmware_revision,
 };
 use crate::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, Validate,
