@@ -17,8 +17,6 @@ use crate::{
 
 /// Tracks whether a Emc2305 fan controller has been initialized, and
 /// initializes it on demand when accessed, if necessary.
-///
-/// This is copy-pasted from [`Max31790`]
 pub(crate) struct Emc2305State {
     emc2305: Emc2305,
     fan_count: u8,
