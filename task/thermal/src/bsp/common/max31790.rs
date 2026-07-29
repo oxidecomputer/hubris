@@ -11,9 +11,7 @@ use task_sensor_api::SensorId;
 use task_thermal_api::{SensorReadError, ThermalError};
 
 use crate::{
-    // control::{ControllerInitError, retry_init},
-    __RINGBUF,
-    Trace,
+    __RINGBUF, Trace,
     control::{Fan, FanStatus},
 };
 

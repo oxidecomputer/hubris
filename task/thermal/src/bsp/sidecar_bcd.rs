@@ -30,6 +30,7 @@ use i2c_temp_input::{
     Device, InputChannel, InputChannelMetadata, TemperatureSensor,
 };
 
+// This BSP uses the max31790 for fan control/monitoring
 #[path = "./common/max31790.rs"]
 mod max31790;
 use max31790::Max31790State;

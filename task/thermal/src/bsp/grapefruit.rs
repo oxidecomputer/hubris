@@ -23,6 +23,7 @@ use i2c_temp_input::{
     Device, InputChannel, InputChannelMetadata, TemperatureSensor,
 };
 
+// This BSP uses the emc2305 for fan control/monitoring
 #[path = "./common/emc2305.rs"]
 mod emc2305;
 use emc2305::Emc2305State;
@@ -127,13 +128,12 @@ impl crate::control::BspInterface for Bsp {
         // No dynamic inputs
     }
 
-    // returns Ok(true) if this was a new input
     fn update_dynamic_input(
         &mut self,
         _index: usize,
         _model: ThermalProperties,
     ) -> Result<bool, ThermalError> {
-        // No dynamic inputs here, todo: static assert this
+        // No dynamic inputs here
         Err(ThermalError::InvalidIndex)
     }
 
@@ -142,26 +142,26 @@ impl crate::control::BspInterface for Bsp {
         &mut self,
         _index: usize,
     ) -> Result<SensorId, ThermalError> {
-        // No dynamic inputs here, todo: static assert this
+        // No dynamic inputs here
         Err(ThermalError::InvalidIndex)
     }
 
     fn all_inputs_queried(&self) -> bool {
         self.inputs.iter().all(InputChannel::has_been_queried)
-        // && self.dynamic_inputs...
+        // No dynamic inputs
     }
 
     fn all_present_inputs_status(
         &self,
     ) -> impl Iterator<Item = InputStatus<'_>> {
         self.inputs.iter().filter_map(|input| input.status())
-        // .chain(self.dynamic_inputs...)
+        // No dynamic inputs
     }
 
     fn reset_all_values(&mut self) {
         let power = self.power_mode();
         self.inputs.iter_mut().for_each(|i| i.reset_value(power));
-        // self.dynamic_inputs...
+        // No dynamic inputs
     }
 
     fn set_all_watchdogs(
@@ -175,8 +175,6 @@ impl crate::control::BspInterface for Bsp {
             .map_err(|_| ThermalError::DeviceError)
     }
 
-    // If a fan is missing, set PWMDuty(0). Attempt to apply to ALL fans,
-    // even if some fail. return the LAST error if any.
     fn set_all_fan_duty(&mut self, duty: PWMDuty) -> Result<(), ThermalError> {
         let fctrl = self.fctrl.try_initialize()?;
         let mut any_err = false;

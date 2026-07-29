@@ -26,6 +26,7 @@ impl crate::control::BspInterface for Bsp {
     // Run the PID loop on startup
     const USE_CONTROLLER: bool = false;
 
+    // PID config doesn't matter since we have no fans.
     const PID_CONFIG: PidConfig = PidConfig {
         zero: 0.,
         gain_p: 0.,
@@ -83,22 +84,18 @@ impl crate::control::BspInterface for Bsp {
         // no dynamic inputs
     }
 
-    // returns Ok(true) if this was a new input
     fn update_dynamic_input(
         &mut self,
         _index: usize,
         _model: ThermalProperties,
     ) -> Result<bool, ThermalError> {
-        // No dynamic inputs here, todo: static assert this
         Err(ThermalError::InvalidIndex)
     }
 
-    // sets last_reading to Some(Missing), returns sensor id
     fn remove_dynamic_input(
         &mut self,
         _index: usize,
     ) -> Result<SensorId, ThermalError> {
-        // No dynamic inputs here, todo: static assert this
         Err(ThermalError::InvalidIndex)
     }
 
