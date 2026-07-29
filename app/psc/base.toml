@@ -386,6 +386,7 @@ address = 0b1001_000
 device = "tmp116"
 description = "Temperature sensor"
 refdes = "U31"
+validate-with-raw-read = true
 
 [[config.i2c.devices]]
 bus = "local"

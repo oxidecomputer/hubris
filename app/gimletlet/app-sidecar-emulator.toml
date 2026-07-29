@@ -61,3 +61,4 @@ address = 0b1011_000
 device = "idt8a34001"
 description = "Clock generator"
 refdes = "U38"
+validate-with-raw-read = true

@@ -477,6 +477,7 @@ address = 0x70
 device = "oximux16"
 description = "Front FPGA virtual mux"
 refdes = ["U31"]
+validate-with-raw-read = true
 
 # Welcome to the sharkfin zone
 # SMBUS_FPGA2_TO_CEMA
@@ -902,6 +903,7 @@ address = 0x70
 device = "oximux16"
 description = "Main FPGA virtual mux"
 refdes = ["U27", "MUX"]
+validate-with-raw-read = true
 
 # SMBUS_FPGA1_TO_M2A
 [[config.i2c.devices]]
