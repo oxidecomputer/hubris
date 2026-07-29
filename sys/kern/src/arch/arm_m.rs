@@ -1089,6 +1089,9 @@ static TICKS: [AtomicU32; 2] = {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn SysTick() {
     crate::profiling::event_timer_isr_enter();
+    if let Some(ptimer) = hubris_ptime::ptimer() {
+        (ptimer.timekeep)();
+    }
     with_task_table(|tasks| {
         // Load the time before this tick event.
         let t0 = TICKS[0].load(Ordering::Relaxed);
@@ -1229,7 +1232,8 @@ unsafe extern "C" fn pendsv_entry() {
     // Safety: we're dereferencing the current task pointer, which we're
     // trusting the rest of this module to maintain correctly.
     let current = unsafe {
-        let current = &*current;
+        let current = &mut *current;
+        current.account_task_active_time();
         usize::from(current.descriptor().index)
     };
 
@@ -1646,6 +1650,10 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // ARMv6-M, to reduce complexity, does not distinguish fault causes.
     let fault = FaultInfo::InvalidOperation(0);
 
+    unsafe {
+        (*task).account_task_active_time();
+    }
+
     // We are now going to force a fault on our current task and directly
     // switch to a task to run.
     with_task_table(|tasks| {
@@ -1852,6 +1860,10 @@ unsafe extern "C" fn handle_fault(
     // property our caller is required to ensure -- this is ok.
     unsafe {
         arch::asm!("vstm {0}, {{s16-s31}}", in(reg) fpsave);
+    }
+
+    unsafe {
+        (*task).account_task_active_time();
     }
 
     // We are now going to force a fault on our current task and directly

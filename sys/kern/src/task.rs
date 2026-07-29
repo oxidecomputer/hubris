@@ -10,6 +10,7 @@ use abi::{
     FaultInfo, FaultSource, Generation, ReplyFaultReason, SchedState, TaskId,
     TaskState, ULease, UsageError,
 };
+use hubris_ptime::{Duration, Instant};
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::descs::{
@@ -20,6 +21,10 @@ use crate::err::UserError;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;
 use crate::time::Timestamp;
 use crate::umem::USlice;
+
+// hate this
+#[unsafe(no_mangle)]
+pub(crate) static mut PTIME_LAST_SWITCH: Instant = Instant(0);
 
 /// Internal representation of a task.
 ///
@@ -46,6 +51,9 @@ pub struct Task {
     /// Notification status.
     notifications: u32,
 
+    /// Time active
+    active: Duration,
+
     /// Pointer to the ROM descriptor used to create this task, so it can be
     /// restarted.
     descriptor: &'static TaskDesc,
@@ -65,6 +73,8 @@ impl Task {
 
             descriptor,
 
+            // TODO: Maintain active time across generations?
+            active: Duration::ZERO,
             generation: 0,
             notifications: 0,
             save: crate::arch::SavedState::default(),
@@ -415,6 +425,18 @@ impl Task {
         // Safety: our contract above is sufficient to ensure that this is safe.
         unsafe {
             crate::arch::set_current_task(self);
+        }
+    }
+
+    pub(crate) fn account_task_active_time(&mut self) {
+        if let Some(ptimer) = hubris_ptime::ptimer() {
+            let now = (ptimer.now)();
+            let mut old = now;
+            unsafe {
+                core::ptr::swap(&mut old, &raw mut PTIME_LAST_SWITCH);
+            }
+            let elapsed = now.0 - old.0;
+            self.active.0 += elapsed;
         }
     }
 }
