@@ -6,8 +6,8 @@
 
 use crate::{
     control::{
-        ChannelType, FanPresence, FanStatus, InputReadingOutcome, InputStatus,
-        PidConfig,
+        ActiveInputState, ChannelType, FanPollingOutcome, FanPresence,
+        InputPollingOutcome, PidConfig,
     },
     i2c_config::{devices, sensors},
 };
@@ -165,7 +165,7 @@ impl crate::control::BspInterface for Bsp {
     }
 
     // We assume Gimlet fan presence cannot change
-    fn read_fan_presence(
+    fn poll_fan_presence(
         &mut self,
     ) -> Result<impl Iterator<Item = FanPresence>, SeqError> {
         let report_new = !self.fans_added;
@@ -176,11 +176,11 @@ impl crate::control::BspInterface for Bsp {
         }))
     }
 
-    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanStatus> {
-        self.fctrl.read_fan_rpms(self.fans)
+    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = FanPollingOutcome> {
+        self.fctrl.poll_fan_rpms(self.fans)
     }
 
-    fn read_misc_sensors(
+    fn poll_misc_sensors(
         &self,
     ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>
     {
@@ -190,25 +190,21 @@ impl crate::control::BspInterface for Bsp {
         })
     }
 
-    fn read_inputs(
+    fn poll_inputs(
         &mut self,
         mode: PowerBitmask,
-    ) -> impl Iterator<Item = InputReadingOutcome> {
+    ) -> impl Iterator<Item = InputPollingOutcome> {
         let task = &self.i2c_task;
         self.inputs
             .iter_mut()
-            .map(move |i| i.do_reading(mode, task))
+            .map(move |i| i.poll_input(mode, task))
     }
 
-    fn read_dynamic_inputs_back_from_sensor_api(
-        &mut self,
-        _sensor_api: &Sensor,
-    ) {
+    fn poll_dynamic_inputs(&mut self, _sensor_api: &Sensor) {
         // No dynamic inputs here
     }
 
-    // returns Ok(true) if this was a new input
-    fn update_dynamic_input(
+    fn register_dynamic_input(
         &mut self,
         _index: usize,
         _model: ThermalProperties,
@@ -217,7 +213,6 @@ impl crate::control::BspInterface for Bsp {
         Err(ThermalError::InvalidIndex)
     }
 
-    // sets last_reading to Some(Missing), returns sensor id
     fn remove_dynamic_input(
         &mut self,
         _index: usize,
@@ -231,10 +226,8 @@ impl crate::control::BspInterface for Bsp {
         // No dynamic inputs here
     }
 
-    fn all_present_inputs_status(
-        &self,
-    ) -> impl Iterator<Item = InputStatus<'_>> {
-        self.inputs.iter().filter_map(|input| input.status())
+    fn all_active_inputs(&self) -> impl Iterator<Item = ActiveInputState<'_>> {
+        self.inputs.iter().filter_map(|input| input.active_state())
         // No dynamic inputs here
     }
 

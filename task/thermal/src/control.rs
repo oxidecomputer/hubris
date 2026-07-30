@@ -53,7 +53,7 @@ pub enum FanPresence {
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
-pub enum FanStatus {
+pub enum FanPollingOutcome {
     PresentSuccess {
         rpm: Rpm,
         sensor_id: SensorId,
@@ -110,9 +110,9 @@ pub(crate) enum ChannelType {
     RemovableAndErrorProne,
 }
 
-/// The outcome of [`InputChannel::do_reading()`].
+/// The outcome of [`InputChannel::poll_input()`].
 #[allow(dead_code)] // Not all bsps have inputs!
-pub enum InputReadingOutcome {
+pub enum InputPollingOutcome {
     /// Sensor was not read because the power mode indicated that it would not
     /// be enabled in this state.
     Unpowered { sensor_id: SensorId },
@@ -136,7 +136,7 @@ pub enum InputReadingOutcome {
 }
 
 /// Status of a regular or dynamic input
-pub struct InputStatus<'a> {
+pub struct ActiveInputState<'a> {
     pub sensor_id: SensorId,
     pub reading: &'a TimestampedTemperatureReading,
     pub model: &'a ThermalProperties,
@@ -702,7 +702,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
             }
         }
 
-        match self.bsp.read_fan_presence() {
+        match self.bsp.poll_fan_presence() {
             Ok(piter) => {
                 for fan in piter {
                     match fan {
@@ -728,17 +728,17 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
     /// read in `self.err_blackbox` for later investigation.
     pub fn read_sensors(&mut self) {
         // Read fan data and log it to the sensors task
-        for reading in self.bsp.read_fan_rpms() {
+        for reading in self.bsp.poll_fan_rpms() {
             match reading {
-                FanStatus::PresentSuccess { rpm, sensor_id } => {
+                FanPollingOutcome::PresentSuccess { rpm, sensor_id } => {
                     self.sensor_api.post_now(sensor_id, rpm.0.into())
                 }
-                FanStatus::PresentError { error, sensor_id } => {
+                FanPollingOutcome::PresentError { error, sensor_id } => {
                     ringbuf_entry!(Trace::FanReadFailed(sensor_id, error));
                     self.err_blackbox.push(sensor_id, error);
                     self.sensor_api.nodata_now(sensor_id, error.into());
                 }
-                FanStatus::NotPresent { sensor_id } => {
+                FanPollingOutcome::NotPresent { sensor_id } => {
                     // Invalidate fan speed readings in the sensors task
                     self.sensor_api.nodata_now(
                         sensor_id,
@@ -752,7 +752,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         //
         // We don't retain state for misc sensors, as that is all stored in the
         // sensor task itself. We're just in charge of polling them.
-        for (id, res) in self.bsp.read_misc_sensors() {
+        for (id, res) in self.bsp.poll_misc_sensors() {
             match res {
                 Ok(v) => self.sensor_api.post_now(id, v.0),
                 Err(e) => {
@@ -767,26 +767,26 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // potential TOCTOU issues; some sensors cannot be read if they are not
         // powered.
         let power_mode = self.bsp.power_mode();
-        for res in self.bsp.read_inputs(power_mode) {
+        for res in self.bsp.poll_inputs(power_mode) {
             match res {
-                InputReadingOutcome::Success {
+                InputPollingOutcome::Success {
                     sensor_id,
                     now,
                     value,
                 } => {
                     self.sensor_api.post(sensor_id, value.0, now);
                 }
-                InputReadingOutcome::AcceptableMissing { sensor_id, err } => {
+                InputPollingOutcome::AcceptableMissing { sensor_id, err } => {
                     self.sensor_api.nodata_now(sensor_id, err.into());
                 }
-                InputReadingOutcome::UnacceptableMissing { sensor_id, err } => {
+                InputPollingOutcome::UnacceptableMissing { sensor_id, err } => {
                     // Record an error errors if the sensor is not removable
                     // or we get a unexpected error from a removable sensor
                     ringbuf_entry!(Trace::SensorReadFailed(sensor_id, err));
                     self.err_blackbox.push(sensor_id, err);
                     self.sensor_api.nodata_now(sensor_id, err.into());
                 }
-                InputReadingOutcome::Unpowered { sensor_id } => {
+                InputPollingOutcome::Unpowered { sensor_id } => {
                     // If the device isn't supposed to be on in the current
                     // power state, then record it as Off in the sensors task.
                     self.sensor_api.nodata_now(
@@ -837,12 +837,11 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // The dynamic inputs don't depend on power mode; instead, they are
         // assumed to be present when a model exists in `self.dynamic_inputs`;
         // this model is set by external callers using
-        // `update_dynamic_input` and `remove_dynamic_input`.
+        // `register_dynamic_input` and `remove_dynamic_input`.
         //
         // TODO(AJM): Should we be doing this in `read_sensors` instead of
         // `run_control`?
-        self.bsp
-            .read_dynamic_inputs_back_from_sensor_api(&self.sensor_api);
+        self.bsp.poll_dynamic_inputs(&self.sensor_api);
 
         // Run a common analysis pass first, regardless of state. Don't take any
         // side effectful actions yet though.
@@ -875,8 +874,8 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // below their max temperature; negative means someone is
         // overheating.  We want to pick the _smallest_ margin, since
         // that's the part which is most overheated.
-        self.bsp.all_present_inputs_status().for_each(
-            |InputStatus {
+        self.bsp.all_active_inputs().for_each(
+            |ActiveInputState {
                  sensor_id,
                  reading,
                  model,
@@ -1210,7 +1209,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         }
     }
 
-    pub fn update_dynamic_input(
+    pub fn register_dynamic_input(
         &mut self,
         index: usize,
         model: ThermalProperties,
@@ -1221,7 +1220,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         //
         // TODO(AJM): We just ignore it if there was already a dynamic input
         // there already?
-        let is_new = self.bsp.update_dynamic_input(index, model)?;
+        let is_new = self.bsp.register_dynamic_input(index, model)?;
         if is_new {
             ringbuf_entry!(Trace::AddedDynamicInput(index));
             self.reset_state();
@@ -1290,40 +1289,37 @@ pub trait BspInterface {
     ///
     /// Typically reported by the sequencer, or always present in non-variable
     /// configurations.
-    fn read_fan_presence(
+    fn poll_fan_presence(
         &mut self,
     ) -> Result<impl Iterator<Item = FanPresence>, crate::SeqError>;
 
     /// Return an iterator of the current status of each fan. The iterator may
     /// be lazy, meaning that failure to exhaust the iterator means that not all
     /// fans will be actively read.
-    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanStatus>;
+    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = FanPollingOutcome>;
 
     /// Return an iterator of the current status of each misc sensor. The
     /// iterator may be lazy, meaning that faulure to exhaust the iterator means
     /// that not all sensors will be actively queried.
-    fn read_misc_sensors(
+    fn poll_misc_sensors(
         &self,
     ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>;
 
-    /// Return an iterator of the current status of each input. The iterator
+    /// Return an iterator of the outcome of polling each input. The iterator
     /// reports whether the input is powered, present, and whether the latest
     /// query was successful. This updates the state of the sensor, which is
-    /// obtained by calling [`Self::all_present_inputs_status()`], which unlike
+    /// obtained by calling [`Self::all_active_inputs()`], which unlike
     /// this API, retains the latest valid value, in case of transient read
     /// failures.
-    fn read_inputs(
+    fn poll_inputs(
         &mut self,
         mode: PowerBitmask,
-    ) -> impl Iterator<Item = InputReadingOutcome>;
+    ) -> impl Iterator<Item = InputPollingOutcome>;
 
     /// Reads back all dynamic inputs that are currently marked as present. The
     /// information from this querying can be obtained by calling
-    /// [`Self::all_present_inputs_status()`].
-    fn read_dynamic_inputs_back_from_sensor_api(
-        &mut self,
-        sensor_api: &task_sensor_api::Sensor,
-    );
+    /// [`Self::all_active_inputs()`].
+    fn poll_dynamic_inputs(&mut self, sensor_api: &task_sensor_api::Sensor);
 
     /// Set the given dynamic input as present, and configured with the given
     /// model.
@@ -1331,7 +1327,7 @@ pub trait BspInterface {
     /// Returns `Ok(true)` when the input was not previously present. Returns
     /// `Ok(false)` if the input was already present, and the new model was
     /// ignored. Returns an error if the given index was invalid.
-    fn update_dynamic_input(
+    fn register_dynamic_input(
         &mut self,
         index: usize,
         model: ThermalProperties,
@@ -1361,9 +1357,10 @@ pub trait BspInterface {
     /// have ever received a valid reading. [`Self::all_inputs_queried()`]
     /// should be used to determine if all inputs necessary to leave the Boot
     /// state are present.
-    fn all_present_inputs_status(
-        &self,
-    ) -> impl Iterator<Item = InputStatus<'_>>;
+    ///
+    /// This function reflects the states polled by [`Self::poll_inputs()`] and
+    /// [`Self::poll_dynamic_inputs()`].
+    fn all_active_inputs(&self) -> impl Iterator<Item = ActiveInputState<'_>>;
 
     /// For any input that has received a valid reading, mark it as not
     /// received.

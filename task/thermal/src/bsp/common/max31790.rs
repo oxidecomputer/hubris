@@ -12,7 +12,7 @@ use task_thermal_api::{SensorReadError, ThermalError};
 
 use crate::{
     __RINGBUF, Trace,
-    control::{Fan, FanStatus},
+    control::{Fan, FanPollingOutcome},
 };
 
 /// Tracks whether a MAX31790 fan controller has been initialized, and
@@ -71,19 +71,19 @@ impl Max31790State {
         Ok(&mut self.max31790)
     }
 
-    pub(crate) fn read_fan_rpms(
+    pub(crate) fn poll_fan_rpms(
         &mut self,
         fans: &mut [Fan<drv_i2c_devices::max31790::Fan>],
-    ) -> impl Iterator<Item = FanStatus> {
+    ) -> impl Iterator<Item = FanPollingOutcome> {
         // Try to initialize the fan controller once at the start of the loop
         let mut fctrl = self.try_initialize().map_err(SensorReadError::from);
 
         // TODO: Maybe there's a way to make this a method on Fan that we can
-        // call, kind of like InputStatus?
+        // call, kind of like ActiveInputState?
         fans.iter_mut().map(move |f| {
             let sensor_id = f.rpm_sensor_id;
             if !f.is_present {
-                return FanStatus::NotPresent { sensor_id };
+                return FanPollingOutcome::NotPresent { sensor_id };
             }
 
             // If initialization failed, then we short circuit to return that
@@ -96,8 +96,10 @@ impl Max31790State {
                 fc.fan_rpm(f.bsp_data).map_err(SensorReadError::I2cError)
             });
             match res {
-                Ok(rpm) => FanStatus::PresentSuccess { rpm, sensor_id },
-                Err(error) => FanStatus::PresentError { error, sensor_id },
+                Ok(rpm) => FanPollingOutcome::PresentSuccess { rpm, sensor_id },
+                Err(error) => {
+                    FanPollingOutcome::PresentError { error, sensor_id }
+                }
             }
         })
     }

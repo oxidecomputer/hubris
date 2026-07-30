@@ -44,7 +44,7 @@ impl crate::control::BspInterface for Bsp {
         PowerBitmask::empty()
     }
 
-    fn read_fan_presence(
+    fn poll_fan_presence(
         &mut self,
     ) -> Result<
         impl Iterator<Item = crate::control::FanPresence>,
@@ -53,13 +53,13 @@ impl crate::control::BspInterface for Bsp {
         Ok(core::iter::empty())
     }
 
-    fn read_fan_rpms(
+    fn poll_fan_rpms(
         &mut self,
-    ) -> impl Iterator<Item = crate::control::FanStatus> {
+    ) -> impl Iterator<Item = crate::control::FanPollingOutcome> {
         core::iter::empty()
     }
 
-    fn read_misc_sensors(
+    fn poll_misc_sensors(
         &self,
     ) -> impl Iterator<
         Item = (
@@ -70,21 +70,18 @@ impl crate::control::BspInterface for Bsp {
         core::iter::empty()
     }
 
-    fn read_inputs(
+    fn poll_inputs(
         &mut self,
         _mode: PowerBitmask,
-    ) -> impl Iterator<Item = crate::control::InputReadingOutcome> {
+    ) -> impl Iterator<Item = crate::control::InputPollingOutcome> {
         core::iter::empty()
     }
 
-    fn read_dynamic_inputs_back_from_sensor_api(
-        &mut self,
-        _sensor_api: &task_sensor_api::Sensor,
-    ) {
+    fn poll_dynamic_inputs(&mut self, _sensor_api: &task_sensor_api::Sensor) {
         // no dynamic inputs
     }
 
-    fn update_dynamic_input(
+    fn register_dynamic_input(
         &mut self,
         _index: usize,
         _model: ThermalProperties,
@@ -103,9 +100,9 @@ impl crate::control::BspInterface for Bsp {
         true
     }
 
-    fn all_present_inputs_status(
+    fn all_active_inputs(
         &self,
-    ) -> impl Iterator<Item = crate::control::InputStatus<'_>> {
+    ) -> impl Iterator<Item = crate::control::ActiveInputState<'_>> {
         core::iter::empty()
     }
 

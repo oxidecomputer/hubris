@@ -5,10 +5,10 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    ChannelType, DynamicTemperatureState, FanPresence, InputStatus, PidConfig,
-    TimestampedTemperatureReading,
+    ActiveInputState, ChannelType, DynamicTemperatureState, FanPresence,
+    PidConfig, TimestampedTemperatureReading,
 };
-use crate::control::{DynamicInputChannel, FanStatus};
+use crate::control::{DynamicInputChannel, FanPollingOutcome};
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
@@ -121,7 +121,7 @@ impl crate::control::BspInterface for Bsp {
         }
     }
 
-    fn read_fan_presence(
+    fn poll_fan_presence(
         &mut self,
     ) -> Result<impl Iterator<Item = FanPresence>, crate::SeqError> {
         // Get presence bits from the sequencer
@@ -156,16 +156,16 @@ impl crate::control::BspInterface for Bsp {
         Ok(iter)
     }
 
-    fn read_fan_rpms(&mut self) -> impl Iterator<Item = FanStatus> {
+    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = FanPollingOutcome> {
         // Load bearing assumption: the first 4 fans are the EAST fans, and the
         // last 4 fans are the WEST fans.
         let (east, west) = self.fans.split_at_mut(4);
         self.fctrl_east
-            .read_fan_rpms(east)
-            .chain(self.fctrl_west.read_fan_rpms(west))
+            .poll_fan_rpms(east)
+            .chain(self.fctrl_west.poll_fan_rpms(west))
     }
 
-    fn read_misc_sensors(
+    fn poll_misc_sensors(
         &self,
     ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>
     {
@@ -175,20 +175,17 @@ impl crate::control::BspInterface for Bsp {
         })
     }
 
-    fn read_inputs(
+    fn poll_inputs(
         &mut self,
         mode: PowerBitmask,
-    ) -> impl Iterator<Item = crate::control::InputReadingOutcome> {
+    ) -> impl Iterator<Item = crate::control::InputPollingOutcome> {
         let task = &self.i2c_task;
         self.inputs
             .iter_mut()
-            .map(move |i| i.do_reading(mode, task))
+            .map(move |i| i.poll_input(mode, task))
     }
 
-    fn read_dynamic_inputs_back_from_sensor_api(
-        &mut self,
-        sensor_api: &task_sensor_api::Sensor,
-    ) {
+    fn poll_dynamic_inputs(&mut self, sensor_api: &task_sensor_api::Sensor) {
         for di in self.dynamic_inputs.iter_mut() {
             // If the input is disabled, don't attempt to read.
             let model = match di.state {
@@ -213,7 +210,7 @@ impl crate::control::BspInterface for Bsp {
         }
     }
 
-    fn update_dynamic_input(
+    fn register_dynamic_input(
         &mut self,
         index: usize,
         model: ThermalProperties,
@@ -254,10 +251,9 @@ impl crate::control::BspInterface for Bsp {
                 .all(DynamicInputChannel::has_been_queried)
     }
 
-    fn all_present_inputs_status(
-        &self,
-    ) -> impl Iterator<Item = InputStatus<'_>> {
-        let inputs = self.inputs.iter().filter_map(|input| input.status());
+    fn all_active_inputs(&self) -> impl Iterator<Item = ActiveInputState<'_>> {
+        let inputs =
+            self.inputs.iter().filter_map(|input| input.active_state());
         let dynamic_inputs =
             self.dynamic_inputs.iter().filter_map(|di| match &di.state {
                 DynamicTemperatureState::Disabled => None,
@@ -265,7 +261,7 @@ impl crate::control::BspInterface for Bsp {
                 DynamicTemperatureState::ValidAtLeastOnce {
                     model,
                     reading,
-                } => Some(InputStatus {
+                } => Some(ActiveInputState {
                     sensor_id: di.sensor_id,
                     reading,
                     model,

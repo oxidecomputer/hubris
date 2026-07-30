@@ -7,7 +7,7 @@
 use crate::{
     bsp::PowerBitmask,
     control::{
-        ChannelType, InputReadingOutcome, InputStatus, TemperatureReading,
+        ActiveInputState, ChannelType, InputPollingOutcome, TemperatureReading,
         TimestampedTemperatureReading,
     },
 };
@@ -145,13 +145,13 @@ impl InputChannel {
     /// Get current stored status.
     ///
     /// Returns None if we do not have a reading stored.
-    pub(crate) fn status(&self) -> Option<InputStatus<'_>> {
+    pub(crate) fn active_state(&self) -> Option<ActiveInputState<'_>> {
         let TemperatureReading::ValidAtLeastOnce(ref reading) =
             self.last_reading
         else {
             return None;
         };
-        Some(InputStatus {
+        Some(ActiveInputState {
             sensor_id: self.metadata.sensor.sensor_id,
             reading,
             model: &self.metadata.model,
@@ -166,17 +166,17 @@ impl InputChannel {
         }
     }
 
-    pub(crate) fn do_reading(
+    pub(crate) fn poll_input(
         &mut self,
         mode: PowerBitmask,
         i2c_task: &TaskId,
-    ) -> InputReadingOutcome {
+    ) -> InputPollingOutcome {
         let sensor_id = self.metadata.sensor.sensor_id;
 
         // If we're not supposed to be on, don't even ask.
         if !mode.intersects(self.metadata.power_mode_mask) {
             self.last_reading = TemperatureReading::Unpowered;
-            return InputReadingOutcome::Unpowered { sensor_id };
+            return InputPollingOutcome::Unpowered { sensor_id };
         }
 
         match self.metadata.sensor.read_temp(*i2c_task) {
@@ -188,7 +188,7 @@ impl InputChannel {
                         value,
                     },
                 );
-                InputReadingOutcome::Success {
+                InputPollingOutcome::Success {
                     sensor_id,
                     now,
                     value,
@@ -236,12 +236,12 @@ impl InputChannel {
                     e == SensorReadError::I2cError(ResponseCode::NoDevice);
                 let unexpected_failure = !(removable && removed);
                 if unexpected_failure {
-                    InputReadingOutcome::UnacceptableMissing {
+                    InputPollingOutcome::UnacceptableMissing {
                         sensor_id,
                         err: e,
                     }
                 } else {
-                    InputReadingOutcome::AcceptableMissing { sensor_id, err: e }
+                    InputPollingOutcome::AcceptableMissing { sensor_id, err: e }
                 }
             }
         }

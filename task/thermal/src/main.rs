@@ -312,7 +312,7 @@ impl<'a, B: control::BspInterface> idl::InOrderThermalImpl
             return Err(ThermalError::NotInAutoMode.into());
         }
         self.control
-            .update_dynamic_input(index, model)
+            .register_dynamic_input(index, model)
             .map_err(RequestError::from)
     }
 

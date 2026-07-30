@@ -4,8 +4,8 @@
 
 //! BSP for Medusa
 
+use crate::control::{ActiveInputState, FanPresence};
 use crate::control::{ChannelType, PidConfig};
-use crate::control::{FanPresence, InputStatus};
 use drv_i2c_devices::max31790::I2cWatchdog;
 use task_sensor_api::SensorId;
 use task_thermal_api::{ThermalError, ThermalProperties};
@@ -83,7 +83,7 @@ impl crate::control::BspInterface for Bsp {
         PowerBitmask::ON
     }
 
-    fn read_fan_presence(
+    fn poll_fan_presence(
         &mut self,
     ) -> Result<
         impl Iterator<Item = crate::control::FanPresence>,
@@ -97,13 +97,13 @@ impl crate::control::BspInterface for Bsp {
         }))
     }
 
-    fn read_fan_rpms(
+    fn poll_fan_rpms(
         &mut self,
-    ) -> impl Iterator<Item = crate::control::FanStatus> {
-        self.fctrl.read_fan_rpms(self.fans)
+    ) -> impl Iterator<Item = crate::control::FanPollingOutcome> {
+        self.fctrl.poll_fan_rpms(self.fans)
     }
 
-    fn read_misc_sensors(
+    fn poll_misc_sensors(
         &self,
     ) -> impl Iterator<
         Item = (SensorId, Result<Celsius, task_thermal_api::SensorReadError>),
@@ -111,24 +111,21 @@ impl crate::control::BspInterface for Bsp {
         core::iter::empty()
     }
 
-    fn read_inputs(
+    fn poll_inputs(
         &mut self,
         mode: PowerBitmask,
-    ) -> impl Iterator<Item = crate::control::InputReadingOutcome> {
+    ) -> impl Iterator<Item = crate::control::InputPollingOutcome> {
         let task = &self.i2c_task;
         self.inputs
             .iter_mut()
-            .map(move |i| i.do_reading(mode, task))
+            .map(move |i| i.poll_input(mode, task))
     }
 
-    fn read_dynamic_inputs_back_from_sensor_api(
-        &mut self,
-        _sensor_api: &task_sensor_api::Sensor,
-    ) {
+    fn poll_dynamic_inputs(&mut self, _sensor_api: &task_sensor_api::Sensor) {
         // No dynamic inputs
     }
 
-    fn update_dynamic_input(
+    fn register_dynamic_input(
         &mut self,
         _index: usize,
         _model: ThermalProperties,
@@ -151,10 +148,8 @@ impl crate::control::BspInterface for Bsp {
         // No dynamic inputs
     }
 
-    fn all_present_inputs_status(
-        &self,
-    ) -> impl Iterator<Item = InputStatus<'_>> {
-        self.inputs.iter().filter_map(|input| input.status())
+    fn all_active_inputs(&self) -> impl Iterator<Item = ActiveInputState<'_>> {
+        self.inputs.iter().filter_map(|input| input.active_state())
         // No dynamic inputs
     }
 
