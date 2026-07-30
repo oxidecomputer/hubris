@@ -142,6 +142,12 @@ pub struct ActiveInputState<'a> {
     pub model: &'a ThermalProperties,
 }
 
+/// Outcome of polling a misc sensor
+pub struct MiscSensorPollingOutcome {
+    pub sensor_id: SensorId,
+    pub outcome: Result<Celsius, SensorReadError>,
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /// A `DynamicInputChannel` represents a temperature input channel with thermal
@@ -752,13 +758,13 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         //
         // We don't retain state for misc sensors, as that is all stored in the
         // sensor task itself. We're just in charge of polling them.
-        for (id, res) in self.bsp.poll_misc_sensors() {
-            match res {
-                Ok(v) => self.sensor_api.post_now(id, v.0),
+        for outcome in self.bsp.poll_misc_sensors() {
+            match outcome.outcome {
+                Ok(v) => self.sensor_api.post_now(outcome.sensor_id, v.0),
                 Err(e) => {
-                    ringbuf_entry!(Trace::MiscReadFailed(id, e));
-                    self.err_blackbox.push(id, e);
-                    self.sensor_api.nodata_now(id, e.into())
+                    ringbuf_entry!(Trace::MiscReadFailed(outcome.sensor_id, e));
+                    self.err_blackbox.push(outcome.sensor_id, e);
+                    self.sensor_api.nodata_now(outcome.sensor_id, e.into())
                 }
             }
         }
@@ -1303,7 +1309,7 @@ pub trait BspInterface {
     /// that not all sensors will be actively queried.
     fn poll_misc_sensors(
         &self,
-    ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>;
+    ) -> impl Iterator<Item = MiscSensorPollingOutcome>;
 
     /// Return an iterator of the outcome of polling each input. The iterator
     /// reports whether the input is powered, present, and whether the latest

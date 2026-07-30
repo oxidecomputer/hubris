@@ -4,7 +4,7 @@
 
 //! BSP for Minibar
 
-use crate::control::PidConfig;
+use crate::control::{MiscSensorPollingOutcome, PidConfig};
 use task_sensor_api::SensorId;
 use task_thermal_api::{ThermalError, ThermalProperties};
 use userlib::TaskId;
@@ -61,12 +61,7 @@ impl crate::control::BspInterface for Bsp {
 
     fn poll_misc_sensors(
         &self,
-    ) -> impl Iterator<
-        Item = (
-            SensorId,
-            Result<userlib::units::Celsius, task_thermal_api::SensorReadError>,
-        ),
-    > {
+    ) -> impl Iterator<Item = MiscSensorPollingOutcome> {
         core::iter::empty()
     }
 

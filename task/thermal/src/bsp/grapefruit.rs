@@ -4,7 +4,7 @@
 
 //! BSP for Medusa
 
-use crate::control::{ActiveInputState, FanPresence};
+use crate::control::{ActiveInputState, FanPresence, MiscSensorPollingOutcome};
 use crate::control::{ChannelType, PidConfig};
 use drv_i2c_devices::max31790::I2cWatchdog;
 use task_sensor_api::SensorId;
@@ -105,9 +105,7 @@ impl crate::control::BspInterface for Bsp {
 
     fn poll_misc_sensors(
         &self,
-    ) -> impl Iterator<
-        Item = (SensorId, Result<Celsius, task_thermal_api::SensorReadError>),
-    > {
+    ) -> impl Iterator<Item = MiscSensorPollingOutcome> {
         core::iter::empty()
     }
 

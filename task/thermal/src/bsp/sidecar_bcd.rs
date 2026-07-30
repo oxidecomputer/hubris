@@ -6,7 +6,7 @@
 
 use crate::control::{
     ActiveInputState, ChannelType, DynamicTemperatureState, FanPresence,
-    PidConfig, TimestampedTemperatureReading,
+    MiscSensorPollingOutcome, PidConfig, TimestampedTemperatureReading,
 };
 use crate::control::{DynamicInputChannel, FanPollingOutcome};
 use drv_i2c_devices::max31790::Max31790;
@@ -14,7 +14,6 @@ use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use task_sensor_api::SensorId;
-use task_thermal_api::SensorReadError;
 use task_thermal_api::ThermalError;
 use task_thermal_api::ThermalProperties;
 use userlib::{TaskId, task_slot, units::Celsius};
@@ -167,11 +166,13 @@ impl crate::control::BspInterface for Bsp {
 
     fn poll_misc_sensors(
         &self,
-    ) -> impl Iterator<Item = (SensorId, Result<Celsius, SensorReadError>)>
-    {
+    ) -> impl Iterator<Item = MiscSensorPollingOutcome> {
         self.misc_sensors.iter().map(|s| {
             let res = s.read_temp(self.i2c_task);
-            (s.sensor_id, res)
+            MiscSensorPollingOutcome {
+                sensor_id: s.sensor_id,
+                outcome: res,
+            }
         })
     }
 
