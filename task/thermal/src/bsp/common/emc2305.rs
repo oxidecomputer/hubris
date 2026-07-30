@@ -6,12 +6,12 @@
 
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::emc2305::Emc2305;
-use ringbuf::ringbuf_entry;
+use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
 use task_thermal_api::{SensorReadError, ThermalError};
 
 use crate::{
-    __RINGBUF, Trace,
+    Trace,
     control::{Fan, FanStatus},
 };
 
@@ -55,12 +55,12 @@ impl Emc2305State {
     #[inline(never)]
     fn initialize(&mut self) -> Result<&mut Emc2305, ControllerInitError> {
         self.emc2305.initialize(self.fan_count).map_err(|e| {
-            ringbuf_entry!(Trace::FanControllerInitError(e));
+            ringbuf_entry_root!(Trace::FanControllerInitError(e));
             ControllerInitError(e)
         })?;
 
         self.initialized = true;
-        ringbuf_entry!(Trace::FanControllerInitialized);
+        ringbuf_entry_root!(Trace::FanControllerInitialized);
         Ok(&mut self.emc2305)
     }
 
@@ -106,7 +106,7 @@ pub(crate) fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(
         if init().is_ok() {
             break;
         }
-        ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
+        ringbuf_entry_root!(Trace::FanControllerInitRetry { remaining });
     }
 }
 

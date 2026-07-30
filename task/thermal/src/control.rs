@@ -115,15 +115,21 @@ pub(crate) enum ChannelType {
 pub enum InputReadingOutcome {
     /// Sensor was not read because the power mode indicated that it would not
     /// be enabled in this state.
-    Unpowered { id: SensorId },
+    Unpowered { sensor_id: SensorId },
     /// This sensor was missing, but it's okay because it was either Removable
     /// and not there, or Removable and Error Prone and had any kind of error.
-    AcceptableMissing { id: SensorId, err: SensorReadError },
+    AcceptableMissing {
+        sensor_id: SensorId,
+        err: SensorReadError,
+    },
     /// Any read error that didn't match the "Acceptable" cases listed above.
-    UnacceptableMissing { id: SensorId, err: SensorReadError },
+    UnacceptableMissing {
+        sensor_id: SensorId,
+        err: SensorReadError,
+    },
     /// We read the data! Hooray!
     Success {
-        id: SensorId,
+        sensor_id: SensorId,
         now: u64,
         value: Celsius,
     },
@@ -131,7 +137,7 @@ pub enum InputReadingOutcome {
 
 /// Status of a regular or dynamic input
 pub struct InputStatus<'a> {
-    pub id: SensorId,
+    pub sensor_id: SensorId,
     pub reading: &'a TimestampedTemperatureReading,
     pub model: &'a ThermalProperties,
 }
@@ -152,25 +158,27 @@ pub struct InputStatus<'a> {
 #[allow(dead_code)] // Not all bsps have dynamic inputs
 pub(crate) struct DynamicInputChannel {
     pub sensor_id: SensorId,
-    pub model: ThermalProperties,
-    pub last_reading: DynamicTemperatureReading,
+    pub state: DynamicTemperatureState,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
 /// reading or is marked as inactive (due to power state or being missing)
 #[derive(Copy, Clone, Debug)]
 #[allow(dead_code)] // Not all bsps have inputs!
-pub enum DynamicTemperatureReading {
+pub enum DynamicTemperatureState {
     /// Device has not been enabled
     Disabled,
 
     /// The device is powered in the current mode, but has not yet been
     /// queried successfully
-    NotYetQueried,
+    NotYetQueried { model: ThermalProperties },
 
     /// This device has been queried successfully at least once, and this
     /// contains the most recent valid reply
-    ValidAtLeastOnce(TimestampedTemperatureReading),
+    ValidAtLeastOnce {
+        reading: TimestampedTemperatureReading,
+        model: ThermalProperties,
+    },
 }
 
 #[allow(dead_code)]
@@ -178,25 +186,19 @@ impl DynamicInputChannel {
     pub(crate) const fn new(sensor_id: SensorId) -> Self {
         Self {
             sensor_id,
-            model: ThermalProperties {
-                target_temperature: Celsius(0.),
-                critical_temperature: Celsius(0.),
-                power_down_temperature: Celsius(0.),
-                temperature_slew_deg_per_sec: 0.,
-            },
-            last_reading: DynamicTemperatureReading::Disabled,
+            state: DynamicTemperatureState::Disabled,
         }
     }
 
     pub(crate) fn has_been_queried(&self) -> bool {
-        match self.last_reading {
+        match self.state {
             // Not queried? No!
-            DynamicTemperatureReading::NotYetQueried => false,
+            DynamicTemperatureState::NotYetQueried { .. } => false,
 
             // Either the input is disabled (so we have done all the querying
             // necessary), or it has been valid in the past.
-            DynamicTemperatureReading::Disabled => true,
-            DynamicTemperatureReading::ValidAtLeastOnce(..) => true,
+            DynamicTemperatureState::Disabled => true,
+            DynamicTemperatureState::ValidAtLeastOnce { .. } => true,
         }
     }
 }
@@ -207,7 +209,7 @@ impl DynamicInputChannel {
 #[allow(dead_code)] // used only by the debugger
 pub struct TimestampedSensorError {
     pub timestamp: u64,
-    pub id: SensorId,
+    pub sensor_id: SensorId,
     pub err: SensorReadError,
 }
 
@@ -229,10 +231,14 @@ impl ThermalSensorErrors {
         *self = Self::new();
     }
 
-    pub fn push(&mut self, id: SensorId, err: SensorReadError) {
+    pub fn push(&mut self, sensor_id: SensorId, err: SensorReadError) {
         if let Some(v) = self.values.get_mut(self.next as usize) {
             let timestamp = userlib::sys_get_timer().now;
-            *v = Some(TimestampedSensorError { id, err, timestamp });
+            *v = Some(TimestampedSensorError {
+                sensor_id,
+                err,
+                timestamp,
+            });
             self.next += 1;
         }
     }
@@ -763,24 +769,30 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         let power_mode = self.bsp.power_mode();
         for res in self.bsp.read_inputs(power_mode) {
             match res {
-                InputReadingOutcome::Success { id, now, value } => {
-                    self.sensor_api.post(id, value.0, now);
+                InputReadingOutcome::Success {
+                    sensor_id,
+                    now,
+                    value,
+                } => {
+                    self.sensor_api.post(sensor_id, value.0, now);
                 }
-                InputReadingOutcome::AcceptableMissing { id, err } => {
-                    self.sensor_api.nodata_now(id, err.into());
+                InputReadingOutcome::AcceptableMissing { sensor_id, err } => {
+                    self.sensor_api.nodata_now(sensor_id, err.into());
                 }
-                InputReadingOutcome::UnacceptableMissing { id, err } => {
+                InputReadingOutcome::UnacceptableMissing { sensor_id, err } => {
                     // Record an error errors if the sensor is not removable
                     // or we get a unexpected error from a removable sensor
-                    ringbuf_entry!(Trace::SensorReadFailed(id, err));
-                    self.err_blackbox.push(id, err);
-                    self.sensor_api.nodata_now(id, err.into());
+                    ringbuf_entry!(Trace::SensorReadFailed(sensor_id, err));
+                    self.err_blackbox.push(sensor_id, err);
+                    self.sensor_api.nodata_now(sensor_id, err.into());
                 }
-                InputReadingOutcome::Unpowered { id } => {
+                InputReadingOutcome::Unpowered { sensor_id } => {
                     // If the device isn't supposed to be on in the current
                     // power state, then record it as Off in the sensors task.
-                    self.sensor_api
-                        .nodata_now(id, task_sensor_api::NoData::DeviceOff);
+                    self.sensor_api.nodata_now(
+                        sensor_id,
+                        task_sensor_api::NoData::DeviceOff,
+                    );
                 }
             }
         }
@@ -864,15 +876,19 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // overheating.  We want to pick the _smallest_ margin, since
         // that's the part which is most overheated.
         self.bsp.all_present_inputs_status().for_each(
-            |InputStatus { id, reading, model }| {
+            |InputStatus {
+                 sensor_id,
+                 reading,
+                 model,
+             }| {
                 let worst_case = reading.worst_case(now_ms, model);
                 let temperature = worst_case.worst_case_temp;
                 all_nominal &= model.is_nominal(temperature);
                 if model.should_power_down(temperature) {
-                    any_power_down = Some((id, worst_case));
+                    any_power_down = Some((sensor_id, worst_case));
                 }
                 if model.is_critical(temperature) {
-                    any_critical = Some((id, worst_case));
+                    any_critical = Some((sensor_id, worst_case));
                 }
                 worst_margin = worst_margin.min(model.margin(temperature).0);
             },

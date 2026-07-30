@@ -5,8 +5,8 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    ChannelType, DynamicTemperatureReading, FanPresence, InputStatus,
-    PidConfig, TimestampedTemperatureReading,
+    ChannelType, DynamicTemperatureState, FanPresence, InputStatus, PidConfig,
+    TimestampedTemperatureReading,
 };
 use crate::control::{DynamicInputChannel, FanStatus};
 use drv_i2c_devices::max31790::Max31790;
@@ -191,19 +191,24 @@ impl crate::control::BspInterface for Bsp {
     ) {
         for di in self.dynamic_inputs.iter_mut() {
             // If the input is disabled, don't attempt to read.
-            if let DynamicTemperatureReading::Disabled = di.last_reading {
-                continue;
-            }
+            let model = match di.state {
+                DynamicTemperatureState::Disabled => continue,
+                DynamicTemperatureState::NotYetQueried { model } => model,
+                DynamicTemperatureState::ValidAtLeastOnce { model, .. } => {
+                    model
+                }
+            };
 
             // If there is a valid reading, update, otherwise leave in the
             // current state (either unqueried or the last valid value)
             if let Ok(r) = sensor_api.get_reading(di.sensor_id) {
-                di.last_reading = DynamicTemperatureReading::ValidAtLeastOnce(
-                    TimestampedTemperatureReading {
+                di.state = DynamicTemperatureState::ValidAtLeastOnce {
+                    model,
+                    reading: TimestampedTemperatureReading {
                         time_ms: r.timestamp,
                         value: Celsius(r.value),
                     },
-                );
+                };
             }
         }
     }
@@ -216,14 +221,13 @@ impl crate::control::BspInterface for Bsp {
         let Some(di) = self.dynamic_inputs.get_mut(index) else {
             return Err(ThermalError::InvalidIndex);
         };
-        match di.last_reading {
-            DynamicTemperatureReading::Disabled => {
-                di.model = model;
-                di.last_reading = DynamicTemperatureReading::NotYetQueried;
+        match di.state {
+            DynamicTemperatureState::Disabled => {
+                di.state = DynamicTemperatureState::NotYetQueried { model };
                 Ok(true)
             }
-            DynamicTemperatureReading::NotYetQueried
-            | DynamicTemperatureReading::ValidAtLeastOnce(..) => {
+            DynamicTemperatureState::NotYetQueried { .. }
+            | DynamicTemperatureState::ValidAtLeastOnce { .. } => {
                 // TODO: I think the old code just ignored this?
                 Ok(false)
             }
@@ -238,7 +242,7 @@ impl crate::control::BspInterface for Bsp {
             return Err(ThermalError::InvalidIndex);
         };
         // TODO: do we return an err if this was already removed? Check old code
-        di.last_reading = DynamicTemperatureReading::Disabled;
+        di.state = DynamicTemperatureState::Disabled;
         Ok(di.sensor_id)
     }
 
@@ -254,19 +258,19 @@ impl crate::control::BspInterface for Bsp {
         &self,
     ) -> impl Iterator<Item = InputStatus<'_>> {
         let inputs = self.inputs.iter().filter_map(|input| input.status());
-        let dynamic_inputs = self.dynamic_inputs.iter().filter_map(|di| {
-            match &di.last_reading {
-                DynamicTemperatureReading::Disabled => None,
-                DynamicTemperatureReading::NotYetQueried => None,
-                DynamicTemperatureReading::ValidAtLeastOnce(reading) => {
-                    Some(InputStatus {
-                        id: di.sensor_id,
-                        reading,
-                        model: &di.model,
-                    })
-                }
-            }
-        });
+        let dynamic_inputs =
+            self.dynamic_inputs.iter().filter_map(|di| match &di.state {
+                DynamicTemperatureState::Disabled => None,
+                DynamicTemperatureState::NotYetQueried { .. } => None,
+                DynamicTemperatureState::ValidAtLeastOnce {
+                    model,
+                    reading,
+                } => Some(InputStatus {
+                    sensor_id: di.sensor_id,
+                    reading,
+                    model,
+                }),
+            });
 
         inputs.chain(dynamic_inputs)
     }
@@ -276,11 +280,11 @@ impl crate::control::BspInterface for Bsp {
         self.inputs.iter_mut().for_each(|i| i.reset_value(mode));
         self.dynamic_inputs
             .iter_mut()
-            .for_each(|di| match di.last_reading {
-                DynamicTemperatureReading::Disabled => {}
-                DynamicTemperatureReading::NotYetQueried => {}
-                DynamicTemperatureReading::ValidAtLeastOnce(..) => {
-                    di.last_reading = DynamicTemperatureReading::NotYetQueried;
+            .for_each(|di| match di.state {
+                DynamicTemperatureState::Disabled => {}
+                DynamicTemperatureState::NotYetQueried { .. } => {}
+                DynamicTemperatureState::ValidAtLeastOnce { model, .. } => {
+                    di.state = DynamicTemperatureState::NotYetQueried { model };
                 }
             });
     }

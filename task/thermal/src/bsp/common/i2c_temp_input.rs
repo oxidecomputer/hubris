@@ -74,6 +74,15 @@ impl TemperatureSensor {
     }
 }
 
+/// InputChannelMetadata is the constant description portion of an InputChannel.
+///
+/// We split it off because InputChannel is mutable to contain the last state,
+/// and if we left it inlined, then we would end up including all of this
+/// metadata in RAM, despite never changing it! So instead, we break it off and
+/// have InputChannel hold an `&'static` reference instead, so we only waste
+/// a wee little pointer (4 bytes) to flash space in each InputChannel entry,
+/// instead of (at the time of writing) 36 bytes, which for example in Cosmo
+/// that has 14 input channels, is over 500 bytes of RAM!
 pub(crate) struct InputChannelMetadata {
     /// Temperature sensor
     sensor: TemperatureSensor,
@@ -81,7 +90,7 @@ pub(crate) struct InputChannelMetadata {
     /// Thermal properties of the associated component
     model: ThermalProperties,
 
-    /// Mask with bits set based on the Bsp's `power_mode` bits
+    /// Mask with bits set based on the BSP's `power_mode` bits
     power_mode_mask: PowerBitmask,
 
     /// Channel type
@@ -95,17 +104,8 @@ pub(crate) struct InputChannel {
     last_reading: TemperatureReading,
 }
 
-/// InputChannelMetadata is the constant description portion of an InputChannel.
-///
-/// We split it off because InputChannel is mutable to contain the last state,
-/// and if we left it inlined, then we would end up including all of this
-/// metadata in RAM, despite never changing it! So instead, we break it off and
-/// have InputChannel hold an `&'static` reference instead, so we only waste
-/// a wee little pointer (4 bytes) to flash space in each InputChannel entry,
-/// instead of (at the time of writing) 36 bytes, which for example in Cosmo
-/// that has 14 input channels, is over 500 bytes of RAM!
 impl InputChannelMetadata {
-    pub const fn new(
+    pub(crate) const fn new(
         sensor: TemperatureSensor,
         model: ThermalProperties,
         power_mode_mask: PowerBitmask,
@@ -121,14 +121,14 @@ impl InputChannelMetadata {
 }
 
 impl InputChannel {
-    pub const fn new(metadata: &'static InputChannelMetadata) -> Self {
+    pub(crate) const fn new(metadata: &'static InputChannelMetadata) -> Self {
         Self {
             metadata,
             last_reading: TemperatureReading::NotYetQueried,
         }
     }
 
-    pub fn has_been_queried(&self) -> bool {
+    pub(crate) fn has_been_queried(&self) -> bool {
         match self.last_reading {
             // If we haven't queried it, then no!
             TemperatureReading::NotYetQueried => false,
@@ -145,20 +145,20 @@ impl InputChannel {
     /// Get current stored status.
     ///
     /// Returns None if we do not have a reading stored.
-    pub fn status(&self) -> Option<InputStatus<'_>> {
+    pub(crate) fn status(&self) -> Option<InputStatus<'_>> {
         let TemperatureReading::ValidAtLeastOnce(ref reading) =
             self.last_reading
         else {
             return None;
         };
         Some(InputStatus {
-            id: self.metadata.sensor.sensor_id,
+            sensor_id: self.metadata.sensor.sensor_id,
             reading,
             model: &self.metadata.model,
         })
     }
 
-    pub fn reset_value(&mut self, mode: PowerBitmask) {
+    pub(crate) fn reset_value(&mut self, mode: PowerBitmask) {
         if !mode.intersects(self.metadata.power_mode_mask) {
             self.last_reading = TemperatureReading::Unpowered;
         } else {
@@ -166,17 +166,17 @@ impl InputChannel {
         }
     }
 
-    pub fn do_reading(
+    pub(crate) fn do_reading(
         &mut self,
         mode: PowerBitmask,
         i2c_task: &TaskId,
     ) -> InputReadingOutcome {
-        let id = self.metadata.sensor.sensor_id;
+        let sensor_id = self.metadata.sensor.sensor_id;
 
         // If we're not supposed to be on, don't even ask.
         if !mode.intersects(self.metadata.power_mode_mask) {
             self.last_reading = TemperatureReading::Unpowered;
-            return InputReadingOutcome::Unpowered { id };
+            return InputReadingOutcome::Unpowered { sensor_id };
         }
 
         match self.metadata.sensor.read_temp(*i2c_task) {
@@ -188,10 +188,14 @@ impl InputChannel {
                         value,
                     },
                 );
-                InputReadingOutcome::Success { id, now, value }
+                InputReadingOutcome::Success {
+                    sensor_id,
+                    now,
+                    value,
+                }
             }
             Err(e) => {
-                // This is mimicing the old state value logic for deciding if
+                // This is mimicking the old state value logic for deciding if
                 // we persist the data in `run_control`, that ONLY cleared the
                 // persisted value if:
                 //
@@ -232,9 +236,12 @@ impl InputChannel {
                     e == SensorReadError::I2cError(ResponseCode::NoDevice);
                 let unexpected_failure = !(removable && removed);
                 if unexpected_failure {
-                    InputReadingOutcome::UnacceptableMissing { id, err: e }
+                    InputReadingOutcome::UnacceptableMissing {
+                        sensor_id,
+                        err: e,
+                    }
                 } else {
-                    InputReadingOutcome::AcceptableMissing { id, err: e }
+                    InputReadingOutcome::AcceptableMissing { sensor_id, err: e }
                 }
             }
         }
