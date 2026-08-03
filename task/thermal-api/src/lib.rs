@@ -81,7 +81,7 @@ pub enum ThermalAutoState {
 }
 
 /// Properties for a particular part in the system
-#[derive(Clone, Copy, IntoBytes, FromBytes, Immutable, KnownLayout)]
+#[derive(Clone, Copy, IntoBytes, FromBytes, Immutable, KnownLayout, Debug)]
 #[repr(C)]
 pub struct ThermalProperties {
     /// Target temperature for this part
