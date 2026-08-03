@@ -167,9 +167,9 @@ pub(crate) struct DynamicInputChannel {
     pub state: DynamicTemperatureState,
 }
 
-/// Represents the state of a dynamic temperature sensor (which are added 
-/// and removed at runtime by IPCs from outside the thermal loop). Such a 
-/// sensor either has a valid reading or is marked as inactive (due to power 
+/// Represents the state of a dynamic temperature sensor (which are added
+/// and removed at runtime by IPCs from outside the thermal loop). Such a
+/// sensor either has a valid reading or is marked as inactive (due to power
 /// state or not having been added to the thermal loop).
 #[derive(Copy, Clone, Debug)]
 #[allow(dead_code)] // Not all bsps have inputs!
@@ -1316,8 +1316,8 @@ pub trait BspInterface {
     /// Return an iterator of the outcome of polling each input. The iterator
     /// reports whether the input is powered, present, and whether the latest
     /// query was successful. This updates the state of the sensor, which is
-    /// obtained by calling [`Self::all_active_inputs()`]. Unlike this API, 
-    /// that function retains the latest valid value in case of transient 
+    /// obtained by calling [`Self::all_active_inputs()`]. Unlike this API,
+    /// that function retains the latest valid value in case of transient
     /// read failures.
     fn poll_inputs(
         &mut self,
