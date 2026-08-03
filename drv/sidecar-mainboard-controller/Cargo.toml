@@ -12,6 +12,7 @@ num-traits = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
+counters = { path = "../../lib/counters", optional = true }
 drv-auxflash-api = { path = "../auxflash-api", optional = true }
 drv-fpga-api = { path = "../fpga-api" }
 drv-fpga-user-api = { path = "../fpga-user-api" }
@@ -21,6 +22,7 @@ userlib = { path = "../../sys/userlib" }
 [features]
 bitstream = ["dep:drv-auxflash-api", "drv-fpga-api/auxflash"]
 no-ipc-counters = ["idol/no-counters"]
+counters = ["dep:counters", "drv-fpga-user-api/counters"]
 
 [build-dependencies]
 build-fpga-regmap = { path = "../../build/fpga-regmap" }

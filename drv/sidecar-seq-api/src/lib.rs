@@ -59,6 +59,7 @@ impl From<FpgaError> for SeqError {
     IntoBytes,
     Immutable,
     KnownLayout,
+    counters::Count,
 )]
 #[repr(u8)]
 pub enum TofinoSequencerPolicy {
