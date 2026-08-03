@@ -143,13 +143,13 @@ impl crate::control::BspInterface for Bsp {
             .map(|(fan_id, (present, c))| {
                 let fan_id = fan_id as u8;
                 let was = c.is_present;
-                let new = was ^ present;
+                let changed = was ^ present;
                 c.is_present = present;
 
                 if present {
-                    FanPresence::Present { fan_id, new }
+                    FanPresence::Present { fan_id, changed }
                 } else {
-                    FanPresence::NotPresent { fan_id, new }
+                    FanPresence::NotPresent { fan_id, changed }
                 }
             });
         Ok(iter)
