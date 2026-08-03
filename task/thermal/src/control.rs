@@ -167,8 +167,10 @@ pub(crate) struct DynamicInputChannel {
     pub state: DynamicTemperatureState,
 }
 
-/// Represents the state of a temperature sensor, which either has a valid
-/// reading or is marked as inactive (due to power state or being missing)
+/// Represents the state of a dynamic temperature sensor (which are added 
+/// and removed at runtime by IPCs from outside the thermal loop). Such a 
+/// sensor either has a valid reading or is marked as inactive (due to power 
+/// state or not having been added to the thermal loop).
 #[derive(Copy, Clone, Debug)]
 #[allow(dead_code)] // Not all bsps have inputs!
 pub enum DynamicTemperatureState {
@@ -786,8 +788,8 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
                     self.sensor_api.nodata_now(sensor_id, err.into());
                 }
                 InputPollingOutcome::UnacceptableMissing { sensor_id, err } => {
-                    // Record an error errors if the sensor is not removable
-                    // or we get a unexpected error from a removable sensor
+                    // Record an error if the sensor is not removable, or if
+                    // we got an unexpected error from a removable sensor
                     ringbuf_entry!(Trace::SensorReadFailed(sensor_id, err));
                     self.err_blackbox.push(sensor_id, err);
                     self.sensor_api.nodata_now(sensor_id, err.into());
@@ -857,7 +859,6 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         let mut worst_margin = f32::MAX;
         let all_inputs_queried = self.bsp.all_inputs_queried();
 
-        // TODO(AJM): Assert all queried if !Boot
         match self.state {
             ThermalControlState::Uncontrollable => {
                 return Ok(ControlResult::PowerDown);
@@ -876,10 +877,6 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
             }
         };
 
-        // Remember, positive margin means that all parts are happily
-        // below their max temperature; negative means someone is
-        // overheating.  We want to pick the _smallest_ margin, since
-        // that's the part which is most overheated.
         self.bsp.all_active_inputs().for_each(
             |ActiveInputState {
                  sensor_id,
@@ -895,6 +892,11 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
                 if model.is_critical(temperature) {
                     any_critical = Some((sensor_id, worst_case));
                 }
+
+                // Remember, positive margin means that all parts are happily
+                // below their max temperature; negative means someone is
+                // overheating.  We want to pick the _smallest_ margin, since
+                // that's the part which is most overheated.
                 worst_margin = worst_margin.min(model.margin(temperature).0);
             },
         );
@@ -1291,10 +1293,10 @@ pub trait BspInterface {
     /// The current power mode reported by the sequencer
     fn power_mode(&self) -> PowerBitmask;
 
-    /// An iterator representing the presence of each Fan of the system
+    /// An iterator representing the presence of each fan of the system
     ///
     /// Typically reported by the sequencer, or always present in non-variable
-    /// configurations.
+    /// configurations (or an empty iterator, if the board does not have fans).
     fn poll_fan_presence(
         &mut self,
     ) -> Result<impl Iterator<Item = FanPresence>, crate::SeqError>;
@@ -1314,9 +1316,9 @@ pub trait BspInterface {
     /// Return an iterator of the outcome of polling each input. The iterator
     /// reports whether the input is powered, present, and whether the latest
     /// query was successful. This updates the state of the sensor, which is
-    /// obtained by calling [`Self::all_active_inputs()`], which unlike
-    /// this API, retains the latest valid value, in case of transient read
-    /// failures.
+    /// obtained by calling [`Self::all_active_inputs()`]. Unlike this API, 
+    /// that function retains the latest valid value in case of transient 
+    /// read failures.
     fn poll_inputs(
         &mut self,
         mode: PowerBitmask,
@@ -1327,7 +1329,7 @@ pub trait BspInterface {
     /// [`Self::all_active_inputs()`].
     fn poll_dynamic_inputs(&mut self, sensor_api: &task_sensor_api::Sensor);
 
-    /// Set the given dynamic input as present, and configured with the given
+    /// Set the given dynamic input as present, and configures it with the given
     /// model.
     ///
     /// Returns `Ok(true)` when the input was not previously present. Returns
@@ -1351,7 +1353,7 @@ pub trait BspInterface {
     /// Have all powered inputs (regular and dynamic) been queried?
     ///
     /// This is used to determine whether it is appropriate to leave the `Boot`
-    /// state. A sensor is considered to be queried if it is:
+    /// state. A sensor is considered to have been queried if it is:
     ///
     /// * Unpowered
     /// * Not present and marked as removable
