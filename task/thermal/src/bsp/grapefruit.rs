@@ -93,7 +93,7 @@ impl crate::control::BspInterface for Bsp {
         self.fans_added = true;
         Ok(self.fans.iter().map(move |f| FanPresence::Present {
             fan_id: f.bsp_data.into(),
-            new: report_new,
+            changed: report_new,
         }))
     }
 

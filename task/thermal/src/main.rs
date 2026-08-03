@@ -4,10 +4,8 @@
 
 //! Thermal loop
 //!
-//! This is a primordial thermal loop, which will ultimately reading temperature
-//! sensors and control fan duty cycles to actively manage thermals.  Right now,
-//! though it is merely reading every fan and temp sensor that it can find...
-//!
+//! See [`crate::control`] for more information regarding the implementation of
+//! the thermal control loop.
 
 #![no_std]
 #![no_main]
@@ -150,6 +148,7 @@ enum Trace {
     RemovedDynamicInput(usize),
     SetFanWatchdogOk,
     SetFanWatchdogError(ThermalError),
+    UnexpectedInputInactive,
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 
