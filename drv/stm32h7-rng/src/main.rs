@@ -25,7 +25,7 @@ use userlib::{RecvMessage, hl, task_slot};
 
 task_slot!(SYS, sys);
 
-#[cfg(feature = "ereport")]
+#[cfg(feature = "packrat")]
 task_slot!(PACKRAT, packrat);
 
 counted_ringbuf!(Trace, 32, Trace::Blank);
@@ -37,7 +37,7 @@ enum Trace {
     ClockError,
     SeedError,
     Recovered,
-    #[cfg(feature = "ereport")]
+    #[cfg(feature = "packrat")]
     SetRestartId(Result<(), task_packrat_api::CacheSetError>),
 }
 
@@ -233,7 +233,7 @@ impl NotificationHandler for Stm32h7RngServer {
     }
 }
 
-#[cfg(feature = "ereport")]
+#[cfg(feature = "packrat")]
 fn generate_restart_id(rng: &mut Stm32h7Rng) {
     use task_packrat_api::Packrat;
     const BYTES: usize = 16;
@@ -257,7 +257,8 @@ fn generate_restart_id(rng: &mut Stm32h7Rng) {
 
     let id = u128::from_ne_bytes(bytes);
     let packrat = Packrat::from(PACKRAT.get_task_id());
-    let result = packrat.set_ereport_restart_id(id);
+    // Note: not just for ereports anymore!
+    let result = packrat.set_restart_id(id);
     ringbuf_entry!(Trace::SetRestartId(result));
 }
 
@@ -266,7 +267,7 @@ fn main() -> ! {
     let mut rng = Stm32h7Rng::new();
     rng.init();
 
-    #[cfg(feature = "ereport")]
+    #[cfg(feature = "packrat")]
     generate_restart_id(&mut rng);
 
     let mut srv = Stm32h7RngServer::new(rng);

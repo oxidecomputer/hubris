@@ -111,7 +111,6 @@ start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
 features = ["grapefruit", "boot-kmdb"]
-stacksize = 1496
 
 [tasks.hiffy]
 name = "task-hiffy"

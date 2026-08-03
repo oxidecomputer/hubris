@@ -3312,17 +3312,20 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-ereport-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#da0ac17b9d465db5b1f7a2597d068ae091a89b22"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#1e6041896c216c617c612a08c32586b2d8f06399"
 dependencies = [
+ "hubpack",
+ "serde",
  "zerocopy 0.8.27",
 ]
 
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#da0ac17b9d465db5b1f7a2597d068ae091a89b22"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#1e6041896c216c617c612a08c32586b2d8f06399"
 dependencies = [
  "bitflags 2.9.4",
+ "gateway-ereport-messages",
  "hubpack",
  "serde",
  "serde-big-array 0.5.1",
@@ -6395,12 +6398,14 @@ dependencies = [
  "drv-stm32h7-usart",
  "drv-stm32xx-sys-api",
  "enum-map",
+ "ereports",
  "heapless",
  "host-sp-messages",
  "hubpack",
  "idol",
  "idol-runtime",
  "ksz8463",
+ "microcbor",
  "multitimer",
  "num-traits",
  "oxide-barcode",
@@ -6618,6 +6623,7 @@ dependencies = [
  "drv-caboose-pos",
  "drv-cpu-seq-api",
  "gateway-ereport-messages",
+ "hubpack",
  "hubris-num-tasks",
  "hubris-task-names",
  "idol",
@@ -6628,6 +6634,7 @@ dependencies = [
  "num-traits",
  "quote",
  "ringbuf",
+ "serde",
  "snitch-core",
  "spd",
  "static-cell",
@@ -6648,11 +6655,13 @@ dependencies = [
  "derive-idol-err",
  "gateway-ereport-messages",
  "host-sp-messages",
+ "hubpack",
  "idol",
  "idol-runtime",
  "microcbor",
  "num-traits",
  "oxide-barcode",
+ "serde",
  "static_assertions",
  "userlib",
  "zerocopy 0.8.27",

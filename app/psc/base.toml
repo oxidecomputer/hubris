@@ -94,7 +94,7 @@ owner = {name = "sequencer", notification = "psu_pwr_ok_6"}
 
 
 [tasks.rng_driver]
-features = ["h753", "ereport"]
+features = ["h753", "packrat"]
 name = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]
@@ -121,7 +121,7 @@ notifications = ["i2c2-irq", "i2c3-irq"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1480
+stacksize = 1520
 start = true
 task-slots = ["jefe"]
 features = ["ereport"]

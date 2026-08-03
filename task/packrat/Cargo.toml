@@ -11,6 +11,8 @@ spd.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
+hubpack.workspace = true
+serde.workspace = true
 
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 drv-caboose = { path = "../../drv/caboose", optional = true }
