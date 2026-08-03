@@ -69,6 +69,8 @@ enum Trace {
 
 counted_ringbuf!(Trace, 16, Trace::None);
 
+ringbuf::ringbuf!(__LOL, Trace, 0, Trace::None);
+
 #[unsafe(export_name = "main")]
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
@@ -79,6 +81,7 @@ fn main() -> ! {
 
     let mut buffer = [0; idl::INCOMING_SIZE];
 
+    ringbuf_entry!(__LOL, Trace::None);
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
