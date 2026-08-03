@@ -79,7 +79,6 @@ fn main() -> ! {
 
     let mut buffer = [0; idl::INCOMING_SIZE];
 
-    ringbuf_entry!(__LOL, Trace::None);
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
