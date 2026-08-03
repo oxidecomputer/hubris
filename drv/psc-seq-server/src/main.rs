@@ -170,23 +170,94 @@ enum Event {
         #[count(children)]
         psu: Slot,
     },
-    /// Emitted after sucessfully doing an enable/disable action that was
-    /// requested by the state machine.
-    ActionSucceeded {
-        action: ActionRequired,
+    /// Emitted after successfully performing `ActionRequired::EnableOnInsertion`.
+    EnableOnInsertionSucceeded {
         now: u64,
         #[count(children)]
         psu: Slot,
     },
-    /// Emitted after failing to do an enable/disable action that was requested
-    /// by the state machine.
-    ActionFailed {
-        action: ActionRequired,
+    /// Emitted after failing to perform `ActionRequired::EnableOnInsertion`.
+    EnableOnInsertionFailed {
         now: u64,
         #[count(children)]
         psu: Slot,
         err: mwocp6x::Error,
     },
+    /// Emitted after successfully performing `ActionRequired::DisableOnFault`.
+    DisableOnFaultSucceeded {
+        now: u64,
+        #[count(children)]
+        psu: Slot,
+    },
+    /// Emitted after failing to perform `ActionRequired::DisableOnFault`.
+    DisableOnFaultFailed {
+        now: u64,
+        #[count(children)]
+        psu: Slot,
+        err: mwocp6x::Error,
+    },
+    /// Emitted after successfully performing `ActionRequired::ReEnableAfterFault`.
+    ReEnableAfterFaultSucceeded {
+        now: u64,
+        #[count(children)]
+        psu: Slot,
+    },
+    /// Emitted after failing to perform `ActionRequired::ReEnableAfterFault`.
+    ReEnableAfterFaultFailed {
+        now: u64,
+        #[count(children)]
+        psu: Slot,
+        err: mwocp6x::Error,
+    },
+    /// Emitted after successfully performing `ActionRequired::DisableOnRemoval`.
+    DisableOnRemovalSucceeded {
+        now: u64,
+        #[count(children)]
+        psu: Slot,
+    },
+    /// Emitted after failing to perform `ActionRequired::DisableOnRemoval`.
+    DisableOnRemovalFailed {
+        now: u64,
+        #[count(children)]
+        psu: Slot,
+        err: mwocp6x::Error,
+    },
+}
+
+impl Event {
+    fn action_result(
+        action: ActionRequired,
+        err: Option<mwocp6x::Error>,
+        now: u64,
+        psu: Slot,
+    ) -> Event {
+        match (action, err) {
+            (ActionRequired::EnableOnInsertion, None) => {
+                Event::EnableOnInsertionSucceeded { now, psu }
+            }
+            (ActionRequired::EnableOnInsertion, Some(err)) => {
+                Event::EnableOnInsertionFailed { now, psu, err }
+            }
+            (ActionRequired::DisableOnFault, None) => {
+                Event::DisableOnFaultSucceeded { now, psu }
+            }
+            (ActionRequired::DisableOnFault, Some(err)) => {
+                Event::DisableOnFaultFailed { now, psu, err }
+            }
+            (ActionRequired::ReEnableAfterFault, None) => {
+                Event::ReEnableAfterFaultSucceeded { now, psu }
+            }
+            (ActionRequired::ReEnableAfterFault, Some(err)) => {
+                Event::ReEnableAfterFaultFailed { now, psu, err }
+            }
+            (ActionRequired::DisableOnRemoval, None) => {
+                Event::DisableOnRemovalSucceeded { now, psu }
+            }
+            (ActionRequired::DisableOnRemoval, Some(err)) => {
+                Event::DisableOnRemovalFailed { now, psu, err }
+            }
+        }
+    }
 }
 
 // Since entries in this ringbuffer contain timestamps, they will never be
@@ -223,10 +294,15 @@ enum Trace {
         #[count(children)]
         psu: Slot,
     },
-    /// The new state of the PWR_OK pin.
-    PowerGoodChanged {
+    /// Power is now good, according to the PWR_OK pin
+    PowerGoodAsserted {
         now: u64,
-        status: Status,
+        #[count(children)]
+        psu: Slot,
+    },
+    /// Power is now ungood, according to the PWR_OK pin
+    PowerGoodDeasserted {
+        now: u64,
         #[count(children)]
         psu: Slot,
     },
@@ -277,6 +353,15 @@ enum Trace {
         psu: Slot,
         status_mfr_specific: Result<u8, mwocp6x::Error>,
     },
+}
+
+impl Trace {
+    fn power_good_changed(status: Status, now: u64, psu: Slot) -> Trace {
+        match status {
+            Status::Good => Trace::PowerGoodAsserted { now, psu },
+            Status::NotGood => Trace::PowerGoodDeasserted { now, psu },
+        }
+    }
 }
 
 // Since entries in this ringbuffer contain timestamps, they will never be
@@ -605,11 +690,7 @@ fn main() -> ! {
             if ok[i] != last_ok[i] {
                 ringbuf_entry!(
                     __TRACE,
-                    Trace::PowerGoodChanged {
-                        now,
-                        status: ok[i],
-                        psu: PSU_SLOTS[i],
-                    }
+                    Trace::power_good_changed(ok[i], now, PSU_SLOTS[i])
                 );
             }
 
@@ -618,31 +699,25 @@ fn main() -> ! {
             if let Some(action) =
                 psus[i].step(now, present[i], ok[i], &mut ereporter)
             {
-                if let Err(err) =
-                    bsp::do_action(action, &sys, i, &mut psus[i].dev, now)
-                {
-                    // The state machine doesn't know that we failed to
-                    // enable/disable the PSU as it requested, so its state will
-                    // be out-of-sync with reality. But this should resolve
-                    // itself eventually. If we fail to disable the PSU after a
-                    // fault, then either the fault recovery sequence will work
-                    // despite that, or it won't and we'll start another fault
-                    // recovery sequence. If we fail to enable the PSU at the
-                    // end of fault recovery, the deasserted OK signal will
-                    // trigger another fault recovery sequence soon.
-                    ringbuf_entry!(Event::ActionFailed {
-                        action,
-                        now,
-                        psu: PSU_SLOTS[i],
-                        err,
-                    });
-                } else {
-                    ringbuf_entry!(Event::ActionSucceeded {
-                        action,
-                        now,
-                        psu: PSU_SLOTS[i],
-                    });
-                }
+                let result =
+                    bsp::do_action(action, &sys, i, &mut psus[i].dev, now);
+
+                // The state machine won't know if we failed to enable/disable
+                // the PSU as it requested, so its state could be out-of-sync
+                // with reality. But this should resolve itself eventually. If
+                // we fail to disable the PSU after a fault, then either the
+                // fault recovery sequence will work despite that, or it won't
+                // and we'll start another fault recovery sequence. If we fail
+                // to enable the PSU at the end of fault recovery, the
+                // deasserted OK signal will trigger another fault recovery
+                // sequence soon.
+
+                ringbuf_entry!(Event::action_result(
+                    action,
+                    result.err(),
+                    now,
+                    PSU_SLOTS[i]
+                ));
             }
         }
         last_ok = ok;
