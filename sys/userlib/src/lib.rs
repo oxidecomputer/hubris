@@ -41,7 +41,7 @@ use core::marker::PhantomData;
 pub mod hl;
 pub mod kipc;
 pub mod task_slot;
-pub mod units;
+pub use userlib_units as units;
 
 #[cfg(feature = "critical-section")]
 pub mod critical_section;
