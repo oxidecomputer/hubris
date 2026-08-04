@@ -48,56 +48,72 @@ mod front_io;
 mod tofino;
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     FpgaInit,
     FpgaInitComplete,
     FpgaBitstreamError(u32),
     LoadingFpgaBitstream,
     SkipLoadingBitstream,
+    // These are basically just places where we log various ID values once while
+    // coming up, so it isn't worth counting them.
+    #[count(skip)]
     MainboardControllerId(u32),
+    #[count(skip)]
     MainboardControllerChecksum(u32),
+    #[count(skip)]
     MainboardControllerVersion(u32),
+    #[count(skip)]
     MainboardControllerSha(u32),
+    #[count(skip)]
     InvalidMainboardControllerId(u32),
     ExpectedMainboardControllerChecksum(u32),
     LoadingClockConfiguration,
     SkipLoadingClockConfiguration,
-    ClockConfigurationError(usize, ResponseCode),
+    ClockConfigurationError(usize, #[count(children)] ResponseCode),
     ClockConfigurationComplete,
-    TofinoSequencerError(SeqError),
-    TofinoSequencerPolicyUpdate(TofinoSequencerPolicy),
-    TofinoSequencerTick(TofinoSequencerPolicy, TofinoStateDetails),
+    TofinoSequencerError(#[count(children)] SeqError),
+    TofinoSequencerPolicyUpdate(#[count(children)] TofinoSequencerPolicy),
+    TofinoSequencerTick(
+        #[count(children)] TofinoSequencerPolicy,
+        TofinoStateDetails,
+    ),
     TofinoSequencerAbort {
         state: TofinoSeqState,
         step: TofinoSeqStep,
+        #[count(children)]
         error: TofinoSeqError,
     },
-    TofinoPowerRail(TofinoPowerRailId, PowerRailStatus),
+    TofinoPowerRail(TofinoPowerRailId, #[count(children)] PowerRailStatus),
     TofinoVidAttempt(u8),
     TofinoVidAck,
     TofinoNoVid,
     TofinoNotInA0,
     TofinoInA0,
     TofinoEepromIdCode(u32),
+    // These are logging register values, counting how many times those values
+    // have been logged is probably not useful.
+    #[count(skip)]
     TofinoBar0RegisterValue(TofinoBar0Registers, u32),
+    #[count(skip)]
     TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
     TofinoPowerUp,
     TofinoPowerDown,
     TofinoResequence,
-    TofinoPcieReset(bool),
+    TofinoPcieReset(#[count(children)] bool),
     SetVddCoreVout(userlib::units::Volts),
     SetPCIePresent,
     ClearPCIePresent,
-    ClearingTofinoSequencerFault(TofinoSeqError),
-    FrontIOBoardPowerEnable(bool),
+    ClearingTofinoSequencerFault(#[count(children)] TofinoSeqError),
+    FrontIOBoardPowerEnable(#[count(children)] bool),
     FrontIOBoardPowerFault,
     FrontIOBoardPowerNotGood,
     FrontIOBoardPowerGood,
     FrontIOBoardPresent,
     FrontIOBoardNotPresent,
-    FrontIOBoardPhyPowerEnable(bool),
+    FrontIOBoardPhyPowerEnable(#[count(children)] bool),
     FrontIOBoardPhyOscGood,
     FrontIOBoardPhyOscBad,
     LoadingFrontIOControllerBitstream {
@@ -106,21 +122,27 @@ enum Trace {
     SkipLoadingFrontIOControllerBitstream {
         fpga_id: usize,
     },
+    // Don't need to count how many times we've logged the FPGA's ident/checksum
+    #[count(skip)]
     FrontIOControllerIdent {
         fpga_id: usize,
         ident: u32,
     },
+    #[count(skip)]
     FrontIOControllerChecksum {
         fpga_id: usize,
         checksum: [u8; 4],
         expected: [u8; 4],
     },
-    FpgaFanModuleFailure(FpgaError),
-    FanModulePowerFault(FanModuleIndex, FanModuleStatus),
-    FanModuleLedUpdate(FanModuleIndex, FanModuleLedState),
-    FanModuleEnableUpdate(FanModuleIndex, FanModulePowerState),
+    FpgaFanModuleFailure(#[count(children)] FpgaError),
+    FanModulePowerFault(#[count(children)] FanModuleIndex, FanModuleStatus),
+    FanModuleLedUpdate(#[count(children)] FanModuleIndex, FanModuleLedState),
+    FanModuleEnableUpdate(
+        #[count(children)] FanModuleIndex,
+        FanModulePowerState,
+    ),
 }
-ringbuf!(Trace, 32, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 const TIMER_INTERVAL: u64 = 1000;
 const NO_PCIE_LIMIT: u8 = 120;

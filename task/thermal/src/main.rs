@@ -4,10 +4,8 @@
 
 //! Thermal loop
 //!
-//! This is a primordial thermal loop, which will ultimately reading temperature
-//! sensors and control fan duty cycles to actively manage thermals.  Right now,
-//! though it is merely reading every fan and temp sensor that it can find...
-//!
+//! See [`crate::control`] for more information regarding the implementation of
+//! the thermal control loop.
 
 #![no_std]
 #![no_main]
@@ -30,7 +28,6 @@
     ),
     path = "bsp/sidecar_bcd.rs"
 )]
-#[cfg_attr(any(target_board = "medusa-a"), path = "bsp/medusa_a.rs")]
 #[cfg_attr(
     any(target_board = "grapefruit-a", target_board = "grapefruit-b",),
     path = "bsp/grapefruit.rs"
@@ -48,7 +45,7 @@ mod control;
 
 use crate::{
     bsp::{Bsp, PowerBitmask, SeqError},
-    control::ThermalControl,
+    control::{BspInterface, ThermalControl},
 };
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::I2cWatchdog;
@@ -63,17 +60,6 @@ use userlib::{
     RecvMessage, UnwrapLite, sys_get_timer, sys_set_timer, task_slot,
     units::{Celsius, PWMDuty},
 };
-
-// We define our own Fan type, as we may have more fans than any single
-// controller supports.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Fan(u8);
-
-impl From<usize> for Fan {
-    fn from(index: usize) -> Self {
-        Fan(index as u8)
-    }
-}
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
@@ -146,34 +132,38 @@ enum Trace {
     PowerModeChanged(PowerBitmask),
     PowerDownFailed(SeqError),
     ControlError(#[count(children)] ThermalError),
+    #[allow(dead_code)] // no fans? no trace!
     FanControllerInitialized,
+    #[allow(dead_code)] // no fans? no trace!
     FanControllerInitError(#[count(children)] ResponseCode),
+    #[allow(dead_code)] // no fans? no trace!
     FanControllerInitRetry {
         remaining: usize,
     },
     FanPresenceUpdateFailed(SeqError),
-    FanAdded(Fan),
-    FanRemoved(Fan),
+    FanAdded(u8),
+    FanRemoved(u8),
     PowerDownAt(u64),
     AddedDynamicInput(usize),
     RemovedDynamicInput(usize),
     SetFanWatchdogOk,
     SetFanWatchdogError(ThermalError),
+    UnexpectedInputInactive,
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-struct ServerImpl<'a> {
+struct ServerImpl<'a, B: control::BspInterface> {
     mode: ThermalMode,
-    control: ThermalControl<'a>,
+    control: ThermalControl<'a, B>,
     deadline: u64,
     runtime: u64,
 }
 
 const TIMER_INTERVAL: u64 = 1000;
 
-impl<'a> ServerImpl<'a> {
+impl<'a, B: control::BspInterface> ServerImpl<'a, B> {
     /// Configures the control loop to run in manual mode, loading the given
     /// PWM value immediately to all fans.
     ///
@@ -214,7 +204,9 @@ impl<'a> ServerImpl<'a> {
     }
 }
 
-impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
+impl<'a, B: control::BspInterface> idl::InOrderThermalImpl
+    for ServerImpl<'a, B>
+{
     fn get_mode(
         &mut self,
         _: &RecvMessage,
@@ -319,7 +311,7 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
             return Err(ThermalError::NotInAutoMode.into());
         }
         self.control
-            .update_dynamic_input(index, model)
+            .register_dynamic_input(index, model)
             .map_err(RequestError::from)
     }
 
@@ -344,7 +336,7 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
     }
 }
 
-impl<'a> NotificationHandler for ServerImpl<'a> {
+impl<'a, B: control::BspInterface> NotificationHandler for ServerImpl<'a, B> {
     fn current_notification_mask(&self) -> u32 {
         notifications::TIMER_MASK
     }
@@ -400,7 +392,7 @@ fn main() -> ! {
     ringbuf_entry!(Trace::Start);
 
     let mut bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&mut bsp, i2c_task, sensor_api);
+    let control = ThermalControl::new(&mut bsp, sensor_api);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
@@ -412,7 +404,7 @@ fn main() -> ! {
         deadline,
         runtime: 0,
     };
-    if bsp::USE_CONTROLLER {
+    if <Bsp as BspInterface>::USE_CONTROLLER {
         server.set_mode_auto().unwrap_lite();
     } else {
         server.set_mode_manual(PWMDuty(0)).unwrap_lite();
