@@ -302,6 +302,11 @@ impl Mwocp67 {
             Operation::MfrMaxTemp3 => PmbusValue::from(
                 pmbus_read!(self.device, MFR_MAX_TEMP_3)?.get()?,
             ),
+            Operation::Operation => {
+                let (val, width) = pmbus_read!(self.device, OPERATION)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
             Operation::ReadFanSpeed2
             | Operation::FanCommand2
             | Operation::OtWarnLimit => {
@@ -322,6 +327,42 @@ impl Mwocp67 {
 
         let status = pmbus_read!(self.device, STATUS_WORD)?;
         Ok(status.get_power_good_status() == Some(PowerGoodStatus::PowerGood))
+    }
+
+    /// Enables or disables the power supply output via the PMBus `OPERATION`
+    /// command. This affects only the main rail, not the aux rail.
+    pub fn set_enabled(&self, enable: bool) -> Result<(), Error> {
+        // The datasheet doesn't mention any fields besides the on_off_state
+        // bit, but let's do a read-modify-write to be safe.
+        let mut data = pmbus_read!(self.device, OPERATION)?;
+        data.set_on_off_state(if enable {
+            OPERATION::OnOffState::On
+        } else {
+            OPERATION::OnOffState::Off
+        });
+        pmbus_write!(self.device, OPERATION, data)
+    }
+
+    /// Reports whether the power supply output is currently commanded on,
+    /// according to the on/off state in the PMBus `OPERATION` command.
+    ///
+    /// Note that the return value is not affected by fault conditions. If the
+    /// output was commanded on but was then automatically latched off due to a
+    /// fault, this function will still return true.
+    pub fn is_enabled(&self) -> Result<bool, Error> {
+        let data = pmbus_read!(self.device, OPERATION)?;
+        let state = data.get_on_off_state().ok_or(Error::BadData {
+            cmd: OPERATION::CommandData::code(),
+        })?;
+        Ok(state == OPERATION::OnOffState::On)
+    }
+
+    /// Clears faults and status registers, allowing the PSU to resume operation
+    /// if it was latched off due to a fault.
+    pub fn clear_faults_and_latch(&self) -> Result<(), Error> {
+        let mut data = pmbus_read!(self.device, MB_PSU_SETTING)?;
+        data.set_clear_faults(MB_PSU_SETTING::ClearFaults::Clear);
+        pmbus_write!(self.device, MB_PSU_SETTING, data)
     }
 
     ///
