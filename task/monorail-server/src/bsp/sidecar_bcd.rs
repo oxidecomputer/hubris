@@ -46,7 +46,7 @@ enum Trace {
     },
     Vsc8504ReadError(VscError),
 }
-ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 16, Trace::None);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum VLanMode {
