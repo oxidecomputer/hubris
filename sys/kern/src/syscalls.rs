@@ -70,7 +70,10 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
     let idx = {
         // Safety: we're trusting the interrupt entry routine to pass us a valid
         // task pointer.
-        let t = unsafe { &*task };
+        let t = unsafe { &mut *task };
+
+        t.update_stack_watermark();
+
         usize::from(t.descriptor().index)
     };
 
