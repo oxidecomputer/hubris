@@ -292,7 +292,7 @@ macro_rules! ringbuf {
             });
     };
     ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup $(,)?) => {
-        static $name: $crate::StaticCell<$crate::Ringbuf<$t, () $n>> =
+        static $name: $crate::StaticCell<$crate::Ringbuf<$t, (), $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
                 buffer: [$crate::RingbufEntry {
