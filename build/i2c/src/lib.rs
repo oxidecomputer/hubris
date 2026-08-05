@@ -114,7 +114,11 @@ struct I2cDevice {
     /// device-specific validation (like checking the model number via PMBus).
     /// If there is no driver, then codegen will fail - _unless_ you set this to
     /// true to opt in to a generic, fallback implementation of `Validate` that
-    /// just checks whether the device ACKs a PMBus read.
+    /// just checks whether the device ACKs a single-byte i2c read (with no
+    /// write beforehand). This is meant to detect whether the device is
+    /// present. However, not all devices react to such a read in the same way,
+    /// so this fallback implementation may be incorrect or cause unwanted side
+    /// effects on some devices.
     #[serde(default)]
     validate_with_raw_read: bool,
 }
