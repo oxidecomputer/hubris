@@ -236,6 +236,8 @@ bus = "onboard"
 address = 0x21
 description = "GPIO expander"
 refdes = "U1501"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
 validate-with-raw-read = true
 
 [[config.i2c.devices]]
@@ -244,6 +246,8 @@ bus = "onboard"
 address = 0x40
 description = "Current sensor"
 refdes = "U602"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
 validate-with-raw-read = true
 
 [[config.i2c.devices]]
@@ -252,6 +256,8 @@ bus = "onboard"
 address = 0x41
 description = "Current sensor"
 refdes = "U603"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
 validate-with-raw-read = true
 
 [[config.i2c.devices]]
@@ -261,6 +267,8 @@ port = "F"
 address = 0x44
 description = "Multiplexer"
 refdes = "U501"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
 validate-with-raw-read = true
 
 #

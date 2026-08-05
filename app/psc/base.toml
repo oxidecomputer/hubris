@@ -386,6 +386,8 @@ address = 0b1001_000
 device = "tmp116"
 description = "Temperature sensor"
 refdes = "U31"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
 validate-with-raw-read = true
 
 [[config.i2c.devices]]

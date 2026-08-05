@@ -61,4 +61,6 @@ address = 0b1011_000
 device = "idt8a34001"
 description = "Clock generator"
 refdes = "U38"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
 validate-with-raw-read = true
