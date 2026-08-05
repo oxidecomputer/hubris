@@ -20,19 +20,21 @@ task_slot!(FRONT_IO, ecp5_front_io);
 /// Interval in milliseconds at which `Bsp::wake()` is called by the main loop
 pub const WAKE_INTERVAL: Option<u32> = Some(500);
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     FrontIoSpeedChange {
         port: u8,
         before: Speed,
+        #[count(children)]
         after: Speed,
     },
     FrontIoPhyOscillatorBad,
-    AnegCheckFailed(VscError),
+    AnegCheckFailed(#[count(children)] VscError),
     Reinit,
 }
-ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
