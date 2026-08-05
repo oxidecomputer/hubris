@@ -35,7 +35,7 @@ enum Trace {
     AnegCheckFailed(#[count(children)] VscError),
     Restarted10GAneg,
     Reinit,
-    UnlockUntil(u64),
+    UnlockingVLans,
     LockingVLans,
     AutomaticLock,
     LockError(#[count(children)] VscError),
@@ -46,13 +46,39 @@ enum Trace {
     },
     Vsc8504ReadError(VscError),
 }
-ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 16, Trace::None);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum VLanMode {
     Locked,
     UnlockedUntil(u64),
 }
+
+#[derive(Copy, Clone, PartialEq)]
+enum VlanLockEvent {
+    None,
+    Locked { at: u64 },
+    Unlocked { at: u64, until: u64 },
+}
+
+// A separate ringbuffer for more detailed recording of recent VLAN locking
+// activity. This is separate from the main ringbuf so that frequent unlocking,
+// such as what we see in the lab environment, doesn't clobber more important
+// debugging information.
+//
+// Note that we don't generate counters for this, because the events are already
+// counted in the main ringbuf. This one is mainly just to include the
+// timestamps/durations that don't include in the main `Trace` ringbuf due to
+// wanting the events to be de-duplicated.
+ringbuf!(
+    __VLAN_LOCK_EVENTS,
+    VlanLockEvent,
+    8,
+    VlanLockEvent::None,
+    // Disable de-duplication, since events in this ringbuf contain timestamps
+    // and will never be equal
+    no_dedup
+);
 
 const VLAN_UNLOCK_TARGETS: vsc7448::VlanTargets = if cfg!(feature = "reverso") {
     vsc7448::VlanTargets::ScrimletOnly
@@ -642,13 +668,21 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         &mut self,
         unlock_until: u64,
     ) -> Result<(), RequestError<MonorailError>> {
-        ringbuf_entry!(Trace::UnlockUntil(unlock_until));
+        ringbuf_entry!(Trace::UnlockingVLans);
         self.vsc7448
             .sidecar_vlan_unlock(VLAN_UNLOCK_TARGETS)
             .map_err(|e| {
                 ringbuf_entry!(Trace::UnlockError(e));
                 MonorailError::from(e)
             })?;
+
+        ringbuf_entry!(
+            __VLAN_LOCK_EVENTS,
+            VlanLockEvent::Unlocked {
+                at: userlib::sys_get_timer().now,
+                until: unlock_until,
+            }
+        );
         self.vlan_mode = VLanMode::UnlockedUntil(unlock_until);
         Ok(())
     }
@@ -662,6 +696,12 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             MonorailError::from(e)
         })?;
         self.vlan_mode = VLanMode::Locked;
+        ringbuf_entry!(
+            __VLAN_LOCK_EVENTS,
+            VlanLockEvent::Locked {
+                at: userlib::sys_get_timer().now
+            }
+        );
         Ok(())
     }
 }

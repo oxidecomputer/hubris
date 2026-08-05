@@ -28,7 +28,7 @@ enum Trace {
     },
     AnegCheckFailed(#[count(children)] VscError),
 }
-ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 

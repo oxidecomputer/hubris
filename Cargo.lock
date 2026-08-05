@@ -7562,7 +7562,16 @@ dependencies = [
  "serde",
  "ssmarshal",
  "unwrap-lite",
+ "userlib-units",
  "volatile-const",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "userlib-units"
+version = "0.1.0"
+dependencies = [
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
 ]
