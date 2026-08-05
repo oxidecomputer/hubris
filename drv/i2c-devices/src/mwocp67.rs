@@ -4,8 +4,10 @@
 
 //! MWOCP67-5500 Murata power shelf
 
-use super::{FIRMWARE_REVISION_LEN, parse_firmware_revision};
-use crate::mwocp6x::{Error, FirmwareRev, MfrId, ModelNumber, SerialNumber};
+use crate::mwocp6x::{
+    Error, FIRMWARE_REVISION_LEN, FirmwareRev, MfrId, ModelNumber,
+    SerialNumber, parse_firmware_revision,
+};
 use crate::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, Validate,
     VoltageSensor, pmbus_validate,

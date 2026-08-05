@@ -465,6 +465,9 @@ address = 0x70
 device = "pca9545"
 description = "U.2 ABCD mux"
 refdes = "U336"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 [[config.i2c.devices]]
 bus = "front"
@@ -472,6 +475,9 @@ address = 0x71
 device = "pca9545"
 description = "U.2 EFGH mux"
 refdes = "U339"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 [[config.i2c.devices]]
 bus = "front"
@@ -479,6 +485,9 @@ address = 0x72
 device = "pca9545"
 description = "U.2 IJ/FRUID mux"
 refdes = "U337"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 ################################################################################
 # Sharkfins
@@ -867,6 +876,9 @@ address = 0x73
 device = "pca9545"
 description = "M.2 mux"
 refdes = "U422"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 [[config.i2c.devices]]
 bus = "m2"
@@ -963,6 +975,9 @@ address = 0x58
 device = "idt8a34003"
 description = "Clock generator"
 refdes = "U446"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 [[config.i2c.devices]]
 bus = "mid"
