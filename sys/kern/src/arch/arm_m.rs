@@ -371,7 +371,8 @@ pub fn reinitialize(task: &mut task::Task) {
 
     // Set the initial stack pointer, *not* to the stack top, but to the base of
     // this frame.
-    task.save_mut().psp = frame as *const _ as u32;
+    let frame: *const ExtendedExceptionFrame = frame;
+    task.save_mut().psp = frame as u32;
 
     // Finally, record the EXC_RETURN we'll use to enter the task.
     task.save_mut().exc_return = EXC_RETURN_CONST;
@@ -650,7 +651,7 @@ pub fn apply_memory_protection(task: &task::Task) {
     }
 }
 
-pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
+pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // Enable faults and set fault/exception priorities to reasonable settings.
     // Our goal here is to keep the kernel non-preemptive, which means the
     // kernel entry points (SVCall, PendSV, SysTick, interrupt handlers) must be
@@ -757,17 +758,6 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         }
     }
 
-    // Safety: this, too, is safe in practice but unsafe in API.
-    unsafe {
-        // Configure the timer.
-        let syst = &*cortex_m::peripheral::SYST::PTR;
-        // Program reload value.
-        syst.rvr.write(tick_divisor - 1);
-        // Clear current value.
-        syst.cvr.write(0);
-        // Enable counter and interrupt.
-        syst.csr.modify(|v| v | 0b111);
-    }
     // We are manufacturing authority to interact with the MPU here, because we
     // can't thread a cortex-specific peripheral through an
     // architecture-independent API. This approach might bear revisiting later.
@@ -785,8 +775,6 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         mpu.ctrl.write(ENABLE | PRIVDEFENA);
     }
 
-    CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
-
     unsafe extern "C" {
         // Exposed by the linker script.
         static _stack_base: u32;
@@ -801,15 +789,48 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Both these outcomes are safe, even if the second one is annoying.
     #[cfg(armv8m)]
     unsafe {
-        cortex_m::register::msplim::write(
-            core::ptr::addr_of!(_stack_base) as u32
-        );
+        cortex_m::register::msplim::write((&raw const _stack_base) as u32);
     }
 
     // Safety: this is setting the Process (task) stack pointer, which has no
     // effect _assuming_ this code is running on the Main (kernel) stack.
     unsafe {
         cortex_m::register::psp::write(task.save().psp);
+    }
+
+    // Relinquish our exclusive borrow of the relevant task, and use *pointer*
+    // method to obtain a pointer to the address we will need to restore initial
+    // state from. We do it this way to avoid invalidating the provenance by
+    // reborrowing the Task, AND we do not use a reference to `r4` specifically,
+    // which would only have the provenance of one `u32`, as we will be reading
+    // ALL of the SavedState in the assembly below.
+    //
+    // Note that we are restoring FROM the saved state, we are NOT writing TO
+    // the saved state, so a `*const u32` will do.
+    let task: *mut task::Task = task;
+    // SAFETY: `task` is pointer to a valid task object, therefore doing offset
+    // math on it is sound.
+    let r4_ptr: *const u32 = unsafe {
+        let save_ptr = task::Task::save_ptr(task);
+        &raw const (*save_ptr).r4
+    };
+    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+
+    // Finally, we enable systick counting. We don't do this until AFTER we
+    // have set CURRENT_TASK_PTR, as otherwise we could end up interrupting
+    // into systick, falling through to pendsv, and hit an assert that
+    // CURRENT_TASK_PTR is null.
+    //
+    // Safety: this, too, is safe in practice but unsafe in API.
+    unsafe {
+        // Configure the timer.
+        let syst = &*cortex_m::peripheral::SYST::PTR;
+        // Program reload value.
+        syst.rvr.write(tick_divisor - 1);
+        // Clear current value.
+        syst.cvr.write(0);
+        // Enable counter and interrupt.
+        syst.csr.modify(|v| v | 0b111);
     }
 
     // Run the final pre-kernel assembly sequence to set up the kernel
@@ -837,7 +858,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
                     svc #0xFF
                     @ noreturn generates a UDF here in case that should return.
                     ",
-                    in("r0") &task.save().r4,
+                    in("r0") r4_ptr,
                     options(noreturn),
                 )
             }
@@ -850,7 +871,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
                     svc #0xFF
                     @ noreturn generates a UDF here in case that should return.
                     ",
-                    task = in(reg) &task.save().r4,
+                    task = in(reg) r4_ptr,
                     options(noreturn),
                 )
             }
@@ -1032,9 +1053,10 @@ cfg_if::cfg_if! {
 /// This records a pointer that aliases `task`. As long as you don't read that
 /// pointer while you have access to `task`, and as long as the `task` being
 /// stored is actually in the task table, you'll be okay.
-pub unsafe fn set_current_task(task: &task::Task) {
-    CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
-    crate::profiling::event_context_switch(task as *const _ as usize);
+pub unsafe fn set_current_task(task: &mut task::Task) {
+    let task: *mut task::Task = task;
+    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+    crate::profiling::event_context_switch(task as usize);
 }
 
 /// Reads the tick counter.
@@ -1206,15 +1228,17 @@ unsafe extern "C" fn pendsv_entry() {
 
     // Safety: we're dereferencing the current task pointer, which we're
     // trusting the rest of this module to maintain correctly.
-    let current = usize::from(unsafe { (*current).descriptor().index });
+    let current = unsafe {
+        let current = &*current;
+        usize::from(current.descriptor().index)
+    };
 
     with_task_table(|tasks| {
         let next = task::select(current, tasks);
-        apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
         unsafe {
-            set_current_task(next);
+            next.switch_to();
         }
     });
     crate::profiling::event_secondary_syscall_exit();
@@ -1626,20 +1650,19 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // switch to a task to run.
     with_task_table(|tasks| {
         let next = match task::force_fault(tasks, idx, fault) {
-            task::NextTask::Specific(i) => &tasks[i],
+            task::NextTask::Specific(i) => &mut tasks[i],
             task::NextTask::Other => task::select(idx, tasks),
-            task::NextTask::Same => &tasks[idx],
+            task::NextTask::Same => &mut tasks[idx],
         };
 
         if core::ptr::eq(next as *const _, task as *const _) {
             panic!("attempt to return to Task #{idx} after fault");
         }
 
-        apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
         unsafe {
-            set_current_task(next);
+            next.switch_to();
         }
     });
 }
@@ -1839,21 +1862,21 @@ unsafe extern "C" fn handle_fault(
     // fault!)
     with_task_table(|tasks| {
         let next = match task::force_fault(tasks, idx, fault) {
-            task::NextTask::Specific(i) => &tasks[i],
+            task::NextTask::Specific(i) => &mut tasks[i],
             task::NextTask::Other => task::select(idx, tasks),
-            task::NextTask::Same => &tasks[idx],
+            task::NextTask::Same => &mut tasks[idx],
         };
 
-        if core::ptr::eq(next as *const _, task as *const _) {
+        let next_ptr: *mut task::Task = next;
+        if core::ptr::eq(next_ptr.cast_const(), task.cast_const()) {
             panic!("attempt to return to Task #{idx} after fault");
         }
 
-        apply_memory_protection(next);
         // Safety: this leaks a pointer aliasing next into static scope, but
         // we're not going to read it back until the next kernel entry, so we
         // won't be aliasing/racing.
         unsafe {
-            set_current_task(next);
+            next.switch_to();
         }
     });
 }

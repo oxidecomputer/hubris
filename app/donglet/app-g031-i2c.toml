@@ -6,7 +6,7 @@ board = "donglet-g031"
 
 [kernel]
 name = "app-donglet"
-requires = {flash = 18944, ram = 1616}
+requires = {flash = 18944, ram = 1624}
 features = ["g031"]
 stacksize = 936
 
@@ -78,7 +78,7 @@ address = 0x73
 [[config.i2c.devices]]
 controller = 1
 mux = 1
-segment = 1 
+segment = 1
 address = 0b1010_000
 device = "at24csw080"
 description = "Sharkfin VPD"
