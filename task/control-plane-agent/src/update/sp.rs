@@ -156,11 +156,6 @@ impl ComponentUpdater for SpUpdate {
             return Err(SpError::RequestUnsupportedForSp);
         }
 
-        // Attempt to prepare for an update (erases our flash).
-        self.sp_task
-            .prep_image_update()
-            .map_err(|err| SpError::UpdateFailed(err as u32))?;
-
         let state = if update.aux_flash_size > 0 {
             State::AuxFlash(AuxFlashState::new(
                 &self.auxflash_task,
@@ -174,12 +169,20 @@ impl ComponentUpdater for SpUpdate {
             })
         };
 
-        self.current = Some(CurrentUpdate::new(
+        let current_update = CurrentUpdate::new(
             update.id,
             update.aux_flash_size,
             update.sp_image_size,
             state,
-        ));
+        )?;
+
+        // Now that we've finished all the other error checks that could make us
+        // return early, attempt to prepare for an update (erases our flash).
+        self.sp_task
+            .prep_image_update()
+            .map_err(|err| SpError::UpdateFailed(err as u32))?;
+
+        self.current = Some(current_update);
 
         Ok(())
     }
@@ -439,16 +442,15 @@ impl CurrentUpdate {
         aux_flash_size: u32,
         sp_image_size: u32,
         state: State,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, SpError> {
+        let total_size = aux_flash_size
+            .checked_add(sp_image_size)
+            .ok_or(SpError::UpdateIsTooLarge)?;
+        Ok(Self {
             aux_flash_size,
             sp_image_size,
-            common: super::common::CurrentUpdate::new(
-                id,
-                aux_flash_size + sp_image_size,
-                state,
-            ),
-        }
+            common: super::common::CurrentUpdate::new(id, total_size, state),
+        })
     }
 }
 

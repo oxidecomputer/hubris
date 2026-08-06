@@ -62,6 +62,7 @@ pub enum FanModulePowerState {
     Immutable,
     KnownLayout,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u8)]
 pub enum FanModuleIndex {
     Zero = 0,

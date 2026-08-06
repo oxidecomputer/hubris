@@ -75,6 +75,7 @@ pub enum TofinoSeqStep {
     Immutable,
     KnownLayout,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u8)]
 pub enum TofinoSeqError {
     #[default]

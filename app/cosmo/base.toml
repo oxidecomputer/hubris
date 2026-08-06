@@ -172,7 +172,7 @@ name = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
 priority = 7
 max-sizes = {flash = 32768, ram = 65536 }
-stacksize = 1232
+stacksize = 1328
 start = true
 task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot", "net"]
 notifications = ["timer"]
@@ -258,7 +258,7 @@ features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vla
 uses = ["usart6", "dbgmcu"]
 interrupts = {"usart6.irq" = "usart-irq"}
 priority = 9
-max-sizes = {flash = 76000, ram = 65536}
+max-sizes = {flash = 78000, ram = 65536}
 stacksize = 7664
 start = true
 task-slots = ["sys", { cpu_seq = "cosmo_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot", "auxflash"]
@@ -385,7 +385,7 @@ start = true
 notifications = ["jefe-state-change", "timer"]
 task-slots = ["jefe", "spartan7_loader", "packrat", "sensor"]
 uses = ["mmio_dimms"]
-stacksize = 920
+stacksize = 976
 
 [tasks.auxflash]
 name = "drv-auxflash-server"
@@ -477,6 +477,9 @@ address = 0x70
 device = "oximux16"
 description = "Front FPGA virtual mux"
 refdes = ["U31"]
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 # Welcome to the sharkfin zone
 # SMBUS_FPGA2_TO_CEMA
@@ -902,6 +905,9 @@ address = 0x70
 device = "oximux16"
 description = "Main FPGA virtual mux"
 refdes = ["U27", "MUX"]
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 # SMBUS_FPGA1_TO_M2A
 [[config.i2c.devices]]

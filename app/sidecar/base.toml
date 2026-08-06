@@ -541,6 +541,9 @@ address = 0b1110_000
 device = "pca9545"
 description = "Northeast fan mux"
 refdes = "U92"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 [[config.i2c.devices]]
 bus = "northeast1"
@@ -670,6 +673,9 @@ address = 0b1110_000
 device = "pca9545"
 description = "Northwest fan mux"
 refdes = "U90"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 [[config.i2c.devices]]
 bus = "south0"
@@ -696,6 +702,9 @@ address = 0b1011_000
 device = "idt8a34001"
 description = "Clock generator"
 refdes = "U38"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 [[config.i2c.devices]]
 bus = "south0"

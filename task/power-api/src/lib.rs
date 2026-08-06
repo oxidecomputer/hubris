@@ -79,6 +79,7 @@ pub enum Operation {
     MfrMaxTemp1,
     MfrMaxTemp2,
     MfrMaxTemp3,
+    Operation,
 }
 
 // This is a bit of an arbitrary number, but is set to the maximum read block
