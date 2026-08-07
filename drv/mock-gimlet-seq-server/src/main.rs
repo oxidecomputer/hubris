@@ -12,7 +12,7 @@ use drv_cpu_seq_api::{
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
-use userlib::{FromPrimitive, RecvMessage, UnwrapLite};
+use userlib::{FromPrimitive, RecvMessage, UnwrapLite, sys_get_timer};
 
 userlib::task_slot!(JEFE, jefe);
 
@@ -29,6 +29,8 @@ fn main() -> ! {
 struct ServerImpl {
     jefe: Jefe,
     reason: StateChangeReason,
+    /// The Hubris tick at which we transitioned to (or rather, told jefe about) the current state.
+    since: u64,
 }
 
 impl ServerImpl {
@@ -40,6 +42,7 @@ impl ServerImpl {
         Self {
             jefe,
             reason: StateChangeReason::InitialPowerOn,
+            since: sys_get_timer().now,
         }
     }
 
@@ -49,6 +52,7 @@ impl ServerImpl {
         PowerStateWithReason {
             state: PowerState::from_u32(self.jefe.get_state()).unwrap_lite(),
             reason: self.reason,
+            since: self.since,
         }
     }
 
@@ -64,6 +68,7 @@ impl ServerImpl {
             | (PowerState::A0Thermtrip, PowerState::A2) => {
                 self.jefe.set_state(state as u32);
                 self.reason = reason;
+                self.since = sys_get_timer().now;
                 Ok(Transition::Changed)
             }
 

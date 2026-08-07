@@ -17,7 +17,9 @@ use task_jefe_api::Jefe;
 use task_packrat_api::{
     CacheSetError, MacAddressBlock, OxideIdentity, Packrat,
 };
-use userlib::{FromPrimitive, RecvMessage, UnwrapLite, hl, task_slot};
+use userlib::{
+    FromPrimitive, RecvMessage, UnwrapLite, hl, sys_get_timer, task_slot,
+};
 
 use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 
@@ -80,10 +82,14 @@ struct ServerImpl {
     sgpio: fmc_periph::sgpio::Sgpio,
     espi: fmc_periph::espi::Espi,
     reason: StateChangeReason,
+    /// The Hubris tick at which we transitioned to (or rather, told jefe about) the current state.
+    since: u64,
 }
 
 impl ServerImpl {
     fn init(sys: &sys_api::Sys) -> Self {
+        let now = sys_get_timer().now;
+
         // Ensure the SP fault pin is configured as an open-drain output, and
         // pull it low to make the sequencer restart externally visible.
         const FAULT_PIN_L: sys_api::PinSet = sys_api::Port::A.pin(15);
@@ -103,6 +109,7 @@ impl ServerImpl {
             sgpio: fmc_periph::sgpio::Sgpio::new(loader.get_token()),
             espi: fmc_periph::espi::Espi::new(loader.get_token()),
             reason: StateChangeReason::InitialPowerOn,
+            since: now,
         };
 
         // Note that we don't use `Self::set_state_impl` here, as that will
@@ -123,6 +130,7 @@ impl ServerImpl {
         PowerStateWithReason {
             state: PowerState::from_u32(self.jefe.get_state()).unwrap_lite(),
             reason: self.reason,
+            since: self.since,
         }
     }
 
@@ -138,6 +146,7 @@ impl ServerImpl {
             | (PowerState::A0Thermtrip, PowerState::A2) => {
                 self.jefe.set_state(state as u32);
                 self.reason = reason;
+                self.since = sys_get_timer().now;
                 Ok(Transition::Changed)
             }
 

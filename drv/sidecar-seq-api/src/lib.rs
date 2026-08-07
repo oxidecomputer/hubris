@@ -111,7 +111,6 @@ pub enum PolicyChangeReason {
     Debug,
     Eq,
     PartialEq,
-    IntoBytes,
     Immutable,
     KnownLayout,
     Deserialize,
@@ -121,6 +120,7 @@ pub enum PolicyChangeReason {
 pub struct TofinoSeqStateWithReason {
     pub state: TofinoSeqState,
     pub reason: PolicyChangeReason,
+    pub since: u64,
 }
 
 #[derive(

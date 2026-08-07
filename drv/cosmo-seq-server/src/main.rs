@@ -486,6 +486,7 @@ impl ServerImpl {
         PowerStateWithReason {
             state: self.state,
             reason: self.reason,
+            since: self.since,
         }
     }
 

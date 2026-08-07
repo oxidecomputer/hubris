@@ -8,6 +8,8 @@ use drv_i2c_devices::raa229618::Raa229618;
 pub(crate) struct Tofino {
     pub policy: TofinoSequencerPolicy,
     pub reason: PolicyChangeReason,
+    /// The Hubris tick at which we transitioned to the current sequencer policy
+    pub since: u64,
     pub sequencer: Sequencer,
     pub debug_port: DebugPort,
     pub vddcore: Raa229618,
@@ -19,6 +21,7 @@ pub(crate) struct Tofino {
 
 impl Tofino {
     pub fn new(i2c_task: userlib::TaskId) -> Self {
+        let now = sys_get_timer().now;
         let (i2c_device, opt_rail) =
             i2c_config::pmbus::v0p8_tf2_vdd_core(i2c_task);
         let rail = opt_rail.unwrap_or(0);
@@ -26,6 +29,7 @@ impl Tofino {
         Self {
             policy: TofinoSequencerPolicy::Disabled,
             reason: PolicyChangeReason::InitialPowerOn,
+            since: now,
             sequencer: Sequencer::new(MAINBOARD.get_task_id()),
             debug_port: DebugPort::new(MAINBOARD.get_task_id()),
             vddcore,
@@ -45,6 +49,7 @@ impl Tofino {
             ringbuf_entry!(Trace::TofinoSequencerPolicyUpdate(policy, reason));
             self.policy = policy;
             self.reason = reason;
+            self.since = sys_get_timer().now;
         }
     }
 

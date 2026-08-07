@@ -465,6 +465,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         Ok(TofinoSeqStateWithReason {
             state: self.tofino.sequencer.state().map_err(SeqError::from)?,
             reason: self.tofino.reason,
+            since: self.tofino.since,
         })
     }
 

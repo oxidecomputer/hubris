@@ -19,10 +19,10 @@ use gateway_messages::{
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
     HostBootfailPayloadData, HostInfoRequest, HostPanicPayloadData,
     IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
-    PmbusStatus, PowerRailName, PowerState, PowerStateTransition, RotBootInfo,
-    RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
-    SpError, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
-    ignition,
+    PmbusStatus, PowerRailName, PowerState, PowerStateTransition,
+    PowerStateWithReason, RotBootInfo, RotRequest, RotResponse, SensorRequest,
+    SensorResponse, SpComponent, SpError, SpStateV2, SpUpdatePrepare,
+    StateChangeReason, UpdateChunk, UpdateId, UpdateStatus, ignition,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -131,9 +131,13 @@ impl MgsHandler {
         Err(ControlPlaneAgentError::OperationUnsupported.into())
     }
 
-    fn power_state_impl(&self) -> Result<PowerState, SpError> {
+    fn power_state_impl(&self) -> Result<PowerStateWithReason, SpError> {
         // Minibar has no configurable power states.
-        Ok(PowerState::A2)
+        Ok(PowerStateWithReason {
+            state: PowerState::A2,
+            reason: StateChangeReason::InitialPowerOn,
+            since: 0,
+        })
     }
 }
 
@@ -233,7 +237,7 @@ impl SpHandler for MgsHandler {
     }
 
     fn sp_state(&mut self) -> Result<SpStateV2, SpError> {
-        let power_state = self.power_state_impl()?;
+        let power_state = self.power_state_impl()?.state;
         self.common.sp_state(power_state)
     }
 
@@ -341,6 +345,16 @@ impl SpHandler for MgsHandler {
 
     fn power_state(&mut self) -> Result<PowerState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
+        self.power_state_impl()
+            .map(|state_with_reason| state_with_reason.state)
+    }
+
+    fn power_state_with_reason(
+        &mut self,
+    ) -> Result<PowerStateWithReason, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::GetPowerStateWithReason
+        ));
         self.power_state_impl()
     }
 

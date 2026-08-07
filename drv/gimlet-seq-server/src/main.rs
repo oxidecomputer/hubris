@@ -1218,6 +1218,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         Ok(PowerStateWithReason {
             state: self.state,
             reason: self.reason,
+            since: self.since,
         })
     }
 

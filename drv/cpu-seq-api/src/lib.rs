@@ -92,7 +92,6 @@ pub enum StateChangeReason {
     Debug,
     Eq,
     PartialEq,
-    IntoBytes,
     Immutable,
     KnownLayout,
     Deserialize,
@@ -102,6 +101,8 @@ pub enum StateChangeReason {
 pub struct PowerStateWithReason {
     pub state: PowerState,
     pub reason: StateChangeReason,
+    /// The Hubris tick at which the device transitioned to this state.
+    pub since: u64,
 }
 
 /// Indicates the result of a power state transition.
