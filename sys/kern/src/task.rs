@@ -389,9 +389,6 @@ impl Task {
 /// `syscall_descriptor`, and the rest of the trait (such as the argument proxy
 /// types) will just work.
 pub trait ArchState: Default {
-    /// TODO: this is probably not needed here.
-    fn stack_pointer(&self) -> u32;
-
     /// Reads syscall argument register 0.
     fn arg0(&self) -> u32;
     /// Reads syscall argument register 1.
