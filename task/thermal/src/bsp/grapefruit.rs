@@ -2,15 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! BSP for Medusa
+//! BSP for Grapefruit Ruby
 
-use crate::control::{ActiveInputState, FanPresence, MiscSensorPollingOutcome};
+use crate::control::{ActiveInputState, MiscSensorPollingOutcome};
 use crate::control::{ChannelType, PidConfig};
 use drv_i2c_devices::max31790::I2cWatchdog;
 use task_sensor_api::SensorId;
-use task_thermal_api::{ThermalError, ThermalProperties};
-use userlib::TaskId;
+use task_thermal_api::{
+    SANYO_DENKI_FAN_PROPERTIES, ThermalError, ThermalProperties,
+};
 use userlib::units::{Celsius, PWMDuty};
+use userlib::{TaskId, sys_get_timer};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
@@ -75,6 +77,8 @@ impl crate::control::BspInterface for Bsp {
         max_output: 100.0,
     };
 
+    type FanBspId = drv_i2c_devices::emc2305::Fan;
+
     fn power_down(&self) -> Result<(), crate::SeqError> {
         Ok(())
     }
@@ -83,24 +87,21 @@ impl crate::control::BspInterface for Bsp {
         PowerBitmask::ON
     }
 
-    fn poll_fan_presence(
-        &mut self,
-    ) -> Result<
-        impl Iterator<Item = crate::control::FanPresence>,
-        crate::SeqError,
-    > {
-        let report_new = !self.fans_added;
-        self.fans_added = true;
-        Ok(self.fans.iter().map(move |f| FanPresence::Present {
-            fan_id: f.bsp_data.into(),
-            changed: report_new,
-        }))
-    }
+    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = &'_ mut Fan> {
+        if let Ok(fctl) = self.fctrl.try_initialize() {
+            let now = sys_get_timer().now;
+            for fan in self.fans.iter_mut() {
+                emc2305::update_fan(
+                    now,
+                    true,
+                    fctl,
+                    fan,
+                    &SANYO_DENKI_FAN_PROPERTIES,
+                );
+            }
+        }
 
-    fn poll_fan_rpms(
-        &mut self,
-    ) -> impl Iterator<Item = crate::control::FanPollingOutcome> {
-        self.fctrl.poll_fan_rpms(self.fans)
+        self.fans.iter_mut()
     }
 
     fn poll_misc_sensors(

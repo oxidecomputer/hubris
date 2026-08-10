@@ -140,6 +140,7 @@ enum Trace {
     FanControllerInitRetry {
         remaining: usize,
     },
+    #[allow(dead_code)] // Not all fans are removable
     FanPresenceUpdateFailed(SeqError),
     FanNominal(u8),
     FanRemoved(u8),

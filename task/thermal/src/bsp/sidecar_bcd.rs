@@ -6,10 +6,9 @@
 
 use crate::control::{
     ActiveInputState, ChannelType, DynamicInputChannel,
-    DynamicTemperatureState, FanPresentState, FanState,
-    MiscSensorPollingOutcome, PidConfig, TimestampedTemperatureReading,
+    DynamicTemperatureState, FanState, MiscSensorPollingOutcome, PidConfig,
+    TimestampedTemperatureReading,
 };
-use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
@@ -17,7 +16,7 @@ use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalError;
-use task_thermal_api::ThermalProperties;
+use task_thermal_api::{SANYO_DENKI_FAN_PROPERTIES, ThermalProperties};
 use userlib::sys_get_timer;
 use userlib::{TaskId, task_slot, units::Celsius};
 
@@ -144,46 +143,30 @@ impl crate::control::BspInterface for Bsp {
             }
         }
 
-        let update_fan = |fctrl: &mut Max31790, fan: &mut Fan| {
-            if have_presence && !fan.is_present() {
-                return;
-            }
-
-            let res = fctrl.fan_rpm(fan.bsp_data);
-            match res {
-                Ok(rpm) => {
-                    let state = if rpm.0 < 500 {
-                        FanPresentState::TooSlow(rpm)
-                    } else if rpm.0 > 13500 {
-                        FanPresentState::TooFast(rpm)
-                    } else {
-                        FanPresentState::Nominal(rpm)
-                    };
-                    fan.update_state(FanState::Present(state), now);
-                }
-                Err(ResponseCode::NoDevice) if !have_presence => {
-                    fan.update_presence(false, now);
-                }
-                Err(_e) => {
-                    fan.update_state(
-                        FanState::Present(FanPresentState::Unresponsive),
-                        now,
-                    );
-                }
-            }
-        };
-
         // Load bearing assumption: the first 4 fans are the EAST fans, and the
         // last 4 fans are the WEST fans.
+        let now = sys_get_timer().now;
         let (east, west) = self.fans.split_at_mut(4);
         if let Ok(fctrl) = self.fctrl_east.try_initialize() {
             for fan in east.iter_mut() {
-                update_fan(fctrl, fan);
+                max31790::update_fan(
+                    now,
+                    have_presence,
+                    fctrl,
+                    fan,
+                    &SANYO_DENKI_FAN_PROPERTIES,
+                );
             }
         }
         if let Ok(fctrl) = self.fctrl_west.try_initialize() {
             for fan in west.iter_mut() {
-                update_fan(fctrl, fan);
+                max31790::update_fan(
+                    now,
+                    have_presence,
+                    fctrl,
+                    fan,
+                    &SANYO_DENKI_FAN_PROPERTIES,
+                );
             }
         }
 

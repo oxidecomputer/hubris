@@ -6,8 +6,8 @@
 
 use crate::{
     control::{
-        ActiveInputState, ChannelType, FanPollingOutcome, FanPresence,
-        InputPollingOutcome, MiscSensorPollingOutcome, PidConfig,
+        ActiveInputState, ChannelType, InputPollingOutcome,
+        MiscSensorPollingOutcome, PidConfig,
     },
     i2c_config::{devices, sensors},
 };
@@ -15,9 +15,11 @@ pub use drv_cpu_seq_api::SeqError;
 use drv_cpu_seq_api::{PowerState, Sequencer, StateChangeReason};
 use drv_i2c_devices::max31790::I2cWatchdog;
 use task_sensor_api::{Sensor, SensorId};
-use task_thermal_api::{ThermalError, ThermalProperties};
+use task_thermal_api::{
+    SANYO_DENKI_FAN_PROPERTIES, ThermalError, ThermalProperties,
+};
 use userlib::{
-    TaskId, task_slot,
+    TaskId, sys_get_timer, task_slot,
     units::{Celsius, PWMDuty},
 };
 
@@ -57,8 +59,6 @@ pub(crate) struct Bsp {
 
     /// Monitored sensors
     misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
-
-    fans_added: bool,
 
     /// Fans
     fans: &'static mut [Fan; NUM_FANS],
@@ -101,6 +101,8 @@ impl crate::control::BspInterface for Bsp {
         max_output: 100.0,
     };
 
+    type FanBspId = drv_i2c_devices::max31790::Fan;
+
     fn power_down(&self) -> Result<(), SeqError> {
         self.seq.set_state_with_reason(
             PowerState::A2,
@@ -119,20 +121,21 @@ impl crate::control::BspInterface for Bsp {
         }
     }
 
-    // We assume Cosmo fan presence cannot change
-    fn poll_fan_presence(
-        &mut self,
-    ) -> Result<impl Iterator<Item = FanPresence>, SeqError> {
-        let report_new = !self.fans_added;
-        self.fans_added = true;
-        Ok(self.fans.iter().map(move |f| FanPresence::Present {
-            fan_id: f.bsp_data.into(),
-            changed: report_new,
-        }))
-    }
+    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = &'_ mut Fan> {
+        if let Ok(fctl) = self.fctrl.try_initialize() {
+            let now = sys_get_timer().now;
+            for fan in self.fans.iter_mut() {
+                max31790::update_fan(
+                    now,
+                    true,
+                    fctl,
+                    fan,
+                    &SANYO_DENKI_FAN_PROPERTIES,
+                );
+            }
+        }
 
-    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = FanPollingOutcome> {
-        self.fctrl.poll_fan_rpms(self.fans)
+        self.fans.iter_mut()
     }
 
     fn poll_misc_sensors(
@@ -170,7 +173,6 @@ impl crate::control::BspInterface for Bsp {
         Err(ThermalError::InvalidIndex)
     }
 
-    // sets last_reading to Some(Missing), returns sensor id
     fn remove_dynamic_input(
         &mut self,
         _index: usize,
@@ -245,7 +247,6 @@ impl Bsp {
 
             inputs: INPUTS_ONCE.claim(),
             fans: FANS_ONCE.claim(),
-            fans_added: false,
 
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,

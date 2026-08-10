@@ -6,13 +6,13 @@
 
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::max31790::Max31790;
-use ringbuf::ringbuf_entry;
+use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
-use task_thermal_api::{SensorReadError, ThermalError};
+use task_thermal_api::{FanProperties, SensorReadError, ThermalError};
 
 use crate::{
-    __RINGBUF, Trace,
-    control::{FanPresentState, FanState},
+    Trace,
+    control::{Fan, FanPresentState, FanState},
 };
 
 /// Tracks whether a MAX31790 fan controller has been initialized, and
@@ -62,12 +62,12 @@ impl Max31790State {
     #[inline(never)]
     fn initialize(&mut self) -> Result<&mut Max31790, ControllerInitError> {
         self.max31790.initialize().map_err(|e| {
-            ringbuf_entry!(Trace::FanControllerInitError(e));
+            ringbuf_entry_root!(Trace::FanControllerInitError(e));
             ControllerInitError(e)
         })?;
 
         self.initialized = true;
-        ringbuf_entry!(Trace::FanControllerInitialized);
+        ringbuf_entry_root!(Trace::FanControllerInitialized);
         Ok(&mut self.max31790)
     }
 }
@@ -82,7 +82,42 @@ pub(crate) fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(
         if init().is_ok() {
             break;
         }
-        ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
+        ringbuf_entry_root!(Trace::FanControllerInitRetry { remaining });
+    }
+}
+
+pub(crate) fn update_fan(
+    now: u64,
+    presence_accurate: bool,
+    fctrl: &mut Max31790,
+    fan: &mut Fan<drv_i2c_devices::max31790::Fan>,
+    model: &FanProperties,
+) {
+    if presence_accurate && !fan.is_present() {
+        return;
+    }
+
+    let res = fctrl.fan_rpm(fan.bsp_data);
+    match res {
+        Ok(rpm) => {
+            let state = if rpm < model.underspeed_rpm {
+                FanPresentState::TooSlow(rpm)
+            } else if rpm > model.underspeed_rpm {
+                FanPresentState::TooFast(rpm)
+            } else {
+                FanPresentState::Nominal(rpm)
+            };
+            fan.update_state(FanState::Present(state), now);
+        }
+        Err(ResponseCode::NoDevice) if !presence_accurate => {
+            fan.update_presence(false, now);
+        }
+        Err(_e) => {
+            fan.update_state(
+                FanState::Present(FanPresentState::Unresponsive),
+                now,
+            );
+        }
     }
 }
 

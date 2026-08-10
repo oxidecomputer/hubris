@@ -4,7 +4,7 @@
 
 //! BSP for Minibar
 
-use crate::control::{MiscSensorPollingOutcome, PidConfig};
+use crate::control::{Fan, MiscSensorPollingOutcome, PidConfig};
 use task_sensor_api::SensorId;
 use task_thermal_api::{ThermalError, ThermalProperties};
 use userlib::TaskId;
@@ -36,6 +36,8 @@ impl crate::control::BspInterface for Bsp {
         max_output: 100.,
     };
 
+    type FanBspId = u8;
+
     fn power_down(&self) -> Result<(), crate::SeqError> {
         Ok(())
     }
@@ -44,18 +46,7 @@ impl crate::control::BspInterface for Bsp {
         PowerBitmask::empty()
     }
 
-    fn poll_fan_presence(
-        &mut self,
-    ) -> Result<
-        impl Iterator<Item = crate::control::FanPresence>,
-        crate::SeqError,
-    > {
-        Ok(core::iter::empty())
-    }
-
-    fn poll_fan_rpms(
-        &mut self,
-    ) -> impl Iterator<Item = crate::control::FanPollingOutcome> {
+    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = &'_ mut Fan<u8>> {
         core::iter::empty()
     }
 

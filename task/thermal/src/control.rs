@@ -208,6 +208,7 @@ pub enum FanState {
     Present(FanPresentState),
 }
 
+#[allow(dead_code)] // Not all bsps have fans!
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum FanPresentState {
     Unresponsive,
@@ -298,7 +299,7 @@ impl<D: Copy + Into<u8>> Fan<D> {
                 }
                 (Fps::TooSlow(old_rpm), Fps::TooSlow(new_rpm)) => {
                     let rpm = old_rpm.0.min(new_rpm.0);
-                    self.cur_state = Fs::Present(Fps::TooFast(Rpm(rpm)));
+                    self.cur_state = Fs::Present(Fps::TooSlow(Rpm(rpm)));
                 }
                 // Nominal -> Deviant, or Deviant -> Nominal, update:
                 //
