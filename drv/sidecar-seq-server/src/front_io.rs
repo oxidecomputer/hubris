@@ -45,6 +45,13 @@ impl FrontIOBoard {
     pub fn init(&mut self) -> Result<bool, FpgaError> {
         let mut controllers_ready = true;
 
+        // We reverse the order of interaction here, interacting with
+        // controller 1 and then 0. This is because controller 1 is connected
+        // to the techport PHY and its oscillator. An errata with that
+        // oscillator states that the oscillator should be enabled as close to
+        // power being applied as possible. For this reason, we want to program
+        // controller 1 prior to 0, allowing that to happen a few seconds
+        // sooner than it would if we'd program controller 0 first.
         for (i, controller) in self.controllers.iter_mut().enumerate().rev() {
             let state = controller.await_fpga_ready(25)?;
             let mut ident;
