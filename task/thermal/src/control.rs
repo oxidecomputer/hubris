@@ -365,7 +365,7 @@ impl<D: Copy + Into<u8>> Fan<D> {
     }
 
     /// Update the RPM of a present fan with the given closure, which should
-    /// retrieve the RPM. Used to share logic across different fan controllers.
+    /// retrieve the RPM. Used to share logic across different fan controllers
     pub(crate) fn poll_rpm_with<E>(
         &mut self,
         now: u64,
