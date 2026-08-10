@@ -74,7 +74,9 @@ use drv_i2c_devices::max31790::I2cWatchdog;
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{NoData, Sensor as SensorApi, SensorId};
-use task_thermal_api::{SensorReadError, ThermalAutoState, ThermalProperties};
+use task_thermal_api::{
+    FanProperties, SensorReadError, ThermalAutoState, ThermalProperties,
+};
 use userlib::{
     sys_get_timer,
     units::{Celsius, PWMDuty, Rpm},
@@ -359,6 +361,45 @@ impl<D: Copy + Into<u8>> Fan<D> {
                     self.cur_state = new;
                 }
             },
+        }
+    }
+
+    /// Update the RPM of a present fan with the given closure, which should
+    /// retrieve the RPM. Used to share logic across different fan controllers.
+    pub(crate) fn poll_rpm_with<E>(
+        &mut self,
+        now: u64,
+        model: &FanProperties,
+        poll_rpm: impl FnOnce() -> Result<Rpm, E>,
+    ) {
+        // If this fan is not present, then do not attempt to poll it. Presence
+        // is only restored via presence polling.
+        if !self.is_present() {
+            return;
+        }
+
+        // Try to get the RPM reading for this fan
+        let res = poll_rpm();
+        match res {
+            Ok(rpm) => {
+                // The poll went well! Use the model to determine if this
+                // reading is nominal or not, and report that as the state.
+                let state = if rpm < model.underspeed_rpm {
+                    FanPresentState::TooSlow(rpm)
+                } else if rpm > model.underspeed_rpm {
+                    FanPresentState::TooFast(rpm)
+                } else {
+                    FanPresentState::Nominal(rpm)
+                };
+                self.update_state(FanState::Present(state), now);
+            }
+            Err(_e) => {
+                // No good, mark as unresponsive
+                self.update_state(
+                    FanState::Present(FanPresentState::Unresponsive),
+                    now,
+                );
+            }
         }
     }
 }

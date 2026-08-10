@@ -6,7 +6,7 @@
 
 use crate::control::{
     ActiveInputState, ChannelType, DynamicInputChannel,
-    DynamicTemperatureState, FanState, MiscSensorPollingOutcome, PidConfig,
+    DynamicTemperatureState, MiscSensorPollingOutcome, PidConfig,
     TimestampedTemperatureReading,
 };
 use drv_i2c_devices::max31790::Max31790;
@@ -130,12 +130,9 @@ impl crate::control::BspInterface for Bsp {
         // If we *don't* have presence data, something has gone terribly wrong
         // with the sequencer, and we will keep using the last reported presence
         // state, which starts as "not present" at power-up.
-        let have_presence;
         let now = sys_get_timer().now;
         match self.seq.fan_module_presence() {
             Ok(pres) => {
-                have_presence = true;
-
                 // Each presence bit represents 2 physical fans
                 let fanchs = self.fans.chunks_exact_mut(2);
                 for (p, pair) in pres.0.iter().zip(fanchs) {
@@ -145,7 +142,6 @@ impl crate::control::BspInterface for Bsp {
                 }
             }
             Err(e) => {
-                have_presence = false;
                 ringbuf_entry_root!(crate::Trace::FanPresenceUpdateFailed(e))
             }
         }
@@ -155,25 +151,22 @@ impl crate::control::BspInterface for Bsp {
         let now = sys_get_timer().now;
         let (east, west) = self.fans.split_at_mut(4);
 
-        // Fan controller initialization is
-        if let Ok(fctrl) = self.fctrl_east.try_initialize() {
+        // Fan controller initialization is latching, if it never succeeds, fans
+        // will stay in their presence state, but read Unresponsive if present.
+        if let Ok(fctl) = self.fctrl_east.try_initialize() {
             for fan in east.iter_mut() {
-                max31790::update_fan(
-                    now,
-                    fctrl,
-                    fan,
-                    &SANYO_DENKI_FAN_PROPERTIES,
-                );
+                let bsp_data = fan.bsp_data;
+                fan.poll_rpm_with(now, &SANYO_DENKI_FAN_PROPERTIES, || {
+                    fctl.fan_rpm(bsp_data)
+                });
             }
         }
-        if let Ok(fctrl) = self.fctrl_west.try_initialize() {
+        if let Ok(fctl) = self.fctrl_west.try_initialize() {
             for fan in west.iter_mut() {
-                max31790::update_fan(
-                    now,
-                    fctrl,
-                    fan,
-                    &SANYO_DENKI_FAN_PROPERTIES,
-                );
+                let bsp_data = fan.bsp_data;
+                fan.poll_rpm_with(now, &SANYO_DENKI_FAN_PROPERTIES, || {
+                    fctl.fan_rpm(bsp_data)
+                });
             }
         }
 

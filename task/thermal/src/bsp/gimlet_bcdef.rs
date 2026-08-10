@@ -170,12 +170,10 @@ impl crate::control::BspInterface for Bsp {
         if let Ok(fctl) = self.fctrl.try_initialize() {
             let now = sys_get_timer().now;
             for fan in self.fans.iter_mut() {
-                max31790::update_fan(
-                    now,
-                    fctl,
-                    fan,
-                    &SANYO_DENKI_FAN_PROPERTIES,
-                );
+                let bsp_data = fan.bsp_data;
+                fan.poll_rpm_with(now, &SANYO_DENKI_FAN_PROPERTIES, || {
+                    fctl.fan_rpm(bsp_data)
+                });
             }
         }
 

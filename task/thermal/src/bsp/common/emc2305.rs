@@ -8,11 +8,11 @@ use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::emc2305::Emc2305;
 use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
-use task_thermal_api::{FanProperties, SensorReadError, ThermalError};
+use task_thermal_api::{SensorReadError, ThermalError};
 
 use crate::{
     Trace,
-    control::{Fan, FanPresentState, FanState},
+    control::{FanPresentState, FanState},
 };
 
 /// Tracks whether a Emc2305 fan controller has been initialized, and
@@ -76,43 +76,6 @@ pub(crate) fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(
             break;
         }
         ringbuf_entry_root!(Trace::FanControllerInitRetry { remaining });
-    }
-}
-
-pub(crate) fn update_fan(
-    now: u64,
-    fctrl: &mut Emc2305,
-    fan: &mut Fan<drv_i2c_devices::emc2305::Fan>,
-    model: &FanProperties,
-) {
-    // If this fan is not present, then do not attempt to poll it. Presence is
-    // only restored via presence polling.
-    if !fan.is_present() {
-        return;
-    }
-
-    // Try to get the RPM reading for this fan
-    let res = fctrl.fan_rpm(fan.bsp_data);
-    match res {
-        Ok(rpm) => {
-            // The poll went well! Use the model to determine if this reading
-            // is nominal or not, and report that as the state.
-            let state = if rpm < model.underspeed_rpm {
-                FanPresentState::TooSlow(rpm)
-            } else if rpm > model.underspeed_rpm {
-                FanPresentState::TooFast(rpm)
-            } else {
-                FanPresentState::Nominal(rpm)
-            };
-            fan.update_state(FanState::Present(state), now);
-        }
-        Err(_e) => {
-            // No good, mark as unresponsive
-            fan.update_state(
-                FanState::Present(FanPresentState::Unresponsive),
-                now,
-            );
-        }
     }
 }
 
