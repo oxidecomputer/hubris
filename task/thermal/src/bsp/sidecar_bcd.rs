@@ -5,8 +5,9 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    ActiveInputState, ChannelType, DynamicTemperatureState, FanState,
-    MiscSensorPollingOutcome, PidConfig, TimestampedTemperatureReading,
+    ActiveInputState, ChannelType, DynamicTemperatureState, FanPresentState,
+    FanState, MiscSensorPollingOutcome, PidConfig,
+    TimestampedTemperatureReading,
 };
 use crate::control::{DynamicInputChannel, FanPollingOutcome};
 use drv_i2c_api::ResponseCode;
@@ -151,19 +152,22 @@ impl crate::control::BspInterface for Bsp {
             match res {
                 Ok(rpm) => {
                     let state = if rpm.0 < 500 {
-                        FanState::PresentTooSlow(rpm)
+                        FanPresentState::TooSlow(rpm)
                     } else if rpm.0 > 13500 {
-                        FanState::PresentTooFast(rpm)
+                        FanPresentState::TooFast(rpm)
                     } else {
-                        FanState::Present(rpm)
+                        FanPresentState::Nominal(rpm)
                     };
-                    fan.update_state(state, now);
+                    fan.update_state(FanState::Present(state), now);
                 }
                 Err(ResponseCode::NoDevice) if !have_presence => {
                     fan.update_presence(false, now);
                 }
                 Err(_e) => {
-                    fan.update_state(FanState::PresentUnresponsive, now);
+                    fan.update_state(
+                        FanState::Present(FanPresentState::Unresponsive),
+                        now,
+                    );
                 }
             }
         };
@@ -187,7 +191,8 @@ impl crate::control::BspInterface for Bsp {
             fan_id: f.bsp_data.into(),
             cur_state: f.current_state(),
             duration_ms: now.saturating_sub(f.since_ms),
-            reported: &mut f.acked,
+            state_reported: &mut f.state_acked,
+            presence_reported: &mut f.presence_acked,
         })
     }
 

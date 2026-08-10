@@ -10,7 +10,10 @@ use ringbuf::ringbuf_entry;
 use task_sensor_api::SensorId;
 use task_thermal_api::{SensorReadError, ThermalError};
 
-use crate::{__RINGBUF, Trace, control::FanState};
+use crate::{
+    __RINGBUF, Trace,
+    control::{FanPresentState, FanState},
+};
 
 /// Tracks whether a MAX31790 fan controller has been initialized, and
 /// initializes it on demand when accessed, if necessary.
@@ -114,8 +117,8 @@ pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
             sensors[idx],
             drv_i2c_devices::max31790::Fan::new_const(idx as u8),
         );
-        out[idx].prev_state = FanState::PresentUnresponsive;
-        out[idx].cur_state = FanState::PresentUnresponsive;
+        out[idx].prev_state = FanState::Present(FanPresentState::Unresponsive);
+        out[idx].cur_state = FanState::Present(FanPresentState::Unresponsive);
         idx += 1;
     }
 
