@@ -117,7 +117,6 @@ pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
             sensors[idx],
             drv_i2c_devices::max31790::Fan::new_const(idx as u8),
         );
-        out[idx].prev_state = FanState::Present(FanPresentState::Unresponsive);
         out[idx].cur_state = FanState::Present(FanPresentState::Unresponsive);
         idx += 1;
     }

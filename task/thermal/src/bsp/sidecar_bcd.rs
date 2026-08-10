@@ -5,11 +5,10 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    ActiveInputState, ChannelType, DynamicTemperatureState, FanPresentState,
-    FanState, MiscSensorPollingOutcome, PidConfig,
-    TimestampedTemperatureReading,
+    ActiveInputState, ChannelType, DynamicInputChannel,
+    DynamicTemperatureState, FanPresentState, FanState,
+    MiscSensorPollingOutcome, PidConfig, TimestampedTemperatureReading,
 };
-use crate::control::{DynamicInputChannel, FanPollingOutcome};
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
@@ -106,6 +105,8 @@ impl crate::control::BspInterface for Bsp {
         max_output: 100.0,
     };
 
+    type FanBspId = drv_i2c_devices::max31790::Fan;
+
     fn power_down(&self) -> Result<(), crate::SeqError> {
         self.seq
             .set_tofino_seq_policy(TofinoSequencerPolicy::Disabled)
@@ -124,7 +125,7 @@ impl crate::control::BspInterface for Bsp {
         }
     }
 
-    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = FanPollingOutcome<'_>> {
+    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = &'_ mut Fan> {
         let have_presence;
         let now = sys_get_timer().now;
         match self.seq.fan_module_presence() {
@@ -186,14 +187,7 @@ impl crate::control::BspInterface for Bsp {
             }
         }
 
-        self.fans.iter_mut().map(move |f| FanPollingOutcome {
-            sensor_id: f.rpm_sensor_id,
-            fan_id: f.bsp_data.into(),
-            cur_state: f.current_state(),
-            duration_ms: now.saturating_sub(f.since_ms),
-            state_reported: &mut f.state_acked,
-            presence_reported: &mut f.presence_acked,
-        })
+        self.fans.iter_mut()
     }
 
     fn poll_misc_sensors(
