@@ -45,7 +45,7 @@ impl FrontIOBoard {
     pub fn init(&mut self) -> Result<bool, FpgaError> {
         let mut controllers_ready = true;
 
-        for (i, controller) in self.controllers.iter_mut().enumerate() {
+        for (i, controller) in self.controllers.iter_mut().enumerate().rev() {
             let state = controller.await_fpga_ready(25)?;
             let mut ident;
             let mut ident_valid = false;
