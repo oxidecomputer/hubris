@@ -73,7 +73,7 @@ use crate::{ThermalError, Trace, bsp::PowerBitmask};
 use drv_i2c_devices::max31790::I2cWatchdog;
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_sensor_api::{Sensor as SensorApi, SensorId};
+use task_sensor_api::{NoData, Sensor as SensorApi, SensorId};
 use task_thermal_api::{SensorReadError, ThermalAutoState, ThermalProperties};
 use userlib::{
     sys_get_timer,
@@ -108,14 +108,11 @@ pub trait BspInterface {
     /// fans, and must accurately report when a fan has been added or removed.
     /// Unremovable fans should be reported as newly added the first time their
     /// presence is polled.
-    fn poll_fan_presence(
-        &mut self,
-    ) -> Result<impl Iterator<Item = FanPresence>, crate::SeqError>;
-
+    ///
     /// Return an iterator of the current status of each fan. The iterator may
     /// be lazy, meaning that failure to exhaust the iterator means that not all
     /// fans will be actively read.
-    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = FanPollingOutcome>;
+    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = FanPollingOutcome<'_>>;
 
     /// Return an iterator of the current status of each misc sensor. The
     /// iterator may be lazy, meaning that faulure to exhaust the iterator means
@@ -200,7 +197,16 @@ pub trait BspInterface {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Represents the indvidual fans in the system
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum FanState {
+    NotPresent,
+    PresentUnresponsive,
+    Present(Rpm),
+    PresentTooFast(Rpm),
+    PresentTooSlow(Rpm),
+}
+
+/// Represents the individual fans in the system
 ///
 /// Depending on the system we have diferent numbers of fans structured in
 /// different ways. Not all fans are guaranteed to be there at all times so
@@ -209,17 +215,112 @@ pub trait BspInterface {
 #[allow(dead_code)] // Not all bsps have fans!
 pub struct Fan<D> {
     pub rpm_sensor_id: SensorId,
-    pub is_present: bool,
+    pub acked: bool,
+    pub prev_state: FanState,
+    pub cur_state: FanState,
+    pub since_ms: u64,
     pub bsp_data: D,
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
-impl<D> Fan<D> {
+impl<D: Copy + Into<u8>> Fan<D> {
     pub const fn new(rpm_sensor_id: SensorId, bsp_data: D) -> Self {
         Self {
             rpm_sensor_id,
-            is_present: false,
+            acked: false,
+            prev_state: FanState::NotPresent,
+            cur_state: FanState::NotPresent,
+            since_ms: 0,
             bsp_data,
+        }
+    }
+
+    pub(crate) fn current_state(&self) -> FanState {
+        self.cur_state
+    }
+
+    pub(crate) fn is_present(&self) -> bool {
+        !matches!(self.cur_state, FanState::NotPresent)
+    }
+
+    pub(crate) fn update_presence(&mut self, is_present: bool, now_ms: u64) {
+        match (is_present, self.cur_state) {
+            (true, FanState::NotPresent) => {
+                self.update_state(FanState::PresentUnresponsive, now_ms)
+            }
+            (true, _) => {}
+            (false, _) => {
+                self.update_state(FanState::NotPresent, now_ms);
+            }
+        }
+    }
+    pub(crate) fn update_state(&mut self, new: FanState, now_ms: u64) {
+        use FanState as Fs;
+        match (self.cur_state, new) {
+            // Any data-less state staying the same:
+            //
+            // - Don't take new state
+            // - Don't update "since" timer
+            // - Don't update the "acked" flag
+            (Fs::NotPresent, Fs::NotPresent)
+            | (Fs::PresentUnresponsive, Fs::PresentUnresponsive) => {}
+
+            // present staying the same:
+            //
+            // - Do take the new state data
+            // - Don't update "since" timer
+            // - Don't update the "acked" flag
+            (Fs::Present(_), Fs::Present(_)) => {
+                self.cur_state = new;
+            }
+            (Fs::PresentTooFast(old), Fs::PresentTooFast(new)) => {
+                // Keep the fastest fast
+                self.cur_state = Fs::PresentTooFast(Rpm(old.0.max(new.0)));
+            }
+            (Fs::PresentTooSlow(old), Fs::PresentTooSlow(new)) => {
+                // Keep the slowest slow
+                self.cur_state = Fs::PresentTooSlow(Rpm(old.0.min(new.0)));
+            }
+
+            // For any of the following cases, this is an important state
+            // change:
+            //
+            // - Take the new state
+            // - Update the "since" timer
+            // - Clear the "acked" flag
+            //
+            // Any present -> Not present (we already checked (Not, Not) above)
+            (_, Fs::NotPresent)
+            // Not present to any present (we already checked (Not, Not) above)
+            | (Fs::NotPresent, _)
+            // Any deviant-present to nominal-present
+            | (Fs::PresentUnresponsive, Fs::Present(_))
+            | (Fs::PresentTooFast(_), Fs::Present(_))
+            | (Fs::PresentTooSlow(_), Fs::Present(_))
+            // Present to any deviant-present
+            | (Fs::Present(_), Fs::PresentUnresponsive)
+            | (Fs::Present(_), Fs::PresentTooFast(_))
+            | (Fs::Present(_), Fs::PresentTooSlow(_)) => {
+                self.prev_state = self.cur_state;
+                self.cur_state = new;
+                self.since_ms = now_ms;
+                self.acked = false;
+            }
+
+            // Deviant-to-Deviant:
+            //
+            // - Take the new state
+            // - DON'T update the "since" timer
+            // - DON'T clear the "acked" flag
+            (Fs::PresentUnresponsive, Fs::PresentTooFast(_))
+            | (Fs::PresentUnresponsive, Fs::PresentTooSlow(_))
+            | (Fs::PresentTooFast(_), Fs::PresentUnresponsive)
+            | (Fs::PresentTooFast(_), Fs::PresentTooSlow(_))
+            | (Fs::PresentTooSlow(_), Fs::PresentUnresponsive)
+            | (Fs::PresentTooSlow(_), Fs::PresentTooFast(_)) => {
+                self.prev_state = self.cur_state;
+                self.cur_state = new;
+            }
         }
     }
 }
@@ -238,19 +339,12 @@ pub enum FanPresence {
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
-pub enum FanPollingOutcome {
-    PresentSuccess {
-        rpm: Rpm,
-        sensor_id: SensorId,
-    },
-    PresentError {
-        error: SensorReadError,
-        sensor_id: SensorId,
-    },
-    #[allow(dead_code)] // Some bsps don't have removable fans
-    NotPresent {
-        sensor_id: SensorId,
-    },
+pub struct FanPollingOutcome<'a> {
+    pub sensor_id: SensorId,
+    pub fan_id: u8,
+    pub cur_state: FanState,
+    pub duration_ms: u64,
+    pub reported: &'a mut bool,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -875,8 +969,13 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
 
-    /// Get latest fan presence state
-    pub fn update_fan_presence(&mut self) {
+    /// Reads all temperature and fan RPM sensors, posting their results
+    /// to the sensors task API.
+    ///
+    /// Records failed sensor reads and failed posts to the sensors task in
+    /// the local ringbuf.  In addition, records the first few failed sensor
+    /// read in `self.err_blackbox` for later investigation.
+    pub fn read_sensors(&mut self) {
         // Try to configure the fan watchdog, if not yet configured
         //
         // With its longest timeout of 30 seconds, this is longer than it takes
@@ -895,50 +994,73 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
             }
         }
 
-        match self.bsp.poll_fan_presence() {
-            Ok(piter) => {
-                for fan in piter {
-                    match fan {
-                        FanPresence::Present { fan_id, changed } if changed => {
-                            ringbuf_entry!(Trace::FanAdded(fan_id));
-                        }
-                        FanPresence::NotPresent { fan_id, changed }
-                            if changed =>
-                        {
-                            ringbuf_entry!(Trace::FanRemoved(fan_id));
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Err(e) => ringbuf_entry!(Trace::FanPresenceUpdateFailed(e)),
-        }
-    }
-
-    /// Reads all temperature and fan RPM sensors, posting their results
-    /// to the sensors task API.
-    ///
-    /// Records failed sensor reads and failed posts to the sensors task in
-    /// the local ringbuf.  In addition, records the first few failed sensor
-    /// read in `self.err_blackbox` for later investigation.
-    pub fn read_sensors(&mut self) {
         // Read fan data and log it to the sensors task
         for reading in self.bsp.poll_fan_rpms() {
-            match reading {
-                FanPollingOutcome::PresentSuccess { rpm, sensor_id } => {
-                    self.sensor_api.post_now(sensor_id, rpm.0.into())
+            // Don't report things that haven't been steady for a little bit.
+            let stable = reading.duration_ms > 3_000;
+            let needs_report = !*reading.reported && stable;
+
+            match reading.cur_state {
+                FanState::Present(rpm) => {
+                    // All good boss, no need to debounce
+                    self.sensor_api.post_now(reading.sensor_id, rpm.0.into());
+
+                    // But we might for presence
+                    if needs_report {
+                        ringbuf_entry!(Trace::FanNominal(reading.fan_id));
+                        *reading.reported = true;
+                    }
                 }
-                FanPollingOutcome::PresentError { error, sensor_id } => {
-                    ringbuf_entry!(Trace::FanReadFailed(sensor_id, error));
-                    self.err_blackbox.push(sensor_id, error);
-                    self.sensor_api.nodata_now(sensor_id, error.into());
+                FanState::PresentTooFast(rpm) => {
+                    // All good boss, no need to debounce
+                    self.sensor_api.post_now(reading.sensor_id, rpm.0.into());
+
+                    // But we might for presence
+                    if needs_report {
+                        ringbuf_entry!(Trace::FanOverspeed(
+                            reading.fan_id,
+                            rpm
+                        ));
+                        *reading.reported = true;
+                    }
                 }
-                FanPollingOutcome::NotPresent { sensor_id } => {
-                    // Invalidate fan speed readings in the sensors task
-                    self.sensor_api.nodata_now(
-                        sensor_id,
-                        task_sensor_api::NoData::DeviceNotPresent,
-                    );
+                FanState::PresentTooSlow(rpm) => {
+                    // All good boss, no need to debounce
+                    self.sensor_api.post_now(reading.sensor_id, rpm.0.into());
+
+                    // But we might for presence
+                    if needs_report {
+                        ringbuf_entry!(Trace::FanUnderspeed(
+                            reading.fan_id,
+                            rpm
+                        ));
+                        *reading.reported = true;
+                    }
+                }
+
+                FanState::NotPresent => {
+                    if stable {
+                        self.sensor_api.nodata_now(
+                            reading.sensor_id,
+                            NoData::DeviceNotPresent,
+                        );
+                    }
+                    if needs_report {
+                        ringbuf_entry!(Trace::FanRemoved(reading.fan_id));
+                        *reading.reported = true;
+                    }
+                }
+                FanState::PresentUnresponsive => {
+                    if stable {
+                        self.sensor_api.nodata_now(
+                            reading.sensor_id,
+                            NoData::DeviceUnavailable,
+                        );
+                    }
+                    if needs_report {
+                        ringbuf_entry!(Trace::FanReadFailed(reading.sensor_id));
+                        *reading.reported = true;
+                    }
                 }
             }
         }

@@ -10,10 +10,7 @@ use ringbuf::ringbuf_entry;
 use task_sensor_api::SensorId;
 use task_thermal_api::{SensorReadError, ThermalError};
 
-use crate::{
-    __RINGBUF, Trace,
-    control::{Fan, FanPollingOutcome},
-};
+use crate::{__RINGBUF, Trace, control::FanState};
 
 /// Tracks whether a MAX31790 fan controller has been initialized, and
 /// initializes it on demand when accessed, if necessary.
@@ -70,39 +67,6 @@ impl Max31790State {
         ringbuf_entry!(Trace::FanControllerInitialized);
         Ok(&mut self.max31790)
     }
-
-    pub(crate) fn poll_fan_rpms(
-        &mut self,
-        fans: &mut [Fan<drv_i2c_devices::max31790::Fan>],
-    ) -> impl Iterator<Item = FanPollingOutcome> {
-        // Try to initialize the fan controller once at the start of the loop
-        let mut fctrl = self.try_initialize().map_err(SensorReadError::from);
-
-        // TODO: Maybe there's a way to make this a method on Fan that we can
-        // call, kind of like ActiveInputState?
-        fans.iter_mut().map(move |f| {
-            let sensor_id = f.rpm_sensor_id;
-            if !f.is_present {
-                return FanPollingOutcome::NotPresent { sensor_id };
-            }
-
-            // If initialization failed, then we short circuit to return that
-            // original error, copied for each fan we're going to report.
-            let fctrl = fctrl.as_mut().map_err(|e| *e);
-
-            // If it was a success, attempt to read the RPMs, and either report
-            // that success or that error for each fan rpm.
-            let res = fctrl.and_then(|fc| {
-                fc.fan_rpm(f.bsp_data).map_err(SensorReadError::I2cError)
-            });
-            match res {
-                Ok(rpm) => FanPollingOutcome::PresentSuccess { rpm, sensor_id },
-                Err(error) => {
-                    FanPollingOutcome::PresentError { error, sensor_id }
-                }
-            }
-        })
-    }
 }
 
 /// Helper function to retry initialization several times, logging errors
@@ -150,7 +114,8 @@ pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
             sensors[idx],
             drv_i2c_devices::max31790::Fan::new_const(idx as u8),
         );
-        out[idx].is_present = true;
+        out[idx].prev_state = FanState::PresentUnresponsive;
+        out[idx].cur_state = FanState::PresentUnresponsive;
         idx += 1;
     }
 
