@@ -232,6 +232,7 @@ struct FunctionCallCollector<'a> {
 /// `B` never calls `C` if called by `A`).
 pub fn get_max_stack(
     config: Config,
+    target: &str,
     elf: &Path,
     verbose: bool,
 ) -> Result<Vec<(u64, String)>> {
@@ -251,6 +252,49 @@ pub fn get_max_stack(
     let largest = missing.iter().map(|n| n.max_stack()).max().unwrap_or(0);
     if let Some(node) = missing.iter().find(|n| n.max_stack() == largest) {
         chain_compat.push((largest, format!("missing::{}", node.name)));
+    }
+
+    /// There are eight core registers that are caller saved:
+    /// R0–R3, R12, LR, PC, and xPSR.
+    const CORE_REGISTER_SIZE: u64 = 8 * 4;
+    /// On function entry, the stack is required to be 8-byte aligned, but
+    /// within a function, we may only have 4-byte alignment if a single word
+    /// has been pushed.
+    const WORST_CASE_ALIGNMENT_SIZE: u64 = 4;
+    /// If a target has floating point registers, then the interrupt handler
+    /// either lazily reserves space or proactively stacks floating point
+    /// registers S16-S31
+    const FP_REGISTER_SIZE: u64 = 16 * 4;
+
+    // Account for interrupt stacking requirements
+    match target {
+        "thumbv6m-none-eabi"
+        | "thumbv7m-none-eabi"
+        | "thumbv7em-none-eabi"
+        | "thumbv8m.main-none-eabi" => {
+            chain_compat.push((
+                CORE_REGISTER_SIZE + WORST_CASE_ALIGNMENT_SIZE,
+                "{{core register interrupt stacking}}".to_string(),
+            ));
+        }
+        "thumbv7m-none-eabihf"
+        | "thumbv7em-none-eabihf"
+        | "thumbv8m.main-none-eabihf" => {
+            chain_compat.push((
+                CORE_REGISTER_SIZE + WORST_CASE_ALIGNMENT_SIZE,
+                "{{core register interrupt stacking}}".to_string(),
+            ));
+            chain_compat.push((
+                FP_REGISTER_SIZE,
+                "{{floating point register interrupt stacking}}".to_string(),
+            ));
+        }
+        _ => {
+            bail!(
+                "Unknown target: {target}, \
+                can't estimate interrupt stacking requirement"
+            );
+        }
     }
 
     Ok(chain_compat)
