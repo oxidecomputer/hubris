@@ -142,8 +142,8 @@ enum Trace {
     },
     #[allow(dead_code)] // Not all fans are removable
     FanPresenceUpdateFailed(SeqError),
-    /// Fan is present and in a nominal state
-    FanNominal(SensorId),
+    /// Fan is present
+    FanAdded(SensorId),
     /// Fan is not present
     FanRemoved(SensorId),
     PowerDownAt(u64),
@@ -152,6 +152,8 @@ enum Trace {
     SetFanWatchdogOk,
     SetFanWatchdogError(ThermalError),
     UnexpectedInputInactive,
+    /// Fan is present and in a nominal state
+    FanNominal(SensorId),
     /// Fan is present and overspeed
     FanOverspeed(SensorId, Rpm),
     /// Fan is present and underspeed

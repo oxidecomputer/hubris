@@ -9,7 +9,8 @@ use crate::control::{ChannelType, PidConfig};
 use drv_i2c_devices::max31790::I2cWatchdog;
 use task_sensor_api::SensorId;
 use task_thermal_api::{
-    SANYO_DENKI_FAN_PROPERTIES, ThermalError, ThermalProperties,
+    SANYO_DENKI_FAN_PROPERTIES, SensorReadError, ThermalError,
+    ThermalProperties,
 };
 use userlib::units::{Celsius, PWMDuty};
 use userlib::{TaskId, sys_get_timer};
@@ -57,7 +58,6 @@ pub(crate) struct Bsp {
     pub inputs: &'static mut [InputChannel; NUM_TEMPERATURE_INPUTS],
 
     fans: &'static mut [Fan; NUM_FANS],
-    fans_added: bool,
     i2c_task: TaskId,
 
     fctrl: Emc2305State,
@@ -93,7 +93,7 @@ impl crate::control::BspInterface for Bsp {
             for fan in self.fans.iter_mut() {
                 let bsp_data = fan.bsp_data;
                 fan.poll_rpm_with(now, &SANYO_DENKI_FAN_PROPERTIES, || {
-                    fctl.fan_rpm(bsp_data)
+                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
                 });
             }
         }
@@ -196,7 +196,6 @@ impl Bsp {
             static_cell::ClaimOnceCell::new(FANS);
 
         Self {
-            fans_added: false,
             fans: FANS_ONCE.claim(),
 
             inputs: INPUTS_ONCE.claim(),

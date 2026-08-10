@@ -84,6 +84,7 @@ pub enum ThermalAutoState {
 }
 
 /// Properties for a particular fan in the system
+#[derive(Copy, Clone, Debug)]
 pub struct FanProperties {
     /// The speed which a fan should never exceed, even at maximum control
     /// input level. May be higher than the expected max RPM of a fan.

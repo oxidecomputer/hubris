@@ -16,7 +16,9 @@ use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalError;
-use task_thermal_api::{SANYO_DENKI_FAN_PROPERTIES, ThermalProperties};
+use task_thermal_api::{
+    SANYO_DENKI_FAN_PROPERTIES, SensorReadError, ThermalProperties,
+};
 use userlib::sys_get_timer;
 use userlib::{TaskId, task_slot, units::Celsius};
 
@@ -148,7 +150,6 @@ impl crate::control::BspInterface for Bsp {
 
         // Load bearing assumption: the first 4 fans are the EAST fans, and the
         // last 4 fans are the WEST fans.
-        let now = sys_get_timer().now;
         let (east, west) = self.fans.split_at_mut(4);
 
         // Fan controller initialization is latching, if it never succeeds, fans
@@ -157,7 +158,7 @@ impl crate::control::BspInterface for Bsp {
             for fan in east.iter_mut() {
                 let bsp_data = fan.bsp_data;
                 fan.poll_rpm_with(now, &SANYO_DENKI_FAN_PROPERTIES, || {
-                    fctl.fan_rpm(bsp_data)
+                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
                 });
             }
         }
@@ -165,7 +166,7 @@ impl crate::control::BspInterface for Bsp {
             for fan in west.iter_mut() {
                 let bsp_data = fan.bsp_data;
                 fan.poll_rpm_with(now, &SANYO_DENKI_FAN_PROPERTIES, || {
-                    fctl.fan_rpm(bsp_data)
+                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
                 });
             }
         }
