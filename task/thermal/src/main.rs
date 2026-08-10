@@ -125,7 +125,7 @@ enum Trace {
     /// because an entry with two u64s doubles the size of the ringbuf.
     #[count(skip)]
     CriticalFor(u64),
-    FanReadFailed(SensorId),
+    FanReadFailed(SensorId, SensorReadError),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
     ControlPwm(u8),
