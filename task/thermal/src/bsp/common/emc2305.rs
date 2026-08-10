@@ -81,18 +81,22 @@ pub(crate) fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(
 
 pub(crate) fn update_fan(
     now: u64,
-    presence_accurate: bool,
     fctrl: &mut Emc2305,
     fan: &mut Fan<drv_i2c_devices::emc2305::Fan>,
     model: &FanProperties,
 ) {
-    if presence_accurate && !fan.is_present() {
+    // If this fan is not present, then do not attempt to poll it. Presence is
+    // only restored via presence polling.
+    if !fan.is_present() {
         return;
     }
 
+    // Try to get the RPM reading for this fan
     let res = fctrl.fan_rpm(fan.bsp_data);
     match res {
         Ok(rpm) => {
+            // The poll went well! Use the model to determine if this reading
+            // is nominal or not, and report that as the state.
             let state = if rpm < model.underspeed_rpm {
                 FanPresentState::TooSlow(rpm)
             } else if rpm > model.underspeed_rpm {
@@ -102,10 +106,8 @@ pub(crate) fn update_fan(
             };
             fan.update_state(FanState::Present(state), now);
         }
-        Err(ResponseCode::NoDevice) if !presence_accurate => {
-            fan.update_presence(false, now);
-        }
         Err(_e) => {
+            // No good, mark as unresponsive
             fan.update_state(
                 FanState::Present(FanPresentState::Unresponsive),
                 now,
@@ -146,6 +148,7 @@ pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
             drv_i2c_devices::emc2305::Fan::new_const(idx as u8),
         );
         out[idx].cur_state = FanState::Present(FanPresentState::Unresponsive);
+        out[idx].presence_acked = true;
         idx += 1;
     }
 

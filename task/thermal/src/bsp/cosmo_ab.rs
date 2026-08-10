@@ -127,7 +127,6 @@ impl crate::control::BspInterface for Bsp {
             for fan in self.fans.iter_mut() {
                 max31790::update_fan(
                     now,
-                    true,
                     fctl,
                     fan,
                     &SANYO_DENKI_FAN_PROPERTIES,

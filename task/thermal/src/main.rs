@@ -142,16 +142,20 @@ enum Trace {
     },
     #[allow(dead_code)] // Not all fans are removable
     FanPresenceUpdateFailed(SeqError),
-    FanNominal(u8),
-    FanRemoved(u8),
+    /// Fan is present and in a nominal state
+    FanNominal(SensorId),
+    /// Fan is not present
+    FanRemoved(SensorId),
     PowerDownAt(u64),
     AddedDynamicInput(usize),
     RemovedDynamicInput(usize),
     SetFanWatchdogOk,
     SetFanWatchdogError(ThermalError),
     UnexpectedInputInactive,
-    FanOverspeed(u8, Rpm),
-    FanUnderspeed(u8, Rpm),
+    /// Fan is present and overspeed
+    FanOverspeed(SensorId, Rpm),
+    /// Fan is present and underspeed
+    FanUnderspeed(SensorId, Rpm),
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 

@@ -93,7 +93,6 @@ impl crate::control::BspInterface for Bsp {
             for fan in self.fans.iter_mut() {
                 emc2305::update_fan(
                     now,
-                    true,
                     fctl,
                     fan,
                     &SANYO_DENKI_FAN_PROPERTIES,

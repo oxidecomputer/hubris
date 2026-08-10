@@ -125,11 +125,18 @@ impl crate::control::BspInterface for Bsp {
     }
 
     fn poll_fan_rpms(&mut self) -> impl Iterator<Item = &'_ mut Fan> {
+        // Attempt to get presence bits from the sequencer.
+        //
+        // If we *don't* have presence data, something has gone terribly wrong
+        // with the sequencer, and we will keep using the last reported presence
+        // state, which starts as "not present" at power-up.
         let have_presence;
         let now = sys_get_timer().now;
         match self.seq.fan_module_presence() {
             Ok(pres) => {
                 have_presence = true;
+
+                // Each presence bit represents 2 physical fans
                 let fanchs = self.fans.chunks_exact_mut(2);
                 for (p, pair) in pres.0.iter().zip(fanchs) {
                     for fan in pair {
@@ -147,11 +154,12 @@ impl crate::control::BspInterface for Bsp {
         // last 4 fans are the WEST fans.
         let now = sys_get_timer().now;
         let (east, west) = self.fans.split_at_mut(4);
+
+        // Fan controller initialization is
         if let Ok(fctrl) = self.fctrl_east.try_initialize() {
             for fan in east.iter_mut() {
                 max31790::update_fan(
                     now,
-                    have_presence,
                     fctrl,
                     fan,
                     &SANYO_DENKI_FAN_PROPERTIES,
@@ -162,7 +170,6 @@ impl crate::control::BspInterface for Bsp {
             for fan in west.iter_mut() {
                 max31790::update_fan(
                     now,
-                    have_presence,
                     fctrl,
                     fan,
                     &SANYO_DENKI_FAN_PROPERTIES,
@@ -331,7 +338,7 @@ impl crate::control::BspInterface for Bsp {
         let mut any_err = false;
         let mut set_all = |fctrl: &mut Max31790, fans: &mut [Fan]| {
             for fan in fans.iter_mut() {
-                let val = if matches!(fan.cur_state, FanState::NotPresent) {
+                let val = if !fan.is_present() {
                     userlib::units::PWMDuty(0)
                 } else {
                     duty
