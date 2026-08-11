@@ -5,17 +5,20 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    ActiveInputState, ChannelType, DynamicTemperatureState, FanPresence,
-    MiscSensorPollingOutcome, PidConfig, TimestampedTemperatureReading,
+    ActiveInputState, ChannelType, DynamicInputChannel,
+    DynamicTemperatureState, MiscSensorPollingOutcome, PidConfig,
+    TimestampedTemperatureReading,
 };
-use crate::control::{DynamicInputChannel, FanPollingOutcome};
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
+use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalError;
-use task_thermal_api::ThermalProperties;
+use task_thermal_api::{
+    SANYO_DENKI_FAN_PROPERTIES, SensorReadError, ThermalProperties,
+};
 use userlib::{TaskId, task_slot, units::Celsius};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -102,6 +105,8 @@ impl crate::control::BspInterface for Bsp {
         max_output: 100.0,
     };
 
+    type FanBspId = drv_i2c_devices::max31790::Fan;
+
     fn power_down(&self) -> Result<(), crate::SeqError> {
         self.seq
             .set_tofino_seq_policy(TofinoSequencerPolicy::Disabled)
@@ -120,48 +125,51 @@ impl crate::control::BspInterface for Bsp {
         }
     }
 
-    fn poll_fan_presence(
-        &mut self,
-    ) -> Result<impl Iterator<Item = FanPresence>, crate::SeqError> {
-        // Get presence bits from the sequencer
-        let iter = self
-            .seq
-            .fan_module_presence()?
-            // First, get an iterator over all of the presence bools.
-            .0
-            .into_iter()
-            // Since each bool represets the state of two fans at a time, we
-            // chunk up the fans in pairs, and dupe the presence bit onto each
-            // one, THEN flatten it back into a single linear iterator.
-            .zip(self.fans.chunks_exact_mut(2))
-            .flat_map(|(p, c)| core::iter::repeat(p).zip(c.iter_mut()))
-            // Finally, for each fan, see if it is newly here/gone, and report
-            // that with its "fan" ID, which is just the order that we define
-            // our fans. We don't change the order, so it's okay to enumerate
-            // "late" instead of earlier in the chain.
-            .enumerate()
-            .map(|(fan_id, (present, c))| {
-                let fan_id = fan_id as u8;
-                let was = c.is_present;
-                let changed = was ^ present;
-                c.is_present = present;
-
-                if present {
-                    FanPresence::Present { fan_id, changed }
-                } else {
-                    FanPresence::NotPresent { fan_id, changed }
+    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = &'_ mut Fan> {
+        // Attempt to get presence bits from the sequencer.
+        //
+        // If we *don't* have presence data, something has gone terribly wrong
+        // with the sequencer, and we will keep using the last reported presence
+        // state, which starts as "not present" at power-up.
+        match self.seq.fan_module_presence() {
+            Ok(pres) => {
+                // Each presence bit represents 2 physical fans
+                let fanchs = self.fans.chunks_exact_mut(2);
+                for (p, pair) in pres.0.iter().zip(fanchs) {
+                    for fan in pair {
+                        fan.update_presence(*p);
+                    }
                 }
-            });
-        Ok(iter)
-    }
+            }
+            Err(e) => {
+                ringbuf_entry_root!(crate::Trace::FanPresenceUpdateFailed(e))
+            }
+        }
 
-    fn poll_fan_rpms(&mut self) -> impl Iterator<Item = FanPollingOutcome> {
         // Load bearing assumption: the first 4 fans are the EAST fans, and the
         // last 4 fans are the WEST fans.
         let (east, west) = self.fans.split_at_mut(4);
-        self.fctrl_east
-            .poll_fan_rpms(east)
-            .chain(self.fctrl_west.poll_fan_rpms(west))
+
+        // Fan controller initialization is latching, if it never succeeds, fans
+        // will stay in their presence state, but read Unresponsive if present.
+        if let Ok(fctl) = self.fctrl_east.try_initialize() {
+            for fan in east.iter_mut() {
+                let bsp_data = fan.bsp_data;
+                fan.poll_rpm_with(&SANYO_DENKI_FAN_PROPERTIES, || {
+                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
+                });
+            }
+        }
+        if let Ok(fctl) = self.fctrl_west.try_initialize() {
+            for fan in west.iter_mut() {
+                let bsp_data = fan.bsp_data;
+                fan.poll_rpm_with(&SANYO_DENKI_FAN_PROPERTIES, || {
+                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
+                });
+            }
+        }
+
+        self.fans.iter_mut()
     }
 
     fn poll_misc_sensors(
@@ -322,7 +330,7 @@ impl crate::control::BspInterface for Bsp {
         let mut any_err = false;
         let mut set_all = |fctrl: &mut Max31790, fans: &mut [Fan]| {
             for fan in fans.iter_mut() {
-                let val = if !fan.is_present {
+                let val = if !fan.is_present() {
                     userlib::units::PWMDuty(0)
                 } else {
                     duty

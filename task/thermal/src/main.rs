@@ -58,7 +58,7 @@ use task_thermal_api::{
 };
 use userlib::{
     RecvMessage, UnwrapLite, sys_get_timer, sys_set_timer, task_slot,
-    units::{Celsius, PWMDuty},
+    units::{Celsius, PWMDuty, Rpm},
 };
 
 task_slot!(I2C, i2c_driver);
@@ -140,15 +140,24 @@ enum Trace {
     FanControllerInitRetry {
         remaining: usize,
     },
+    #[allow(dead_code)] // Not all fans are removable
     FanPresenceUpdateFailed(SeqError),
-    FanAdded(u8),
-    FanRemoved(u8),
+    /// Fan is present
+    FanAdded(SensorId),
+    /// Fan is not present
+    FanRemoved(SensorId),
     PowerDownAt(u64),
     AddedDynamicInput(usize),
     RemovedDynamicInput(usize),
     SetFanWatchdogOk,
     SetFanWatchdogError(ThermalError),
     UnexpectedInputInactive,
+    /// Fan is present and in a nominal state
+    FanNominal(SensorId),
+    /// Fan is present and overspeed
+    FanOverspeed(SensorId, Rpm),
+    /// Fan is present and underspeed
+    FanUnderspeed(SensorId, Rpm),
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 
@@ -344,9 +353,6 @@ impl<'a, B: control::BspInterface> NotificationHandler for ServerImpl<'a, B> {
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         let now = sys_get_timer().now;
         if bits.has_timer_fired(notifications::TIMER_MASK) {
-            // See if any fans were removed or added since last iteration
-            self.control.update_fan_presence();
-
             // We *always* read sensor data, which does not touch the control
             // loop; this simply posts results to the `sensors` task.
             self.control.read_sensors();

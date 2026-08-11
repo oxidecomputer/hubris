@@ -10,7 +10,8 @@ use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{units::Celsius, *};
+use userlib::units::{Celsius, Rpm};
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 #[derive(
@@ -79,6 +80,25 @@ pub enum ThermalAutoState {
     Uncontrollable,
     FanParty,
 }
+
+/// Properties for a particular fan in the system
+#[derive(Copy, Clone, Debug)]
+pub struct FanProperties {
+    /// The speed which a fan should never exceed, even at maximum control
+    /// input level. May be higher than the expected max RPM of a fan.
+    pub overspeed_rpm: Rpm,
+    /// The speed which a fan should never fall below, even at minimum control
+    /// input level. May be lower than the expected min RPM of a fan.
+    pub underspeed_rpm: Rpm,
+}
+
+/// Generic Sanyo Denki fan limits use in Oxide products
+pub const SANYO_DENKI_FAN_PROPERTIES: FanProperties = FanProperties {
+    // Nominal max speed: 12_000 RPM, +1_500 RPM variance allowed (total guess)
+    overspeed_rpm: Rpm(13_500),
+    // Nominal min speed:  2_000 RPM, -1_500 RPM variance allowed (total guess)
+    underspeed_rpm: Rpm(500),
+};
 
 /// Properties for a particular part in the system
 #[derive(Clone, Copy, IntoBytes, FromBytes, Immutable, KnownLayout, Debug)]
