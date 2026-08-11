@@ -381,6 +381,11 @@ impl Bsp {
         static FANS_ONCE: static_cell::ClaimOnceCell<[Fan; NUM_FANS]> =
             static_cell::ClaimOnceCell::new(FANS);
 
+        // Fast forward fan time to now
+        let fans = FANS_ONCE.claim();
+        let now = sys_get_timer().now;
+        fans.iter_mut().for_each(|f| f.initialize_time(now));
+
         static DYN_INS_ONCE: static_cell::ClaimOnceCell<
             [DynamicInputChannel; NUM_DYNAMIC_TEMPERATURE_INPUTS],
         > = static_cell::ClaimOnceCell::new(DYNAMIC_INPUTS);
@@ -406,7 +411,7 @@ impl Bsp {
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,
             i2c_task,
-            fans: FANS_ONCE.claim(),
+            fans,
         }
     }
 }

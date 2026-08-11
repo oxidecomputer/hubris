@@ -256,6 +256,13 @@ impl<D> Fan<D> {
         }
     }
 
+    /// Method that should be called at BSP initialization that sets the
+    /// `since_ms` to `now_ms`, instead of a likely zero-initialized value which
+    /// may be significantly in the past if the thermal task restarts.
+    pub(crate) fn initialize_time(&mut self, now_ms: u64) {
+        self.since_ms = now_ms;
+    }
+
     /// The currently tracked state of the fan
     pub(crate) fn current_state(&self) -> FanState {
         self.cur_state

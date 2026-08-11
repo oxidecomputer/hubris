@@ -195,8 +195,13 @@ impl Bsp {
         static FANS_ONCE: static_cell::ClaimOnceCell<[Fan; NUM_FANS]> =
             static_cell::ClaimOnceCell::new(FANS);
 
+        // Fast forward fan time to now
+        let fans = FANS_ONCE.claim();
+        let now = sys_get_timer().now;
+        fans.iter_mut().for_each(|f| f.initialize_time(now));
+
         Self {
-            fans: FANS_ONCE.claim(),
+            fans,
 
             inputs: INPUTS_ONCE.claim(),
 
