@@ -69,7 +69,7 @@
 //!   move the fans to their highest commanded speed when not communicated with
 //!   for a configured time duration.
 
-use crate::{ThermalError, Trace, bsp::PowerBitmask};
+use crate::{TIMER_INTERVAL, ThermalError, Trace, bsp::PowerBitmask};
 use drv_i2c_devices::max31790::I2cWatchdog;
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -104,25 +104,18 @@ pub trait BspInterface {
     /// The current power mode reported by the sequencer
     fn power_mode(&self) -> PowerBitmask;
 
-    /// An iterator representing the presence of each fan of the system
+    /// Poll every fan in the system, then yield each one for reporting.
     ///
-    /// Typically reported by the sequencer, or always present in non-variable
-    /// configurations (or an empty iterator, if the board does not have fans).
-    ///
-    /// Note that BSPs are responsible for tracking the changes in state to
-    /// fans, and must accurately report when a fan has been added or removed.
-    /// Unremovable fans should be reported as newly added the first time their
-    /// presence is polled.
-    ///
-    /// Return an iterator of the current status of each fan. The iterator may
-    /// be lazy, meaning that failure to exhaust the iterator means that not all
-    /// fans will be actively read.
+    /// Implementations must update the presence of every removable fan using
+    /// [`Fan::update_presence()`], and poll the RPM of every fan using
+    /// [`Fan::poll_rpm_with()`]. The returned iterator should then yield all
+    /// fans, including any that are not present or are in a deviant state.
     fn poll_fan_rpms(
         &mut self,
     ) -> impl Iterator<Item = &'_ mut Fan<Self::FanBspId>>;
 
     /// Return an iterator of the current status of each misc sensor. The
-    /// iterator may be lazy, meaning that faulure to exhaust the iterator means
+    /// iterator may be lazy, meaning that failure to exhaust the iterator means
     /// that not all sensors will be actively queried.
     fn poll_misc_sensors(
         &self,
@@ -1558,59 +1551,66 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
 /// - Ringbuf logging on state changes
 /// - ereport logging on state changes
 fn report_fan_state<D>(fan: &mut Fan<D>, sensor_api: &SensorApi, now_ms: u64) {
+    // Make state matches a little less verbose
+    use FanPresentState as Fps;
+    use FanState as Fs;
+
     /// This is an arbitrarily chosen debounce time to avoid throwing errors
     /// for momentary hiccups. Right now, this influences our reporting for any
-    /// non-nominal state.
-    const STABILITY_TIME_MS: u64 = 3_000;
+    /// non-nominal state. This is intentionally between two control polling
+    /// intervals, so it should fire on the third tick, even if there's a little
+    /// timing jitter.
+    const STABILITY_TIME_MS: u64 = (TIMER_INTERVAL * 3) - (TIMER_INTERVAL / 2);
 
+    let id = fan.rpm_sensor_id;
     let duration_ms = now_ms.saturating_sub(fan.since_ms);
     let stable = duration_ms > STABILITY_TIME_MS;
-    let FanState::Present(pres) = fan.cur_state else {
-        sensor_api.nodata_now(fan.rpm_sensor_id, NoData::DeviceNotPresent);
 
-        if !fan.presence_acked {
-            ringbuf_entry!(Trace::FanRemoved(fan.rpm_sensor_id));
-            fan.presence_acked = true;
-        }
-        return;
-    };
+    // Step one: report presence, if necessary
     if !fan.presence_acked {
-        ringbuf_entry!(Trace::FanAdded(fan.rpm_sensor_id));
+        let trace = match fan.cur_state {
+            Fs::NotPresent => Trace::FanRemoved(id),
+            Fs::Present(_) => Trace::FanAdded(id),
+        };
+        ringbuf_entry!(trace);
         fan.presence_acked = true;
     }
 
-    // Report RPM immediately if we have it, OR clear it if it is erroneous and
-    // has been for a reasonable amount of time.
-    match pres {
-        FanPresentState::Unresponsive(_) => {
-            if stable {
-                sensor_api
-                    .nodata_now(fan.rpm_sensor_id, NoData::DeviceUnavailable);
-            }
+    // Step two: report fan data to sensor API.
+    let pres = match fan.cur_state {
+        Fs::NotPresent => {
+            // If the fan is physically not present, clear data immediately
+            sensor_api.nodata(id, NoData::DeviceNotPresent, now_ms);
+            // There's no more further state to log, return early
+            fan.state_acked = true;
+            return;
         }
-        FanPresentState::Nominal(rpm)
-        | FanPresentState::TooFast(rpm)
-        | FanPresentState::TooSlow(rpm) => {
-            sensor_api.post_now(fan.rpm_sensor_id, rpm.0.into());
+        Fs::Present(pres) => pres,
+    };
+    match pres {
+        // If the fan is unresponsive and has been for enough time,
+        // clear the data from the sensor API
+        Fps::Unresponsive(_) if stable => {
+            sensor_api.nodata(id, NoData::DeviceUnavailable, now_ms);
+        }
+        // Wait for unresponsive device to become stable
+        Fps::Unresponsive(_) => {}
+        // Although we want to wait for a deviant state to become stable before
+        // reporting it, if we have valid RPM data, report it immediately.
+        Fps::Nominal(rpm) | Fps::TooFast(rpm) | Fps::TooSlow(rpm) => {
+            sensor_api.post(id, rpm.0.into(), now_ms);
         }
     }
 
-    // Handle reporting, if stable and unreported
+    // Step three: handle state reporting, if stable and unreported
     if stable && !fan.state_acked {
-        match pres {
-            FanPresentState::Unresponsive(e) => {
-                ringbuf_entry!(Trace::FanReadFailed(fan.rpm_sensor_id, e));
-            }
-            FanPresentState::Nominal(_) => {
-                ringbuf_entry!(Trace::FanNominal(fan.rpm_sensor_id));
-            }
-            FanPresentState::TooFast(rpm) => {
-                ringbuf_entry!(Trace::FanOverspeed(fan.rpm_sensor_id, rpm));
-            }
-            FanPresentState::TooSlow(rpm) => {
-                ringbuf_entry!(Trace::FanUnderspeed(fan.rpm_sensor_id, rpm));
-            }
-        }
+        let trace = match pres {
+            Fps::Unresponsive(e) => Trace::FanReadFailed(id, e),
+            Fps::Nominal(_) => Trace::FanNominal(id),
+            Fps::TooFast(rpm) => Trace::FanOverspeed(id, rpm),
+            Fps::TooSlow(rpm) => Trace::FanUnderspeed(id, rpm),
+        };
+        ringbuf_entry!(trace);
         fan.state_acked = true;
     }
 }
