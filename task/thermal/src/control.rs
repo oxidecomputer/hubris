@@ -328,32 +328,28 @@ impl<D> Fan<D> {
                 | (Fps::Unresponsive(_), Fps::Unresponsive(_)) => {
                     self.cur_state = new;
                 }
-                // Nominal -> Deviant, or Deviant -> Nominal, update:
+                // Any of the following:
+                //
+                // - Nominal -> Deviant
+                // - Deviant -> Nominal
+                // - Deviant -> Deviant
+                //
+                // Take:
                 //
                 // - New state
                 // - Status ack state
                 // - Time of change
-                (Fps::Nominal(_), _) | (_, Fps::Nominal(_)) => {
-                    self.cur_state = new;
-                    self.state_acked = false;
-                    self.since_ms = now_ms;
-                }
-
-                // deviant -> deviant, update:
-                //
-                // - New state
-                (Fps::TooFast(_), Fps::Unresponsive(_))
+                (Fps::Nominal(_), _)
+                | (_, Fps::Nominal(_))
+                | (Fps::TooFast(_), Fps::Unresponsive(_))
                 | (Fps::TooFast(_), Fps::TooSlow(_))
                 | (Fps::TooSlow(_), Fps::Unresponsive(_))
                 | (Fps::TooSlow(_), Fps::TooFast(_))
                 | (Fps::Unresponsive(_), Fps::TooFast(_))
                 | (Fps::Unresponsive(_), Fps::TooSlow(_)) => {
-                    // TODO: Do we want ringbuf entries and/or ereports for
-                    // deviant -> deviant transitions? If so, we should reset
-                    // the since_ms and state_acked values here too, basically
-                    // collapsing this with the Nominal -> Deviant +
-                    // Deviant -> Nominal case above.
                     self.cur_state = new;
+                    self.state_acked = false;
+                    self.since_ms = now_ms;
                 }
             },
         }
