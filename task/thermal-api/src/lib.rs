@@ -10,10 +10,8 @@ use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{
-    units::{Celsius, Rpm},
-    *,
-};
+use userlib::units::{Celsius, Rpm};
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 #[derive(
