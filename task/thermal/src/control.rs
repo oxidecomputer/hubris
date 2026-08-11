@@ -72,7 +72,9 @@
 use crate::{ThermalError, Trace, bsp::PowerBitmask};
 use drv_i2c_devices::max31790::I2cWatchdog;
 
+use microcbor::Encode;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
+use task_packrat_api::Packrat;
 use task_sensor_api::{NoData, Sensor as SensorApi, SensorId};
 use task_thermal_api::{
     FanProperties, SensorReadError, ThermalAutoState, ThermalProperties,
@@ -576,6 +578,9 @@ pub(crate) struct ThermalControl<'a, B: BspInterface> {
     /// Task to which we should post sensor data updates
     sensor_api: SensorApi,
 
+    /// Task to which we should post ereports
+    ereporter: Ereporter,
+
     /// Target temperature margin. This must be >= 0; as it increases, parts
     /// are kept cooler than their target temperature value.
     target_margin: Celsius,
@@ -909,7 +914,11 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
     /// # Panics
     /// This function can only be called once, because it claims mutable static
     /// buffers.
-    pub fn new(bsp: &'a mut B, sensor_api: SensorApi) -> Self {
+    pub fn new(
+        bsp: &'a mut B,
+        sensor_api: SensorApi,
+        packrat_api: Packrat,
+    ) -> Self {
         use static_cell::ClaimOnceCell;
 
         let [err_blackbox, prev_err_blackbox] = {
@@ -933,6 +942,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
             prev_err_blackbox,
             fan_watchdog_configured: false,
             overheat_timer: None,
+            ereporter: Ereporter::claim_static_resources(packrat_api),
         }
     }
 
@@ -1028,7 +1038,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // Read fan data and log it to the sensors task
         let now = sys_get_timer().now;
         for fan in self.bsp.poll_fan_rpms() {
-            report_fan_state(fan, &self.sensor_api, now);
+            report_fan_state(fan, &self.sensor_api, now, &mut self.ereporter);
         }
 
         // Read miscellaneous temperature data and log it to the sensors task
@@ -1536,7 +1546,12 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
 /// - Sensor API data
 /// - Ringbuf logging on state changes
 /// - ereport logging on state changes
-fn report_fan_state<D>(fan: &mut Fan<D>, sensor_api: &SensorApi, now_ms: u64) {
+fn report_fan_state<D>(
+    fan: &mut Fan<D>,
+    sensor_api: &SensorApi,
+    now_ms: u64,
+    ereporter: &mut Ereporter,
+) {
     // Make state matches a little less verbose
     use FanPresentState as Fps;
     use FanState as Fs;
@@ -1544,11 +1559,16 @@ fn report_fan_state<D>(fan: &mut Fan<D>, sensor_api: &SensorApi, now_ms: u64) {
     // Step one: report presence, if necessary
     let id = fan.rpm_sensor_id;
     if !fan.presence_acked {
-        let trace = match fan.cur_state {
-            Fs::NotPresent => Trace::FanRemoved(id),
-            Fs::Present(_) => Trace::FanAdded(id),
+        match fan.cur_state {
+            Fs::NotPresent => {
+                ringbuf_entry!(Trace::FanRemoved(id));
+                _ = ereporter.deliver_ereport(&FanRemoved {});
+            }
+            Fs::Present(_) => {
+                ringbuf_entry!(Trace::FanAdded(id));
+                _ = ereporter.deliver_ereport(&FanInserted {})
+            }
         };
-        ringbuf_entry!(trace);
         fan.presence_acked = true;
     }
 
@@ -1576,13 +1596,71 @@ fn report_fan_state<D>(fan: &mut Fan<D>, sensor_api: &SensorApi, now_ms: u64) {
 
     // Step three: handle state reporting, if unreported
     if !fan.state_acked {
-        let trace = match pres {
-            Fps::Unresponsive(e) => Trace::FanReadFailed(id, e),
-            Fps::Nominal(_) => Trace::FanNominal(id),
-            Fps::TooFast(rpm) => Trace::FanOverspeed(id, rpm),
-            Fps::TooSlow(rpm) => Trace::FanUnderspeed(id, rpm),
+        match pres {
+            Fps::Unresponsive(e) => {
+                _ = ereporter.deliver_ereport(&FanRpmReadFailed {});
+                ringbuf_entry!(Trace::FanReadFailed(id, e));
+            }
+            Fps::Nominal(_) => {
+                _ = ereporter.deliver_ereport(&FanNominal {});
+                ringbuf_entry!(Trace::FanNominal(id));
+            }
+            Fps::TooFast(rpm) => {
+                _ = ereporter.deliver_ereport(&FanOverspeed {});
+                ringbuf_entry!(Trace::FanOverspeed(id, rpm));
+            }
+            Fps::TooSlow(rpm) => {
+                _ = ereporter.deliver_ereport(&FanUnderspeed {});
+                ringbuf_entry!(Trace::FanUnderspeed(id, rpm));
+            }
         };
-        ringbuf_entry!(trace);
         fan.state_acked = true;
     }
 }
+
+ereports::declare_ereporter! {
+    struct Ereporter<Ereport> {
+        FanRemoved(FanRemoved),
+        FanInserted(FanInserted),
+        FanNominal(FanNominal),
+        FanOverspeed(FanOverspeed),
+        FanUnderspeed(FanUnderspeed),
+        FanRpmReadFailed(FanRpmReadFailed),
+        FanPwmWriteFailed(FanPwmWriteFailed),
+    }
+}
+
+/// An ereport represent a host reported panic
+#[derive(Encode)]
+#[ereport(class = "hw.remove.fan", version = 0)]
+struct FanRemoved {}
+
+/// An ereport represent a host reported boot failure
+#[derive(Encode)]
+#[ereport(class = "hw.insert.fan", version = 0)]
+struct FanInserted {}
+
+/// An ereport represent a host reported boot failure
+#[derive(Encode)]
+#[ereport(class = "hw.fan.good", version = 0)]
+struct FanNominal {}
+
+/// An ereport represent a host reported boot failure
+#[derive(Encode)]
+#[ereport(class = "hw.fan.overspeed", version = 0)]
+struct FanOverspeed {}
+
+/// An ereport represent a host reported boot failure
+#[derive(Encode)]
+#[ereport(class = "hw.fan.underspeed", version = 0)]
+struct FanUnderspeed {}
+
+/// An ereport represent a host reported boot failure
+#[derive(Encode)]
+#[ereport(class = "hw.fan.rpmfail", version = 0)]
+struct FanRpmReadFailed {}
+
+/// An ereport represent a host reported boot failure
+#[derive(Encode)]
+#[ereport(class = "hw.fan.pwmfail", version = 0)]
+struct FanPwmWriteFailed {}
