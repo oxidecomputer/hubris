@@ -19,7 +19,6 @@ use task_thermal_api::ThermalError;
 use task_thermal_api::{
     SANYO_DENKI_FAN_PROPERTIES, SensorReadError, ThermalProperties,
 };
-use userlib::sys_get_timer;
 use userlib::{TaskId, task_slot, units::Celsius};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -132,14 +131,13 @@ impl crate::control::BspInterface for Bsp {
         // If we *don't* have presence data, something has gone terribly wrong
         // with the sequencer, and we will keep using the last reported presence
         // state, which starts as "not present" at power-up.
-        let now = sys_get_timer().now;
         match self.seq.fan_module_presence() {
             Ok(pres) => {
                 // Each presence bit represents 2 physical fans
                 let fanchs = self.fans.chunks_exact_mut(2);
                 for (p, pair) in pres.0.iter().zip(fanchs) {
                     for fan in pair {
-                        fan.update_presence(*p, now);
+                        fan.update_presence(*p);
                     }
                 }
             }
@@ -157,7 +155,7 @@ impl crate::control::BspInterface for Bsp {
         if let Ok(fctl) = self.fctrl_east.try_initialize() {
             for fan in east.iter_mut() {
                 let bsp_data = fan.bsp_data;
-                fan.poll_rpm_with(now, &SANYO_DENKI_FAN_PROPERTIES, || {
+                fan.poll_rpm_with(&SANYO_DENKI_FAN_PROPERTIES, || {
                     fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
                 });
             }
@@ -165,7 +163,7 @@ impl crate::control::BspInterface for Bsp {
         if let Ok(fctl) = self.fctrl_west.try_initialize() {
             for fan in west.iter_mut() {
                 let bsp_data = fan.bsp_data;
-                fan.poll_rpm_with(now, &SANYO_DENKI_FAN_PROPERTIES, || {
+                fan.poll_rpm_with(&SANYO_DENKI_FAN_PROPERTIES, || {
                     fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
                 });
             }
@@ -381,11 +379,6 @@ impl Bsp {
         static FANS_ONCE: static_cell::ClaimOnceCell<[Fan; NUM_FANS]> =
             static_cell::ClaimOnceCell::new(FANS);
 
-        // Fast forward fan time to now
-        let fans = FANS_ONCE.claim();
-        let now = sys_get_timer().now;
-        fans.iter_mut().for_each(|f| f.initialize_time(now));
-
         static DYN_INS_ONCE: static_cell::ClaimOnceCell<
             [DynamicInputChannel; NUM_DYNAMIC_TEMPERATURE_INPUTS],
         > = static_cell::ClaimOnceCell::new(DYNAMIC_INPUTS);
@@ -411,7 +404,7 @@ impl Bsp {
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,
             i2c_task,
-            fans,
+            fans: FANS_ONCE.claim(),
         }
     }
 }

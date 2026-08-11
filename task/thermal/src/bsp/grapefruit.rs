@@ -12,8 +12,8 @@ use task_thermal_api::{
     SANYO_DENKI_FAN_PROPERTIES, SensorReadError, ThermalError,
     ThermalProperties,
 };
+use userlib::TaskId;
 use userlib::units::{Celsius, PWMDuty};
-use userlib::{TaskId, sys_get_timer};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
@@ -89,10 +89,9 @@ impl crate::control::BspInterface for Bsp {
 
     fn poll_fan_rpms(&mut self) -> impl Iterator<Item = &'_ mut Fan> {
         if let Ok(fctl) = self.fctrl.try_initialize() {
-            let now = sys_get_timer().now;
             for fan in self.fans.iter_mut() {
                 let bsp_data = fan.bsp_data;
-                fan.poll_rpm_with(now, &SANYO_DENKI_FAN_PROPERTIES, || {
+                fan.poll_rpm_with(&SANYO_DENKI_FAN_PROPERTIES, || {
                     fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
                 });
             }
@@ -195,13 +194,8 @@ impl Bsp {
         static FANS_ONCE: static_cell::ClaimOnceCell<[Fan; NUM_FANS]> =
             static_cell::ClaimOnceCell::new(FANS);
 
-        // Fast forward fan time to now
-        let fans = FANS_ONCE.claim();
-        let now = sys_get_timer().now;
-        fans.iter_mut().for_each(|f| f.initialize_time(now));
-
         Self {
-            fans,
+            fans: FANS_ONCE.claim(),
 
             inputs: INPUTS_ONCE.claim(),
 
