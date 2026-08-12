@@ -32,19 +32,31 @@ mod dump;
 
 mod external;
 
-use core::convert::Infallible;
+use core::{convert::Infallible, mem::MaybeUninit};
 
 use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
 use idol_runtime::RequestError;
+use static_cell::ClaimOnceCell;
 use task_jefe_api::{DumpAgentError, ResetReason};
 use userlib::{Generation, TaskId, kipc};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Disposition {
-    #[default]
     Restart,
     Hold,
+}
+
+impl Disposition {
+    const fn const_default() -> Self {
+        Self::Restart
+    }
+}
+
+impl Default for Disposition {
+    fn default() -> Self {
+        Self::const_default()
+    }
 }
 
 // We install a timeout to periodically check for an external direction
@@ -79,31 +91,37 @@ const MIN_RUN_TIME: u64 = 50;
 /// the fault cannot prevent tasks from being restarted indefinitely.
 const MIN_RESTART_DELAY: u64 = 5;
 
+/// Store the entire server impl so that it is retrievable in system dumps
+#[unsafe(no_mangle)]
+static SERVER_IMPL: ClaimOnceCell<MaybeUninit<ServerImpl>> =
+    ClaimOnceCell::new(MaybeUninit::uninit());
+
+/// Generate a list of task states, considering the compile-time specified
+/// held tasks.
+const fn initial_task_states() -> [TaskStatus; hubris_num_tasks::NUM_TASKS] {
+    let mut task_states =
+        [TaskStatus::const_default(); hubris_num_tasks::NUM_TASKS];
+    let mut i = 0;
+    while i < generated::HELD_TASKS.len() {
+        task_states[generated::HELD_TASKS[i] as usize].disposition =
+            Disposition::Hold;
+        i += 1;
+    }
+    task_states
+}
+
 #[unsafe(export_name = "main")]
 fn main() -> ! {
-    let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
-    for held_task in generated::HELD_TASKS {
-        task_states[held_task as usize].disposition = Disposition::Hold;
-    }
-
     let deadline =
         userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
 
     external::set_ready();
 
-    #[cfg(feature = "fault-notification")]
-    let fault_counts = {
-        use static_cell::ClaimOnceCell;
-
-        static COUNTS: ClaimOnceCell<[usize; NUM_TASKS]> =
-            ClaimOnceCell::new([0usize; NUM_TASKS]);
-        COUNTS.claim()
-    };
-
-    let mut server = ServerImpl {
+    let server = SERVER_IMPL.claim();
+    let server = server.write(ServerImpl {
         state: 0,
         deadline,
-        task_states: &mut task_states,
+        task_states: const { initial_task_states() },
         any_tasks_in_timeout: false,
         reset_reason: ResetReason::Unknown,
 
@@ -114,24 +132,24 @@ fn main() -> ! {
         last_dump_area: None,
 
         #[cfg(feature = "fault-notification")]
-        fault_counts,
-    };
+        fault_counts: [0usize; NUM_TASKS],
+    });
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
     loop {
-        idol_runtime::dispatch(&mut buf, &mut server);
+        idol_runtime::dispatch(&mut buf, server);
     }
 }
 
-struct ServerImpl<'s> {
+struct ServerImpl {
     state: u32,
-    task_states: &'s mut [TaskStatus; NUM_TASKS],
+    task_states: [TaskStatus; NUM_TASKS],
     deadline: u64,
     any_tasks_in_timeout: bool,
     reset_reason: ResetReason,
 
     #[cfg(feature = "fault-notification")]
-    fault_counts: &'s mut [usize; NUM_TASKS],
+    fault_counts: [usize; NUM_TASKS],
 
     /// Base address for a linked list of dump areas
     #[cfg(feature = "dump")]
@@ -145,7 +163,7 @@ struct ServerImpl<'s> {
     last_dump_area: Option<DumpArea>,
 }
 
-impl idl::InOrderJefeImpl for ServerImpl<'_> {
+impl idl::InOrderJefeImpl for ServerImpl {
     fn request_reset(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -386,6 +404,15 @@ struct TaskStatus {
     state: TaskState,
 }
 
+impl TaskStatus {
+    const fn const_default() -> Self {
+        Self {
+            disposition: Disposition::const_default(),
+            state: TaskState::const_default(),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 enum TaskState {
     Running {
@@ -398,13 +425,19 @@ enum TaskState {
     },
 }
 
-impl Default for TaskState {
-    fn default() -> Self {
+impl TaskState {
+    const fn const_default() -> Self {
         TaskState::Running { started_at: 0 }
     }
 }
 
-impl idol_runtime::NotificationHandler for ServerImpl<'_> {
+impl Default for TaskState {
+    fn default() -> Self {
+        Self::const_default()
+    }
+}
+
+impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         notifications::FAULT_MASK | notifications::TIMER_MASK
     }
@@ -413,7 +446,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         let now = userlib::sys_get_timer().now;
 
         // Handle any external (debugger) requests.
-        external::check(self.task_states, now);
+        external::check(&mut self.task_states, now);
 
         if bits.has_timer_fired(notifications::TIMER_MASK) {
             // If our timer went off, we need to reestablish it. Compute a
