@@ -59,7 +59,7 @@
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Set to one to 1 when hw is running the spi transaction, no new transactions\nmay be issued until it is finished. Technically represents cs_n being low."
@@ -70,7 +70,7 @@
                     "lsb": 6,
                     "msb": 6,
                     "reset": 0,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Set to one to 1 when RX FIFO is empty"
@@ -81,7 +81,7 @@
                     "lsb": 7,
                     "msb": 7,
                     "reset": 0,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Set to one to 1 when RX FIFO is full"
@@ -92,7 +92,7 @@
                     "lsb": 8,
                     "msb": 14,
                     "reset": 0,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Show used FIFO words in RX_FIFO (word = 32bits/4 bytes),\nmax of 256 bytes, so 64 words"
@@ -103,7 +103,7 @@
                     "lsb": 22,
                     "msb": 22,
                     "reset": 0,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Set to one to 1 when TX FIFO is empty"
@@ -114,7 +114,7 @@
                     "lsb": 23,
                     "msb": 23,
                     "reset": 0,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Set to one to 1 when TX FIFO is full"
@@ -125,7 +125,7 @@
                     "lsb": 24,
                     "msb": 30,
                     "reset": 0,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Show used FIFO words in TX_FIFO (word = 32bits/4 bytes),\nmax of 256 bytes, so 64 words"

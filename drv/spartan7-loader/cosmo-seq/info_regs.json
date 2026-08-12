@@ -17,7 +17,7 @@
                     "lsb": 0,
                     "msb": 31,
                     "reset": 478,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Read-only bits showing 0x1de"
@@ -37,7 +37,7 @@
                     "lsb": 0,
                     "msb": 31,
                     "reset": 0,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Read-only bits showing resistor strapping for hubris compatibility value"
@@ -57,7 +57,7 @@
                     "lsb": 0,
                     "msb": 31,
                     "reset": 0,
-                    "sw_access": "rw",
+                    "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Read-only bits showing the 4byte short-sha of the git commit"
