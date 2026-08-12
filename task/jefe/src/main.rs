@@ -47,18 +47,6 @@ pub enum Disposition {
     Hold,
 }
 
-impl Disposition {
-    const fn const_default() -> Self {
-        Self::Restart
-    }
-}
-
-impl Default for Disposition {
-    fn default() -> Self {
-        Self::const_default()
-    }
-}
-
 // We install a timeout to periodically check for an external direction
 // of our task disposition (e.g., via Humility).  This timeout should
 // generally be fast for a human but slow for a computer; we pick a
@@ -99,8 +87,11 @@ static SERVER_IMPL: ClaimOnceCell<MaybeUninit<ServerImpl>> =
 /// Generate a list of task states, considering the compile-time specified
 /// held tasks.
 const fn initial_task_states() -> [TaskStatus; hubris_num_tasks::NUM_TASKS] {
-    let mut task_states =
-        [TaskStatus::const_default(); hubris_num_tasks::NUM_TASKS];
+    const TASK_DEFAULT: TaskStatus = TaskStatus {
+        disposition: Disposition::Restart,
+        state: TaskState::Running { started_at: 0 },
+    };
+    let mut task_states = [TASK_DEFAULT; hubris_num_tasks::NUM_TASKS];
     let mut i = 0;
     while i < generated::HELD_TASKS.len() {
         task_states[generated::HELD_TASKS[i] as usize].disposition =
@@ -398,19 +389,10 @@ impl idl::InOrderJefeImpl for ServerImpl {
 
 /// Structure we use for tracking the state of the tasks we supervise. There is
 /// one of these per supervised task.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 struct TaskStatus {
     disposition: Disposition,
     state: TaskState,
-}
-
-impl TaskStatus {
-    const fn const_default() -> Self {
-        Self {
-            disposition: Disposition::const_default(),
-            state: TaskState::const_default(),
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -423,18 +405,6 @@ enum TaskState {
     Timeout {
         restart_at: u64,
     },
-}
-
-impl TaskState {
-    const fn const_default() -> Self {
-        TaskState::Running { started_at: 0 }
-    }
-}
-
-impl Default for TaskState {
-    fn default() -> Self {
-        Self::const_default()
-    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl {
