@@ -81,7 +81,7 @@ const MIN_RESTART_DELAY: u64 = 5;
 
 /// Store the entire server impl so that it is retrievable in system dumps
 #[unsafe(no_mangle)]
-static SERVER_IMPL: ClaimOnceCell<MaybeUninit<ServerImpl>> =
+static JEFE_SERVER_IMPL: ClaimOnceCell<MaybeUninit<ServerImpl>> =
     ClaimOnceCell::new(MaybeUninit::uninit());
 
 /// Generate a list of task states, considering the compile-time specified
