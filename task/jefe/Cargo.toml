@@ -21,7 +21,7 @@ hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../jefe-api" }
 userlib = { path = "../../sys/userlib" }
-static-cell = { path = "../../lib/static-cell", optional = true }
+static-cell = { path = "../../lib/static-cell" }
 
 [build-dependencies]
 anyhow = { workspace = true }
@@ -33,8 +33,7 @@ build-util = { path = "../../build/util" }
 [features]
 dump = []
 nano = [ "ringbuf/disabled" ]
-no-panic = [ "userlib/no-panic" ]
-fault-notification = [ "dep:static-cell" ]
+fault-notification = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
