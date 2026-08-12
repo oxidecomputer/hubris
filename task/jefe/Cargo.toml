@@ -33,7 +33,6 @@ build-util = { path = "../../build/util" }
 [features]
 dump = []
 nano = [ "ringbuf/disabled" ]
-no-panic = [ "userlib/no-panic" ]
 fault-notification = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

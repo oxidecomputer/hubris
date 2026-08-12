@@ -108,7 +108,7 @@ fn main() -> ! {
 
     external::set_ready();
 
-    let server = SERVER_IMPL.claim();
+    let server = JEFE_SERVER_IMPL.claim();
     let server = server.write(ServerImpl {
         state: 0,
         deadline,
