@@ -9,7 +9,9 @@ use drv_i2c_devices::emc2305::Emc2305;
 use drv_i2c_devices::emc2305::Fan as EmcFan;
 use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
-use task_thermal_api::{SensorReadError, ThermalError};
+use task_thermal_api::{
+    SANYO_DENKI_FAN_PROPERTIES, SensorReadError, ThermalError,
+};
 
 use crate::{
     Trace,

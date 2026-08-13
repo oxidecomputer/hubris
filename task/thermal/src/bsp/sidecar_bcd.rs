@@ -9,6 +9,7 @@ use crate::control::{
     DynamicTemperatureState, MiscSensorPollingOutcome, PidConfig,
     TimestampedTemperatureReading,
 };
+use drv_i2c_devices::max31790::Fan as MaxFan;
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
@@ -519,8 +520,7 @@ const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [
 //     5            West           NW            3 (4)
 //     6            West           WSW           0 (1)
 //     7            West           WNW           1 (2)
-type Fan = crate::control::Fan<drv_i2c_devices::max31790::Fan>;
-use drv_i2c_devices::max31790::Fan as MaxFan;
+type Fan = crate::control::Fan<MaxFan>;
 const FAN_ORDER: [u8; NUM_FANS] = [2, 3, 0, 1, 2, 3, 0, 1];
 const fn make_fans() -> [Fan; NUM_FANS] {
     const ONE_FAN: Fan = Fan::new(
