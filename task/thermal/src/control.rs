@@ -240,18 +240,25 @@ pub struct Fan<D> {
     pub cur_state: FanState,
     /// A BSP-specific ID used to identify the fan
     pub bsp_data: D,
+    /// Parameter model for this fan
+    pub model: FanProperties,
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
 impl<D> Fan<D> {
     /// Create a new fan
-    pub const fn new(rpm_sensor_id: SensorId, bsp_data: D) -> Self {
+    pub const fn new(
+        rpm_sensor_id: SensorId,
+        model: FanProperties,
+        bsp_data: D,
+    ) -> Self {
         Self {
             rpm_sensor_id,
             presence_acked: false,
             state_acked: false,
             cur_state: FanState::NotPresent,
             bsp_data,
+            model,
         }
     }
 
@@ -346,7 +353,6 @@ impl<D> Fan<D> {
     /// retrieve the RPM. Used to share logic across different fan controllers
     pub(crate) fn poll_rpm_with<E: Into<SensorReadError>>(
         &mut self,
-        model: &FanProperties,
         poll_rpm: impl FnOnce() -> Result<Rpm, E>,
     ) {
         // If this fan is not present, then do not attempt to poll it. Presence
@@ -361,9 +367,9 @@ impl<D> Fan<D> {
             Ok(rpm) => {
                 // The poll went well! Use the model to determine if this
                 // reading is nominal or not, and report that as the state.
-                let state = if rpm < model.underspeed_rpm {
+                let state = if rpm < self.model.underspeed_rpm {
                     FanPresentState::TooSlow(rpm)
-                } else if rpm > model.overspeed_rpm {
+                } else if rpm > self.model.overspeed_rpm {
                     FanPresentState::TooFast(rpm)
                 } else {
                     FanPresentState::Nominal(rpm)
@@ -1562,11 +1568,11 @@ fn report_fan_state<D>(
         match fan.cur_state {
             Fs::NotPresent => {
                 ringbuf_entry!(Trace::FanRemoved(id));
-                _ = ereporter.deliver_ereport(&FanRemoved {});
+                _ = ereporter.deliver_ereport(&FanRemoved { id: id.into() });
             }
             Fs::Present(_) => {
                 ringbuf_entry!(Trace::FanAdded(id));
-                _ = ereporter.deliver_ereport(&FanInserted {})
+                _ = ereporter.deliver_ereport(&FanInserted { id: id.into() })
             }
         };
         fan.presence_acked = true;
@@ -1596,21 +1602,29 @@ fn report_fan_state<D>(
 
     // Step three: handle state reporting, if unreported
     if !fan.state_acked {
+        let fan_info = || FanInfo {
+            id: id.into(),
+            lo_rpm_lim: fan.model.underspeed_rpm.0,
+            hi_rpm_lim: fan.model.overspeed_rpm.0,
+        };
         match pres {
             Fps::Unresponsive(e) => {
-                _ = ereporter.deliver_ereport(&FanRpmReadFailed {});
+                _ = ereporter
+                    .deliver_ereport(&FanRpmReadFailed { id: id.into() });
                 ringbuf_entry!(Trace::FanReadFailed(id, e));
             }
             Fps::Nominal(_) => {
-                _ = ereporter.deliver_ereport(&FanNominal {});
+                _ = ereporter.deliver_ereport(&FanNominal { info: fan_info() });
                 ringbuf_entry!(Trace::FanNominal(id));
             }
             Fps::TooFast(rpm) => {
-                _ = ereporter.deliver_ereport(&FanOverspeed {});
+                _ = ereporter
+                    .deliver_ereport(&FanOverspeed { info: fan_info() });
                 ringbuf_entry!(Trace::FanOverspeed(id, rpm));
             }
             Fps::TooSlow(rpm) => {
-                _ = ereporter.deliver_ereport(&FanUnderspeed {});
+                _ = ereporter
+                    .deliver_ereport(&FanUnderspeed { info: fan_info() });
                 ringbuf_entry!(Trace::FanUnderspeed(id, rpm));
             }
         };
@@ -1626,41 +1640,54 @@ ereports::declare_ereporter! {
         FanOverspeed(FanOverspeed),
         FanUnderspeed(FanUnderspeed),
         FanRpmReadFailed(FanRpmReadFailed),
-        FanPwmWriteFailed(FanPwmWriteFailed),
     }
+}
+
+#[derive(Encode)]
+struct FanInfo {
+    id: u32,
+    lo_rpm_lim: u16,
+    hi_rpm_lim: u16,
 }
 
 /// An ereport represent a host reported panic
 #[derive(Encode)]
 #[ereport(class = "hw.remove.fan", version = 0)]
-struct FanRemoved {}
+struct FanRemoved {
+    id: u32,
+}
 
 /// An ereport represent a host reported boot failure
 #[derive(Encode)]
 #[ereport(class = "hw.insert.fan", version = 0)]
-struct FanInserted {}
+struct FanInserted {
+    id: u32,
+}
 
 /// An ereport represent a host reported boot failure
 #[derive(Encode)]
-#[ereport(class = "hw.fan.good", version = 0)]
-struct FanNominal {}
+#[ereport(class = "hw.fan.ok", version = 0)]
+struct FanNominal {
+    info: FanInfo,
+}
 
 /// An ereport represent a host reported boot failure
 #[derive(Encode)]
-#[ereport(class = "hw.fan.overspeed", version = 0)]
-struct FanOverspeed {}
+#[ereport(class = "hw.fan.rpm.hi", version = 0)]
+struct FanOverspeed {
+    info: FanInfo,
+}
 
 /// An ereport represent a host reported boot failure
 #[derive(Encode)]
-#[ereport(class = "hw.fan.underspeed", version = 0)]
-struct FanUnderspeed {}
+#[ereport(class = "hw.fan.rpm.lo", version = 0)]
+struct FanUnderspeed {
+    info: FanInfo,
+}
 
 /// An ereport represent a host reported boot failure
 #[derive(Encode)]
-#[ereport(class = "hw.fan.rpmfail", version = 0)]
-struct FanRpmReadFailed {}
-
-/// An ereport represent a host reported boot failure
-#[derive(Encode)]
-#[ereport(class = "hw.fan.pwmfail", version = 0)]
-struct FanPwmWriteFailed {}
+#[ereport(class = "hw.fan.rpm.err", version = 0)]
+struct FanRpmReadFailed {
+    id: u32,
+}
