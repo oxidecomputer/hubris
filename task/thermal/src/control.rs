@@ -1618,13 +1618,17 @@ fn report_fan_state<D>(
                 ringbuf_entry!(Trace::FanNominal(id));
             }
             Fps::TooFast(rpm) => {
-                _ = ereporter
-                    .deliver_ereport(&FanOverspeed { info: fan_info() });
+                _ = ereporter.deliver_ereport(&FanOverspeed {
+                    info: fan_info(),
+                    rpm: rpm.0,
+                });
                 ringbuf_entry!(Trace::FanOverspeed(id, rpm));
             }
             Fps::TooSlow(rpm) => {
-                _ = ereporter
-                    .deliver_ereport(&FanUnderspeed { info: fan_info() });
+                _ = ereporter.deliver_ereport(&FanUnderspeed {
+                    info: fan_info(),
+                    rpm: rpm.0,
+                });
                 ringbuf_entry!(Trace::FanUnderspeed(id, rpm));
             }
         };
@@ -1650,42 +1654,44 @@ struct FanInfo {
     hi_rpm_lim: u16,
 }
 
-/// An ereport represent a host reported panic
+/// An ereport representing a fan being removed
 #[derive(Encode)]
 #[ereport(class = "hw.remove.fan", version = 0)]
 struct FanRemoved {
     id: u32,
 }
 
-/// An ereport represent a host reported boot failure
+/// An ereport representing a fan being inserted
 #[derive(Encode)]
 #[ereport(class = "hw.insert.fan", version = 0)]
 struct FanInserted {
     id: u32,
 }
 
-/// An ereport represent a host reported boot failure
+/// An ereport representing a fan entering a nominal state
 #[derive(Encode)]
 #[ereport(class = "hw.fan.ok", version = 0)]
 struct FanNominal {
     info: FanInfo,
 }
 
-/// An ereport represent a host reported boot failure
+/// An ereport representing a fan becoming overspeed
 #[derive(Encode)]
 #[ereport(class = "hw.fan.rpm.hi", version = 0)]
 struct FanOverspeed {
     info: FanInfo,
+    rpm: u16,
 }
 
-/// An ereport represent a host reported boot failure
+/// An ereport representing a fan becoming underspeed
 #[derive(Encode)]
 #[ereport(class = "hw.fan.rpm.lo", version = 0)]
 struct FanUnderspeed {
     info: FanInfo,
+    rpm: u16,
 }
 
-/// An ereport represent a host reported boot failure
+/// An ereport representing a failure to remove a fan
 #[derive(Encode)]
 #[ereport(class = "hw.fan.rpm.err", version = 0)]
 struct FanRpmReadFailed {

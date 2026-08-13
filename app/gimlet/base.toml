@@ -138,7 +138,7 @@ priority = 5
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 2000
 start = true
-task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe", "thermal"]
+task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe", "packrat"]
 notifications = ["timer"]
 
 [tasks.power]
