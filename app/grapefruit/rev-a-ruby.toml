@@ -13,8 +13,8 @@ interrupts = {"usart6.irq" = "usart-irq"}
 name = "task-thermal"
 features = ["grapefruit"]
 priority = 5
-max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 6000
+max-sizes = {flash = 32768, ram = 4096 }
+stacksize = 1536
 start = true
 task-slots = ["i2c_driver", "sensor", "packrat"]
 notifications = ["timer"]
