@@ -1647,7 +1647,7 @@ ereports::declare_ereporter! {
     }
 }
 
-#[derive(Encode)]
+#[derive(microcbor::EncodeFields)]
 struct FanInfo {
     id: u32,
     lo_rpm_lim: u16,
@@ -1672,6 +1672,7 @@ struct FanInserted {
 #[derive(Encode)]
 #[ereport(class = "hw.fan.ok", version = 0)]
 struct FanNominal {
+    #[cbor(flatten)]
     info: FanInfo,
 }
 
@@ -1679,6 +1680,7 @@ struct FanNominal {
 #[derive(Encode)]
 #[ereport(class = "hw.fan.rpm.hi", version = 0)]
 struct FanOverspeed {
+    #[cbor(flatten)]
     info: FanInfo,
     rpm: u16,
 }
@@ -1687,6 +1689,7 @@ struct FanOverspeed {
 #[derive(Encode)]
 #[ereport(class = "hw.fan.rpm.lo", version = 0)]
 struct FanUnderspeed {
+    #[cbor(flatten)]
     info: FanInfo,
     rpm: u16,
 }
