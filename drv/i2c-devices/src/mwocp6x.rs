@@ -7,10 +7,8 @@
 //! Currently, this module supports the [`Mwocp68`], used by the Rack Model 0
 //! power shelf, and [`Mwocp67`], used by the Rack Model 1 power shelf.
 
-mod mwocp67;
-mod mwocp68;
-pub use mwocp67::Mwocp67;
-pub use mwocp68::Mwocp68;
+pub use crate::mwocp67::Mwocp67;
+pub use crate::mwocp68::Mwocp68;
 
 use crate::BadValidation;
 use drv_i2c_api::ResponseCode;
@@ -101,7 +99,7 @@ impl UpdateState {
     /// Firmware Update Process" document in that they reflect revised
     /// guidance from Murata.
     ///
-    fn delay_ms(&self) -> u64 {
+    pub(crate) fn delay_ms(&self) -> u64 {
         match self {
             Self::WroteBootLoaderKey => 3_000,
             Self::WroteProductKey => 3_000,
@@ -194,11 +192,11 @@ impl From<pmbus::Error> for Error {
     }
 }
 
-const FIRMWARE_REVISION_LEN: usize = 14;
+pub(crate) const FIRMWARE_REVISION_LEN: usize = 14;
 
 /// Returns the firmware revision of the primary MCU, or the index of a parse
 /// error.
-fn parse_firmware_revision(
+pub(crate) fn parse_firmware_revision(
     data: &[u8; FIRMWARE_REVISION_LEN],
 ) -> Result<FirmwareRev, u8> {
     // Per ACAN-114 and ACAN-157, we are expecting this to be of the format:

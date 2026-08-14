@@ -70,6 +70,7 @@ impl TryFrom<RawPowerRailState> for PowerRail {
     Immutable,
     KnownLayout,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u8)]
 pub enum PowerRailStatus {
     #[default]

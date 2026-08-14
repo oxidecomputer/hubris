@@ -1,0 +1,11 @@
+[package]
+name = "userlib-units"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
+
+[lints]
+workspace = true

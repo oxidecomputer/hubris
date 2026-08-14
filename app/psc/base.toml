@@ -121,7 +121,7 @@ notifications = ["i2c2-irq", "i2c3-irq"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1480
+stacksize = 1520
 start = true
 task-slots = ["jefe"]
 features = ["ereport"]
@@ -386,6 +386,9 @@ address = 0b1001_000
 device = "tmp116"
 description = "Temperature sensor"
 refdes = "U31"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
 
 [[config.i2c.devices]]
 bus = "local"

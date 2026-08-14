@@ -149,10 +149,10 @@ uses = ["rng"]
 name = "task-dump-agent"
 features = ["no-rot"]
 priority = 4
-max-sizes = {flash = 32768, ram = 2048 }
+max-sizes = {flash = 32768, ram = 4096 }
 start = true
 task-slots = ["jefe"]
-stacksize = 1200
+stacksize = 1328
 extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 
 [config]

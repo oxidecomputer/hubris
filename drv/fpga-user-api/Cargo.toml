@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+counters = { path = "../../lib/counters", optional = true }
 drv-fpga-api = { path = "../../drv/fpga-api" }
 num-traits = { workspace = true }
 userlib = { path = "../../sys/userlib" }
