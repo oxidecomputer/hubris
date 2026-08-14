@@ -116,7 +116,7 @@ fn system_init() {
     // Drop the timer since we're passing the peripherals by ownership here.
     drop(timer);
 
-    drv_stm32h7_startup::system_init_custom(
+    let p = drv_stm32h7_startup::system_init_custom(
         cp,
         p,
         ClockConfig {
@@ -160,4 +160,10 @@ fn system_init() {
             flash_write_delay: 2,
         },
     );
+
+    // Enable timing
+    let ptime = RollingTimer::new_tim5(&p, 200);
+    // SAFETY: we promise to never use TIM5 again.
+    let vtable = unsafe { ptime.into_ptimer() };
+    hubris_ptime::set_ptime_vtable(vtable);
 }

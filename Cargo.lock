@@ -874,6 +874,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
+ "hubris-ptime",
  "kern",
  "ringbuf",
  "stm32h7",
@@ -5047,6 +5048,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
+ "hubris-ptime",
  "kern",
  "stm32h7",
 ]
@@ -5733,6 +5735,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
+ "hubris-ptime",
  "kern",
  "stm32h7",
 ]
