@@ -13,9 +13,9 @@ stacksize = 936
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 4096, ram = 512}
+max-sizes = {flash = 4096, ram = 768}
 start = true
-stacksize = 368
+stacksize = 256
 notifications = ["fault", "timer"]
 
 [tasks.sys]

@@ -5,8 +5,9 @@
 //!
 //! Tuple structs for units that are useful in the real world
 //!
+#![no_std]
 
-use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
+use zerocopy_derive::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// Degrees Celsius
 #[derive(

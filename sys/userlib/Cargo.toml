@@ -24,6 +24,7 @@ zerocopy-derive = { workspace = true }
 abi.path = "../abi"
 armv6m-atomic-hack.path = "../../lib/armv6m-atomic-hack"
 unwrap-lite.path = "../../lib/unwrap-lite"
+userlib-units.path = "../userlib-units"
 volatile-const.path = "../../lib/volatile-const"
 
 [target.thumbv7em-none-eabihf.dependencies]

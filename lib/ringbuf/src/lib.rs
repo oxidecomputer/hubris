@@ -292,7 +292,7 @@ macro_rules! ringbuf {
             });
     };
     ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup $(,)?) => {
-        static $name: $crate::StaticCell<$crate::Ringbuf<$t, () $n>> =
+        static $name: $crate::StaticCell<$crate::Ringbuf<$t, (), $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
                 buffer: [$crate::RingbufEntry {
@@ -460,7 +460,7 @@ macro_rules! ringbuf_entry {
         // Evaluate both buf and payload, without letting them access each
         // other, by evaluating them in a tuple where each cannot
         // accidentally use the other's binding.
-        let (p, buf) = ($payload, &$buf);
+        let (p, buf) = (&$payload, &$buf);
         // Invoke these functions using slightly weird syntax to avoid
         // accidentally calling a _different_ routine called record_entry.
         $crate::RecordEntry::record_entry(buf, line!() as u16, p);
@@ -562,13 +562,13 @@ pub trait RecordEntry<T: Copy> {
     /// This method is typically called by the [`ringbuf_entry!`] and
     /// [`ringbuf_entry_root!`] macros. While you could also call this method
     /// directly, [`ringbuf_entry!`] will capture the line number for you.
-    fn record_entry(&self, line: u16, payload: T);
+    fn record_entry(&self, line: u16, payload: &T);
 }
 
 impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
     for StaticCell<Ringbuf<T, u16, { N }>>
 {
-    fn record_entry(&self, line: u16, payload: T) {
+    fn record_entry(&self, line: u16, payload: &T) {
         // If the ringbuf is already borrowed, just do nothing, to avoid
         // panicking. This *shouldn't* ever happen, since we are
         // single-threaded, and the code for recording ringbuf entries won't
@@ -591,7 +591,7 @@ impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
         // last _is_ corrupted, the behavior below will just start us over at 0.
         if let Some(ent) = ring.buffer.get_mut(last)
             && ent.line == line
-            && ent.payload == payload
+            && &ent.payload == payload
             // Only reuse this entry if we don't overflow the count
             && let Some(new_count) = ent.count.checked_add(1)
         {
@@ -606,7 +606,7 @@ impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
 impl<T: Copy, const N: usize> RecordEntry<T>
     for StaticCell<Ringbuf<T, (), { N }>>
 {
-    fn record_entry(&self, line: u16, payload: T) {
+    fn record_entry(&self, line: u16, payload: &T) {
         // If the ringbuf is already borrowed, just do nothing, to avoid
         // panicking. This *shouldn't* ever happen, since we are
         // single-threaded, and the code for recording ringbuf entries won't
@@ -631,7 +631,7 @@ where
     T: Count + Copy,
     StaticCell<Ringbuf<T, C, N>>: RecordEntry<T>,
 {
-    fn record_entry(&self, _line: u16, payload: T) {
+    fn record_entry(&self, _line: u16, payload: &T) {
         payload.count(&self.counters);
 
         #[cfg(not(feature = "disabled"))]
@@ -643,11 +643,25 @@ impl<T> RecordEntry<T> for ()
 where
     T: Copy + PartialEq,
 {
-    fn record_entry(&self, _: u16, _: T) {}
+    fn record_entry(&self, _: u16, _: &T) {}
 }
 
 impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
-    fn do_record(&mut self, last: usize, line: u16, count: C, payload: T) {
+    // Ensure that `N` is not zero by producing a compile-time error if anyone
+    // tries to construct a zero-length ringbuf. This is necessary because
+    // ringbuf entries are written to using unchecked indexing, which is always
+    // valid because the index has already been modulo'd to the ringbuf's
+    // length...unless the length is 0, in which case reading the 0th index is
+    // *also* an out of bounds read. Luckily, nobody has ever wanted to make a
+    // zero-length ringbuf, so this hasn't been an issue in practice, but let's
+    // stop you from doing it here just in case.
+    pub const RINGBUF_LEN_MUST_BE_NONZERO: bool = {
+        let is_nonzero = N > 0;
+        assert!(is_nonzero, "ringbuf length must be greater than 0");
+        is_nonzero
+    };
+
+    fn do_record(&mut self, last: usize, line: u16, count: C, payload: &T) {
         // Either we were unable to reuse the entry, or the last index was out
         // of range (perhaps because this is the first insertion). We're going
         // to advance last and wrap if required. This uses a wrapping_add
@@ -675,11 +689,19 @@ impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
             // `self.buffer.get_mut(ndx)` and then silently nop'ing if it
             // returns `None`...but it seems nicer to also elide the bounds
             // check, given that we *just* did one of our own!
+            //
+            // Note that this requires the `const` assertion that `N > 0` above
+            // in order to actually be safe, as a zero-length ringbuf is the one
+            // exception to the guarantee that having modulo'd the index (or
+            // having done our weird modulo-like thing, technically) ensures
+            // that it is in bounds. So, force that to actually be evaluated
+            // here, so it fails at the location of the unsafe block comment. :)
+            let _is_nonzero = Self::RINGBUF_LEN_MUST_BE_NONZERO;
             self.buffer.get_unchecked_mut(ndx)
         };
         *ent = RingbufEntry {
             line,
-            payload,
+            payload: *payload,
             count,
             generation: ent.generation.wrapping_add(1),
         };

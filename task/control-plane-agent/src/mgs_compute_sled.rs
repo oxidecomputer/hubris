@@ -564,11 +564,10 @@ impl SpHandler for MgsHandler {
         &mut self,
         update: SpUpdatePrepare,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
-            length: update.aux_flash_size + update.sp_image_size,
-            component: SpComponent::SP_ITSELF,
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SpUpdatePrepare {
             id: update.id,
-            slot: 0,
+            aux_flash_size: update.aux_flash_size,
+            sp_image_size: update.sp_image_size,
         }));
 
         self.common.sp_update.prepare(&UPDATE_MEMORY, update)
@@ -578,12 +577,14 @@ impl SpHandler for MgsHandler {
         &mut self,
         update: ComponentUpdatePrepare,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
-            length: update.total_size,
-            component: update.component,
-            id: update.id,
-            slot: update.slot,
-        }));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentUpdatePrepare {
+                total_size: update.total_size,
+                component: update.component,
+                id: update.id,
+                slot: update.slot,
+            }
+        ));
 
         match update.component {
             SpComponent::HOST_CPU_BOOT_FLASH => {

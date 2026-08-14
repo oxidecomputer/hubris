@@ -26,7 +26,7 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 4096}
 start = true
-stacksize = 3000
+stacksize = 1536
 notifications = ["fault", "timer"]
 features = ["dump"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
@@ -111,7 +111,6 @@ start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
 features = ["grapefruit", "boot-kmdb"]
-stacksize = 1496
 
 [tasks.hiffy]
 name = "task-hiffy"

@@ -190,6 +190,27 @@ pub const MAX_FANS: u8 = 6;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Fan(u8);
 
+impl Fan {
+    /// Create a new fan
+    ///
+    /// This panics if idx is out of range, and is intended to be used
+    /// at compile time for building constant values. Prefer `TryFrom`
+    /// at runtime when handling user provided data.
+    pub const fn new_const(idx: u8) -> Self {
+        if idx >= MAX_FANS {
+            panic!("Out of range!");
+        } else {
+            Self(idx)
+        }
+    }
+}
+
+impl From<Fan> for u8 {
+    fn from(val: Fan) -> Self {
+        val.0
+    }
+}
+
 impl TryFrom<u8> for Fan {
     type Error = ();
     /// Fans are based on a 0-based index. This should *not* be the number
