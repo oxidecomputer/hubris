@@ -45,6 +45,11 @@ pub struct USlice<T> {
 }
 
 impl<T> USlice<T> {
+    /// Const assertion that we are not creating a slice of ZSTs
+    const SIZE_CHECK: () = const {
+        assert!(core::mem::size_of::<T>() != 0);
+    };
+
     /// Constructs a `USlice` given a base address and length passed from
     /// untrusted code.
     ///
@@ -61,8 +66,9 @@ impl<T> USlice<T> {
         // this type. Think carefully before loosening any of them, or adding a
         // second way to construct a USlice.
 
-        // ZST check, should resolve at compile time:
-        uassert!(core::mem::size_of::<T>() != 0);
+        // ZST check - We need to reference the assoc const to ensure the const
+        // is evaluated.
+        _ = Self::SIZE_CHECK;
 
         // Alignment check:
         if !base_address.is_multiple_of(core::mem::align_of::<T>()) {
