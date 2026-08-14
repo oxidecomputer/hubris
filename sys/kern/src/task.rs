@@ -438,8 +438,8 @@ impl Task {
             let now = (ptimer.now)();
             let mut old = now;
 
-            /// SAFETY: Only the kernel has access to PTIME_LAST_SWITCH, and
-            /// we only access it long enough here to update with a new value.
+            // SAFETY: Only the kernel has access to PTIME_LAST_SWITCH, and
+            // we only access it long enough here to update with a new value.
             unsafe {
                 core::ptr::swap(&mut old, &raw mut PTIME_LAST_SWITCH);
             }

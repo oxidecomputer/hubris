@@ -125,8 +125,8 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
         let now = (ptimer.now)();
         let mut old = now;
 
-        /// SAFETY: Only the kernel has access to PTIME_LAST_SWITCH, and
-        /// we only access it long enough here to update with a new value.
+        // SAFETY: Only the kernel has access to PTIME_LAST_SWITCH, and
+        // we only access it long enough here to update with a new value.
         unsafe {
             core::ptr::swap(&mut old, &raw mut crate::task::PTIME_LAST_SWITCH);
         }
@@ -135,7 +135,7 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
         // Similarly, we don't expect to run for ~hundreds of thousands of
         // years, but if we do, just wrap around.
         unsafe {
-            KERNEL_SYSCALL_PTIME += KERNEL_SYSCALL_PTIME.wrapping_add(1);
+            KERNEL_SYSCALL_PTIME = KERNEL_SYSCALL_PTIME.wrapping_add(elapsed);
         }
     }
 
