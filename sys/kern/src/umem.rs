@@ -68,7 +68,8 @@ impl<T> USlice<T> {
 
         // ZST check - We need to reference the assoc const to ensure the const
         // is evaluated.
-        _ = Self::SIZE_CHECK;
+        #[allow(clippy::let_unit_value)]
+        let _ = Self::SIZE_CHECK;
 
         // Alignment check:
         if !base_address.is_multiple_of(core::mem::align_of::<T>()) {
