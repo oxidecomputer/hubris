@@ -19,13 +19,15 @@ impl Duration {
     pub const ZERO: Self = Self(0);
 }
 
+/// "Now" Function, returns the current time in ticks as an [`Instant`].
 pub type NowFunc = fn() -> Instant;
-// TODO: do we want this to return an Instant? It's probably a bit cheaper
-// than calling timekeep() -> now(), but I'm not sure if we *need* it for
-// anything, as systick doesn't do anything with it.
+/// "Timekeep" function, called periodically to keep the coarse time up to date.
 pub type TimeKeepFunc = fn();
+/// "Tickrate" function, returns the number of timer ticks per second.
 pub type TickRateFunc = fn() -> u32;
 
+/// VTable of functions for precision timer. Obtained with `ptimer()`, and
+/// provided using `set_ptime_vtable()`.
 pub struct PTimeVTable {
     pub now: NowFunc,
     pub timekeep: TimeKeepFunc,
@@ -35,6 +37,7 @@ pub struct PTimeVTable {
 static PTIME_VTABLE: AtomicPtr<PTimeVTable> =
     AtomicPtr::new(core::ptr::null_mut());
 
+/// Set the ptime vtable
 pub fn set_ptime_vtable(vtable: &'static PTimeVTable) {
     let vtable: *const PTimeVTable = vtable;
     let vtable: *mut PTimeVTable = vtable.cast_mut();

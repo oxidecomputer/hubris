@@ -1089,9 +1089,18 @@ static TICKS: [AtomicU32; 2] = {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn SysTick() {
     crate::profiling::event_timer_isr_enter();
+
+    // We need to regularly poll the timekeeping abilities of the timer.
+    //
+    // Currently, this needs to be ~2x the range of a 32-bit 1MHz timer,
+    // which means once every half-hour or so. However, there is little
+    // penalty to doing it more often, so we call it roughly every
+    // millisecond for now, in case we decide to use a faster timer or
+    // a timer with a narrower bit-width than 32-bits.
     if let Some(ptimer) = hubris_ptime::ptimer() {
         (ptimer.timekeep)();
     }
+
     with_task_table(|tasks| {
         // Load the time before this tick event.
         let t0 = TICKS[0].load(Ordering::Relaxed);
@@ -1233,6 +1242,8 @@ unsafe extern "C" fn pendsv_entry() {
     // trusting the rest of this module to maintain correctly.
     let current = unsafe {
         let current = &mut *current;
+        // On entry to pendsv, account the time since last timekeeping
+        // to the current task, in case we swap away to a new task.
         current.account_task_active_time();
         usize::from(current.descriptor().index)
     };
@@ -1651,6 +1662,9 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     let fault = FaultInfo::InvalidOperation(0);
 
     unsafe {
+        // If we are swapping away from a task, account the remaining time
+        // to it, less for this task's sake, but more so we don't mis-account
+        // this to the next task.
         (*task).account_task_active_time();
     }
 
@@ -1863,6 +1877,9 @@ unsafe extern "C" fn handle_fault(
     }
 
     unsafe {
+        // If we are swapping away from a task, account the remaining time
+        // to it, less for this task's sake, but more so we don't mis-account
+        // this to the next task.
         (*task).account_task_active_time();
     }
 
