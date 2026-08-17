@@ -65,7 +65,7 @@ toml-patch.path = "../toml-patch"
 lpc55_sign = { workspace = true }
 
 # For i2c-codegen
-build-i2c.path = "../i2c"
+build-i2c = { path = "../i2c", features = ["clap"] }
 build-util.path = "../util"
 call_rustfmt.path = "../call_rustfmt"
 

@@ -425,6 +425,7 @@ dependencies = [
  "build-util",
  "cargo_metadata",
  "cfg-if",
+ "clap 3.2.23",
  "convert_case 0.4.0",
  "indexmap 1.9.1",
  "multimap",

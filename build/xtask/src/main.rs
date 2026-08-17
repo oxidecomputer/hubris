@@ -5,7 +5,8 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow, bail};
-use clap::Parser;
+use build_i2c::Disposition;
+use clap::{Parser, ValueEnum};
 
 use crate::config::Config;
 
@@ -270,15 +271,16 @@ enum Xtask {
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
 
-        #[clap(short, long)]
-        disposition: String,
+        /// This implements ValueEnum
+        #[clap(short, long, value_enum)]
+        disposition: Disposition,
 
-        /// File to write to
+        /// File to write to. STDOUT is used if `output` not provided.
         #[clap(long)]
         output: Option<PathBuf>,
 
         /// Invoke rustfmt. Requires `--output`.
-        #[clap(long)]
+        #[clap(long, requires("output"))]
         fmt: bool,
     },
 }
@@ -601,7 +603,7 @@ fn run(xtask: Xtask) -> Result<()> {
             disposition,
             output,
             fmt,
-        } => i2c_codegen::run(&cfg, &disposition, output.as_deref(), fmt)?,
+        } => i2c_codegen::run(&cfg, disposition, output.as_deref(), fmt)?,
     }
 
     Ok(())

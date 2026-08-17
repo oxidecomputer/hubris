@@ -2,38 +2,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use build_i2c::{ConfigGenerator, Disposition};
 use std::{fs::File, io::Write, path::Path};
 
 use crate::config::Config;
 
-/// Figure out which disposition to take
-fn disp_from_str(d: &str) -> Result<Disposition> {
-    Ok(match d {
-        // controller is an initiator
-        "initiator" => Disposition::Initiator,
-        // controller is a target
-        "target" => Disposition::Target,
-        // devices are used (i.e., controller is not used), but not as sensors
-        "devices" => Disposition::Devices,
-        // devices are used, with some used as sensors
-        "sensors" => Disposition::Sensors,
-        // devices are used, but only as validation
-        "validation" => Disposition::Validation,
-        // ???
-        other => bail!("Unknown disposition: '{other}'"),
-    })
-}
-
 /// Do I2C code generation
 pub fn run(
     cfg: &Path,
-    disp: &str,
+    disp: Disposition,
     output: Option<&Path>,
     fmt: bool,
 ) -> Result<()> {
-    let disp = disp_from_str(disp)?;
     let cfg = Config::from_file(cfg)?;
 
     // This is a little roundabout of a process, but roughly approximates what

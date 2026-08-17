@@ -435,7 +435,9 @@ impl I2cSensorsDescription {
     }
 }
 
+/// .
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 pub enum Disposition {
     /// controller is an initiator
     Initiator,
