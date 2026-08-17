@@ -18,13 +18,13 @@ use std::fs::File;
 //
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-struct Config {
-    i2c: I2cConfig,
+pub struct Config {
+    pub i2c: I2cConfig,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct I2cConfig {
+pub struct I2cConfig {
     controllers: Vec<I2cController>,
     devices: Option<Vec<I2cDevice>>,
 }
@@ -435,7 +435,9 @@ impl I2cSensorsDescription {
     }
 }
 
+/// .
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 pub enum Disposition {
     /// controller is an initiator
     Initiator,
@@ -496,7 +498,10 @@ enum PowerDevices {
     NonPMBus,
 }
 
-struct ConfigGenerator {
+pub struct ConfigGenerator {
+    /// Settings
+    settings: CodegenSettings,
+
     /// output that we're building
     output: String,
 
@@ -527,17 +532,11 @@ struct ConfigGenerator {
 }
 
 impl ConfigGenerator {
-    fn new(settings: CodegenSettings) -> Self {
+    pub fn new_with_config(settings: CodegenSettings, i2c: I2cConfig) -> Self {
         let CodegenSettings {
             disposition,
             component_ids,
         } = settings;
-        let i2c = match build_util::config::<Config>() {
-            Ok(config) => config.i2c,
-            Err(err) => {
-                panic!("malformed config.i2c: {err:?}");
-            }
-        };
 
         let mut controllers = vec![];
         let mut buses = HashMap::new();
@@ -611,7 +610,19 @@ impl ConfigGenerator {
             ports,
             singletons,
             component_ids,
+            settings,
         }
+    }
+
+    fn new(settings: CodegenSettings) -> Self {
+        let i2c = match build_util::config::<Config>() {
+            Ok(config) => config.i2c,
+            Err(err) => {
+                panic!("malformed config.i2c: {err:?}");
+            }
+        };
+
+        Self::new_with_config(settings, i2c)
     }
 
     pub fn ncontrollers(&self) -> usize {
@@ -1768,6 +1779,58 @@ impl ConfigGenerator {
         writeln!(&mut self.output, "    }}")?;
         Ok(())
     }
+
+    /// Use the given ConfigGenerator to do code generation.
+    pub fn codegen_to_string(mut self) -> Result<String> {
+        self.generate_header()?;
+
+        match self.settings.disposition {
+            Disposition::Target => {
+                let n = self.ncontrollers();
+
+                if n != 1 {
+                    //
+                    // If we have the disposition of a target, we expect exactly
+                    // one controller to be configured as a target; if none have
+                    // been specified, the task should be deconfigured.
+                    //
+                    anyhow::bail!(
+                        "found {n} I2C controller(s); expected exactly one"
+                    );
+                }
+
+                self.generate_controllers()?;
+                self.generate_pins()?;
+                self.generate_ports()?;
+            }
+
+            Disposition::Initiator => {
+                self.generate_controllers()?;
+                self.generate_pins()?;
+                self.generate_ports()?;
+                self.generate_muxes()?;
+            }
+
+            Disposition::Devices => {
+                self.generate_devices()?;
+                self.generate_ports()?;
+            }
+
+            Disposition::Sensors => {
+                self.generate_devices()?;
+                self.generate_sensors()?;
+            }
+
+            Disposition::Validation => {
+                self.generate_devices()?;
+                self.generate_validation()?;
+            }
+        }
+
+        self.generate_footer()?;
+
+        Ok(self.output)
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -1785,64 +1848,23 @@ impl From<Disposition> for CodegenSettings {
     }
 }
 
+/// This is the usual entrypoint for task `build.rs` files.
+///
+/// We (usually) take a `Disposition`, and automatically determine the output
+/// as a predictable file name in the OUT directory.
 pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
-    let settings = settings.into();
     use std::io::Write;
 
+    let settings = settings.into();
+
+    let g = ConfigGenerator::new(settings);
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("i2c_config.rs");
     let mut file = File::create(dest_path)?;
 
-    let mut g = ConfigGenerator::new(settings);
+    let output = g.codegen_to_string()?;
 
-    g.generate_header()?;
-
-    match settings.disposition {
-        Disposition::Target => {
-            let n = g.ncontrollers();
-
-            if n != 1 {
-                //
-                // If we have the disposition of a target, we expect exactly one
-                // controller to be configured as a target; if none have been
-                // specified, the task should be deconfigured.
-                //
-                anyhow::bail!(
-                    "found {n} I2C controller(s); expected exactly one"
-                );
-            }
-
-            g.generate_controllers()?;
-            g.generate_pins()?;
-            g.generate_ports()?;
-        }
-
-        Disposition::Initiator => {
-            g.generate_controllers()?;
-            g.generate_pins()?;
-            g.generate_ports()?;
-            g.generate_muxes()?;
-        }
-
-        Disposition::Devices => {
-            g.generate_devices()?;
-            g.generate_ports()?;
-        }
-
-        Disposition::Sensors => {
-            g.generate_devices()?;
-            g.generate_sensors()?;
-        }
-
-        Disposition::Validation => {
-            g.generate_devices()?;
-            g.generate_validation()?;
-        }
-    }
-
-    g.generate_footer()?;
-
-    file.write_all(g.output.as_bytes())?;
+    file.write_all(output.as_bytes())?;
 
     Ok(())
 }
