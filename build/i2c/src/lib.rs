@@ -18,13 +18,13 @@ use std::fs::File;
 //
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-struct Config {
-    i2c: I2cConfig,
+pub struct Config {
+    pub i2c: I2cConfig,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct I2cConfig {
+pub struct I2cConfig {
     controllers: Vec<I2cController>,
     devices: Option<Vec<I2cDevice>>,
 }
@@ -496,7 +496,10 @@ enum PowerDevices {
     NonPMBus,
 }
 
-struct ConfigGenerator {
+pub struct ConfigGenerator {
+    /// Settings
+    settings: CodegenSettings,
+
     /// output that we're building
     output: String,
 
@@ -527,17 +530,11 @@ struct ConfigGenerator {
 }
 
 impl ConfigGenerator {
-    fn new(settings: CodegenSettings) -> Self {
+    pub fn new_with_config(settings: CodegenSettings, i2c: I2cConfig) -> Self {
         let CodegenSettings {
             disposition,
             component_ids,
         } = settings;
-        let i2c = match build_util::config::<Config>() {
-            Ok(config) => config.i2c,
-            Err(err) => {
-                panic!("malformed config.i2c: {err:?}");
-            }
-        };
 
         let mut controllers = vec![];
         let mut buses = HashMap::new();
@@ -611,7 +608,18 @@ impl ConfigGenerator {
             ports,
             singletons,
             component_ids,
+            settings,
         }
+    }
+    fn new(settings: CodegenSettings) -> Self {
+        let i2c = match build_util::config::<Config>() {
+            Ok(config) => config.i2c,
+            Err(err) => {
+                panic!("malformed config.i2c: {err:?}");
+            }
+        };
+
+        Self::new_with_config(settings, i2c)
     }
 
     pub fn ncontrollers(&self) -> usize {
@@ -1786,11 +1794,16 @@ impl From<Disposition> for CodegenSettings {
 }
 
 pub fn codegen_to_string(settings: CodegenSettings) -> Result<String> {
-    let mut g = ConfigGenerator::new(settings);
+    let g = ConfigGenerator::new(settings);
+    codegen_to_string_with_generator(g)
+}
 
+pub fn codegen_to_string_with_generator(
+    mut g: ConfigGenerator,
+) -> Result<String> {
     g.generate_header()?;
 
-    match settings.disposition {
+    match g.settings.disposition {
         Disposition::Target => {
             let n = g.ncontrollers();
 

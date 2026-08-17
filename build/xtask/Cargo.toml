@@ -64,5 +64,10 @@ toml-patch.path = "../toml-patch"
 # For NXP signing
 lpc55_sign = { workspace = true }
 
+# For i2c-codegen
+build-i2c.path = "../i2c"
+build-util.path = "../util"
+call_rustfmt.path = "../call_rustfmt"
+
 [lints]
 workspace = true
