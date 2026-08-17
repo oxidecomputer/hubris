@@ -14,6 +14,7 @@ indexmap = { workspace = true }
 multimap = { workspace = true }
 serde = { workspace = true }
 rangemap.workspace = true
+clap = { workspace = true, optional = true }
 
 [features]
 h743 = []
@@ -21,6 +22,7 @@ h753 = []
 g031 = []
 g030 = []
 component-id = []
+clap = ["dep:clap"]
 
 [lints]
 workspace = true

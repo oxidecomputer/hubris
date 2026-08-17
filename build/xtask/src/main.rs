@@ -5,6 +5,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow, bail};
+use build_i2c::Disposition;
 use clap::Parser;
 
 use crate::config::Config;
@@ -17,6 +18,7 @@ mod flash;
 mod gha_prepare_artifacts;
 mod graph;
 mod humility;
+mod i2c_codegen;
 mod lsp;
 mod passthrough;
 mod print;
@@ -262,6 +264,24 @@ enum Xtask {
         cfg: PathBuf,
         /// Path to the JSONL file containing all of the attestations to upload, if generated.
         attestation: Option<PathBuf>,
+    },
+
+    /// Codegen I2C information
+    I2cCodegen {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// This implements ValueEnum
+        #[clap(short, long, value_enum)]
+        disposition: Disposition,
+
+        /// File to write to. STDOUT is used if `output` not provided.
+        #[clap(long)]
+        output: Option<PathBuf>,
+
+        /// Invoke rustfmt. Requires `--output`.
+        #[clap(long, requires("output"))]
+        fmt: bool,
     },
 }
 
@@ -578,6 +598,12 @@ fn run(xtask: Xtask) -> Result<()> {
         Xtask::GhaPrepareArtifacts { cfg, attestation } => {
             gha_prepare_artifacts::run(&cfg, attestation.as_deref())?;
         }
+        Xtask::I2cCodegen {
+            cfg,
+            disposition,
+            output,
+            fmt,
+        } => i2c_codegen::run(&cfg, disposition, output.as_deref(), fmt)?,
     }
 
     Ok(())
