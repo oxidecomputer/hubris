@@ -1785,14 +1785,7 @@ impl From<Disposition> for CodegenSettings {
     }
 }
 
-pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
-    let settings = settings.into();
-    use std::io::Write;
-
-    let out_dir = build_util::out_dir();
-    let dest_path = out_dir.join("i2c_config.rs");
-    let mut file = File::create(dest_path)?;
-
+pub fn codegen_to_string(settings: CodegenSettings) -> Result<String> {
     let mut g = ConfigGenerator::new(settings);
 
     g.generate_header()?;
@@ -1842,7 +1835,21 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
 
     g.generate_footer()?;
 
-    file.write_all(g.output.as_bytes())?;
+    Ok(g.output)
+}
+
+pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
+    use std::io::Write;
+
+    let settings = settings.into();
+
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("i2c_config.rs");
+    let mut file = File::create(dest_path)?;
+
+    let output = codegen_to_string(settings)?;
+
+    file.write_all(output.as_bytes())?;
 
     Ok(())
 }
