@@ -4,6 +4,7 @@
 
 use anyhow::{Context, Result, bail};
 use convert_case::{Case, Casing};
+use iddqd::IdOrdMap;
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use rangemap::RangeSet;
@@ -11,11 +12,11 @@ use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::fs::File;
+use std::sync::Arc;
 
 /// Outputs from code generation which may be used by other build scripts.
 pub struct CodegenOutputs {
-    pub component_ids_by_sensor_id: Option<BTreeMap<usize, String>>,
-    pub num_i2c_sensors: Option<usize>,
+    pub sensors: Option<I2cSensorsDescription>,
 }
 
 //
@@ -298,13 +299,25 @@ struct DeviceRefdesKey {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceSensor {
+    pub refdes: Option<Refdes>,
     pub name: Option<String>,
     pub kind: Sensor,
     pub id: usize,
 }
 
+impl iddqd::IdOrdItem for DeviceSensor {
+    type Key<'a> = &'a usize;
+
+    /// Retrieves the key.
+    fn key(&self) -> Self::Key<'_> {
+        &self.id
+    }
+
+    iddqd::id_upcast!();
+}
+
 #[derive(Debug)]
-struct I2cSensorsDescription {
+pub struct I2cSensorsDescription {
     // In all multimaps below, the value is the sensor ID. The same sensor ID
     // can show up in multiple (including all!) of these maps.
     //
@@ -314,26 +327,22 @@ struct I2cSensorsDescription {
     by_device: MultiMap<DeviceKey, usize>,
     by_name: MultiMap<DeviceNameKey, usize>,
     by_refdes: MultiMap<DeviceRefdesKey, usize>,
-    component_id_by_id: Option<BTreeMap<usize, String>>,
+    pub by_id: IdOrdMap<Arc<DeviceSensor>>,
 
     // list of all devices and a list of their sensors, with an optional sensor
     // name (if present)
-    device_sensors: Vec<Vec<DeviceSensor>>,
+    device_sensors: Vec<Vec<Arc<DeviceSensor>>>,
 
-    total_sensors: usize,
+    pub total_sensors: usize,
 }
 
 impl I2cSensorsDescription {
-    fn new(devices: &[I2cDevice], component_ids: bool) -> Self {
+    fn new(devices: &[I2cDevice]) -> Self {
         let mut desc = Self {
             by_device: MultiMap::with_capacity(devices.len()),
             by_name: MultiMap::new(),
             by_refdes: MultiMap::new(),
-            component_id_by_id: if component_ids {
-                Some(BTreeMap::new())
-            } else {
-                None
-            },
+            by_id: IdOrdMap::new(),
             device_sensors: vec![Vec::new(); devices.len()],
             total_sensors: 0,
         };
@@ -425,23 +434,18 @@ impl I2cSensorsDescription {
             );
         }
 
-        if let Some(refdes) = d.refdes.clone() {
-            // If we are also generating a LUT of device refdeses by sensor IDs,
-            // do that now...
-            if let Some(ref mut by_id) = self.component_id_by_id {
-                if let Some(prev) = by_id.insert(id, refdes.to_component_id()) {
-                    panic!(
-                        "weird: colliding refdes for sensor ID {id}: {prev:?} \
-                         and {:?}",
-                        d.refdes.as_ref()
-                    );
-                };
-            }
+        let sensor = Arc::new(DeviceSensor {
+            refdes: d.refdes.clone(),
+            name: name.clone(),
+            kind,
+            id,
+        });
 
+        if let Some(ref refdes) = sensor.refdes {
             self.by_refdes.insert(
                 DeviceRefdesKey {
                     device: d.device.clone(),
-                    refdes,
+                    refdes: refdes.clone(),
                     kind,
                 },
                 id,
@@ -455,7 +459,12 @@ impl I2cSensorsDescription {
             },
             id,
         );
-        self.device_sensors[dev_index].push(DeviceSensor { name, kind, id });
+
+        if let Err(prev) = self.by_id.insert_unique(sensor.clone()) {
+            panic!("weird: colliding sensor ID {id}: {prev:?} and {sensor:?}",);
+        };
+
+        self.device_sensors[dev_index].push(sensor);
     }
 }
 
@@ -1617,7 +1626,7 @@ impl ConfigGenerator {
         d: &I2cDevice,
         label: String,
         name: &str,
-        sensors: &[DeviceSensor],
+        sensors: &[Arc<DeviceSensor>],
     ) -> Result<()> {
         write!(
             &mut self.output,
@@ -1671,7 +1680,7 @@ impl ConfigGenerator {
     }
 
     fn sensors_description(&self) -> I2cSensorsDescription {
-        I2cSensorsDescription::new(&self.devices, self.component_ids)
+        I2cSensorsDescription::new(&self.devices)
     }
 
     fn generate_sensors(&mut self) -> Result<I2cSensorsDescription> {
@@ -1822,10 +1831,7 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<CodegenOutputs> {
 
     g.generate_header()?;
 
-    let mut outputs = CodegenOutputs {
-        component_ids_by_sensor_id: None,
-        num_i2c_sensors: None,
-    };
+    let mut outputs = CodegenOutputs { sensors: None };
 
     match settings.disposition {
         Disposition::Target => {
@@ -1862,8 +1868,7 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<CodegenOutputs> {
         Disposition::Sensors => {
             g.generate_devices()?;
             let desc = g.generate_sensors()?;
-            outputs.component_ids_by_sensor_id = desc.component_id_by_id;
-            outputs.num_i2c_sensors = Some(desc.total_sensors);
+            outputs.sensors = Some(desc);
         }
 
         Disposition::Validation => {
@@ -1882,7 +1887,7 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<CodegenOutputs> {
 pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
-    pub sensors: Vec<DeviceSensor>,
+    pub sensors: Vec<Arc<DeviceSensor>>,
     pub device_id: Option<String>,
     pub name: Option<String>,
     pub validate_with_raw_read: bool,
@@ -2028,7 +2033,7 @@ impl Refdes {
         self.join_with_case(str::make_ascii_lowercase, "_")
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         match self {
             Self::Component(c) => c.len(),
             Self::Path(p) => {
@@ -2038,6 +2043,11 @@ impl Refdes {
                 + (p.len() - 1)
             }
         }
+    }
+
+    // This is never used but it's necessary to shut Clippy up
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     fn join_with_case(

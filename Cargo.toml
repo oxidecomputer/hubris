@@ -74,6 +74,7 @@ heck = { version = "0.5.0", default-features = false }
 hkdf = { version = "0.13", default-features = false }
 hmac = { version = "0.13", default-features = false }
 hubpack = { version = "0.1.2", default-features = false }
+iddqd = { version = "0.4.6" }
 indexmap = { version = "1.4.0", default-features = false, features = ["serde-1"] }
 indoc = { version = "2.0.3", default-features = false }
 itertools = { version = "0.10.5", default-features = false }
