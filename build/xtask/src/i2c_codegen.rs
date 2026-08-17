@@ -8,6 +8,7 @@ use std::{fs::File, io::Write, path::Path};
 
 use crate::config::Config;
 
+/// Figure out which disposition to take
 fn disp_from_str(d: &str) -> Result<Disposition> {
     Ok(match d {
         // controller is an initiator
@@ -25,6 +26,7 @@ fn disp_from_str(d: &str) -> Result<Disposition> {
     })
 }
 
+/// Do I2C code generation
 pub fn run(
     cfg: &Path,
     disp: &str,
@@ -34,14 +36,21 @@ pub fn run(
     let disp = disp_from_str(disp)?;
     let cfg = Config::from_file(cfg)?;
 
-    // This is dumb, but roughly approximates what we do in normal builds where
-    // `xtask dist` will prepare the app toml and shove it in an env var, and
-    // then i2c codegen will pull it from there.
+    // This is a little roundabout of a process, but roughly approximates what
+    // we do in normal builds where `xtask dist` will prepare the app toml and
+    // shove it in an env var, and then i2c codegen will pull it from there.
+    //
+    // We convert to a string using *xtask*'s notion of manifest tomls...
     let config = toml::to_string(&cfg.config)?;
+
+    // ...and now that it's a string, parse the contents back as *i2c*'s
+    // different notion of what a manifest toml looks like (mostly just the
+    // i2c config section).
     let i2c_cfg: build_i2c::Config = build_util::toml_from_str(&config)?;
     let g = ConfigGenerator::new_with_config(disp.into(), i2c_cfg.i2c);
 
-    let res = build_i2c::codegen_to_string_with_generator(g)?;
+    // Do the codegen into a string
+    let res = g.codegen_to_string()?;
 
     if let Some(p) = output {
         let mut f = File::create(p)?;

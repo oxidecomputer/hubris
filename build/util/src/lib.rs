@@ -310,7 +310,7 @@ fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
     Ok(Some(rval))
 }
 
-/// Partse the contents of text as toml
+/// Partse the contents of text as toml.
 pub fn toml_from_str<T: DeserializeOwned>(contents: &str) -> Result<T> {
     toml::from_str(contents).context("deserializing configuration")
 }

@@ -265,7 +265,7 @@ enum Xtask {
         attestation: Option<PathBuf>,
     },
 
-    /// Codegen I2C to stdout
+    /// Codegen I2C information
     I2cCodegen {
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
