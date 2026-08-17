@@ -42,7 +42,6 @@ pub fn run(
             call_rustfmt::rustfmt(p)?;
         }
     } else {
-        assert!(!fmt, "--fmt only works with --output");
         println!("{res}");
     }
 

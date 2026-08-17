@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow, bail};
 use build_i2c::Disposition;
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 
 use crate::config::Config;
 
