@@ -412,6 +412,158 @@ impl PmbusStatus {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct PmbusVpd<'buf> {
+    /// `MFR_ID` (PMBus operation 0x99)
+    pub mfr_id: Option<&'buf [u8]>,
+    /// `MFR_MODEL` (PMBus operation 0x9A)
+    pub mfr_model: Option<&'buf [u8]>,
+    /// `MFR_REVISION` (PMBus operation 0x9B)
+    pub mfr_revision: Option<&'buf [u8]>,
+    /// `MFR_LOCATION` (PMBus operation 0x9C)
+    pub mfr_location: Option<&'buf [u8]>,
+    /// `MFR_DATE` (PMBus operation 0x9D)
+    pub mfr_date: Option<&'buf [u8]>,
+    /// `MFR_SERIAL` (PMBus operation 0x9E)
+    pub mfr_serial: Option<&'buf [u8]>,
+    pub ic_device_id: Option<&'buf [u8]>,
+    pub ic_device_rev: Option<&'buf [u8]>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+pub enum PmbusVpdError {
+    /// The device does not support any PMBus VPD registers.
+    NoVpd,
+    BadRead {
+        cmd: Cmd,
+        #[count(children)]
+        err: drv_i2c_api::ResponseCode,
+    },
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    zerocopy_derive::IntoBytes,
+    zerocopy_derive::Immutable,
+    counters::Count,
+)]
+#[repr(u8)]
+pub enum PmbusVpdCmd {
+    MfrId = pmbus::CommandCode::MFR_ID as u8,
+    MfrModel = pmbus::CommandCode::MFR_MODEL as u8,
+    MfrRevision = pmbus::CommandCode::MFR_REVISION as u8,
+    MfrSerial = pmbus::CommandCode::MFR_SERIAL as u8,
+    MfrLocation = pmbus::CommandCode::MFR_LOCATION as u8,
+    MfrDate = pmbus::CommandCode::MFR_LOCATION as u8,
+    IcDeviceId = pmbus::CommandCode::IC_DEVICE_ID as u8,
+    IcDeviceRev = pmbus::CommandCode::IC_DEVICE_REV as u8,
+}
+
+impl<'buf> PmbusVpd<'buf> {
+    /// SMBus block reads may not be longer than 32 bytes.
+    const BLOCK_LEN: usize = 32;
+    /// Maximum length currently required to read a complete set of VPD
+    /// registers from a PMBus device.
+    ///
+    /// Currently, this is 8 32-byte blocks (one for each register that we may
+    /// read). If more values are added in the future, this will need to be
+    /// embiggened.
+    pub const BUF_LEN: usize = Self::BLOCK_LEN * 8;
+
+    /// Attempt to read a [`PmbusVpd`] from the given device.
+    pub fn try_read_from(
+        dev: &I2cDevice,
+        buf: &'buf mut [u8; Self::BUF_LEN],
+        device_caps: Capabilities,
+    ) -> Result<Self, PmbusVpdError> {
+        use core::ops::Range;
+
+        if !device_caps.supports_any(&Capabilities::PmbusVpd) {
+            return Err(PmbusVpdError::NoVpd);
+        }
+
+        let read = |cmd: PmbusVpdCmd,
+                    cap: Capabilities,
+                    buf: &mut [u8; PmbusVpd::BUF_LEN],
+                    curr_off: &mut usize|
+         -> Result<Option<Range<usize>>, PmbusVpdError> {
+            if !device_caps.supports(&cap) {
+                return Ok(None);
+            }
+            let off = *curr_off;
+            // PMBus block reads may not be longer than 32 bytes. Clamp this
+            // down as `drv_i2c_api` gets mad if it sees a lease of >255B.
+            let Some(block) = buf.get_mut(off..off + PmbusIdentity::BLOCK_LEN)
+            else {
+                // This shouldn't ever happen as we never call this more than
+                // BUF_LEN * 8 times...
+                unreachable!();
+            };
+            let len = dev
+                .read_block(cmd, block)
+                .map_err(|err| PmbusVpdError::I2c { cmd, err })?;
+            *curr_off += len;
+            Ok(Some(off..*curr_off))
+        };
+
+        let mut off = 0;
+        let mfr_range =
+            read(PmbusVpdCmd::MfrId, Capabilities::MFR_ID, buf, &mut off)?;
+        let model_range = read(
+            PmbusVpdCmd::MfrModel,
+            Capabilities::MFR_MODEL,
+            buf,
+            &mut off,
+        )?;
+        let rev_range = read(
+            PmbusVpdCmd::MfrRevision,
+            Capabilities::MFR_REVISION,
+            buf,
+            &mut off,
+        )?;
+        let location_range = read(
+            PmbusVpdCmd::MfrLocation,
+            Capabilities::MFR_LOCATION,
+            buf,
+            &mut off,
+        )?;
+        let date_range =
+            read(PmbusVpdCmd::MfrDate, Capabilities::MFR_DATE, buf, &mut off)?;
+        let serial_range = read(
+            PmbusVpdCmd::MfrSerial,
+            Capabilities::MFR_SERIAL,
+            buf,
+            &mut off,
+        )?;
+        let ic_id_range = read(
+            PmbusVpdCmd::IcDeviceId,
+            Capabilities::IC_DEVICE_ID,
+            buf,
+            &mut off,
+        )?;
+        let ic_rev_range = read(
+            PmbusVpdCmd::IcDeviceRev,
+            Capabilities::IC_DEVICE_REV,
+            buf,
+            &mut off,
+        )?;
+
+        Ok(Self {
+            mfr_id: mfr_range.map(|r| &buf[r]),
+            mfr_model: model_range.map(|r| &buf[r]),
+            mfr_revision: rev_range.map(|r| &buf[r]),
+            mfr_location: location_range.map(|r| &buf[r]),
+            mfr_date: date_range.map(|r| &buf[r]),
+            mfr_serial: serial_range.map(|r| &buf[r]),
+            ic_device_id: ic_id_range.map(|r| &buf[r]),
+            ic_device_rev: ic_rev_range.map(|r| &buf[r]),
+        })
+    }
+}
+
 pub mod adm127x;
 pub mod adt7420;
 pub mod at24csw080;

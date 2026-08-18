@@ -308,7 +308,7 @@ pub mod pmbus_status {
         pub const IC_DEVICE_ID: Self = Self(1 << 16);
         pub const IC_DEVICE_REV: Self = Self(1 << 17);
 
-        /// Bitmask for selecting *all* potential VPD register capability bits.
+        /// Bitmask for selecting *all* potential VPD register capa
         pub const ANY_VPD_REGS: Self = Self(
             // XXX(eliza): this might be less gross if we just used the
             // bitflags crate for this...
@@ -329,6 +329,12 @@ pub mod pmbus_status {
         #[inline]
         pub const fn supports(&self, other: &Self) -> bool {
             (self.0 & other.0) == other.0
+        }
+
+        /// Does this capability support *any* capabilities of `other`?
+        #[inline]
+        pub const fn supports_any(&self, other: &Self) -> bool {
+            (self.0 & other.0) != 0
         }
     }
 }
