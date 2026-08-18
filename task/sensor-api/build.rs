@@ -37,7 +37,8 @@ fn main() -> Result<()> {
     idol::client::build_client_stub("../../idl/sensor.idol", "client_stub.rs")
         .map_err(|e| anyhow!("idol error: {e}"))?;
 
-    let i2c_outputs = build_i2c::codegen(build_i2c::Disposition::Sensors)?;
+    let i2c_outputs =
+        build_i2c::codegen_to_file(build_i2c::Disposition::Sensors)?;
 
     let i2c_sensors = i2c_outputs.sensors.expect(
         "i2c codegen should output `I2cSensorsDescription` if run with \

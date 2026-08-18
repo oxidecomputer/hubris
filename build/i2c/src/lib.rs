@@ -16,6 +16,11 @@ use std::sync::Arc;
 
 /// Outputs from code generation which may be used by other build scripts.
 pub struct CodegenOutputs {
+    /// The generated code that would be output to `i2c_config.rs`.
+    pub code: String,
+    /// If codegen was run with [`DispositionSensors`], the generated sensor
+    /// description, which may be used as an input to other code generation
+    /// steps.
     pub sensors: Option<I2cSensorsDescription>,
 }
 
@@ -1814,11 +1819,16 @@ impl ConfigGenerator {
     }
 
     /// Use the given ConfigGenerator to do code generation.
-    pub fn codegen_to_string(mut self) -> Result<(String, CodegenOutputs)> {
+    ///
+    /// This does not write the output to a file, but returns the generated code
+    /// in the `code` field of the `CodegenOutputs` struct. Using
+    /// [`codegen_to_file`] will also write the generated code to the
+    /// `i2c_config.rs` file for the task currently being built. This method may
+    /// be used instead when running codegen outside of a task.
+    pub fn codegen(mut self) -> Result<CodegenOutputs> {
         self.generate_header()?;
 
-        let mut outputs = CodegenOutputs { sensors: None };
-
+        let mut output_sensors = None;
         match self.settings.disposition {
             Disposition::Target => {
                 let n = self.ncontrollers();
@@ -1854,7 +1864,7 @@ impl ConfigGenerator {
             Disposition::Sensors => {
                 self.generate_devices()?;
                 let desc = self.generate_sensors()?;
-                outputs.sensors = Some(desc);
+                output_sensors = Some(desc);
             }
 
             Disposition::Validation => {
@@ -1865,7 +1875,10 @@ impl ConfigGenerator {
 
         self.generate_footer()?;
 
-        Ok((self.output, outputs))
+        Ok(CodegenOutputs {
+            code: self.output,
+            sensors: output_sensors,
+        })
     }
 }
 
@@ -1884,11 +1897,16 @@ impl From<Disposition> for CodegenSettings {
     }
 }
 
+/// Run code generation and write the output to an `i2c_config.rs` file in the
+/// build output directory of the task being built.
+///
 /// This is the usual entrypoint for task `build.rs` files.
 ///
 /// We (usually) take a `Disposition`, and automatically determine the output
 /// as a predictable file name in the OUT directory.
-pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<CodegenOutputs> {
+pub fn codegen_to_file(
+    settings: impl Into<CodegenSettings>,
+) -> Result<CodegenOutputs> {
     use std::io::Write;
 
     let settings = settings.into();
@@ -1899,9 +1917,9 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<CodegenOutputs> {
     let dest_path = out_dir.join("i2c_config.rs");
     let mut file = File::create(dest_path)?;
 
-    let (code, outputs) = g.codegen_to_string()?;
+    let outputs = g.codegen()?;
 
-    file.write_all(code.as_bytes())?;
+    file.write_all(outputs.code.as_bytes())?;
 
     Ok(outputs)
 }
