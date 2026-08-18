@@ -11,6 +11,7 @@ pmbus = { workspace = true }
 smbus-pec = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
+serde = { workspace = true, optional = true }
 
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-i2c-api = { path = "../i2c-api" }
