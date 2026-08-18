@@ -8,23 +8,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use build_i2c::Disposition;
 use clap::Parser;
 
-use crate::config::Config;
-
-mod auxflash;
-mod caboose_pos;
-mod config;
-mod dist;
-mod flash;
-mod gha_prepare_artifacts;
-mod graph;
-mod humility;
-mod i2c_codegen;
-mod lsp;
-mod passthrough;
-mod print;
-mod rust_analyzer;
-mod sizes;
-mod task_slot;
+use xtask::*;
 
 #[derive(Debug, Parser)]
 #[clap(max_term_width = 80, about = "extra tasks to help you work on Hubris")]
@@ -283,37 +267,6 @@ enum Xtask {
         #[clap(long, requires("output"))]
         fmt: bool,
     },
-}
-
-#[derive(Clone, Debug, Parser)]
-pub struct HumilityArgs {
-    /// Path to the image configuration file, in TOML.
-    cfg: PathBuf,
-
-    /// Image name to flash
-    #[clap(long)]
-    image_name: Option<String>,
-
-    /// Request verbosity from tools we shell out to.
-    #[clap(short, long)]
-    verbose: bool,
-
-    /// Extra options to pass to Humility
-    #[clap(last = true)]
-    extra_options: Vec<String>,
-}
-
-#[derive(Clone, Debug, Parser, Default)]
-struct CabooseArgs {
-    /// Overrides the `VERS` string in the caboose.
-    ///
-    /// This is intended to be used when an engineering image must be
-    /// flashed in an environment that expects a particular caboose version.
-    ///
-    /// This environment variable is, naturally, ignored if the app.toml does
-    /// not have a [caboose] section.
-    #[clap(env = "HUBRIS_CABOOSE_VERS")]
-    version_override: Option<String>,
 }
 
 fn main() -> Result<()> {

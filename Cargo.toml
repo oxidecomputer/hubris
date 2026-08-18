@@ -76,6 +76,7 @@ hmac = { version = "0.13", default-features = false }
 hubpack = { version = "0.1.2", default-features = false }
 indexmap = { version = "1.4.0", default-features = false, features = ["serde-1"] }
 indoc = { version = "2.0.3", default-features = false }
+insta = { version = "1.0", default-features = false, features = ["colors"] }
 itertools = { version = "0.10.5", default-features = false }
 leb128 = { version = "0.2.5", default-features = false }
 lpc55-pac = { version = "0.4", default-features = false }
@@ -124,6 +125,7 @@ stm32h7 = { version = "0.14", default-features = false }
 stm32g0 = { version = "0.15.1", default-features = false }
 strsim = { version = "0.10.0", default-features = false }
 syn = { version = "2", default-features = false, features = ["derive", "parsing", "proc-macro", "extra-traits", "full", "printing"] }
+tempfile = { version = "3.10.1" }
 toml = { version = "1.1", default-features = false, features = ["parse", "display", "serde", "preserve_order"] }
 toml_edit = { version = "0.23.5", default-features = false, features = ["parse", "display"] }
 url = { version = "2.5.8", default-features = false }

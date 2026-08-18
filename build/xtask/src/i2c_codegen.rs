@@ -39,7 +39,10 @@ pub fn run(
         f.flush()?;
         drop(f);
         if fmt {
-            call_rustfmt::rustfmt(p)?;
+            call_rustfmt::rustfmt_with_config(
+                p,
+                Some(Path::new(".rustfmt.toml")),
+            )?;
         }
     } else {
         println!("{res}");

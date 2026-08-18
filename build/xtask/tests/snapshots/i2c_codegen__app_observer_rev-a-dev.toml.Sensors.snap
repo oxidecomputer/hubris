@@ -1,0 +1,1804 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+pub(crate) mod i2c_config {
+
+    pub mod devices {
+        #[allow(unused_imports)]
+        use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+        #[allow(unused_imports)]
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn lookup_controller(index: usize) -> Option<Controller> {
+            match index {
+                1..=1 => Some(Controller::I2C2),
+                2..=13 => Some(Controller::I2C3),
+                0..=0 => Some(Controller::I2C4),
+                _ => None,
+            }
+        }
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn lookup_port(index: usize) -> Option<PortIndex> {
+            match index {
+                0..=13 => Some(PortIndex(0)),
+                _ => None,
+            }
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // FRU ID EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02(task: TaskId) -> [I2cDevice; 6] {
+            [
+                // PSU 0 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+                // PSU 1 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x51,
+                ),
+                // PSU 2 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x52,
+                ),
+                // PSU 3 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x53,
+                ),
+                // PSU 4 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x54,
+                ),
+                // PSU 5 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x55,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67(task: TaskId) -> [I2cDevice; 6] {
+            [
+                // PSU 0 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x58,
+                ),
+                // PSU 1 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x59,
+                ),
+                // PSU 2 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5a,
+                ),
+                // PSU 3 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5b,
+                ),
+                // PSU 4 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5c,
+                ),
+                // PSU 5 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5d,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Onboard temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_local(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // FRU ID EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_backplane(task: TaskId) -> [I2cDevice; 6] {
+            [
+                // PSU 0 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+                // PSU 1 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x51,
+                ),
+                // PSU 2 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x52,
+                ),
+                // PSU 3 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x53,
+                ),
+                // PSU 4 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x54,
+                ),
+                // PSU 5 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x55,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_backplane(task: TaskId) -> [I2cDevice; 6] {
+            [
+                // PSU 0 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x58,
+                ),
+                // PSU 1 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x59,
+                ),
+                // PSU 2 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5a,
+                ),
+                // PSU 3 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5b,
+                ),
+                // PSU 4 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5c,
+                ),
+                // PSU 5 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5d,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_temp(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Onboard temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_local_vpd(task: TaskId) -> I2cDevice {
+            // FRU ID EEPROM
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x50)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu0eeprom(task: TaskId) -> I2cDevice {
+            // PSU 0 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x50)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu1eeprom(task: TaskId) -> I2cDevice {
+            // PSU 1 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x51)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu2eeprom(task: TaskId) -> I2cDevice {
+            // PSU 2 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x52)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu3eeprom(task: TaskId) -> I2cDevice {
+            // PSU 3 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x53)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu4eeprom(task: TaskId) -> I2cDevice {
+            // PSU 4 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x54)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu5eeprom(task: TaskId) -> I2cDevice {
+            // PSU 5 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x55)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu0mcu(task: TaskId) -> I2cDevice {
+            // PSU 0 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu1mcu(task: TaskId) -> I2cDevice {
+            // PSU 1 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu2mcu(task: TaskId) -> I2cDevice {
+            // PSU 2 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu3mcu(task: TaskId) -> I2cDevice {
+            // PSU 3 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu4mcu(task: TaskId) -> I2cDevice {
+            // PSU 4 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu5mcu(task: TaskId) -> I2cDevice {
+            // PSU 5 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_onboard(task: TaskId) -> I2cDevice {
+            // Onboard temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x48)
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_u27(task: TaskId) -> I2cDevice {
+            // FRU ID EEPROM
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x50)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu0_id(task: TaskId) -> I2cDevice {
+            // PSU 0 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x50)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu1_id(task: TaskId) -> I2cDevice {
+            // PSU 1 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x51)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu2_id(task: TaskId) -> I2cDevice {
+            // PSU 2 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x52)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu3_id(task: TaskId) -> I2cDevice {
+            // PSU 3 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x53)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu4_id(task: TaskId) -> I2cDevice {
+            // PSU 4 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x54)
+        }
+
+        #[allow(dead_code)]
+        pub fn m24c02_psu5_id(task: TaskId) -> I2cDevice {
+            // PSU 5 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x55)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu0(task: TaskId) -> I2cDevice {
+            // PSU 0 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu1(task: TaskId) -> I2cDevice {
+            // PSU 1 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu2(task: TaskId) -> I2cDevice {
+            // PSU 2 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu3(task: TaskId) -> I2cDevice {
+            // PSU 3 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu4(task: TaskId) -> I2cDevice {
+            // PSU 4 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c)
+        }
+
+        #[allow(dead_code)]
+        pub fn mwocp67_psu5(task: TaskId) -> I2cDevice {
+            // PSU 5 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_u29(task: TaskId) -> I2cDevice {
+            // Onboard temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x48)
+        }
+    }
+
+    pub mod pmbus {
+        use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        pub fn v50_aux_psu0(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 0 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x58,
+                ),
+                Some(1),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU0_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_aux_psu1(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 1 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x59,
+                ),
+                Some(1),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU1_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_aux_psu2(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 2 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5a,
+                ),
+                Some(1),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU2_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_aux_psu3(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 3 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5b,
+                ),
+                Some(1),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU3_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_aux_psu4(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 4 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5c,
+                ),
+                Some(1),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU4_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_aux_psu5(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 5 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5d,
+                ),
+                Some(1),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU5_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_main_psu0(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 0 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x58,
+                ),
+                Some(0),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU0_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_main_psu1(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 1 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x59,
+                ),
+                Some(0),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU1_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_main_psu2(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 2 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5a,
+                ),
+                Some(0),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU2_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_main_psu3(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 3 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5b,
+                ),
+                Some(0),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU3_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_main_psu4(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 4 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5c,
+                ),
+                Some(0),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU4_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v50_main_psu5(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // PSU 5 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5d,
+                ),
+                Some(0),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU5_PHASES: Option<&'static [u8]> = None;
+    }
+
+    pub mod sensors {
+        #[allow(unused_imports)]
+        use super::super::SensorId;
+
+        #[allow(dead_code)]
+        pub const NUM_SENSORS: usize = 85;
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_tmp117 {
+            pub temperature: SensorId,
+        }
+        #[allow(dead_code)]
+        pub const TMP117_ONBOARD_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(0),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_U29_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(0),
+        };
+
+        #[allow(dead_code, non_camel_case_types)]
+        type Sensors_at24csw080 = ();
+        #[allow(dead_code)]
+        pub const AT24CSW080_LOCAL_VPD_SENSORS: Sensors_at24csw080 = ();
+        #[allow(dead_code)]
+        pub const AT24CSW080_U27_SENSORS: Sensors_at24csw080 = ();
+
+        #[allow(dead_code, non_camel_case_types)]
+        type Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const M24C02_PSU0EEPROM_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const M24C02_PSU0_ID_SENSORS: Sensors_m24c02 = ();
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_mwocp67 {
+            pub temperature: [SensorId; 5],
+            pub current: [SensorId; 2],
+            pub voltage: [SensorId; 2],
+            pub input_current: [SensorId; 2],
+            pub input_voltage: [SensorId; 2],
+            pub speed: SensorId,
+        }
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0MCU_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(1),
+                SensorId::new(2),
+                SensorId::new(3),
+                SensorId::new(4),
+                SensorId::new(5),
+            ],
+            current: [SensorId::new(6), SensorId::new(7)],
+            voltage: [SensorId::new(8), SensorId::new(9)],
+            input_current: [SensorId::new(10), SensorId::new(11)],
+            input_voltage: [SensorId::new(12), SensorId::new(13)],
+            speed: SensorId::new(14),
+        };
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(1),
+                SensorId::new(2),
+                SensorId::new(3),
+                SensorId::new(4),
+                SensorId::new(5),
+            ],
+            current: [SensorId::new(6), SensorId::new(7)],
+            voltage: [SensorId::new(8), SensorId::new(9)],
+            input_current: [SensorId::new(10), SensorId::new(11)],
+            input_voltage: [SensorId::new(12), SensorId::new(13)],
+            speed: SensorId::new(14),
+        };
+        #[allow(dead_code)]
+        pub const M24C02_PSU1EEPROM_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const M24C02_PSU1_ID_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1MCU_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(15),
+                SensorId::new(16),
+                SensorId::new(17),
+                SensorId::new(18),
+                SensorId::new(19),
+            ],
+            current: [SensorId::new(20), SensorId::new(21)],
+            voltage: [SensorId::new(22), SensorId::new(23)],
+            input_current: [SensorId::new(24), SensorId::new(25)],
+            input_voltage: [SensorId::new(26), SensorId::new(27)],
+            speed: SensorId::new(28),
+        };
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(15),
+                SensorId::new(16),
+                SensorId::new(17),
+                SensorId::new(18),
+                SensorId::new(19),
+            ],
+            current: [SensorId::new(20), SensorId::new(21)],
+            voltage: [SensorId::new(22), SensorId::new(23)],
+            input_current: [SensorId::new(24), SensorId::new(25)],
+            input_voltage: [SensorId::new(26), SensorId::new(27)],
+            speed: SensorId::new(28),
+        };
+        #[allow(dead_code)]
+        pub const M24C02_PSU2EEPROM_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const M24C02_PSU2_ID_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2MCU_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(29),
+                SensorId::new(30),
+                SensorId::new(31),
+                SensorId::new(32),
+                SensorId::new(33),
+            ],
+            current: [SensorId::new(34), SensorId::new(35)],
+            voltage: [SensorId::new(36), SensorId::new(37)],
+            input_current: [SensorId::new(38), SensorId::new(39)],
+            input_voltage: [SensorId::new(40), SensorId::new(41)],
+            speed: SensorId::new(42),
+        };
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(29),
+                SensorId::new(30),
+                SensorId::new(31),
+                SensorId::new(32),
+                SensorId::new(33),
+            ],
+            current: [SensorId::new(34), SensorId::new(35)],
+            voltage: [SensorId::new(36), SensorId::new(37)],
+            input_current: [SensorId::new(38), SensorId::new(39)],
+            input_voltage: [SensorId::new(40), SensorId::new(41)],
+            speed: SensorId::new(42),
+        };
+        #[allow(dead_code)]
+        pub const M24C02_PSU3EEPROM_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const M24C02_PSU3_ID_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3MCU_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(43),
+                SensorId::new(44),
+                SensorId::new(45),
+                SensorId::new(46),
+                SensorId::new(47),
+            ],
+            current: [SensorId::new(48), SensorId::new(49)],
+            voltage: [SensorId::new(50), SensorId::new(51)],
+            input_current: [SensorId::new(52), SensorId::new(53)],
+            input_voltage: [SensorId::new(54), SensorId::new(55)],
+            speed: SensorId::new(56),
+        };
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(43),
+                SensorId::new(44),
+                SensorId::new(45),
+                SensorId::new(46),
+                SensorId::new(47),
+            ],
+            current: [SensorId::new(48), SensorId::new(49)],
+            voltage: [SensorId::new(50), SensorId::new(51)],
+            input_current: [SensorId::new(52), SensorId::new(53)],
+            input_voltage: [SensorId::new(54), SensorId::new(55)],
+            speed: SensorId::new(56),
+        };
+        #[allow(dead_code)]
+        pub const M24C02_PSU4EEPROM_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const M24C02_PSU4_ID_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4MCU_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(57),
+                SensorId::new(58),
+                SensorId::new(59),
+                SensorId::new(60),
+                SensorId::new(61),
+            ],
+            current: [SensorId::new(62), SensorId::new(63)],
+            voltage: [SensorId::new(64), SensorId::new(65)],
+            input_current: [SensorId::new(66), SensorId::new(67)],
+            input_voltage: [SensorId::new(68), SensorId::new(69)],
+            speed: SensorId::new(70),
+        };
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(57),
+                SensorId::new(58),
+                SensorId::new(59),
+                SensorId::new(60),
+                SensorId::new(61),
+            ],
+            current: [SensorId::new(62), SensorId::new(63)],
+            voltage: [SensorId::new(64), SensorId::new(65)],
+            input_current: [SensorId::new(66), SensorId::new(67)],
+            input_voltage: [SensorId::new(68), SensorId::new(69)],
+            speed: SensorId::new(70),
+        };
+        #[allow(dead_code)]
+        pub const M24C02_PSU5EEPROM_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const M24C02_PSU5_ID_SENSORS: Sensors_m24c02 = ();
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5MCU_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(71),
+                SensorId::new(72),
+                SensorId::new(73),
+                SensorId::new(74),
+                SensorId::new(75),
+            ],
+            current: [SensorId::new(76), SensorId::new(77)],
+            voltage: [SensorId::new(78), SensorId::new(79)],
+            input_current: [SensorId::new(80), SensorId::new(81)],
+            input_voltage: [SensorId::new(82), SensorId::new(83)],
+            speed: SensorId::new(84),
+        };
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5_SENSORS: Sensors_mwocp67 = Sensors_mwocp67 {
+            temperature: [
+                SensorId::new(71),
+                SensorId::new(72),
+                SensorId::new(73),
+                SensorId::new(74),
+                SensorId::new(75),
+            ],
+            current: [SensorId::new(76), SensorId::new(77)],
+            voltage: [SensorId::new(78), SensorId::new(79)],
+            input_current: [SensorId::new(80), SensorId::new(81)],
+            input_voltage: [SensorId::new(82), SensorId::new(83)],
+            speed: SensorId::new(84),
+        };
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_TEMPERATURE_SENSORS: usize = 30;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_TEMPERATURE_SENSORS: [SensorId; 30] = [
+            SensorId::new(1),
+            SensorId::new(2),
+            SensorId::new(3),
+            SensorId::new(4),
+            SensorId::new(5),
+            SensorId::new(15),
+            SensorId::new(16),
+            SensorId::new(17),
+            SensorId::new(18),
+            SensorId::new(19),
+            SensorId::new(29),
+            SensorId::new(30),
+            SensorId::new(31),
+            SensorId::new(32),
+            SensorId::new(33),
+            SensorId::new(43),
+            SensorId::new(44),
+            SensorId::new(45),
+            SensorId::new(46),
+            SensorId::new(47),
+            SensorId::new(57),
+            SensorId::new(58),
+            SensorId::new(59),
+            SensorId::new(60),
+            SensorId::new(61),
+            SensorId::new(71),
+            SensorId::new(72),
+            SensorId::new(73),
+            SensorId::new(74),
+            SensorId::new(75),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_CURRENT_SENSORS: usize = 12;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_CURRENT_SENSORS: [SensorId; 12] = [
+            SensorId::new(6),
+            SensorId::new(7),
+            SensorId::new(20),
+            SensorId::new(21),
+            SensorId::new(34),
+            SensorId::new(35),
+            SensorId::new(48),
+            SensorId::new(49),
+            SensorId::new(62),
+            SensorId::new(63),
+            SensorId::new(76),
+            SensorId::new(77),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_VOLTAGE_SENSORS: usize = 12;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_VOLTAGE_SENSORS: [SensorId; 12] = [
+            SensorId::new(8),
+            SensorId::new(9),
+            SensorId::new(22),
+            SensorId::new(23),
+            SensorId::new(36),
+            SensorId::new(37),
+            SensorId::new(50),
+            SensorId::new(51),
+            SensorId::new(64),
+            SensorId::new(65),
+            SensorId::new(78),
+            SensorId::new(79),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_INPUT_CURRENT_SENSORS: usize = 12;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_INPUT_CURRENT_SENSORS: [SensorId; 12] = [
+            SensorId::new(10),
+            SensorId::new(11),
+            SensorId::new(24),
+            SensorId::new(25),
+            SensorId::new(38),
+            SensorId::new(39),
+            SensorId::new(52),
+            SensorId::new(53),
+            SensorId::new(66),
+            SensorId::new(67),
+            SensorId::new(80),
+            SensorId::new(81),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_INPUT_VOLTAGE_SENSORS: usize = 12;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_INPUT_VOLTAGE_SENSORS: [SensorId; 12] = [
+            SensorId::new(12),
+            SensorId::new(13),
+            SensorId::new(26),
+            SensorId::new(27),
+            SensorId::new(40),
+            SensorId::new(41),
+            SensorId::new(54),
+            SensorId::new(55),
+            SensorId::new(68),
+            SensorId::new(69),
+            SensorId::new(82),
+            SensorId::new(83),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_SPEED_SENSORS: usize = 6;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_SPEED_SENSORS: [SensorId; 6] = [
+            SensorId::new(14),
+            SensorId::new(28),
+            SensorId::new(42),
+            SensorId::new(56),
+            SensorId::new(70),
+            SensorId::new(84),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_TEMPERATURE_SENSOR: SensorId = SensorId::new(0);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU0_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU0_CURRENT_SENSOR: SensorId =
+            SensorId::new(7);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU0_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU0_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(9);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU0_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU0_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(11);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU0_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU0_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(13);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU1_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU1_CURRENT_SENSOR: SensorId =
+            SensorId::new(21);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU1_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU1_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(23);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU1_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU1_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(25);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU1_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU1_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(27);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU2_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU2_CURRENT_SENSOR: SensorId =
+            SensorId::new(35);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU2_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU2_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(37);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU2_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU2_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(39);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU2_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU2_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(41);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU3_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU3_CURRENT_SENSOR: SensorId =
+            SensorId::new(49);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU3_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU3_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(51);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU3_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU3_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(53);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU3_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU3_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(55);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU4_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU4_CURRENT_SENSOR: SensorId =
+            SensorId::new(63);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU4_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU4_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(65);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU4_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU4_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(67);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU4_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU4_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(69);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU5_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU5_CURRENT_SENSOR: SensorId =
+            SensorId::new(77);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU5_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU5_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(79);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU5_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU5_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(81);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_AUX_PSU5_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_AUX_PSU5_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(83);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU0_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU0_CURRENT_SENSOR: SensorId =
+            SensorId::new(6);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU0_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU0_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(8);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU0_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU0_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(10);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU0_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU0_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(12);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU1_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU1_CURRENT_SENSOR: SensorId =
+            SensorId::new(20);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU1_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU1_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(22);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU1_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU1_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(24);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU1_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU1_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(26);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU2_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU2_CURRENT_SENSOR: SensorId =
+            SensorId::new(34);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU2_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU2_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(36);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU2_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU2_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(38);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU2_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU2_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(40);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU3_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU3_CURRENT_SENSOR: SensorId =
+            SensorId::new(48);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU3_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU3_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(50);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU3_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU3_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(52);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU3_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU3_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(54);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU4_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU4_CURRENT_SENSOR: SensorId =
+            SensorId::new(62);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU4_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU4_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(64);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU4_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU4_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(66);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU4_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU4_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(68);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU5_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU5_CURRENT_SENSOR: SensorId =
+            SensorId::new(76);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU5_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU5_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(78);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU5_INPUT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU5_INPUT_CURRENT_SENSOR: SensorId =
+            SensorId::new(80);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_V50_MAIN_PSU5_INPUT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_V50_MAIN_PSU5_INPUT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(82);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU0MCU_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0MCU_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(1),
+            SensorId::new(2),
+            SensorId::new(3),
+            SensorId::new(4),
+            SensorId::new(5),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU0MCU_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0MCU_SPEED_SENSOR: SensorId = SensorId::new(14);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU1MCU_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1MCU_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(15),
+            SensorId::new(16),
+            SensorId::new(17),
+            SensorId::new(18),
+            SensorId::new(19),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU1MCU_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1MCU_SPEED_SENSOR: SensorId = SensorId::new(28);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU2MCU_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2MCU_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(29),
+            SensorId::new(30),
+            SensorId::new(31),
+            SensorId::new(32),
+            SensorId::new(33),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU2MCU_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2MCU_SPEED_SENSOR: SensorId = SensorId::new(42);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU3MCU_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3MCU_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(43),
+            SensorId::new(44),
+            SensorId::new(45),
+            SensorId::new(46),
+            SensorId::new(47),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU3MCU_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3MCU_SPEED_SENSOR: SensorId = SensorId::new(56);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU4MCU_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4MCU_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(57),
+            SensorId::new(58),
+            SensorId::new(59),
+            SensorId::new(60),
+            SensorId::new(61),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU4MCU_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4MCU_SPEED_SENSOR: SensorId = SensorId::new(70);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU5MCU_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5MCU_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(71),
+            SensorId::new(72),
+            SensorId::new(73),
+            SensorId::new(74),
+            SensorId::new(75),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU5MCU_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5MCU_SPEED_SENSOR: SensorId = SensorId::new(84);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_ONBOARD_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_ONBOARD_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(0);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU0_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(1),
+            SensorId::new(2),
+            SensorId::new(3),
+            SensorId::new(4),
+            SensorId::new(5),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU0_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(6), SensorId::new(7)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU0_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(8), SensorId::new(9)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU0_INPUT_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0_INPUT_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(10), SensorId::new(11)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU0_INPUT_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0_INPUT_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(12), SensorId::new(13)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU0_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU0_SPEED_SENSOR: SensorId = SensorId::new(14);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU1_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(15),
+            SensorId::new(16),
+            SensorId::new(17),
+            SensorId::new(18),
+            SensorId::new(19),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU1_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(20), SensorId::new(21)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU1_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(22), SensorId::new(23)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU1_INPUT_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1_INPUT_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(24), SensorId::new(25)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU1_INPUT_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1_INPUT_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(26), SensorId::new(27)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU1_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU1_SPEED_SENSOR: SensorId = SensorId::new(28);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU2_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(29),
+            SensorId::new(30),
+            SensorId::new(31),
+            SensorId::new(32),
+            SensorId::new(33),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU2_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(34), SensorId::new(35)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU2_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(36), SensorId::new(37)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU2_INPUT_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2_INPUT_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(38), SensorId::new(39)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU2_INPUT_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2_INPUT_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(40), SensorId::new(41)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU2_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU2_SPEED_SENSOR: SensorId = SensorId::new(42);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU3_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(43),
+            SensorId::new(44),
+            SensorId::new(45),
+            SensorId::new(46),
+            SensorId::new(47),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU3_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(48), SensorId::new(49)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU3_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(50), SensorId::new(51)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU3_INPUT_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3_INPUT_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(52), SensorId::new(53)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU3_INPUT_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3_INPUT_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(54), SensorId::new(55)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU3_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU3_SPEED_SENSOR: SensorId = SensorId::new(56);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU4_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(57),
+            SensorId::new(58),
+            SensorId::new(59),
+            SensorId::new(60),
+            SensorId::new(61),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU4_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(62), SensorId::new(63)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU4_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(64), SensorId::new(65)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU4_INPUT_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4_INPUT_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(66), SensorId::new(67)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU4_INPUT_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4_INPUT_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(68), SensorId::new(69)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU4_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU4_SPEED_SENSOR: SensorId = SensorId::new(70);
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU5_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(71),
+            SensorId::new(72),
+            SensorId::new(73),
+            SensorId::new(74),
+            SensorId::new(75),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU5_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(76), SensorId::new(77)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU5_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(78), SensorId::new(79)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU5_INPUT_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5_INPUT_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(80), SensorId::new(81)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU5_INPUT_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5_INPUT_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(82), SensorId::new(83)];
+
+        #[allow(dead_code)]
+        pub const NUM_MWOCP67_PSU5_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MWOCP67_PSU5_SPEED_SENSOR: SensorId = SensorId::new(84);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_U29_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_U29_TEMPERATURE_SENSOR: SensorId = SensorId::new(0);
+    }
+}

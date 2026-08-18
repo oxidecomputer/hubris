@@ -1,0 +1,3081 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+pub(crate) mod i2c_config {
+
+    pub mod devices {
+        #[allow(unused_imports)]
+        use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+        #[allow(unused_imports)]
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn lookup_controller(index: usize) -> Option<Controller> {
+            match index {
+                0..=7 | 29..=30 => Some(Controller::I2C1),
+                33..=39 => Some(Controller::I2C2),
+                8..=18 | 31..=32 => Some(Controller::I2C3),
+                19..=28 => Some(Controller::I2C4),
+                _ => None,
+            }
+        }
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn lookup_port(index: usize) -> Option<PortIndex> {
+            match index {
+                0..=4 | 8..=13 | 28..=30 | 33..=39 => Some(PortIndex(0)),
+                5..=7 | 14..=24 | 31..=32 => Some(PortIndex(1)),
+                25..=27 => Some(PortIndex(2)),
+                _ => None,
+            }
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x(task: TaskId) -> [I2cDevice; 5] {
+            [
+                // Fan 1 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x10,
+                ),
+                // Fan 0 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+                // 54V hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x16,
+                ),
+                // Fan 2 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+                // Fan 3 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x10,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080(task: TaskId) -> [I2cDevice; 6] {
+            [
+                // Mainboard FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+                // Fan 0 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+                // Fan 1 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+                // Fan 2 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+                // Fan 3 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+                // Front IO board FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn bmr491(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Intermediate bus converter
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn idt8a34001(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Clock generator
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x58,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn isl68224(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // VDD[A]18 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn ltc4282(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front I/O hotswap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Fan 0/1 controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x23,
+                ),
+                // Fan 2/3 controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x20,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9538(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front IO GPIO expander
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x73,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Northeast fan mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x70,
+                ),
+                // Northwest fan mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x70,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Front IO LED driver (left)
+                I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xa),
+                // Front IO LED driver (right)
+                I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xb),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // TF2 VDD rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x63,
+                ),
+                // TF2 VDDA rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117(task: TaskId) -> [I2cDevice; 7] {
+            [
+                // North-northeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x49,
+                ),
+                // Northeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+                // North-northwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ),
+                // Northwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+                // South temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x4a,
+                ),
+                // Southeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+                // Southwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // TF2 temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x4c,
+                ),
+                // VSC7448 temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x4c,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a(task: TaskId) -> [I2cDevice; 7] {
+            [
+                // V3P3_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x1a,
+                ),
+                // V5P0_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+                // V1P0_MGMT rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1b,
+                ),
+                // V1P8_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1c,
+                ),
+                // Front IO V3P3_SYS_A2 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1b,
+                ),
+                // Front IO V3P3_QSFP0_A0 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+                // Front IO V3P3_QSFP1_A0 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1a,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Fan 1 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x10,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_northeast1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Fan 0 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // 54V hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x16,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_northwest1(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Fan 2 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+                // Fan 3 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x10,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_front_io(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front IO board FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_northeast0(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Fan 0 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+                // Fan 1 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_northwest1(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Fan 2 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+                // Fan 3 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_south2(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Mainboard FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn bmr491_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Intermediate bus converter
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn idt8a34001_south0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Clock generator
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x58,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn isl68224_south0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // VDD[A]18 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn ltc4282_south0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front I/O hotswap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Fan 0/1 controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x23,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_northwest1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Fan 2/3 controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x20,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9538_front_io(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front IO GPIO expander
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x73,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Northeast fan mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x70,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545_northwest1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Northwest fan mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x70,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_front_io(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Front IO LED driver (left)
+                I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xa),
+                // Front IO LED driver (right)
+                I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xb),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // TF2 VDD rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x63,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // TF2 VDDA rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // North-northeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x49,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northeast1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Northeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // North-northwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northwest1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Northwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_south0(task: TaskId) -> [I2cDevice; 3] {
+            [
+                // South temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x4a,
+                ),
+                // Southeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+                // Southwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // TF2 temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x4c,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_south1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // VSC7448 temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x4c,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_front_io(task: TaskId) -> [I2cDevice; 3] {
+            [
+                // Front IO V3P3_SYS_A2 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1b,
+                ),
+                // Front IO V3P3_QSFP0_A0 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+                // Front IO V3P3_QSFP1_A0 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1a,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_northeast1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // V3P3_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x1a,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // V5P0_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_south1(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // V1P0_MGMT rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1b,
+                ),
+                // V1P8_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1c,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_local_vpd(task: TaskId) -> I2cDevice {
+            // Mainboard FRUID
+            I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x50)
+        }
+
+        #[allow(dead_code)]
+        pub fn bmr491_ibc(task: TaskId) -> I2cDevice {
+            // Intermediate bus converter
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x67)
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_east(task: TaskId) -> I2cDevice {
+            // Fan 0/1 controller
+            I2cDevice::new(task, Controller::I2C1, PortIndex(0), None, 0x23)
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_west(task: TaskId) -> I2cDevice {
+            // Fan 2/3 controller
+            I2cDevice::new(task, Controller::I2C3, PortIndex(1), None, 0x20)
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_front_leds_left(task: TaskId) -> I2cDevice {
+            // Front IO LED driver (left)
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xa)
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_front_leds_right(task: TaskId) -> I2cDevice {
+            // Front IO LED driver (right)
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xb)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_nne(task: TaskId) -> I2cDevice {
+            // North-northeast temperature sensor
+            I2cDevice::new(task, Controller::I2C1, PortIndex(0), None, 0x49)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_nnw(task: TaskId) -> I2cDevice {
+            // North-northwest temperature sensor
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x48)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northeast(task: TaskId) -> I2cDevice {
+            // Northeast temperature sensor
+            I2cDevice::new(task, Controller::I2C1, PortIndex(1), None, 0x48)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northwest(task: TaskId) -> I2cDevice {
+            // Northwest temperature sensor
+            I2cDevice::new(task, Controller::I2C3, PortIndex(1), None, 0x49)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_south(task: TaskId) -> I2cDevice {
+            // South temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(1), None, 0x4a)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_southeast(task: TaskId) -> I2cDevice {
+            // Southeast temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(1), None, 0x48)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_southwest(task: TaskId) -> I2cDevice {
+            // Southwest temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(1), None, 0x49)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_tf2(task: TaskId) -> I2cDevice {
+            // TF2 temperature sensor
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x4c)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_vsc7448(task: TaskId) -> I2cDevice {
+            // VSC7448 temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(2), None, 0x4c)
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u10(task: TaskId) -> I2cDevice {
+            // Fan 3 hot swap controller
+            I2cDevice::new(task, Controller::I2C3, PortIndex(1), None, 0x10)
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u2(task: TaskId) -> I2cDevice {
+            // 54V hot swap controller
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x16)
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u4(task: TaskId) -> I2cDevice {
+            // Fan 0 hot swap controller
+            I2cDevice::new(task, Controller::I2C1, PortIndex(1), None, 0x13)
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u6(task: TaskId) -> I2cDevice {
+            // Fan 1 hot swap controller
+            I2cDevice::new(task, Controller::I2C1, PortIndex(0), None, 0x10)
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u8(task: TaskId) -> I2cDevice {
+            // Fan 2 hot swap controller
+            I2cDevice::new(task, Controller::I2C3, PortIndex(1), None, 0x13)
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_u91(task: TaskId) -> I2cDevice {
+            // Mainboard FRUID
+            I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x50)
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j61_u3(task: TaskId) -> I2cDevice {
+            // Front IO board FRUID
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x50)
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j74_u1(task: TaskId) -> I2cDevice {
+            // Fan 1 FRUID
+            I2cDevice::new(
+                task,
+                Controller::I2C1,
+                PortIndex(0),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                0x50,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j75_u1(task: TaskId) -> I2cDevice {
+            // Fan 0 FRUID
+            I2cDevice::new(
+                task,
+                Controller::I2C1,
+                PortIndex(0),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                0x50,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j76_u1(task: TaskId) -> I2cDevice {
+            // Fan 3 FRUID
+            I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                0x50,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j77_u1(task: TaskId) -> I2cDevice {
+            // Fan 2 FRUID
+            I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                0x50,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub fn bmr491_u12(task: TaskId) -> I2cDevice {
+            // Intermediate bus converter
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x67)
+        }
+
+        #[allow(dead_code)]
+        pub fn idt8a34001_u38(task: TaskId) -> I2cDevice {
+            // Clock generator
+            I2cDevice::new(task, Controller::I2C4, PortIndex(1), None, 0x58)
+        }
+
+        #[allow(dead_code)]
+        pub fn isl68224_u33(task: TaskId) -> I2cDevice {
+            // VDD[A]18 rail
+            I2cDevice::new(task, Controller::I2C4, PortIndex(1), None, 0x62)
+        }
+
+        #[allow(dead_code)]
+        pub fn ltc4282_u647(task: TaskId) -> I2cDevice {
+            // Front I/O hotswap controller
+            I2cDevice::new(task, Controller::I2C4, PortIndex(1), None, 0x54)
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_u66(task: TaskId) -> I2cDevice {
+            // Fan 0/1 controller
+            I2cDevice::new(task, Controller::I2C1, PortIndex(0), None, 0x23)
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_u78(task: TaskId) -> I2cDevice {
+            // Fan 2/3 controller
+            I2cDevice::new(task, Controller::I2C3, PortIndex(1), None, 0x20)
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9538_j61_u4(task: TaskId) -> I2cDevice {
+            // Front IO GPIO expander
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x73)
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545_u90(task: TaskId) -> I2cDevice {
+            // Northwest fan mux
+            I2cDevice::new(task, Controller::I2C3, PortIndex(1), None, 0x70)
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545_u92(task: TaskId) -> I2cDevice {
+            // Northeast fan mux
+            I2cDevice::new(task, Controller::I2C1, PortIndex(0), None, 0x70)
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_j61_u5(task: TaskId) -> I2cDevice {
+            // Front IO LED driver (left)
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xa)
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_j61_u6(task: TaskId) -> I2cDevice {
+            // Front IO LED driver (right)
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xb)
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618_u31(task: TaskId) -> I2cDevice {
+            // TF2 VDD rail
+            I2cDevice::new(task, Controller::I2C1, PortIndex(0), None, 0x63)
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618_u32(task: TaskId) -> I2cDevice {
+            // TF2 VDDA rail
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x60)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j67(task: TaskId) -> I2cDevice {
+            // Northwest temperature sensor
+            I2cDevice::new(task, Controller::I2C3, PortIndex(1), None, 0x49)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j68(task: TaskId) -> I2cDevice {
+            // North-northwest temperature sensor
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x48)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j69(task: TaskId) -> I2cDevice {
+            // North-northeast temperature sensor
+            I2cDevice::new(task, Controller::I2C1, PortIndex(0), None, 0x49)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j70(task: TaskId) -> I2cDevice {
+            // Northeast temperature sensor
+            I2cDevice::new(task, Controller::I2C1, PortIndex(1), None, 0x48)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j71(task: TaskId) -> I2cDevice {
+            // South temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(1), None, 0x4a)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j72(task: TaskId) -> I2cDevice {
+            // Southwest temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(1), None, 0x49)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j73(task: TaskId) -> I2cDevice {
+            // Southeast temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(1), None, 0x48)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_u64(task: TaskId) -> I2cDevice {
+            // TF2 temperature sensor
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x4c)
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_u65(task: TaskId) -> I2cDevice {
+            // VSC7448 temperature sensor
+            I2cDevice::new(task, Controller::I2C4, PortIndex(2), None, 0x4c)
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_u18(task: TaskId) -> I2cDevice {
+            // V5P0_SYS rail
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x19)
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_u19(task: TaskId) -> I2cDevice {
+            // V3P3_SYS rail
+            I2cDevice::new(task, Controller::I2C1, PortIndex(1), None, 0x1a)
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_u20(task: TaskId) -> I2cDevice {
+            // V1P8_SYS rail
+            I2cDevice::new(task, Controller::I2C4, PortIndex(2), None, 0x1c)
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_u21(task: TaskId) -> I2cDevice {
+            // V1P0_MGMT rail
+            I2cDevice::new(task, Controller::I2C4, PortIndex(2), None, 0x1b)
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_j61_u15(task: TaskId) -> I2cDevice {
+            // Front IO V3P3_QSFP0_A0 rail
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x19)
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_j61_u18(task: TaskId) -> I2cDevice {
+            // Front IO V3P3_QSFP1_A0 rail
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x1a)
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_j61_u7(task: TaskId) -> I2cDevice {
+            // Front IO V3P3_SYS_A2 rail
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x1b)
+        }
+    }
+
+    pub mod pmbus {
+        use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        pub fn v0p8_tf2_vdd_core(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // TF2 VDD rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x63,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P8_TF2_VDD_CORE_PHASES: Option<&'static [u8]> =
+            Some(&[
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+                18, 19,
+            ]);
+
+        #[allow(dead_code)]
+        pub fn v0p9_tf2_vddt(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // TF2 VDDA rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                ),
+                Some(0),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P9_TF2_VDDT_PHASES: Option<&'static [u8]> =
+            Some(&[2, 6, 7]);
+
+        #[allow(dead_code)]
+        pub fn v12p0_front_io(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Front I/O hotswap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const LTC4282_V12P0_FRONT_IO_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v12p0_sys(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Intermediate bus converter
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const BMR491_V12P0_SYS_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v1p0_mgmt(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // V1P0_MGMT rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1b,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P0_MGMT_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v1p5_tf2_vdda(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // TF2 VDDA rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                ),
+                Some(1),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const RAA229618_V1P5_TF2_VDDA_PHASES: Option<&'static [u8]> =
+            Some(&[0, 1]);
+
+        #[allow(dead_code)]
+        pub fn v1p8_sys(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // V1P8_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1c,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P8_SYS_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v1p8_tf2_vdd(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // VDD[A]18 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                ),
+                Some(0),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDD_PHASES: Option<&'static [u8]> =
+            Some(&[1]);
+
+        #[allow(dead_code)]
+        pub fn v1p8_tf2_vdda(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // VDD[A]18 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                ),
+                Some(1),
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDDA_PHASES: Option<&'static [u8]> =
+            Some(&[0]);
+
+        #[allow(dead_code)]
+        pub fn v3p3_qsfp0_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Front IO V3P3_QSFP0_A0 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP0_A0_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v3p3_qsfp1_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Front IO V3P3_QSFP1_A0 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1a,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP1_A0_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v3p3_sys(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // V3P3_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x1a,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v3p3_sys_a2(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Front IO V3P3_SYS_A2 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1b,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_A2_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_fan0(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Fan 0 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN0_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_fan1(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Fan 1 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x10,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN1_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_fan2(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Fan 2 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN2_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_fan3(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Fan 3 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x10,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN3_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_hsc(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // 54V hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x16,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_HSC_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v5p0_sys(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // V5P0_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+                None,
+            )
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V5P0_SYS_PHASES: Option<&'static [u8]> = None;
+    }
+
+    pub mod power {
+        use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        pub fn v12p0_front_io(task: TaskId) -> (I2cDevice, Option<u8>) {
+            (
+                // Front I/O hotswap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                ),
+                None,
+            )
+        }
+    }
+
+    pub mod sensors {
+        #[allow(unused_imports)]
+        use super::super::SensorId;
+
+        #[allow(dead_code)]
+        pub const NUM_SENSORS: usize = 74;
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_adm127x {
+            pub temperature: SensorId,
+            pub current: SensorId,
+            pub voltage: SensorId,
+        }
+        #[allow(dead_code)]
+        pub const ADM127X_U6_SENSORS: Sensors_adm127x = Sensors_adm127x {
+            temperature: SensorId::new(0),
+            current: SensorId::new(1),
+            voltage: SensorId::new(2),
+        };
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_max31790 {
+            pub speed: [SensorId; 4],
+        }
+        #[allow(dead_code)]
+        pub const MAX31790_EAST_SENSORS: Sensors_max31790 = Sensors_max31790 {
+            speed: [
+                SensorId::new(3),
+                SensorId::new(4),
+                SensorId::new(5),
+                SensorId::new(6),
+            ],
+        };
+        #[allow(dead_code)]
+        pub const MAX31790_U66_SENSORS: Sensors_max31790 = Sensors_max31790 {
+            speed: [
+                SensorId::new(3),
+                SensorId::new(4),
+                SensorId::new(5),
+                SensorId::new(6),
+            ],
+        };
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_tmp117 {
+            pub temperature: SensorId,
+        }
+        #[allow(dead_code)]
+        pub const TMP117_NNE_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(7),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_J69_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(7),
+        };
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_raa229618_single {
+            pub temperature: SensorId,
+            pub current: SensorId,
+            pub voltage: SensorId,
+        }
+        #[allow(dead_code)]
+        pub const RAA229618_U31_SENSORS: Sensors_raa229618_single =
+            Sensors_raa229618_single {
+                temperature: SensorId::new(8),
+                current: SensorId::new(9),
+                voltage: SensorId::new(10),
+            };
+
+        #[allow(dead_code, non_camel_case_types)]
+        type Sensors_pca9545 = ();
+        #[allow(dead_code)]
+        pub const PCA9545_U92_SENSORS: Sensors_pca9545 = ();
+        #[allow(dead_code)]
+        pub const ADM127X_U4_SENSORS: Sensors_adm127x = Sensors_adm127x {
+            temperature: SensorId::new(11),
+            current: SensorId::new(12),
+            voltage: SensorId::new(13),
+        };
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_tps546b24a {
+            pub temperature: SensorId,
+            pub current: SensorId,
+            pub voltage: SensorId,
+        }
+        #[allow(dead_code)]
+        pub const TPS546B24A_U19_SENSORS: Sensors_tps546b24a =
+            Sensors_tps546b24a {
+                temperature: SensorId::new(14),
+                current: SensorId::new(15),
+                voltage: SensorId::new(16),
+            };
+        #[allow(dead_code)]
+        pub const TMP117_NORTHEAST_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(17),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_J70_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(17),
+        };
+        #[allow(dead_code)]
+        pub const ADM127X_U2_SENSORS: Sensors_adm127x = Sensors_adm127x {
+            temperature: SensorId::new(18),
+            current: SensorId::new(19),
+            voltage: SensorId::new(20),
+        };
+        #[allow(dead_code)]
+        pub const TPS546B24A_U18_SENSORS: Sensors_tps546b24a =
+            Sensors_tps546b24a {
+                temperature: SensorId::new(21),
+                current: SensorId::new(22),
+                voltage: SensorId::new(23),
+            };
+        #[allow(dead_code)]
+        pub const TMP117_NNW_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(24),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_J68_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(24),
+        };
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_tmp451 {
+            pub temperature: SensorId,
+        }
+        #[allow(dead_code)]
+        pub const TMP451_TF2_SENSORS: Sensors_tmp451 = Sensors_tmp451 {
+            temperature: SensorId::new(25),
+        };
+        #[allow(dead_code)]
+        pub const TMP451_U64_SENSORS: Sensors_tmp451 = Sensors_tmp451 {
+            temperature: SensorId::new(25),
+        };
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_raa229618 {
+            pub temperature: [SensorId; 2],
+            pub current: [SensorId; 2],
+            pub voltage: [SensorId; 2],
+        }
+        #[allow(dead_code)]
+        pub const RAA229618_U32_SENSORS: Sensors_raa229618 =
+            Sensors_raa229618 {
+                temperature: [SensorId::new(26), SensorId::new(27)],
+                current: [SensorId::new(28), SensorId::new(29)],
+                voltage: [SensorId::new(30), SensorId::new(31)],
+            };
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_bmr491 {
+            pub temperature: SensorId,
+            pub power: SensorId,
+            pub current: SensorId,
+            pub voltage: SensorId,
+        }
+        #[allow(dead_code)]
+        pub const BMR491_IBC_SENSORS: Sensors_bmr491 = Sensors_bmr491 {
+            temperature: SensorId::new(32),
+            power: SensorId::new(33),
+            current: SensorId::new(34),
+            voltage: SensorId::new(35),
+        };
+        #[allow(dead_code)]
+        pub const BMR491_U12_SENSORS: Sensors_bmr491 = Sensors_bmr491 {
+            temperature: SensorId::new(32),
+            power: SensorId::new(33),
+            current: SensorId::new(34),
+            voltage: SensorId::new(35),
+        };
+        #[allow(dead_code)]
+        pub const ADM127X_U8_SENSORS: Sensors_adm127x = Sensors_adm127x {
+            temperature: SensorId::new(36),
+            current: SensorId::new(37),
+            voltage: SensorId::new(38),
+        };
+        #[allow(dead_code)]
+        pub const ADM127X_U10_SENSORS: Sensors_adm127x = Sensors_adm127x {
+            temperature: SensorId::new(39),
+            current: SensorId::new(40),
+            voltage: SensorId::new(41),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_NORTHWEST_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(42),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_J67_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(42),
+        };
+        #[allow(dead_code)]
+        pub const MAX31790_WEST_SENSORS: Sensors_max31790 = Sensors_max31790 {
+            speed: [
+                SensorId::new(43),
+                SensorId::new(44),
+                SensorId::new(45),
+                SensorId::new(46),
+            ],
+        };
+        #[allow(dead_code)]
+        pub const MAX31790_U78_SENSORS: Sensors_max31790 = Sensors_max31790 {
+            speed: [
+                SensorId::new(43),
+                SensorId::new(44),
+                SensorId::new(45),
+                SensorId::new(46),
+            ],
+        };
+        #[allow(dead_code)]
+        pub const PCA9545_U90_SENSORS: Sensors_pca9545 = ();
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_isl68224 {
+            pub temperature: [SensorId; 2],
+            pub current: [SensorId; 2],
+            pub voltage: [SensorId; 2],
+        }
+        #[allow(dead_code)]
+        pub const ISL68224_U33_SENSORS: Sensors_isl68224 = Sensors_isl68224 {
+            temperature: [SensorId::new(47), SensorId::new(48)],
+            current: [SensorId::new(49), SensorId::new(50)],
+            voltage: [SensorId::new(51), SensorId::new(52)],
+        };
+
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct Sensors_ltc4282 {
+            pub current: SensorId,
+            pub voltage: SensorId,
+        }
+        #[allow(dead_code)]
+        pub const LTC4282_U647_SENSORS: Sensors_ltc4282 = Sensors_ltc4282 {
+            current: SensorId::new(53),
+            voltage: SensorId::new(54),
+        };
+
+        #[allow(dead_code, non_camel_case_types)]
+        type Sensors_idt8a34001 = ();
+        #[allow(dead_code)]
+        pub const IDT8A34001_U38_SENSORS: Sensors_idt8a34001 = ();
+        #[allow(dead_code)]
+        pub const TMP117_SOUTH_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(55),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_J71_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(55),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_SOUTHEAST_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(56),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_J73_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(56),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_SOUTHWEST_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(57),
+        };
+        #[allow(dead_code)]
+        pub const TMP117_J72_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+            temperature: SensorId::new(57),
+        };
+        #[allow(dead_code)]
+        pub const TPS546B24A_U21_SENSORS: Sensors_tps546b24a =
+            Sensors_tps546b24a {
+                temperature: SensorId::new(58),
+                current: SensorId::new(59),
+                voltage: SensorId::new(60),
+            };
+        #[allow(dead_code)]
+        pub const TPS546B24A_U20_SENSORS: Sensors_tps546b24a =
+            Sensors_tps546b24a {
+                temperature: SensorId::new(61),
+                current: SensorId::new(62),
+                voltage: SensorId::new(63),
+            };
+        #[allow(dead_code)]
+        pub const TMP451_VSC7448_SENSORS: Sensors_tmp451 = Sensors_tmp451 {
+            temperature: SensorId::new(64),
+        };
+        #[allow(dead_code)]
+        pub const TMP451_U65_SENSORS: Sensors_tmp451 = Sensors_tmp451 {
+            temperature: SensorId::new(64),
+        };
+
+        #[allow(dead_code, non_camel_case_types)]
+        type Sensors_at24csw080 = ();
+        #[allow(dead_code)]
+        pub const AT24CSW080_LOCAL_VPD_SENSORS: Sensors_at24csw080 = ();
+        #[allow(dead_code)]
+        pub const AT24CSW080_U91_SENSORS: Sensors_at24csw080 = ();
+        #[allow(dead_code)]
+        pub const AT24CSW080_J75_U1_SENSORS: Sensors_at24csw080 = ();
+        #[allow(dead_code)]
+        pub const AT24CSW080_J74_U1_SENSORS: Sensors_at24csw080 = ();
+        #[allow(dead_code)]
+        pub const AT24CSW080_J77_U1_SENSORS: Sensors_at24csw080 = ();
+        #[allow(dead_code)]
+        pub const AT24CSW080_J76_U1_SENSORS: Sensors_at24csw080 = ();
+        #[allow(dead_code)]
+        pub const AT24CSW080_J61_U3_SENSORS: Sensors_at24csw080 = ();
+
+        #[allow(dead_code, non_camel_case_types)]
+        type Sensors_pca9538 = ();
+        #[allow(dead_code)]
+        pub const PCA9538_J61_U4_SENSORS: Sensors_pca9538 = ();
+
+        #[allow(dead_code, non_camel_case_types)]
+        type Sensors_pca9956b = ();
+        #[allow(dead_code)]
+        pub const PCA9956B_FRONT_LEDS_LEFT_SENSORS: Sensors_pca9956b = ();
+        #[allow(dead_code)]
+        pub const PCA9956B_J61_U5_SENSORS: Sensors_pca9956b = ();
+        #[allow(dead_code)]
+        pub const PCA9956B_FRONT_LEDS_RIGHT_SENSORS: Sensors_pca9956b = ();
+        #[allow(dead_code)]
+        pub const PCA9956B_J61_U6_SENSORS: Sensors_pca9956b = ();
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U7_SENSORS: Sensors_tps546b24a =
+            Sensors_tps546b24a {
+                temperature: SensorId::new(65),
+                current: SensorId::new(66),
+                voltage: SensorId::new(67),
+            };
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U15_SENSORS: Sensors_tps546b24a =
+            Sensors_tps546b24a {
+                temperature: SensorId::new(68),
+                current: SensorId::new(69),
+                voltage: SensorId::new(70),
+            };
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U18_SENSORS: Sensors_tps546b24a =
+            Sensors_tps546b24a {
+                temperature: SensorId::new(71),
+                current: SensorId::new(72),
+                voltage: SensorId::new(73),
+            };
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_TEMPERATURE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const ADM127X_TEMPERATURE_SENSORS: [SensorId; 5] = [
+            SensorId::new(0),
+            SensorId::new(11),
+            SensorId::new(18),
+            SensorId::new(36),
+            SensorId::new(39),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_CURRENT_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const ADM127X_CURRENT_SENSORS: [SensorId; 5] = [
+            SensorId::new(1),
+            SensorId::new(12),
+            SensorId::new(19),
+            SensorId::new(37),
+            SensorId::new(40),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_VOLTAGE_SENSORS: usize = 5;
+
+        #[allow(dead_code)]
+        pub const ADM127X_VOLTAGE_SENSORS: [SensorId; 5] = [
+            SensorId::new(2),
+            SensorId::new(13),
+            SensorId::new(20),
+            SensorId::new(38),
+            SensorId::new(41),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_TEMPERATURE_SENSOR: SensorId = SensorId::new(32);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_POWER_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_POWER_SENSOR: SensorId = SensorId::new(33);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_CURRENT_SENSOR: SensorId = SensorId::new(34);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_VOLTAGE_SENSOR: SensorId = SensorId::new(35);
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_TEMPERATURE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const ISL68224_TEMPERATURE_SENSORS: [SensorId; 2] =
+            [SensorId::new(47), SensorId::new(48)];
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const ISL68224_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(49), SensorId::new(50)];
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const ISL68224_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(51), SensorId::new(52)];
+
+        #[allow(dead_code)]
+        pub const NUM_LTC4282_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const LTC4282_CURRENT_SENSOR: SensorId = SensorId::new(53);
+
+        #[allow(dead_code)]
+        pub const NUM_LTC4282_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const LTC4282_VOLTAGE_SENSOR: SensorId = SensorId::new(54);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_SPEED_SENSORS: usize = 8;
+
+        #[allow(dead_code)]
+        pub const MAX31790_SPEED_SENSORS: [SensorId; 8] = [
+            SensorId::new(3),
+            SensorId::new(4),
+            SensorId::new(5),
+            SensorId::new(6),
+            SensorId::new(43),
+            SensorId::new(44),
+            SensorId::new(45),
+            SensorId::new(46),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_TEMPERATURE_SENSORS: usize = 3;
+
+        #[allow(dead_code)]
+        pub const RAA229618_TEMPERATURE_SENSORS: [SensorId; 3] =
+            [SensorId::new(8), SensorId::new(26), SensorId::new(27)];
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_CURRENT_SENSORS: usize = 3;
+
+        #[allow(dead_code)]
+        pub const RAA229618_CURRENT_SENSORS: [SensorId; 3] =
+            [SensorId::new(9), SensorId::new(28), SensorId::new(29)];
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_VOLTAGE_SENSORS: usize = 3;
+
+        #[allow(dead_code)]
+        pub const RAA229618_VOLTAGE_SENSORS: [SensorId; 3] =
+            [SensorId::new(10), SensorId::new(30), SensorId::new(31)];
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_TEMPERATURE_SENSORS: usize = 7;
+
+        #[allow(dead_code)]
+        pub const TMP117_TEMPERATURE_SENSORS: [SensorId; 7] = [
+            SensorId::new(7),
+            SensorId::new(17),
+            SensorId::new(24),
+            SensorId::new(42),
+            SensorId::new(55),
+            SensorId::new(56),
+            SensorId::new(57),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_TMP451_TEMPERATURE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const TMP451_TEMPERATURE_SENSORS: [SensorId; 2] =
+            [SensorId::new(25), SensorId::new(64)];
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_TEMPERATURE_SENSORS: usize = 7;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_TEMPERATURE_SENSORS: [SensorId; 7] = [
+            SensorId::new(14),
+            SensorId::new(21),
+            SensorId::new(58),
+            SensorId::new(61),
+            SensorId::new(65),
+            SensorId::new(68),
+            SensorId::new(71),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_CURRENT_SENSORS: usize = 7;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_CURRENT_SENSORS: [SensorId; 7] = [
+            SensorId::new(15),
+            SensorId::new(22),
+            SensorId::new(59),
+            SensorId::new(62),
+            SensorId::new(66),
+            SensorId::new(69),
+            SensorId::new(72),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_VOLTAGE_SENSORS: usize = 7;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_VOLTAGE_SENSORS: [SensorId; 7] = [
+            SensorId::new(16),
+            SensorId::new(23),
+            SensorId::new(60),
+            SensorId::new(63),
+            SensorId::new(67),
+            SensorId::new(70),
+            SensorId::new(73),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN0_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN0_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(11);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN0_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN0_CURRENT_SENSOR: SensorId = SensorId::new(12);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN0_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN0_VOLTAGE_SENSOR: SensorId = SensorId::new(13);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN1_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN1_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(0);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN1_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN1_CURRENT_SENSOR: SensorId = SensorId::new(1);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN1_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN1_VOLTAGE_SENSOR: SensorId = SensorId::new(2);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN2_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN2_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(36);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN2_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN2_CURRENT_SENSOR: SensorId = SensorId::new(37);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN2_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN2_VOLTAGE_SENSOR: SensorId = SensorId::new(38);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN3_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN3_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(39);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN3_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN3_CURRENT_SENSOR: SensorId = SensorId::new(40);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_FAN3_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN3_VOLTAGE_SENSOR: SensorId = SensorId::new(41);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_HSC_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_HSC_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(18);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_HSC_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_HSC_CURRENT_SENSOR: SensorId = SensorId::new(19);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_V54_HSC_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_HSC_VOLTAGE_SENSOR: SensorId = SensorId::new(20);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_V12P0_SYS_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_V12P0_SYS_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(32);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_V12P0_SYS_POWER_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_V12P0_SYS_POWER_SENSOR: SensorId = SensorId::new(33);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_V12P0_SYS_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_V12P0_SYS_CURRENT_SENSOR: SensorId = SensorId::new(34);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_V12P0_SYS_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_V12P0_SYS_VOLTAGE_SENSOR: SensorId = SensorId::new(35);
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_V1P8_TF2_VDD_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDD_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(47);
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_V1P8_TF2_VDD_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDD_CURRENT_SENSOR: SensorId =
+            SensorId::new(49);
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_V1P8_TF2_VDD_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDD_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(51);
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_V1P8_TF2_VDDA_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDDA_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(48);
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_V1P8_TF2_VDDA_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDDA_CURRENT_SENSOR: SensorId =
+            SensorId::new(50);
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_V1P8_TF2_VDDA_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDDA_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(52);
+
+        #[allow(dead_code)]
+        pub const NUM_LTC4282_V12P0_FRONT_IO_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const LTC4282_V12P0_FRONT_IO_CURRENT_SENSOR: SensorId =
+            SensorId::new(53);
+
+        #[allow(dead_code)]
+        pub const NUM_LTC4282_V12P0_FRONT_IO_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const LTC4282_V12P0_FRONT_IO_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(54);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_ENE_FAN0_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MAX31790_ENE_FAN0_SPEED_SENSOR: SensorId = SensorId::new(4);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_ESE_FAN0_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MAX31790_ESE_FAN0_SPEED_SENSOR: SensorId = SensorId::new(3);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_NE_FAN1_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MAX31790_NE_FAN1_SPEED_SENSOR: SensorId = SensorId::new(6);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_NW_FAN2_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MAX31790_NW_FAN2_SPEED_SENSOR: SensorId = SensorId::new(44);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_SE_FAN1_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MAX31790_SE_FAN1_SPEED_SENSOR: SensorId = SensorId::new(5);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_SW_FAN2_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MAX31790_SW_FAN2_SPEED_SENSOR: SensorId = SensorId::new(43);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_WNW_FAN3_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MAX31790_WNW_FAN3_SPEED_SENSOR: SensorId = SensorId::new(46);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_WSW_FAN3_SPEED_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const MAX31790_WSW_FAN3_SPEED_SENSOR: SensorId = SensorId::new(45);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_V0P8_TF2_VDD_CORE_TEMPERATURE_SENSORS: usize =
+            1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P8_TF2_VDD_CORE_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(8);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_V0P8_TF2_VDD_CORE_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P8_TF2_VDD_CORE_CURRENT_SENSOR: SensorId =
+            SensorId::new(9);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_V0P8_TF2_VDD_CORE_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P8_TF2_VDD_CORE_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(10);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_V0P9_TF2_VDDT_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P9_TF2_VDDT_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(26);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_V0P9_TF2_VDDT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P9_TF2_VDDT_CURRENT_SENSOR: SensorId =
+            SensorId::new(28);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_V0P9_TF2_VDDT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P9_TF2_VDDT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(30);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_V1P5_TF2_VDDA_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_V1P5_TF2_VDDA_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(27);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_V1P5_TF2_VDDA_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_V1P5_TF2_VDDA_CURRENT_SENSOR: SensorId =
+            SensorId::new(29);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_V1P5_TF2_VDDA_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_V1P5_TF2_VDDA_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(31);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_NNE_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_NNE_TEMPERATURE_SENSOR: SensorId = SensorId::new(7);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_NNW_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_NNW_TEMPERATURE_SENSOR: SensorId = SensorId::new(24);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_NORTHEAST_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_NORTHEAST_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(17);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_NORTHWEST_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_NORTHWEST_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(42);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_SOUTH_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_SOUTH_TEMPERATURE_SENSOR: SensorId = SensorId::new(55);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_SOUTHEAST_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_SOUTHEAST_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(56);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_SOUTHWEST_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_SOUTHWEST_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(57);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP451_TF2_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP451_TF2_TEMPERATURE_SENSOR: SensorId = SensorId::new(25);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP451_VSC7448_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP451_VSC7448_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(64);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V1P0_MGMT_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P0_MGMT_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(58);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V1P0_MGMT_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P0_MGMT_CURRENT_SENSOR: SensorId =
+            SensorId::new(59);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V1P0_MGMT_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P0_MGMT_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(60);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V1P8_SYS_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P8_SYS_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(61);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V1P8_SYS_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P8_SYS_CURRENT_SENSOR: SensorId =
+            SensorId::new(62);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V1P8_SYS_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P8_SYS_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(63);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_QSFP0_A0_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP0_A0_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(68);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_QSFP0_A0_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP0_A0_CURRENT_SENSOR: SensorId =
+            SensorId::new(69);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_QSFP0_A0_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP0_A0_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(70);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_QSFP1_A0_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP1_A0_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(71);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_QSFP1_A0_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP1_A0_CURRENT_SENSOR: SensorId =
+            SensorId::new(72);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_QSFP1_A0_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP1_A0_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(73);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_SYS_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(14);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_SYS_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_CURRENT_SENSOR: SensorId =
+            SensorId::new(15);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_SYS_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(16);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_SYS_A2_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_A2_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(65);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_SYS_A2_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_A2_CURRENT_SENSOR: SensorId =
+            SensorId::new(66);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V3P3_SYS_A2_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_A2_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(67);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V5P0_SYS_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V5P0_SYS_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(21);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V5P0_SYS_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V5P0_SYS_CURRENT_SENSOR: SensorId =
+            SensorId::new(22);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_V5P0_SYS_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V5P0_SYS_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(23);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U10_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U10_TEMPERATURE_SENSOR: SensorId = SensorId::new(39);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U10_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U10_CURRENT_SENSOR: SensorId = SensorId::new(40);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U10_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U10_VOLTAGE_SENSOR: SensorId = SensorId::new(41);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U2_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U2_TEMPERATURE_SENSOR: SensorId = SensorId::new(18);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U2_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U2_CURRENT_SENSOR: SensorId = SensorId::new(19);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U2_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U2_VOLTAGE_SENSOR: SensorId = SensorId::new(20);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U4_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U4_TEMPERATURE_SENSOR: SensorId = SensorId::new(11);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U4_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U4_CURRENT_SENSOR: SensorId = SensorId::new(12);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U4_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U4_VOLTAGE_SENSOR: SensorId = SensorId::new(13);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U6_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U6_TEMPERATURE_SENSOR: SensorId = SensorId::new(0);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U6_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U6_CURRENT_SENSOR: SensorId = SensorId::new(1);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U6_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U6_VOLTAGE_SENSOR: SensorId = SensorId::new(2);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U8_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U8_TEMPERATURE_SENSOR: SensorId = SensorId::new(36);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U8_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U8_CURRENT_SENSOR: SensorId = SensorId::new(37);
+
+        #[allow(dead_code)]
+        pub const NUM_ADM127X_U8_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const ADM127X_U8_VOLTAGE_SENSOR: SensorId = SensorId::new(38);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_U12_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_U12_TEMPERATURE_SENSOR: SensorId = SensorId::new(32);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_U12_POWER_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_U12_POWER_SENSOR: SensorId = SensorId::new(33);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_U12_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_U12_CURRENT_SENSOR: SensorId = SensorId::new(34);
+
+        #[allow(dead_code)]
+        pub const NUM_BMR491_U12_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const BMR491_U12_VOLTAGE_SENSOR: SensorId = SensorId::new(35);
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_U33_TEMPERATURE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const ISL68224_U33_TEMPERATURE_SENSORS: [SensorId; 2] =
+            [SensorId::new(47), SensorId::new(48)];
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_U33_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const ISL68224_U33_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(49), SensorId::new(50)];
+
+        #[allow(dead_code)]
+        pub const NUM_ISL68224_U33_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const ISL68224_U33_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(51), SensorId::new(52)];
+
+        #[allow(dead_code)]
+        pub const NUM_LTC4282_U647_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const LTC4282_U647_CURRENT_SENSOR: SensorId = SensorId::new(53);
+
+        #[allow(dead_code)]
+        pub const NUM_LTC4282_U647_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const LTC4282_U647_VOLTAGE_SENSOR: SensorId = SensorId::new(54);
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_U66_SPEED_SENSORS: usize = 4;
+
+        #[allow(dead_code)]
+        pub const MAX31790_U66_SPEED_SENSORS: [SensorId; 4] = [
+            SensorId::new(3),
+            SensorId::new(4),
+            SensorId::new(5),
+            SensorId::new(6),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_MAX31790_U78_SPEED_SENSORS: usize = 4;
+
+        #[allow(dead_code)]
+        pub const MAX31790_U78_SPEED_SENSORS: [SensorId; 4] = [
+            SensorId::new(43),
+            SensorId::new(44),
+            SensorId::new(45),
+            SensorId::new(46),
+        ];
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_U31_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_U31_TEMPERATURE_SENSOR: SensorId = SensorId::new(8);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_U31_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_U31_CURRENT_SENSOR: SensorId = SensorId::new(9);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_U31_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const RAA229618_U31_VOLTAGE_SENSOR: SensorId = SensorId::new(10);
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_U32_TEMPERATURE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const RAA229618_U32_TEMPERATURE_SENSORS: [SensorId; 2] =
+            [SensorId::new(26), SensorId::new(27)];
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_U32_CURRENT_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const RAA229618_U32_CURRENT_SENSORS: [SensorId; 2] =
+            [SensorId::new(28), SensorId::new(29)];
+
+        #[allow(dead_code)]
+        pub const NUM_RAA229618_U32_VOLTAGE_SENSORS: usize = 2;
+
+        #[allow(dead_code)]
+        pub const RAA229618_U32_VOLTAGE_SENSORS: [SensorId; 2] =
+            [SensorId::new(30), SensorId::new(31)];
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_J67_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_J67_TEMPERATURE_SENSOR: SensorId = SensorId::new(42);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_J68_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_J68_TEMPERATURE_SENSOR: SensorId = SensorId::new(24);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_J69_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_J69_TEMPERATURE_SENSOR: SensorId = SensorId::new(7);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_J70_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_J70_TEMPERATURE_SENSOR: SensorId = SensorId::new(17);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_J71_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_J71_TEMPERATURE_SENSOR: SensorId = SensorId::new(55);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_J72_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_J72_TEMPERATURE_SENSOR: SensorId = SensorId::new(57);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP117_J73_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP117_J73_TEMPERATURE_SENSOR: SensorId = SensorId::new(56);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP451_U64_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP451_U64_TEMPERATURE_SENSOR: SensorId = SensorId::new(25);
+
+        #[allow(dead_code)]
+        pub const NUM_TMP451_U65_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TMP451_U65_TEMPERATURE_SENSOR: SensorId = SensorId::new(64);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U18_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U18_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(21);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U18_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U18_CURRENT_SENSOR: SensorId = SensorId::new(22);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U18_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U18_VOLTAGE_SENSOR: SensorId = SensorId::new(23);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U19_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U19_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(14);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U19_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U19_CURRENT_SENSOR: SensorId = SensorId::new(15);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U19_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U19_VOLTAGE_SENSOR: SensorId = SensorId::new(16);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U20_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U20_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(61);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U20_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U20_CURRENT_SENSOR: SensorId = SensorId::new(62);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U20_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U20_VOLTAGE_SENSOR: SensorId = SensorId::new(63);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U21_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U21_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(58);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U21_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U21_CURRENT_SENSOR: SensorId = SensorId::new(59);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_U21_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_U21_VOLTAGE_SENSOR: SensorId = SensorId::new(60);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_J61_U15_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U15_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(68);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_J61_U15_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U15_CURRENT_SENSOR: SensorId =
+            SensorId::new(69);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_J61_U15_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U15_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(70);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_J61_U18_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U18_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(71);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_J61_U18_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U18_CURRENT_SENSOR: SensorId =
+            SensorId::new(72);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_J61_U18_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U18_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(73);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_J61_U7_TEMPERATURE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U7_TEMPERATURE_SENSOR: SensorId =
+            SensorId::new(65);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_J61_U7_CURRENT_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U7_CURRENT_SENSOR: SensorId =
+            SensorId::new(66);
+
+        #[allow(dead_code)]
+        pub const NUM_TPS546B24A_J61_U7_VOLTAGE_SENSORS: usize = 1;
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_J61_U7_VOLTAGE_SENSOR: SensorId =
+            SensorId::new(67);
+    }
+}

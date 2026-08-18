@@ -71,3 +71,7 @@ call_rustfmt.path = "../call_rustfmt"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+insta.workspace = true
