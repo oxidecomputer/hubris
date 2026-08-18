@@ -216,6 +216,15 @@ macro_rules! generator {
             set_if_pmbus_read_illegal!(out, $module, STATUS_MFR_SPECIFIC);
             set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_1_2);
             set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_3_4);
+            // VPD bits
+            set_if_pmbus_read_illegal!(out, $module, MFR_ID);
+            set_if_pmbus_read_illegal!(out, $module, MFR_MODEL);
+            set_if_pmbus_read_illegal!(out, $module, MFR_REVISION);
+            set_if_pmbus_read_illegal!(out, $module, MFR_SERIAL);
+            set_if_pmbus_read_illegal!(out, $module, MFR_LOCATION);
+            set_if_pmbus_read_illegal!(out, $module, MFR_DATE);
+            set_if_pmbus_read_illegal!(out, $module, IC_DEVICE_ID);
+            set_if_pmbus_read_illegal!(out, $module, IC_DEVICE_REV);
             Capabilities(out)
         })
     };

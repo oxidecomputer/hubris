@@ -286,6 +286,7 @@ pub mod pmbus_status {
     pub struct Capabilities(pub u32);
 
     impl Capabilities {
+        // --- capability bits for status registers ---------------------------
         pub const STATUS_WORD: Self = Self(1 << 0);
         pub const STATUS_VOUT: Self = Self(1 << 1);
         pub const STATUS_IOUT: Self = Self(1 << 2);
@@ -296,6 +297,30 @@ pub mod pmbus_status {
         pub const STATUS_MFR_SPECIFIC: Self = Self(1 << 7);
         pub const STATUS_FANS_1_2: Self = Self(1 << 8);
         pub const STATUS_FANS_3_4: Self = Self(1 << 9);
+
+        // --- capability bits for VPD registers ------------------------------
+        pub const MFR_ID: Self = Self(1 << 10);
+        pub const MFR_MODEL: Self = Self(1 << 11);
+        pub const MFR_REVISION: Self = Self(1 << 12);
+        pub const MFR_SERIAL: Self = Self(1 << 13);
+        pub const MFR_LOCATION: Self = Self(1 << 14);
+        pub const MFR_DATE: Self = Self(1 << 15);
+        pub const IC_DEVICE_ID: Self = Self(1 << 16);
+        pub const IC_DEVICE_REV: Self = Self(1 << 17);
+
+        /// Bitmask for selecting *all* potential VPD register capability bits.
+        pub const ANY_VPD_REGS: Self = Self(
+            // XXX(eliza): this might be less gross if we just used the
+            // bitflags crate for this...
+            Self::MFR_ID.0
+                | Self::MFR_MODEL.0
+                | Self::MFR_REVISION.0
+                | Self::MFR_SERIAL.0
+                | Self::MFR_LOCATION.0
+                | Self::MFR_DATE.0
+                | Self::IC_DEVICE_ID.0
+                | Self::IC_DEVICE_REV.0,
+        );
 
         /// Does this capability support all capabilities of `other`?
         ///
