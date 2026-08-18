@@ -502,9 +502,6 @@ pub struct ConfigGenerator {
     /// Settings
     settings: CodegenSettings,
 
-    /// disposition of this configuration: target v. initiator v. devices
-    disposition: Disposition,
-
     /// all controllers
     controllers: Vec<I2cController>,
 
@@ -519,22 +516,56 @@ pub struct ConfigGenerator {
 
     /// hash of controllers to single port indices
     singletons: HashMap<u8, usize>,
+}
 
-    /// if `true`, include component ID string in output.
-    ///
-    /// this requires that the `"drv-i2c-api/component-id"` feature flag is
-    /// enabled. if that feature flag is enabled, then this MUST also be
-    /// enabled.
-    component_ids: bool,
+fn calculate_validate_drivers() -> Result<HashSet<String>> {
+    //
+    // Lord, have mercy: we are going to find the crate containing i2c
+    // devices, and go fishing for where we believe the device drivers
+    // themselves to be.  It does not need to be said that this is
+    // operating by convention; there are (many) ways to envision this
+    // breaking -- with apologies, dear reader, if that's what brings you
+    // here!
+    //
+    // Apology accepted. Perhaps this should be completely redesigned, but
+    // I've at least made it so the build will now fail with a helpful error
+    // message if the device driver isn't found.
+    let mut drivers = std::collections::HashSet::new();
+
+    use cargo_metadata::MetadataCommand;
+
+    let metadata = MetadataCommand::new()
+        .manifest_path("./Cargo.toml")
+        .exec()
+        .unwrap();
+
+    let pkg = metadata
+        .packages
+        .iter()
+        .find(|p| p.name.as_str() == "drv-i2c-devices")
+        .context("failed to find drv-i2c-devices")?;
+
+    let dir = pkg
+        .manifest_path
+        .parent()
+        .context("failed to get i2c device path")?;
+
+    println!("cargo::rerun-if-changed={}", dir.join("src"));
+
+    for entry in std::fs::read_dir(dir.join("src"))? {
+        if let Some(f) = entry?.path().file_name()
+            && let Some(name) = f.to_str().unwrap().strip_suffix(".rs")
+        {
+            drivers.insert(name.to_string());
+        }
+    }
+
+    drivers.remove("lib");
+    Ok(drivers)
 }
 
 impl ConfigGenerator {
     pub fn new_with_config(settings: CodegenSettings, i2c: I2cConfig) -> Self {
-        let CodegenSettings {
-            disposition,
-            component_ids,
-        } = settings;
-
         let mut controllers = vec![];
         let mut buses = HashMap::new();
         let mut ports = IndexMap::new();
@@ -562,7 +593,7 @@ impl ConfigGenerator {
                 ports.insert((c.controller, p.clone()), index);
             }
 
-            if c.target != (disposition == Disposition::Target) {
+            if c.target != (settings.disposition == Disposition::Target) {
                 continue;
             }
 
@@ -600,12 +631,10 @@ impl ConfigGenerator {
 
         Self {
             devices: i2c.devices.unwrap_or_default(),
-            disposition,
             controllers,
             buses,
             ports,
             singletons,
-            component_ids,
             settings,
         }
     }
@@ -636,7 +665,7 @@ impl ConfigGenerator {
     }
 
     pub fn generate_controllers(&self, output: &mut String) -> Result<()> {
-        match self.disposition {
+        match self.settings.disposition {
             Disposition::Initiator | Disposition::Target => {}
 
             _ => {
@@ -664,18 +693,14 @@ impl ConfigGenerator {
         use drv_i2c_api::Controller;"##
             )?;
 
-            if build_util::has_feature("h743") {
-                writeln!(output, "use stm32h7::stm32h743 as device;")?;
-            }
-            if build_util::has_feature("h753") {
-                writeln!(output, "use stm32h7::stm32h753 as device;")?;
-            }
-            if build_util::has_feature("g031") {
-                writeln!(output, "use stm32g0::stm32g031 as device;")?;
-            }
-            if build_util::has_feature("g030") {
-                writeln!(output, "use stm32g0::stm32g030 as device;")?;
-            }
+            let text = match self.settings.codegen_target {
+                CodegenTarget::None => "",
+                CodegenTarget::Stm32H743 => "use stm32h7::stm32h743 as device;",
+                CodegenTarget::Stm32H753 => "use stm32h7::stm32h753 as device;",
+                CodegenTarget::Stm32G031 => "use stm32g0::stm32g031 as device;",
+                CodegenTarget::Stm32G030 => "use stm32g0::stm32g030 as device;",
+            };
+            writeln!(output, "{text}")?;
         }
 
         write!(
@@ -711,7 +736,7 @@ impl ConfigGenerator {
     pub fn generate_pins(&self, output: &mut String) -> Result<()> {
         let mut len = 0;
 
-        match self.disposition {
+        match self.settings.disposition {
             Disposition::Initiator | Disposition::Target => {}
 
             _ => {
@@ -786,7 +811,7 @@ impl ConfigGenerator {
     }
 
     pub fn generate_muxes(&self, output: &mut String) -> Result<()> {
-        if self.disposition == Disposition::Target {
+        if self.settings.disposition == Disposition::Target {
             panic!("cannot generate muxes when configured as target");
         }
 
@@ -969,7 +994,7 @@ impl ConfigGenerator {
 
         let indent = format!("{:indent$}", "", indent = indent);
 
-        let component_id = if self.component_ids {
+        let component_id = if self.settings.component_ids {
             if let Some(ref refdes) = d.refdes {
                 let id = refdes.to_component_id();
                 format!("\n{indent}    {id:?},")
@@ -1207,7 +1232,7 @@ impl ConfigGenerator {
 
         writeln!(output, "    }}")?;
 
-        if self.component_ids {
+        if self.settings.component_ids {
             writeln!(
                 output,
                 r##"
@@ -1223,48 +1248,7 @@ impl ConfigGenerator {
     }
 
     pub fn generate_validation(&self, output: &mut String) -> Result<()> {
-        //
-        // Lord, have mercy: we are going to find the crate containing i2c
-        // devices, and go fishing for where we believe the device drivers
-        // themselves to be.  It does not need to be said that this is
-        // operating by convention; there are (many) ways to envision this
-        // breaking -- with apologies, dear reader, if that's what brings you
-        // here!
-        //
-        // Apology accepted. Perhaps this should be completely redesigned, but
-        // I've at least made it so the build will now fail with a helpful error
-        // message if the device driver isn't found.
-        use cargo_metadata::MetadataCommand;
-
-        let metadata = MetadataCommand::new()
-            .manifest_path("./Cargo.toml")
-            .exec()
-            .unwrap();
-
-        let pkg = metadata
-            .packages
-            .iter()
-            .find(|p| p.name.as_str() == "drv-i2c-devices")
-            .context("failed to find drv-i2c-devices")?;
-
-        let dir = pkg
-            .manifest_path
-            .parent()
-            .context("failed to get i2c device path")?;
-
-        let mut drivers = std::collections::HashSet::new();
-
-        println!("cargo::rerun-if-changed={}", dir.join("src"));
-
-        for entry in std::fs::read_dir(dir.join("src"))? {
-            if let Some(f) = entry?.path().file_name()
-                && let Some(name) = f.to_str().unwrap().strip_suffix(".rs")
-            {
-                drivers.insert(name.to_string());
-            }
-        }
-
-        drivers.remove("lib");
+        let drivers = &self.settings.drivers;
 
         write!(
             output,
@@ -1827,10 +1811,59 @@ impl ConfigGenerator {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
+pub enum CodegenTarget {
+    None,
+    Stm32H743,
+    Stm32H753,
+    Stm32G031,
+    Stm32G030,
+}
+
+impl CodegenTarget {
+    fn from_env() -> Self {
+        let h743 = build_util::has_feature("h743");
+        let h753 = build_util::has_feature("h753");
+        let g031 = build_util::has_feature("g031");
+        let g030 = build_util::has_feature("g030");
+        let mut count = 0;
+        for sel in [h743, h753, g031, g030] {
+            if sel {
+                count += 1;
+            }
+        }
+
+        if count > 1 {
+            panic!("Too many features selected!");
+        }
+
+        if h743 {
+            Self::Stm32H743
+        } else if h753 {
+            Self::Stm32H753
+        } else if g031 {
+            Self::Stm32G031
+        } else if g030 {
+            Self::Stm32G030
+        } else {
+            Self::None
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct CodegenSettings {
+    /// disposition of this configuration: target v. initiator v. devices
     pub disposition: Disposition,
+    /// if `true`, include component ID string in output.
+    ///
+    /// this requires that the `"drv-i2c-api/component-id"` feature flag is
+    /// enabled. if that feature flag is enabled, then this MUST also be
+    /// enabled.
     pub component_ids: bool,
+    pub codegen_target: CodegenTarget,
+    /// List of drivers relevant to validation
+    pub drivers: HashSet<String>,
 }
 
 impl From<Disposition> for CodegenSettings {
@@ -1838,6 +1871,12 @@ impl From<Disposition> for CodegenSettings {
         CodegenSettings {
             disposition,
             component_ids: cfg!(feature = "component-id"),
+            codegen_target: CodegenTarget::from_env(),
+            drivers: if disposition == Disposition::Validation {
+                calculate_validate_drivers().unwrap()
+            } else {
+                HashSet::new()
+            },
         }
     }
 }
