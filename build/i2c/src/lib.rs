@@ -1674,7 +1674,10 @@ impl ConfigGenerator {
         I2cSensorsDescription::new(&self.devices)
     }
 
-    pub fn generate_sensors(&self, output: &mut String) -> Result<I2cSensorsDescription> {
+    pub fn generate_sensors(
+        &self,
+        output: &mut String,
+    ) -> Result<I2cSensorsDescription> {
         let s = self.sensors_description();
 
         write!(
