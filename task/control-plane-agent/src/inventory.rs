@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_i2c_api::PmbusCapabilities;
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
@@ -35,6 +36,21 @@ impl Inventory {
 
     pub(crate) fn num_devices(&self) -> usize {
         OUR_DEVICES.len() + VALIDATE_DEVICES.len()
+    }
+
+    /// Returns the generated device index and PMBus capabilities for a component.
+    pub(crate) fn pmbus_device(
+        &self,
+        component: &SpComponent,
+    ) -> Result<(usize, PmbusCapabilities), SpError> {
+        let Index::ValidateDevice(index) = Index::try_from(component)? else {
+            return Err(SpError::RequestUnsupportedForComponent);
+        };
+        let Some(capabilities) = VALIDATE_DEVICES[index].pmbus_capabilities
+        else {
+            return Err(SpError::RequestUnsupportedForComponent);
+        };
+        Ok((index, capabilities))
     }
 
     pub(crate) fn num_component_details<F>(
@@ -123,8 +139,11 @@ impl Inventory {
         };
 
         let mut capabilities = DeviceCapabilities::empty();
-        if device.is_pmbus {
+        if let Some(pmbus_caps) = device.pmbus_capabilities {
             capabilities |= DeviceCapabilities::IS_PMBUS;
+            if pmbus_caps.supports_any(&PmbusCapabilities::ANY_VPD_REGS) {
+                capabilities |= DeviceCapabilities::HAS_VPD;
+            }
         }
         if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;

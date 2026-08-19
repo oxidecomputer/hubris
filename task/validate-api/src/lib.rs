@@ -7,7 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use drv_i2c_api::ResponseCode;
+use drv_i2c_api::{PmbusCapabilities, ResponseCode};
 use userlib::{FromPrimitive, sys_send};
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
@@ -75,7 +75,7 @@ pub struct DeviceDescription {
     pub description: &'static str,
     pub sensors: &'static [SensorDescription],
     pub id: &'static str,
-    pub is_pmbus: bool,
+    pub pmbus_capabilities: Option<PmbusCapabilities>,
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));

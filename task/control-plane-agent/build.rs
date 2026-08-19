@@ -4,7 +4,6 @@
 
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -57,37 +56,29 @@ fn do_pmbus() -> Result<()> {
     let out = context_create_file(&dest_path)?;
     let mut file = std::io::BufWriter::new(out);
 
-    // Build a mapping from "pmbus device name" to "supported status regs"
-    let pmbus_status_caps = {
-        let mut map = HashMap::new();
-        for (name, func) in PMBUS_GENERATOR {
-            map.insert(*name, (func)());
-        }
-        map
-    };
-
     let mut pmbus_rail_names = std::collections::BTreeMap::new();
     let mut pmbus_rail_dupes = 0;
-    for dev in build_i2c::device_descriptions() {
-        // We only need to map PMBus devices
+    for (device_index, dev) in build_i2c::device_descriptions().enumerate() {
         let Some(ref pmbus) = dev.pmbus else {
             continue;
         };
 
-        // If it is a pmbus device, we need to get its status capabilities
-        let Some(caps) = pmbus_status_caps.get(dev.device.as_str()) else {
-            println!(
-                "cargo::error=unknown pmbus device: {}, add entry to \
-                 PMBUS_GENERATOR in {} for status register support.",
-                dev.device,
-                file!(),
-            );
-            panic!("Unsupported pmbus device: {}", dev.device);
-        };
-
-        // Aggregate a list of all PMBus-visible rails
-        for rail in pmbus.rails.iter() {
-            if pmbus_rail_names.insert(rail.name.clone(), caps).is_some() {
+        let single_rail = pmbus.rails.len() == 1;
+        for (rail_index, rail) in pmbus.rails.iter().enumerate() {
+            let rail_index = if single_rail {
+                None
+            } else {
+                Some(u8::try_from(rail_index).with_context(|| {
+                    format!(
+                        "PMBus device {:?} has more than 256 rails",
+                        dev.device_id,
+                    )
+                })?)
+            };
+            if pmbus_rail_names
+                .insert(rail.name.clone(), (device_index, rail_index))
+                .is_some()
+            {
                 pmbus_rail_dupes += 1;
                 println!(
                     "cargo::error=PMBus device {} defines a power rail {:?} \
@@ -99,29 +90,24 @@ fn do_pmbus() -> Result<()> {
         }
     }
 
-    // Create a mapping between rail names and generated accessor functions for
-    // obtaining the device handle and rail index
+    // The device indices use the ordering shared by `device_descriptions()` and
+    // the generated device lookup in `build_i2c`.
     writeln!(file)?;
     writeln!(
         file,
         "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [PmbusRailBinding; {}] = [",
         pmbus_rail_names.len()
     )?;
-    for (rail, caps) in pmbus_rail_names.iter() {
-        write!(file, "    PmbusRailBinding {{ ")?;
-        write!(file, "name: \"{rail}\", ")?;
-        // build_i2c *also* only to-lowercases the rail names to make functions
-        write!(
+    for (rail, (device_index, rail_index)) in pmbus_rail_names.iter() {
+        writeln!(
             file,
-            "summon_fn: crate::i2c_config::pmbus::{}, ",
-            rail.to_lowercase()
+            "    PmbusRailBinding {{ name: \"{rail}\", device_index: \
+             {device_index}, rail_index: {rail_index:?} }},"
         )?;
-        write!(file, "status_bits: Capabilities(0x{:08x}) ", caps.0)?;
-        writeln!(file, "}},")?;
     }
     writeln!(file, "];")?;
 
-    // This is supposed to be caught during I2C generation
+    // This is supposed to be caught during I2C generation.
     if pmbus_rail_dupes != 0 {
         bail!("duplicate PMBus rails: invalid application toml.");
     }
@@ -183,73 +169,3 @@ fn context_create_file(path: &Path) -> Result<File> {
     File::create(path)
         .with_context(|| format!("failed to create file '{}'", path.display()))
 }
-
-/// Look at the `pmbus` crate metadata to see if a specific command is "Illegal"
-/// and set the capability bit if not.
-macro_rules! set_if_pmbus_read_illegal {
-    ($out:ident, $module:ident, $cmd:ident) => {{
-        use drv_i2c_types::pmbus_status::Capabilities;
-        use pmbus::{Command, Operation};
-        if pmbus::commands::$module::CommandCode::$cmd.read_op()
-            != Operation::Illegal
-        {
-            $out |= Capabilities::$cmd.0;
-        }
-    }};
-}
-
-/// For a given device, calculate the `Capabilities` for each of the
-/// status registers.
-///
-/// The pmbus functions are not const, so generate a closure instead.
-macro_rules! generator {
-    ($name:literal, $module:ident) => {
-        ($name, || {
-            let mut out = 0u32;
-            set_if_pmbus_read_illegal!(out, $module, STATUS_WORD);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_VOUT);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_IOUT);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_TEMPERATURE);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_CML);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_OTHER);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_INPUT);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_MFR_SPECIFIC);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_1_2);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_3_4);
-            // VPD bits
-            set_if_pmbus_read_illegal!(out, $module, MFR_ID);
-            set_if_pmbus_read_illegal!(out, $module, MFR_MODEL);
-            set_if_pmbus_read_illegal!(out, $module, MFR_REVISION);
-            set_if_pmbus_read_illegal!(out, $module, MFR_SERIAL);
-            set_if_pmbus_read_illegal!(out, $module, MFR_LOCATION);
-            set_if_pmbus_read_illegal!(out, $module, MFR_DATE);
-            set_if_pmbus_read_illegal!(out, $module, IC_DEVICE_ID);
-            set_if_pmbus_read_illegal!(out, $module, IC_DEVICE_REV);
-            Capabilities(out)
-        })
-    };
-}
-
-use drv_i2c_types::pmbus_status::Capabilities;
-type StatusRow = (&'static str, fn() -> Capabilities);
-
-// Before you add a pmbus device to this list, you should make sure that you
-// have reviewed the pmbus crate to make sure that any unsupported status
-// registers are marked as illegal, similar to oxidecomputer/pmbus#35.
-//
-// Failure to do so could cause CML or OTHER error bits to be set. Just adding
-// the device to this list (without accurate `pmbus` crate information) will
-// likely make the compilation succeed, but should not be done for production
-// devices where this may trigger runtime CML errors.
-const PMBUS_GENERATOR: &[StatusRow] = &[
-    generator!("adm127x", adm127x),
-    generator!("bmr491", bmr491),
-    generator!("isl68224", isl68224),
-    generator!("lm5066", lm5066),
-    generator!("lm5066i", lm5066i),
-    generator!("mwocp67", mwocp67),
-    generator!("mwocp68", mwocp68),
-    generator!("raa229618", raa229618),
-    generator!("raa229620a", raa229620a),
-    generator!("tps546b24a", tps546b24a),
-];

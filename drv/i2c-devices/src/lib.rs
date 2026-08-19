@@ -45,7 +45,7 @@
 
 #![no_std]
 
-use drv_i2c_api::{I2cDevice, ResponseCode, pmbus_status::Capabilities};
+use drv_i2c_api::{I2cDevice, PmbusCapabilities, ResponseCode};
 use pmbus::commands::CommandCode;
 
 macro_rules! pmbus_read {
@@ -337,11 +337,11 @@ impl PmbusStatus {
     pub fn try_read_from(
         dev: &I2cDevice,
         rail_idx: Option<u8>,
-        device_caps: Capabilities,
+        device_caps: PmbusCapabilities,
     ) -> Result<Self, PmbusStatusError> {
-        use drv_i2c_types::pmbus_status::Capabilities;
         // Keep the lines short
         use CommandCode as Cc;
+        use PmbusCapabilities as Cap;
         // These need to be like this to humor the macro invocations
         use PmbusStatusError as Error;
         use pmbus::commands::PAGE;
@@ -379,33 +379,27 @@ impl PmbusStatus {
             // Status word *must* succeed, otherwise we don't have reasonable
             // data to return. We may want to consider making some/all of these
             // retryable, but for now you either get them or you don't.
-            status_word: read_u16(Cc::STATUS_WORD, Capabilities::STATUS_WORD)?,
-            status_vout: read_byte(Cc::STATUS_VOUT, Capabilities::STATUS_VOUT),
-            status_iout: read_byte(Cc::STATUS_IOUT, Capabilities::STATUS_IOUT),
+            status_word: read_u16(Cc::STATUS_WORD, Cap::STATUS_WORD)?,
+            status_vout: read_byte(Cc::STATUS_VOUT, Cap::STATUS_VOUT),
+            status_iout: read_byte(Cc::STATUS_IOUT, Cap::STATUS_IOUT),
             status_temperature: read_byte(
                 Cc::STATUS_TEMPERATURE,
-                Capabilities::STATUS_TEMPERATURE,
+                Cap::STATUS_TEMPERATURE,
             ),
-            status_cml: read_byte(Cc::STATUS_CML, Capabilities::STATUS_CML),
-            status_other: read_byte(
-                Cc::STATUS_OTHER,
-                Capabilities::STATUS_OTHER,
-            ),
-            status_input: read_byte(
-                Cc::STATUS_INPUT,
-                Capabilities::STATUS_INPUT,
-            ),
+            status_cml: read_byte(Cc::STATUS_CML, Cap::STATUS_CML),
+            status_other: read_byte(Cc::STATUS_OTHER, Cap::STATUS_OTHER),
+            status_input: read_byte(Cc::STATUS_INPUT, Cap::STATUS_INPUT),
             status_fans_1_2: read_byte(
                 Cc::STATUS_FANS_1_2,
-                Capabilities::STATUS_FANS_1_2,
+                Cap::STATUS_FANS_1_2,
             ),
             status_fans_3_4: read_byte(
                 Cc::STATUS_FANS_3_4,
-                Capabilities::STATUS_FANS_3_4,
+                Cap::STATUS_FANS_3_4,
             ),
             status_mfr_specific: read_byte(
                 Cc::STATUS_MFR_SPECIFIC,
-                Capabilities::STATUS_MFR_SPECIFIC,
+                Cap::STATUS_MFR_SPECIFIC,
             ),
         })
     }
@@ -429,13 +423,14 @@ pub struct PmbusVpd<'buf> {
     pub ic_device_rev: Option<&'buf [u8]>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[derive(Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum PmbusVpdError {
     /// The device does not support any PMBus VPD registers.
     NoVpd,
     BadRead {
-        cmd: Cmd,
-        #[count(children)]
+        cmd: PmbusVpdCmd,
+        #[cfg_attr(feature = "counters", count(children))]
         err: drv_i2c_api::ResponseCode,
     },
 }
@@ -447,8 +442,8 @@ pub enum PmbusVpdError {
     PartialEq,
     zerocopy_derive::IntoBytes,
     zerocopy_derive::Immutable,
-    counters::Count,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u8)]
 pub enum PmbusVpdCmd {
     MfrId = pmbus::CommandCode::MFR_ID as u8,
@@ -456,7 +451,7 @@ pub enum PmbusVpdCmd {
     MfrRevision = pmbus::CommandCode::MFR_REVISION as u8,
     MfrSerial = pmbus::CommandCode::MFR_SERIAL as u8,
     MfrLocation = pmbus::CommandCode::MFR_LOCATION as u8,
-    MfrDate = pmbus::CommandCode::MFR_LOCATION as u8,
+    MfrDate = pmbus::CommandCode::MFR_DATE as u8,
     IcDeviceId = pmbus::CommandCode::IC_DEVICE_ID as u8,
     IcDeviceRev = pmbus::CommandCode::IC_DEVICE_REV as u8,
 }
@@ -475,17 +470,20 @@ impl<'buf> PmbusVpd<'buf> {
     /// Attempt to read a [`PmbusVpd`] from the given device.
     pub fn try_read_from(
         dev: &I2cDevice,
-        buf: &'buf mut [u8; Self::BUF_LEN],
-        device_caps: Capabilities,
+        buf: &'buf mut [u8; PmbusVpd::BUF_LEN],
+        device_caps: PmbusCapabilities,
     ) -> Result<Self, PmbusVpdError> {
         use core::ops::Range;
+        // Keep the lines short
+        use PmbusCapabilities as Cap;
+        use PmbusVpdCmd as Cmd;
 
-        if !device_caps.supports_any(&Capabilities::PmbusVpd) {
+        if !device_caps.supports_any(&Cap::ANY_VPD_REGS) {
             return Err(PmbusVpdError::NoVpd);
         }
 
-        let read = |cmd: PmbusVpdCmd,
-                    cap: Capabilities,
+        let read = |cmd: Cmd,
+                    cap: Cap,
                     buf: &mut [u8; PmbusVpd::BUF_LEN],
                     curr_off: &mut usize|
          -> Result<Option<Range<usize>>, PmbusVpdError> {
@@ -495,7 +493,7 @@ impl<'buf> PmbusVpd<'buf> {
             let off = *curr_off;
             // PMBus block reads may not be longer than 32 bytes. Clamp this
             // down as `drv_i2c_api` gets mad if it sees a lease of >255B.
-            let Some(block) = buf.get_mut(off..off + PmbusIdentity::BLOCK_LEN)
+            let Some(block) = buf.get_mut(off..off + PmbusVpd::BLOCK_LEN)
             else {
                 // This shouldn't ever happen as we never call this more than
                 // BUF_LEN * 8 times...
@@ -503,52 +501,25 @@ impl<'buf> PmbusVpd<'buf> {
             };
             let len = dev
                 .read_block(cmd, block)
-                .map_err(|err| PmbusVpdError::I2c { cmd, err })?;
+                .map_err(|err| PmbusVpdError::BadRead { cmd, err })?;
             *curr_off += len;
             Ok(Some(off..*curr_off))
         };
 
         let mut off = 0;
-        let mfr_range =
-            read(PmbusVpdCmd::MfrId, Capabilities::MFR_ID, buf, &mut off)?;
-        let model_range = read(
-            PmbusVpdCmd::MfrModel,
-            Capabilities::MFR_MODEL,
-            buf,
-            &mut off,
-        )?;
-        let rev_range = read(
-            PmbusVpdCmd::MfrRevision,
-            Capabilities::MFR_REVISION,
-            buf,
-            &mut off,
-        )?;
-        let location_range = read(
-            PmbusVpdCmd::MfrLocation,
-            Capabilities::MFR_LOCATION,
-            buf,
-            &mut off,
-        )?;
-        let date_range =
-            read(PmbusVpdCmd::MfrDate, Capabilities::MFR_DATE, buf, &mut off)?;
-        let serial_range = read(
-            PmbusVpdCmd::MfrSerial,
-            Capabilities::MFR_SERIAL,
-            buf,
-            &mut off,
-        )?;
-        let ic_id_range = read(
-            PmbusVpdCmd::IcDeviceId,
-            Capabilities::IC_DEVICE_ID,
-            buf,
-            &mut off,
-        )?;
-        let ic_rev_range = read(
-            PmbusVpdCmd::IcDeviceRev,
-            Capabilities::IC_DEVICE_REV,
-            buf,
-            &mut off,
-        )?;
+        let mfr_range = read(Cmd::MfrId, Cap::MFR_ID, buf, &mut off)?;
+        let model_range = read(Cmd::MfrModel, Cap::MFR_MODEL, buf, &mut off)?;
+        let rev_range =
+            read(Cmd::MfrRevision, Cap::MFR_REVISION, buf, &mut off)?;
+        let location_range =
+            read(Cmd::MfrLocation, Cap::MFR_LOCATION, buf, &mut off)?;
+        let date_range = read(Cmd::MfrDate, Cap::MFR_DATE, buf, &mut off)?;
+        let serial_range =
+            read(Cmd::MfrSerial, Cap::MFR_SERIAL, buf, &mut off)?;
+        let ic_id_range =
+            read(Cmd::IcDeviceId, Cap::IC_DEVICE_ID, buf, &mut off)?;
+        let ic_rev_range =
+            read(Cmd::IcDeviceRev, Cap::IC_DEVICE_REV, buf, &mut off)?;
 
         Ok(Self {
             mfr_id: mfr_range.map(|r| &buf[r]),

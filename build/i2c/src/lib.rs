@@ -1453,9 +1453,13 @@ impl ConfigGenerator {
         output: &mut String,
     ) -> Result<()> {
         let mut byrail = HashMap::new();
+        let mut pmbus_devices = Vec::new();
 
-        for d in &self.devices {
+        for (device_index, d) in self.devices.iter().enumerate() {
             if let Some(power) = &d.power {
+                if which == PowerDevices::PMBus && power.pmbus {
+                    pmbus_devices.push((device_index, d));
+                }
                 if power.pmbus && which != PowerDevices::PMBus {
                     continue;
                 }
@@ -1498,7 +1502,7 @@ impl ConfigGenerator {
             }
         }
 
-        if !byrail.is_empty() {
+        if !byrail.is_empty() || !pmbus_devices.is_empty() {
             write!(
                 output,
                 r##"
@@ -1511,6 +1515,38 @@ impl ConfigGenerator {
                     PowerDevices::NonPMBus => "power",
                 }
             )?;
+
+            if which == PowerDevices::PMBus {
+                write!(
+                    &mut self.output,
+                    r##"
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn device_by_index(
+            task: TaskId,
+            index: usize,
+        ) -> Option<I2cDevice> {{
+            match index {{"##,
+                )?;
+
+                // These indices are shared with `device_descriptions()` and are
+                // used to look up the I2C device corresponding to an index in
+                // the device descriptions array in `task-validate-api`'s
+                // codegen.
+                for (index, device) in &pmbus_devices {
+                    let out = self.generate_device(device, 20);
+                    writeln!(&mut self.output, "{index} => Some({out}),")?;
+                }
+
+                writeln!(
+                    &mut self.output,
+                    r##"
+                _ => None,
+            }}
+        }}
+"##,
+                )?;
+            }
 
             let mut all: Vec<_> = byrail.iter().collect();
             all.sort();
