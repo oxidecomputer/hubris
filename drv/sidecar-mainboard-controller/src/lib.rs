@@ -6,7 +6,13 @@
 
 use drv_fpga_api::*;
 
-include!(concat!(env!("OUT_DIR"), "/sidecar_mainboard_controller.rs"));
+pub mod reg_map {
+    include!(concat!(env!("OUT_DIR"), "/sidecar_mainboard_controller.rs"));
+}
+pub use crate::reg_map::Addr;
+pub use crate::reg_map::Reg;
+#[cfg(feature = "bitstream")]
+use crate::reg_map::SIDECAR_MAINBOARD_BITSTREAM_CHECKSUM;
 
 pub mod fan_modules;
 pub mod front_io;
