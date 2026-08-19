@@ -26,6 +26,12 @@ fn snapshot() {
         Path::new("app/observer/rev-a-dev.toml"),
         Path::new("app/psc/rev-c-dev.toml"),
     ];
+    // self.generate_controllers()?;
+    // self.generate_devices()?;
+    // self.generate_muxes()?;
+    // self.generate_pins()?;
+    // self.generate_ports()?;
+    // self.generate_validation()?;
 
     // oh no, loading manifests doesn't work if we aren't at the base of the
     // repository.
