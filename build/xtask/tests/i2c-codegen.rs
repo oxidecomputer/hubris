@@ -10,7 +10,7 @@
 //! So, pragmatically, xtask is going to host the snapshot testing party for
 //! build-i2c to avoid churning a lot of other things.
 //!
-//! ALSO, note that the existence of this type is intended to be a temporary
+//! ALSO, note that the existence of this test is intended to be a temporary
 //! band-aid for a lack of any testing for `build-i2c`. The hope is to someday
 //! test this more directly using unit tests of analysis and much more targeted
 //! snapshot testing of generation behavior, which will allow for much smaller
