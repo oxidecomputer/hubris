@@ -24,7 +24,7 @@
 use std::path::Path;
 
 use anyhow::Result;
-use build_i2c::{CodegenOutputs, ConfigGenerator, Disposition};
+use build_i2c::{ConfigGenerator, Disposition};
 use insta::assert_snapshot;
 use tempfile::tempdir;
 
@@ -100,7 +100,7 @@ fn snapshot() {
             // Do code generation with the given function
             (f)(&g, &mut out).unwrap();
             // Write and format the file...
-            xtask::i2c_codegen::write_file(&out, &temp_out, false).unwrap();
+            xtask::i2c_codegen::write_file(&out, &temp_out, true).unwrap();
 
             // ...then read it back
             let contents = std::fs::read_to_string(temp_out).unwrap();

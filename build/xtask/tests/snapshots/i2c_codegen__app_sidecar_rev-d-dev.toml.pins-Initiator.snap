@@ -3,86 +3,76 @@ source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
 
-    #[allow(unused_imports)]
-    use drv_stm32xx_i2c::{I2cPins, I2cGpio};
+#[allow(unused_imports)]
+use drv_stm32xx_i2c::{I2cGpio, I2cPins};
 
-    pub fn pins() -> [I2cPins; 9] {
+pub fn pins() -> [I2cPins; 9] {
+    use drv_i2c_api::{Controller, PortIndex};
+    use drv_stm32xx_sys_api::{self as gpio_api, Alternate};
 
-        use drv_i2c_api::{Controller, PortIndex};
-        use drv_stm32xx_sys_api::{self as gpio_api, Alternate};
-
-        [
-            I2cPins {
-                controller: Controller::I2C1,
-                port: PortIndex(0),
-                scl: gpio_api::Port::B.pin(6),
-                sda: gpio_api::Port::B.pin(7),
-                function: Alternate::AF4,
-            },
-
-            I2cPins {
-                controller: Controller::I2C1,
-                port: PortIndex(1),
-                scl: gpio_api::Port::B.pin(8),
-                sda: gpio_api::Port::B.pin(9),
-                function: Alternate::AF4,
-            },
-
-            I2cPins {
-                controller: Controller::I2C2,
-                port: PortIndex(0),
-                scl: gpio_api::Port::F.pin(1),
-                sda: gpio_api::Port::F.pin(0),
-                function: Alternate::AF4,
-            },
-
-            I2cPins {
-                controller: Controller::I2C2,
-                port: PortIndex(1),
-                scl: gpio_api::Port::H.pin(4),
-                sda: gpio_api::Port::H.pin(5),
-                function: Alternate::AF4,
-            },
-
-            I2cPins {
-                controller: Controller::I2C3,
-                port: PortIndex(0),
-                scl: gpio_api::Port::A.pin(8),
-                sda: gpio_api::Port::C.pin(9),
-                function: Alternate::AF4,
-            },
-
-            I2cPins {
-                controller: Controller::I2C3,
-                port: PortIndex(1),
-                scl: gpio_api::Port::H.pin(7),
-                sda: gpio_api::Port::H.pin(8),
-                function: Alternate::AF4,
-            },
-
-            I2cPins {
-                controller: Controller::I2C4,
-                port: PortIndex(0),
-                scl: gpio_api::Port::D.pin(12),
-                sda: gpio_api::Port::D.pin(13),
-                function: Alternate::AF4,
-            },
-
-            I2cPins {
-                controller: Controller::I2C4,
-                port: PortIndex(1),
-                scl: gpio_api::Port::F.pin(14),
-                sda: gpio_api::Port::F.pin(15),
-                function: Alternate::AF4,
-            },
-
-            I2cPins {
-                controller: Controller::I2C4,
-                port: PortIndex(2),
-                scl: gpio_api::Port::H.pin(11),
-                sda: gpio_api::Port::H.pin(12),
-                function: Alternate::AF4,
-            },
-
-        ]
-    }
+    [
+        I2cPins {
+            controller: Controller::I2C1,
+            port: PortIndex(0),
+            scl: gpio_api::Port::B.pin(6),
+            sda: gpio_api::Port::B.pin(7),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C1,
+            port: PortIndex(1),
+            scl: gpio_api::Port::B.pin(8),
+            sda: gpio_api::Port::B.pin(9),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C2,
+            port: PortIndex(0),
+            scl: gpio_api::Port::F.pin(1),
+            sda: gpio_api::Port::F.pin(0),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C2,
+            port: PortIndex(1),
+            scl: gpio_api::Port::H.pin(4),
+            sda: gpio_api::Port::H.pin(5),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C3,
+            port: PortIndex(0),
+            scl: gpio_api::Port::A.pin(8),
+            sda: gpio_api::Port::C.pin(9),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C3,
+            port: PortIndex(1),
+            scl: gpio_api::Port::H.pin(7),
+            sda: gpio_api::Port::H.pin(8),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C4,
+            port: PortIndex(0),
+            scl: gpio_api::Port::D.pin(12),
+            sda: gpio_api::Port::D.pin(13),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C4,
+            port: PortIndex(1),
+            scl: gpio_api::Port::F.pin(14),
+            sda: gpio_api::Port::F.pin(15),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C4,
+            port: PortIndex(2),
+            scl: gpio_api::Port::H.pin(11),
+            sda: gpio_api::Port::H.pin(12),
+            function: Alternate::AF4,
+        },
+    ]
+}

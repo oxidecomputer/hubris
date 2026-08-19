@@ -3,576 +3,639 @@ source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
 
-    pub mod validation {
-        #[allow(unused_imports)]
-        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
-        #[allow(unused_imports)]
-        use drv_i2c_devices::Validate;
-        use userlib::TaskId;
+pub mod validation {
+    #[allow(unused_imports)]
+    use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+    #[allow(unused_imports)]
+    use drv_i2c_devices::Validate;
+    use userlib::TaskId;
 
-        #[allow(dead_code)]
-        pub enum I2cValidation {
-            RawReadOk,
-            Good,
-            Bad,
-        }
+    #[allow(dead_code)]
+    pub enum I2cValidation {
+        RawReadOk,
+        Good,
+        Bad,
+    }
 
-        #[allow(unused_variables)]
-        #[allow(clippy::match_single_binding)]
-        pub fn validate(
-            task: TaskId,
-            index: usize,
-        ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {
-            match index {
-                0 => {
-                    if drv_i2c_devices::adm127x::Adm127X::validate(&
+    #[allow(unused_variables)]
+    #[allow(clippy::match_single_binding)]
+    pub fn validate(
+        task: TaskId,
+        index: usize,
+    ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {
+        match index {
+            0 => {
+                if drv_i2c_devices::adm127x::Adm127X::validate(&
                         // Fan 1 hot swap controller
                         I2cDevice::new(task,
                             Controller::I2C1,
                             PortIndex(0),
                             None,
                             0x10,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                1 => {
-                    if drv_i2c_devices::max31790::Max31790::validate(&
+            }
+            1 => {
+                if drv_i2c_devices::max31790::Max31790::validate(
+                    &
                         // Fan 0/1 controller
                         I2cDevice::new(task,
                             Controller::I2C1,
                             PortIndex(0),
                             None,
                             0x23,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                2 => {
-                    if drv_i2c_devices::tmp117::Tmp117::validate(&
+            }
+            2 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
                         // North-northeast temperature sensor
                         I2cDevice::new(task,
                             Controller::I2C1,
                             PortIndex(0),
                             None,
                             0x49,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                3 => {
-                    if drv_i2c_devices::raa229618::Raa229618::validate(&
+            }
+            3 => {
+                if drv_i2c_devices::raa229618::Raa229618::validate(
+                    &
                         // TF2 VDD rail
                         I2cDevice::new(task,
                             Controller::I2C1,
                             PortIndex(0),
                             None,
                             0x63,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                4 => {
-                    // Northeast fan mux
-                    I2cDevice::new(task,
-                        Controller::I2C1,
-                        PortIndex(0),
-                        None,
-                        0x70,
-                    ).read::<u8>()?;
-                    Ok(I2cValidation::RawReadOk)
-                }
-                5 => {
-                    if drv_i2c_devices::adm127x::Adm127X::validate(&
+            }
+            4 => {
+                // Northeast fan mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x70,
+                )
+                .read::<u8>()?;
+                Ok(I2cValidation::RawReadOk)
+            }
+            5 => {
+                if drv_i2c_devices::adm127x::Adm127X::validate(&
                         // Fan 0 hot swap controller
                         I2cDevice::new(task,
                             Controller::I2C1,
                             PortIndex(1),
                             None,
                             0x13,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                6 => {
-                    if drv_i2c_devices::tps546b24a::Tps546B24A::validate(&
+            }
+            6 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
                         // V3P3_SYS rail
                         I2cDevice::new(task,
                             Controller::I2C1,
                             PortIndex(1),
                             None,
                             0x1a,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                7 => {
-                    if drv_i2c_devices::tmp117::Tmp117::validate(&
+            }
+            7 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
                         // Northeast temperature sensor
                         I2cDevice::new(task,
                             Controller::I2C1,
                             PortIndex(1),
                             None,
                             0x48,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                8 => {
-                    if drv_i2c_devices::adm127x::Adm127X::validate(&
+            }
+            8 => {
+                if drv_i2c_devices::adm127x::Adm127X::validate(&
                         // 54V hot swap controller
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(0),
                             None,
                             0x16,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                9 => {
-                    if drv_i2c_devices::tps546b24a::Tps546B24A::validate(&
+            }
+            9 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
                         // V5P0_SYS rail
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(0),
                             None,
                             0x19,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                10 => {
-                    if drv_i2c_devices::tmp117::Tmp117::validate(&
+            }
+            10 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
                         // North-northwest temperature sensor
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(0),
                             None,
                             0x48,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                11 => {
-                    if drv_i2c_devices::tmp451::Tmp451::validate(&
+            }
+            11 => {
+                if drv_i2c_devices::tmp451::Tmp451::validate(&
                         // TF2 temperature sensor
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(0),
                             None,
                             0x4c,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                12 => {
-                    if drv_i2c_devices::raa229618::Raa229618::validate(&
+            }
+            12 => {
+                if drv_i2c_devices::raa229618::Raa229618::validate(
+                    &
                         // TF2 VDDA rail
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(0),
                             None,
                             0x60,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                13 => {
-                    if drv_i2c_devices::bmr491::Bmr491::validate(&
+            }
+            13 => {
+                if drv_i2c_devices::bmr491::Bmr491::validate(&
                         // Intermediate bus converter
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(0),
                             None,
                             0x67,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                14 => {
-                    if drv_i2c_devices::adm127x::Adm127X::validate(&
+            }
+            14 => {
+                if drv_i2c_devices::adm127x::Adm127X::validate(&
                         // Fan 2 hot swap controller
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(1),
                             None,
                             0x13,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                15 => {
-                    if drv_i2c_devices::adm127x::Adm127X::validate(&
+            }
+            15 => {
+                if drv_i2c_devices::adm127x::Adm127X::validate(&
                         // Fan 3 hot swap controller
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(1),
                             None,
                             0x10,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                16 => {
-                    if drv_i2c_devices::tmp117::Tmp117::validate(&
+            }
+            16 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
                         // Northwest temperature sensor
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(1),
                             None,
                             0x49,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                17 => {
-                    if drv_i2c_devices::max31790::Max31790::validate(&
+            }
+            17 => {
+                if drv_i2c_devices::max31790::Max31790::validate(
+                    &
                         // Fan 2/3 controller
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(1),
                             None,
                             0x20,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                18 => {
-                    // Northwest fan mux
-                    I2cDevice::new(task,
-                        Controller::I2C3,
-                        PortIndex(1),
-                        None,
-                        0x70,
-                    ).read::<u8>()?;
-                    Ok(I2cValidation::RawReadOk)
-                }
-                19 => {
-                    if drv_i2c_devices::isl68224::Isl68224::validate(&
+            }
+            18 => {
+                // Northwest fan mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x70,
+                )
+                .read::<u8>()?;
+                Ok(I2cValidation::RawReadOk)
+            }
+            19 => {
+                if drv_i2c_devices::isl68224::Isl68224::validate(
+                    &
                         // VDD[A]18 rail
                         I2cDevice::new(task,
                             Controller::I2C4,
                             PortIndex(1),
                             None,
                             0x62,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                20 => {
-                    if drv_i2c_devices::ltc4282::Ltc4282::validate(&
+            }
+            20 => {
+                if drv_i2c_devices::ltc4282::Ltc4282::validate(&
                         // Front I/O hotswap controller
                         I2cDevice::new(task,
                             Controller::I2C4,
                             PortIndex(1),
                             None,
                             0x54,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                21 => {
-                    // Clock generator
-                    I2cDevice::new(task,
-                        Controller::I2C4,
-                        PortIndex(1),
-                        None,
-                        0x58,
-                    ).read::<u8>()?;
-                    Ok(I2cValidation::RawReadOk)
-                }
-                22 => {
-                    if drv_i2c_devices::tmp117::Tmp117::validate(&
+            }
+            21 => {
+                // Clock generator
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x58,
+                )
+                .read::<u8>()?;
+                Ok(I2cValidation::RawReadOk)
+            }
+            22 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
                         // South temperature sensor
                         I2cDevice::new(task,
                             Controller::I2C4,
                             PortIndex(1),
                             None,
                             0x4a,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                23 => {
-                    if drv_i2c_devices::tmp117::Tmp117::validate(&
+            }
+            23 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
                         // Southeast temperature sensor
                         I2cDevice::new(task,
                             Controller::I2C4,
                             PortIndex(1),
                             None,
                             0x48,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                24 => {
-                    if drv_i2c_devices::tmp117::Tmp117::validate(&
+            }
+            24 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
                         // Southwest temperature sensor
                         I2cDevice::new(task,
                             Controller::I2C4,
                             PortIndex(1),
                             None,
                             0x49,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                25 => {
-                    if drv_i2c_devices::tps546b24a::Tps546B24A::validate(&
+            }
+            25 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
                         // V1P0_MGMT rail
                         I2cDevice::new(task,
                             Controller::I2C4,
                             PortIndex(2),
                             None,
                             0x1b,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                26 => {
-                    if drv_i2c_devices::tps546b24a::Tps546B24A::validate(&
+            }
+            26 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
                         // V1P8_SYS rail
                         I2cDevice::new(task,
                             Controller::I2C4,
                             PortIndex(2),
                             None,
                             0x1c,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                27 => {
-                    if drv_i2c_devices::tmp451::Tmp451::validate(&
+            }
+            27 => {
+                if drv_i2c_devices::tmp451::Tmp451::validate(&
                         // VSC7448 temperature sensor
                         I2cDevice::new(task,
                             Controller::I2C4,
                             PortIndex(2),
                             None,
                             0x4c,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                28 => {
-                    if drv_i2c_devices::at24csw080::At24Csw080::validate(&
+            }
+            28 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
                         // Mainboard FRUID
                         I2cDevice::new(task,
                             Controller::I2C4,
                             PortIndex(0),
                             None,
                             0x50,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                29 => {
-                    if drv_i2c_devices::at24csw080::At24Csw080::validate(&
+            }
+            29 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
                         // Fan 0 FRUID
                         I2cDevice::new(task,
                             Controller::I2C1,
                             PortIndex(0),
                             Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
                             0x50,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                30 => {
-                    if drv_i2c_devices::at24csw080::At24Csw080::validate(&
+            }
+            30 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
                         // Fan 1 FRUID
                         I2cDevice::new(task,
                             Controller::I2C1,
                             PortIndex(0),
                             Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
                             0x50,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                31 => {
-                    if drv_i2c_devices::at24csw080::At24Csw080::validate(&
+            }
+            31 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
                         // Fan 2 FRUID
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(1),
                             Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
                             0x50,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                32 => {
-                    if drv_i2c_devices::at24csw080::At24Csw080::validate(&
+            }
+            32 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
                         // Fan 3 FRUID
                         I2cDevice::new(task,
                             Controller::I2C3,
                             PortIndex(1),
                             Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
                             0x50,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                33 => {
-                    if drv_i2c_devices::at24csw080::At24Csw080::validate(&
+            }
+            33 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
                         // Front IO board FRUID
                         I2cDevice::new(task,
                             Controller::I2C2,
                             PortIndex(0),
                             None,
                             0x50,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                34 => {
-                    if drv_i2c_devices::pca9538::Pca9538::validate(&
+            }
+            34 => {
+                if drv_i2c_devices::pca9538::Pca9538::validate(&
                         // Front IO GPIO expander
                         I2cDevice::new(task,
                             Controller::I2C2,
                             PortIndex(0),
                             None,
                             0x73,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                35 => {
-                    if drv_i2c_devices::pca9956b::Pca9956B::validate(&
+            }
+            35 => {
+                if drv_i2c_devices::pca9956b::Pca9956B::validate(
+                    &
                         // Front IO LED driver (left)
                         I2cDevice::new(task,
                             Controller::I2C2,
                             PortIndex(0),
                             None,
                             0xa,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                36 => {
-                    if drv_i2c_devices::pca9956b::Pca9956B::validate(&
+            }
+            36 => {
+                if drv_i2c_devices::pca9956b::Pca9956B::validate(
+                    &
                         // Front IO LED driver (right)
                         I2cDevice::new(task,
                             Controller::I2C2,
                             PortIndex(0),
                             None,
                             0xb,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                37 => {
-                    if drv_i2c_devices::tps546b24a::Tps546B24A::validate(&
+            }
+            37 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
                         // Front IO V3P3_SYS_A2 rail
                         I2cDevice::new(task,
                             Controller::I2C2,
                             PortIndex(0),
                             None,
                             0x1b,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                38 => {
-                    if drv_i2c_devices::tps546b24a::Tps546B24A::validate(&
+            }
+            38 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
                         // Front IO V3P3_QSFP0_A0 rail
                         I2cDevice::new(task,
                             Controller::I2C2,
                             PortIndex(0),
                             None,
                             0x19,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                39 => {
-                    if drv_i2c_devices::tps546b24a::Tps546B24A::validate(&
+            }
+            39 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
                         // Front IO V3P3_QSFP1_A0 rail
                         I2cDevice::new(task,
                             Controller::I2C2,
                             PortIndex(0),
                             None,
                             0x1a,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                _ => Err(drv_i2c_api::ResponseCode::BadArg)
             }
+            _ => Err(drv_i2c_api::ResponseCode::BadArg),
         }
     }
+}

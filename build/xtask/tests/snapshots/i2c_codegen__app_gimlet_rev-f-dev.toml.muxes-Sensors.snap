@@ -3,57 +3,57 @@ source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
 
-    #[allow(dead_code)]
-    pub const NMUXEDBUSES: usize = 2;
+#[allow(dead_code)]
+pub const NMUXEDBUSES: usize = 2;
 
-    use drv_stm32xx_i2c::I2cMux;
+use drv_stm32xx_i2c::I2cMux;
 
-    pub fn muxes() -> [I2cMux<'static>; 4] {
-        use drv_i2c_api::{Controller, PortIndex, Mux};
+pub fn muxes() -> [I2cMux<'static>; 4] {
+    use drv_i2c_api::{Controller, Mux, PortIndex};
 
-        #[allow(unused_imports)]
-        use drv_stm32xx_sys_api::{self as gpio_api, Alternate};
+    #[allow(unused_imports)]
+    use drv_stm32xx_sys_api::{self as gpio_api, Alternate};
 
-        [
-            I2cMux {
-                controller: Controller::I2C2,
-                port: PortIndex(0),
-                id: Mux::M1,
-                driver: &drv_stm32xx_i2c::pca9545::Pca9545,
-                nreset: Some(I2cGpio {
-                    gpio_pins: gpio_api::Port::E.pin(15),
-                }),
-                address: 0x73,
-            },
-            I2cMux {
-                controller: Controller::I2C2,
-                port: PortIndex(1),
-                id: Mux::M1,
-                driver: &drv_stm32xx_i2c::pca9545::Pca9545,
-                nreset: Some(I2cGpio {
-                    gpio_pins: gpio_api::Port::E.pin(12),
-                }),
-                address: 0x70,
-            },
-            I2cMux {
-                controller: Controller::I2C2,
-                port: PortIndex(1),
-                id: Mux::M2,
-                driver: &drv_stm32xx_i2c::pca9545::Pca9545,
-                nreset: Some(I2cGpio {
-                    gpio_pins: gpio_api::Port::E.pin(14),
-                }),
-                address: 0x71,
-            },
-            I2cMux {
-                controller: Controller::I2C2,
-                port: PortIndex(1),
-                id: Mux::M3,
-                driver: &drv_stm32xx_i2c::pca9545::Pca9545,
-                nreset: Some(I2cGpio {
-                    gpio_pins: gpio_api::Port::E.pin(13),
-                }),
-                address: 0x72,
-            },
-        ]
-    }
+    [
+        I2cMux {
+            controller: Controller::I2C2,
+            port: PortIndex(0),
+            id: Mux::M1,
+            driver: &drv_stm32xx_i2c::pca9545::Pca9545,
+            nreset: Some(I2cGpio {
+                gpio_pins: gpio_api::Port::E.pin(15),
+            }),
+            address: 0x73,
+        },
+        I2cMux {
+            controller: Controller::I2C2,
+            port: PortIndex(1),
+            id: Mux::M1,
+            driver: &drv_stm32xx_i2c::pca9545::Pca9545,
+            nreset: Some(I2cGpio {
+                gpio_pins: gpio_api::Port::E.pin(12),
+            }),
+            address: 0x70,
+        },
+        I2cMux {
+            controller: Controller::I2C2,
+            port: PortIndex(1),
+            id: Mux::M2,
+            driver: &drv_stm32xx_i2c::pca9545::Pca9545,
+            nreset: Some(I2cGpio {
+                gpio_pins: gpio_api::Port::E.pin(14),
+            }),
+            address: 0x71,
+        },
+        I2cMux {
+            controller: Controller::I2C2,
+            port: PortIndex(1),
+            id: Mux::M3,
+            driver: &drv_stm32xx_i2c::pca9545::Pca9545,
+            nreset: Some(I2cGpio {
+                gpio_pins: gpio_api::Port::E.pin(13),
+            }),
+            address: 0x72,
+        },
+    ]
+}

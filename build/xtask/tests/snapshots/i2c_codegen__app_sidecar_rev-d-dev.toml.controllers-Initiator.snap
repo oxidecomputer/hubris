@@ -3,41 +3,39 @@ source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
 
-    #[allow(dead_code)]
-    pub const NCONTROLLERS: usize = 4;
+#[allow(dead_code)]
+pub const NCONTROLLERS: usize = 4;
 
-    use drv_stm32xx_i2c::I2cController;
+use drv_stm32xx_i2c::I2cController;
 
-    pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {
+pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {
+    use drv_i2c_api::Controller;
+    use drv_stm32xx_sys_api::Peripheral;
 
-        use drv_stm32xx_sys_api::Peripheral;
-        use drv_i2c_api::Controller;
-
-
-        [
-            I2cController {
-                controller: Controller::I2C1,
-                peripheral: Peripheral::I2c1,
-                notification: crate::notifications::I2C1_IRQ_MASK,
-                registers: unsafe { &*device::I2C1::ptr() },
-            },
-            I2cController {
-                controller: Controller::I2C2,
-                peripheral: Peripheral::I2c2,
-                notification: crate::notifications::I2C2_IRQ_MASK,
-                registers: unsafe { &*device::I2C2::ptr() },
-            },
-            I2cController {
-                controller: Controller::I2C3,
-                peripheral: Peripheral::I2c3,
-                notification: crate::notifications::I2C3_IRQ_MASK,
-                registers: unsafe { &*device::I2C3::ptr() },
-            },
-            I2cController {
-                controller: Controller::I2C4,
-                peripheral: Peripheral::I2c4,
-                notification: crate::notifications::I2C4_IRQ_MASK,
-                registers: unsafe { &*device::I2C4::ptr() },
-            },
-        ]
-    }
+    [
+        I2cController {
+            controller: Controller::I2C1,
+            peripheral: Peripheral::I2c1,
+            notification: crate::notifications::I2C1_IRQ_MASK,
+            registers: unsafe { &*device::I2C1::ptr() },
+        },
+        I2cController {
+            controller: Controller::I2C2,
+            peripheral: Peripheral::I2c2,
+            notification: crate::notifications::I2C2_IRQ_MASK,
+            registers: unsafe { &*device::I2C2::ptr() },
+        },
+        I2cController {
+            controller: Controller::I2C3,
+            peripheral: Peripheral::I2c3,
+            notification: crate::notifications::I2C3_IRQ_MASK,
+            registers: unsafe { &*device::I2C3::ptr() },
+        },
+        I2cController {
+            controller: Controller::I2C4,
+            peripheral: Peripheral::I2c4,
+            notification: crate::notifications::I2C4_IRQ_MASK,
+            registers: unsafe { &*device::I2C4::ptr() },
+        },
+    ]
+}

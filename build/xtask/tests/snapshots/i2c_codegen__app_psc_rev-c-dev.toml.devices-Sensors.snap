@@ -3,742 +3,443 @@ source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
 
-    pub mod devices {
-        #[allow(unused_imports)]
-        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
-        #[allow(unused_imports)]
-        use userlib::TaskId;
+pub mod devices {
+    #[allow(unused_imports)]
+    use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+    #[allow(unused_imports)]
+    use userlib::TaskId;
 
-        #[allow(dead_code)]
-        #[allow(clippy::match_single_binding)]
-        pub fn lookup_controller(index: usize) -> Option<Controller> {
-            match index {
-                0..=1 => Some(Controller::I2C2),
-                2..=13 => Some(Controller::I2C3),
-                _ => None
-            }
-        }
-
-        #[allow(dead_code)]
-        #[allow(clippy::match_single_binding)]
-        pub fn lookup_port(index: usize) -> Option<PortIndex> {
-            match index {
-                0..=13 => Some(PortIndex(0)),
-                _ => None
-            }
-        }
-
-        #[allow(dead_code)]
-        pub fn at24csw080(task: TaskId) -> [I2cDevice; 1] {
-            [
-                // FRU ID EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x50,
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02(task: TaskId) -> [I2cDevice; 6] {
-            [
-                // PSU 0 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x50,
-                ),
-                // PSU 1 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x51,
-                ),
-                // PSU 2 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x52,
-                ),
-                // PSU 3 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x53,
-                ),
-                // PSU 4 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x54,
-                ),
-                // PSU 5 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x55,
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68(task: TaskId) -> [I2cDevice; 6] {
-            [
-                // PSU 0 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x58,
-                ),
-                // PSU 1 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x59,
-                ),
-                // PSU 2 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5a,
-                ),
-                // PSU 3 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5b,
-                ),
-                // PSU 4 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5c,
-                ),
-                // PSU 5 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5d,
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn tmp116(task: TaskId) -> [I2cDevice; 1] {
-            [
-                // Temperature sensor
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x48,
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn at24csw080_local(task: TaskId) -> [I2cDevice; 1] {
-            [
-                // FRU ID EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x50,
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_backplane(task: TaskId) -> [I2cDevice; 6] {
-            [
-                // PSU 0 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x50,
-                ),
-                // PSU 1 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x51,
-                ),
-                // PSU 2 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x52,
-                ),
-                // PSU 3 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x53,
-                ),
-                // PSU 4 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x54,
-                ),
-                // PSU 5 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x55,
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_backplane(task: TaskId) -> [I2cDevice; 6] {
-            [
-                // PSU 0 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x58,
-                ),
-                // PSU 1 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x59,
-                ),
-                // PSU 2 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5a,
-                ),
-                // PSU 3 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5b,
-                ),
-                // PSU 4 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5c,
-                ),
-                // PSU 5 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5d,
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn tmp116_local(task: TaskId) -> [I2cDevice; 1] {
-            [
-                // Temperature sensor
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x48,
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn at24csw080_local_vpd(task: TaskId) -> I2cDevice {
-                // FRU ID EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x50,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu0eeprom(task: TaskId) -> I2cDevice {
-                // PSU 0 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x50,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu1eeprom(task: TaskId) -> I2cDevice {
-                // PSU 1 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x51,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu2eeprom(task: TaskId) -> I2cDevice {
-                // PSU 2 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x52,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu3eeprom(task: TaskId) -> I2cDevice {
-                // PSU 3 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x53,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu4eeprom(task: TaskId) -> I2cDevice {
-                // PSU 4 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x54,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu5eeprom(task: TaskId) -> I2cDevice {
-                // PSU 5 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x55,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu0mcu(task: TaskId) -> I2cDevice {
-                // PSU 0 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x58,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu1mcu(task: TaskId) -> I2cDevice {
-                // PSU 1 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x59,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu2mcu(task: TaskId) -> I2cDevice {
-                // PSU 2 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5a,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu3mcu(task: TaskId) -> I2cDevice {
-                // PSU 3 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5b,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu4mcu(task: TaskId) -> I2cDevice {
-                // PSU 4 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5c,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu5mcu(task: TaskId) -> I2cDevice {
-                // PSU 5 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5d,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn at24csw080_u32(task: TaskId) -> I2cDevice {
-                // FRU ID EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x50,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu0_id(task: TaskId) -> I2cDevice {
-                // PSU 0 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x50,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu1_id(task: TaskId) -> I2cDevice {
-                // PSU 1 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x51,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu2_id(task: TaskId) -> I2cDevice {
-                // PSU 2 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x52,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu3_id(task: TaskId) -> I2cDevice {
-                // PSU 3 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x53,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu4_id(task: TaskId) -> I2cDevice {
-                // PSU 4 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x54,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn m24c02_psu5_id(task: TaskId) -> I2cDevice {
-                // PSU 5 EEPROM
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x55,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu0(task: TaskId) -> I2cDevice {
-                // PSU 0 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x58,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu1(task: TaskId) -> I2cDevice {
-                // PSU 1 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x59,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu2(task: TaskId) -> I2cDevice {
-                // PSU 2 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5a,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu3(task: TaskId) -> I2cDevice {
-                // PSU 3 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5b,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu4(task: TaskId) -> I2cDevice {
-                // PSU 4 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5c,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn mwocp68_psu5(task: TaskId) -> I2cDevice {
-                // PSU 5 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5d,
-                )
-        }
-
-        #[allow(dead_code)]
-        pub fn tmp116_u31(task: TaskId) -> I2cDevice {
-                // Temperature sensor
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x48,
-                )
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
+    pub fn lookup_controller(index: usize) -> Option<Controller> {
+        match index {
+            0..=1 => Some(Controller::I2C2),
+            2..=13 => Some(Controller::I2C3),
+            _ => None,
         }
     }
 
-    pub mod pmbus {
-        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
-        use userlib::TaskId;
-
-        #[allow(dead_code)]
-        pub fn v12_psu0(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 0 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x58,
-                ), Some(1))
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
+    pub fn lookup_port(index: usize) -> Option<PortIndex> {
+        match index {
+            0..=13 => Some(PortIndex(0)),
+            _ => None,
         }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V12_PSU0_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v12_psu1(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 1 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x59,
-                ), Some(1))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V12_PSU1_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v12_psu2(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 2 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5a,
-                ), Some(1))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V12_PSU2_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v12_psu3(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 3 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5b,
-                ), Some(1))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V12_PSU3_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v12_psu4(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 4 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5c,
-                ), Some(1))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V12_PSU4_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v12_psu5(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 5 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5d,
-                ), Some(1))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V12_PSU5_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v54_psu0(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 0 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x58,
-                ), Some(0))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V54_PSU0_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v54_psu1(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 1 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x59,
-                ), Some(0))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V54_PSU1_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v54_psu2(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 2 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5a,
-                ), Some(0))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V54_PSU2_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v54_psu3(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 3 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5b,
-                ), Some(0))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V54_PSU3_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v54_psu4(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 4 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5c,
-                ), Some(0))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V54_PSU4_PHASES: Option<&'static [u8]> = None;
-
-        #[allow(dead_code)]
-        pub fn v54_psu5(task: TaskId) -> (I2cDevice, Option<u8>) {(
-                // PSU 5 MCU
-                I2cDevice::new(task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5d,
-                ), Some(0))
-        }
-
-        #[allow(dead_code)]
-        pub const MWOCP68_V54_PSU5_PHASES: Option<&'static [u8]> = None;
     }
+
+    #[allow(dead_code)]
+    pub fn at24csw080(task: TaskId) -> [I2cDevice; 1] {
+        [
+            // FRU ID EEPROM
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x50),
+        ]
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02(task: TaskId) -> [I2cDevice; 6] {
+        [
+            // PSU 0 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x50),
+            // PSU 1 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x51),
+            // PSU 2 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x52),
+            // PSU 3 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x53),
+            // PSU 4 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x54),
+            // PSU 5 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x55),
+        ]
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68(task: TaskId) -> [I2cDevice; 6] {
+        [
+            // PSU 0 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58),
+            // PSU 1 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59),
+            // PSU 2 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a),
+            // PSU 3 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b),
+            // PSU 4 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c),
+            // PSU 5 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d),
+        ]
+    }
+
+    #[allow(dead_code)]
+    pub fn tmp116(task: TaskId) -> [I2cDevice; 1] {
+        [
+            // Temperature sensor
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x48),
+        ]
+    }
+
+    #[allow(dead_code)]
+    pub fn at24csw080_local(task: TaskId) -> [I2cDevice; 1] {
+        [
+            // FRU ID EEPROM
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x50),
+        ]
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_backplane(task: TaskId) -> [I2cDevice; 6] {
+        [
+            // PSU 0 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x50),
+            // PSU 1 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x51),
+            // PSU 2 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x52),
+            // PSU 3 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x53),
+            // PSU 4 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x54),
+            // PSU 5 EEPROM
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x55),
+        ]
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_backplane(task: TaskId) -> [I2cDevice; 6] {
+        [
+            // PSU 0 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58),
+            // PSU 1 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59),
+            // PSU 2 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a),
+            // PSU 3 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b),
+            // PSU 4 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c),
+            // PSU 5 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d),
+        ]
+    }
+
+    #[allow(dead_code)]
+    pub fn tmp116_local(task: TaskId) -> [I2cDevice; 1] {
+        [
+            // Temperature sensor
+            I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x48),
+        ]
+    }
+
+    #[allow(dead_code)]
+    pub fn at24csw080_local_vpd(task: TaskId) -> I2cDevice {
+        // FRU ID EEPROM
+        I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x50)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu0eeprom(task: TaskId) -> I2cDevice {
+        // PSU 0 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x50)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu1eeprom(task: TaskId) -> I2cDevice {
+        // PSU 1 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x51)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu2eeprom(task: TaskId) -> I2cDevice {
+        // PSU 2 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x52)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu3eeprom(task: TaskId) -> I2cDevice {
+        // PSU 3 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x53)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu4eeprom(task: TaskId) -> I2cDevice {
+        // PSU 4 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x54)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu5eeprom(task: TaskId) -> I2cDevice {
+        // PSU 5 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x55)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu0mcu(task: TaskId) -> I2cDevice {
+        // PSU 0 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu1mcu(task: TaskId) -> I2cDevice {
+        // PSU 1 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu2mcu(task: TaskId) -> I2cDevice {
+        // PSU 2 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu3mcu(task: TaskId) -> I2cDevice {
+        // PSU 3 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu4mcu(task: TaskId) -> I2cDevice {
+        // PSU 4 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu5mcu(task: TaskId) -> I2cDevice {
+        // PSU 5 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d)
+    }
+
+    #[allow(dead_code)]
+    pub fn at24csw080_u32(task: TaskId) -> I2cDevice {
+        // FRU ID EEPROM
+        I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x50)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu0_id(task: TaskId) -> I2cDevice {
+        // PSU 0 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x50)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu1_id(task: TaskId) -> I2cDevice {
+        // PSU 1 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x51)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu2_id(task: TaskId) -> I2cDevice {
+        // PSU 2 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x52)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu3_id(task: TaskId) -> I2cDevice {
+        // PSU 3 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x53)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu4_id(task: TaskId) -> I2cDevice {
+        // PSU 4 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x54)
+    }
+
+    #[allow(dead_code)]
+    pub fn m24c02_psu5_id(task: TaskId) -> I2cDevice {
+        // PSU 5 EEPROM
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x55)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu0(task: TaskId) -> I2cDevice {
+        // PSU 0 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu1(task: TaskId) -> I2cDevice {
+        // PSU 1 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu2(task: TaskId) -> I2cDevice {
+        // PSU 2 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu3(task: TaskId) -> I2cDevice {
+        // PSU 3 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu4(task: TaskId) -> I2cDevice {
+        // PSU 4 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c)
+    }
+
+    #[allow(dead_code)]
+    pub fn mwocp68_psu5(task: TaskId) -> I2cDevice {
+        // PSU 5 MCU
+        I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d)
+    }
+
+    #[allow(dead_code)]
+    pub fn tmp116_u31(task: TaskId) -> I2cDevice {
+        // Temperature sensor
+        I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x48)
+    }
+}
+
+pub mod pmbus {
+    use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+    use userlib::TaskId;
+
+    #[allow(dead_code)]
+    pub fn v12_psu0(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 0 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58),
+            Some(1),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V12_PSU0_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v12_psu1(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 1 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59),
+            Some(1),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V12_PSU1_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v12_psu2(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 2 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a),
+            Some(1),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V12_PSU2_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v12_psu3(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 3 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b),
+            Some(1),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V12_PSU3_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v12_psu4(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 4 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c),
+            Some(1),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V12_PSU4_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v12_psu5(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 5 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d),
+            Some(1),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V12_PSU5_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v54_psu0(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 0 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58),
+            Some(0),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V54_PSU0_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v54_psu1(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 1 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59),
+            Some(0),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V54_PSU1_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v54_psu2(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 2 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a),
+            Some(0),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V54_PSU2_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v54_psu3(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 3 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b),
+            Some(0),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V54_PSU3_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v54_psu4(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 4 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c),
+            Some(0),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V54_PSU4_PHASES: Option<&'static [u8]> = None;
+
+    #[allow(dead_code)]
+    pub fn v54_psu5(task: TaskId) -> (I2cDevice, Option<u8>) {
+        (
+            // PSU 5 MCU
+            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d),
+            Some(0),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub const MWOCP68_V54_PSU5_PHASES: Option<&'static [u8]> = None;
+}

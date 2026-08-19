@@ -3,12 +3,11 @@ source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
 
-    #[allow(dead_code)]
-    pub const NMUXEDBUSES: usize = 0;
+#[allow(dead_code)]
+pub const NMUXEDBUSES: usize = 0;
 
-    use drv_stm32xx_i2c::I2cMux;
+use drv_stm32xx_i2c::I2cMux;
 
-    pub fn muxes() -> [I2cMux<'static>; 0] {
-        [
-        ]
-    }
+pub fn muxes() -> [I2cMux<'static>; 0] {
+    []
+}
