@@ -153,6 +153,9 @@ jobs:
               -o Debug::Acquire::https=true \
               -o Debug::Acquire::http=true \
               -o Debug::pkgAcquire=true \
+              -o Acquire::http::Timeout=30 \
+              -o Acquire::https::Timeout=30 \
+              -o Acquire::Retries=3 \
               update
           sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           for image in ${images}; do
