@@ -146,5 +146,4 @@ pub const TOFINO_DEBUG_REGS: [(DirectBarSegment, TofinoPcieRegs); 12] = [
     ),
 ];
 
-use crate as drv_sidecar_seq_api;
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
