@@ -61,6 +61,10 @@ jobs:
       - scheduler
     name: "${{ matrix.job_name }}"
     runs-on: ${{ inputs.os }}
+    # As of 2026-08-19, build jobs complete in less than 15m or so, perhaps a bit longer if the
+    # cache is not available. Let's wait roughly 3x that before giving up, instead of waiting the
+    # default of 360 minutes (6 hours) if something does decide to lock up.
+    timeout-minutes: 45
     permissions:
       contents: read
       id-token: write
@@ -127,8 +131,14 @@ jobs:
 
       - name: Test Humility manifest
         if: runner.os == 'Linux'
+        # As of 2026-08-19, we have seen CI hanging at this step, causing us to wait the entire
+        # default timeout period of 360 minutes, or 6 hours. This is obnoxious. Normally, this step
+        # completes in ~seconds. As a hack, we're setting the timeout for this to 5 minutes, which
+        # is really really more than we need, but also much less than 6 hours.
+        timeout-minutes: 5
         run: |
-          sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           for image in ${images}; do
               target/release/humility -a "target/${name}/dist/${image}/build-${name}-image-${image}.zip" manifest;
           done
