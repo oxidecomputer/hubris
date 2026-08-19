@@ -87,8 +87,7 @@ jobs:
 
       - name: Debug disk availability (start)
         if: runner.os == 'Linux'
-        run: |
-          df -ah
+        run: df -ah
 
       - name: Install Rust toolchain
         run: |
@@ -126,8 +125,7 @@ jobs:
       # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
       - name: Debug disk usage (post-dist)
         if: runner.os == 'Linux'
-        run: |
-          du -sh ./target
+        run: du -sh ./target
 
       - name: Fetch Humility
         if: runner.os == 'Linux'
@@ -141,6 +139,19 @@ jobs:
           # job's GitHub token to download, granting us higher rate limits.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Workaround for https://github.com/actions/runner-images/issues/14594
+      # From: https://github.com/cilium/tetragon/pull/4894/changes
+      - name: Remove slow Azure apt mirrors
+        if: runner.os == 'Linux'
+        run: |
+          # The default 'azure.archive.ubuntu.com' mirrors can be really slow.
+          # Removing azure.archive will pioritize the official Ubuntu mirrors.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i '/azure.archive.ubuntu.com/d' /etc/apt/apt-mirrors.txt
+            echo "Using mirrors:"
+            cat /etc/apt/apt-mirrors.txt
+          fi
+
       - name: Test Humility manifest
         if: runner.os == 'Linux'
         # As of 2026-08-19, we have seen CI hanging at this step, causing us to wait the entire
@@ -149,11 +160,7 @@ jobs:
         # is really really more than we need, but also much less than 6 hours.
         timeout-minutes: 5
         run: |
-          sudo apt-get \
-              -o Acquire::http::Timeout=30 \
-              -o Acquire::https::Timeout=30 \
-              -o Acquire::Retries=3 \
-              update
+          sudo apt-get update
           sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           for image in ${images}; do
               target/release/humility -a "target/${name}/dist/${image}/build-${name}-image-${image}.zip" manifest;
@@ -169,13 +176,11 @@ jobs:
 
       - name: Debug disk usage (post-clippy)
         if: runner.os == 'Linux'
-        run: |
-          du -sh ./target
+        run: du -sh ./target
 
       - name: Debug disk availability (end)
         if: runner.os == 'Linux'
-        run: |
-          df -ah
+        run: df -ah
 
       - name: Attestation
         uses: actions/attest-build-provenance@v1
