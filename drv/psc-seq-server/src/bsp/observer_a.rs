@@ -44,12 +44,12 @@ pub type SummonFn = fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
 
 /// In order to get the PMBus devices by PSU index, we need a little lookup table.
 pub const PSU_PMBUS_DEVS: [SummonFn; PSU_COUNT] = [
-    i2c_config::pmbus::v50_main_psu0,
-    i2c_config::pmbus::v50_main_psu1,
-    i2c_config::pmbus::v50_main_psu2,
-    i2c_config::pmbus::v50_main_psu3,
-    i2c_config::pmbus::v50_main_psu4,
-    i2c_config::pmbus::v50_main_psu5,
+    i2c_config::pmbus::v50_psu0,
+    i2c_config::pmbus::v50_psu1,
+    i2c_config::pmbus::v50_psu2,
+    i2c_config::pmbus::v50_psu3,
+    i2c_config::pmbus::v50_psu4,
+    i2c_config::pmbus::v50_psu5,
 ];
 
 /// Checks whether each PSU is enabled, using PMBus. Note that the MWOCP67 PSUs

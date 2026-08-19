@@ -440,10 +440,14 @@ name = "psu0mcu"
 address = 0b1011_000
 device = "mwocp67"
 description = "PSU 0 MCU"
-# TODO it's not clear what rails the mwocp67 has or how they are paged.
-# https://github.com/oxidecomputer/hubris/issues/2410
-power = { rails = [ "V50_MAIN_PSU0", "V50_AUX_PSU0" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
-sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+# The MWOCP67 PSU has two rails: a 50V main rail and a 12V auxiliary rail that
+# powers the Observer PSC even when the main rail is off. However, only the main
+# rail is accessible over PMBus. The PSU does allow you to set the page to 0 or
+# 1, but this has no effect; in either case, commands like READ_VOUT just report
+# readings for the main rail, and Murata has confirmed that this is the intended
+# behavior. Therefore, we only define the main rail here.
+power = { rails = [ "V50_PSU0" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 1, input-current = 1, voltage = 1, current = 1, temperature = 5, speed = 1 }
 refdes = "PSU0"
 
 [[config.i2c.devices]]
@@ -460,10 +464,8 @@ name = "psu1mcu"
 address = 0b1011_001
 device = "mwocp67"
 description = "PSU 1 MCU"
-# TODO it's not clear what rails the mwocp67 has or how they are paged.
-# https://github.com/oxidecomputer/hubris/issues/2410
-power = { rails = [ "V50_MAIN_PSU1", "V50_AUX_PSU1" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
-sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+power = { rails = [ "V50_PSU1"], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 1, input-current = 1, voltage = 1, current = 1, temperature = 5, speed = 1 }
 refdes = "PSU1"
 
 [[config.i2c.devices]]
@@ -480,10 +482,8 @@ name = "psu2mcu"
 address = 0b1011_010
 device = "mwocp67"
 description = "PSU 2 MCU"
-# TODO it's not clear what rails the mwocp67 has or how they are paged.
-# https://github.com/oxidecomputer/hubris/issues/2410
-power = { rails = [ "V50_MAIN_PSU2", "V50_AUX_PSU2" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
-sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+power = { rails = [ "V50_PSU2"], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 1, input-current = 1, voltage = 1, current = 1, temperature = 5, speed = 1 }
 refdes = "PSU2"
 
 [[config.i2c.devices]]
@@ -500,10 +500,8 @@ name = "psu3mcu"
 address = 0b1011_011
 device = "mwocp67"
 description = "PSU 3 MCU"
-# TODO it's not clear what rails the mwocp67 has or how they are paged.
-# https://github.com/oxidecomputer/hubris/issues/2410
-power = { rails = [ "V50_MAIN_PSU3", "V50_AUX_PSU3" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
-sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+power = { rails = [ "V50_PSU3"], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 1, input-current = 1, voltage = 1, current = 1, temperature = 5, speed = 1 }
 refdes = "PSU3"
 
 [[config.i2c.devices]]
@@ -520,10 +518,8 @@ name = "psu4mcu"
 address = 0b1011_100
 device = "mwocp67"
 description = "PSU 4 MCU"
-# TODO it's not clear what rails the mwocp67 has or how they are paged.
-# https://github.com/oxidecomputer/hubris/issues/2410
-power = { rails = [ "V50_MAIN_PSU4", "V50_AUX_PSU4" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
-sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+power = { rails = [ "V50_PSU4"], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 1, input-current = 1, voltage = 1, current = 1, temperature = 5, speed = 1 }
 refdes = "PSU4"
 
 [[config.i2c.devices]]
@@ -540,10 +536,8 @@ name = "psu5mcu"
 address = 0b1011_101
 device = "mwocp67"
 description = "PSU 5 MCU"
-# TODO it's not clear what rails the mwocp67 has or how they are paged.
-# https://github.com/oxidecomputer/hubris/issues/2410
-power = { rails = [ "V50_MAIN_PSU5", "V50_AUX_PSU5" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
-sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 5, speed = 1 }
+power = { rails = [ "V50_PSU5"], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 1, input-current = 1, voltage = 1, current = 1, temperature = 5, speed = 1 }
 refdes = "PSU5"
 
 [config.spi.spi1]
