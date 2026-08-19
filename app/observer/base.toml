@@ -568,6 +568,9 @@ mux = "port_b"
 cs = [{port = "B", pin = 12}]
 
 # TODO SPI3 is the ignition flash reprogramming port
+# We validated that the hardware works but didn't add proper Observer support to
+# the ignition-flash task. For details and example code, see
+# https://github.com/oxidecomputer/hardware-observer/issues/90
 
 [config.spi.spi4]
 controller = 4
