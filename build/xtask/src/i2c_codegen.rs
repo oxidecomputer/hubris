@@ -31,11 +31,11 @@ pub fn run(
     let g = ConfigGenerator::new_with_config(disp.into(), i2c_cfg.i2c);
 
     // Do the codegen into a string
-    let res = g.codegen_to_string()?;
+    let build_i2c::CodegenOutputs { code, .. } = g.codegen()?;
 
     if let Some(p) = output {
         let mut f = File::create(p)?;
-        f.write_all(res.as_bytes())?;
+        f.write_all(code.as_bytes())?;
         f.flush()?;
         drop(f);
         if fmt {
@@ -45,7 +45,7 @@ pub fn run(
             )?;
         }
     } else {
-        println!("{res}");
+        println!("{code}");
     }
 
     Ok(())

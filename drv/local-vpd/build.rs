@@ -3,6 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    build_i2c::codegen(build_i2c::Disposition::Devices)?;
+    build_i2c::codegen_to_file(build_i2c::Disposition::Devices)?;
     Ok(())
 }
