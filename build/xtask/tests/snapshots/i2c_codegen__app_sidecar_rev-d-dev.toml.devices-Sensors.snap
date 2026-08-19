@@ -1,0 +1,1763 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+
+    pub mod devices {
+        #[allow(unused_imports)]
+        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+        #[allow(unused_imports)]
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn lookup_controller(index: usize) -> Option<Controller> {
+            match index {
+                0..=7
+                | 29..=30 => Some(Controller::I2C1),
+                33..=39 => Some(Controller::I2C2),
+                8..=18
+                | 31..=32 => Some(Controller::I2C3),
+                19..=28 => Some(Controller::I2C4),
+                _ => None
+            }
+        }
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn lookup_port(index: usize) -> Option<PortIndex> {
+            match index {
+                0..=4
+                | 8..=13
+                | 28..=30
+                | 33..=39 => Some(PortIndex(0)),
+                5..=7
+                | 14..=24
+                | 31..=32 => Some(PortIndex(1)),
+                25..=27 => Some(PortIndex(2)),
+                _ => None
+            }
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x(task: TaskId) -> [I2cDevice; 5] {
+            [
+                // Fan 1 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x10,
+                ),
+                // Fan 0 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+                // 54V hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x16,
+                ),
+                // Fan 2 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+                // Fan 3 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x10,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080(task: TaskId) -> [I2cDevice; 6] {
+            [
+                // Mainboard FRUID
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+                // Fan 0 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+                // Fan 1 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+                // Fan 2 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+                // Fan 3 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+                // Front IO board FRUID
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn bmr491(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Intermediate bus converter
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn idt8a34001(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Clock generator
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x58,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn isl68224(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // VDD[A]18 rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn ltc4282(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front I/O hotswap controller
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Fan 0/1 controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x23,
+                ),
+                // Fan 2/3 controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x20,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9538(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front IO GPIO expander
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x73,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Northeast fan mux
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x70,
+                ),
+                // Northwest fan mux
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x70,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Front IO LED driver (left)
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0xa,
+                ),
+                // Front IO LED driver (right)
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0xb,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // TF2 VDD rail
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x63,
+                ),
+                // TF2 VDDA rail
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117(task: TaskId) -> [I2cDevice; 7] {
+            [
+                // North-northeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x49,
+                ),
+                // Northeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+                // North-northwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ),
+                // Northwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+                // South temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x4a,
+                ),
+                // Southeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+                // Southwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // TF2 temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x4c,
+                ),
+                // VSC7448 temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x4c,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a(task: TaskId) -> [I2cDevice; 7] {
+            [
+                // V3P3_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x1a,
+                ),
+                // V5P0_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+                // V1P0_MGMT rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1b,
+                ),
+                // V1P8_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1c,
+                ),
+                // Front IO V3P3_SYS_A2 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1b,
+                ),
+                // Front IO V3P3_QSFP0_A0 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+                // Front IO V3P3_QSFP1_A0 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1a,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Fan 1 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x10,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_northeast1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Fan 0 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // 54V hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x16,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_northwest1(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Fan 2 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+                // Fan 3 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x10,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_front_io(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front IO board FRUID
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_northeast0(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Fan 0 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+                // Fan 1 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_northwest1(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Fan 2 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+                // Fan 3 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_south2(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Mainboard FRUID
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn bmr491_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Intermediate bus converter
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn idt8a34001_south0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Clock generator
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x58,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn isl68224_south0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // VDD[A]18 rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn ltc4282_south0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front I/O hotswap controller
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Fan 0/1 controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x23,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_northwest1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Fan 2/3 controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x20,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9538_front_io(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Front IO GPIO expander
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x73,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Northeast fan mux
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x70,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545_northwest1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Northwest fan mux
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x70,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_front_io(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // Front IO LED driver (left)
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0xa,
+                ),
+                // Front IO LED driver (right)
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0xb,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // TF2 VDD rail
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x63,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // TF2 VDDA rail
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northeast0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // North-northeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x49,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northeast1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Northeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // North-northwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northwest1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // Northwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_south0(task: TaskId) -> [I2cDevice; 3] {
+            [
+                // South temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x4a,
+                ),
+                // Southeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+                // Southwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // TF2 temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x4c,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_south1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // VSC7448 temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x4c,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_front_io(task: TaskId) -> [I2cDevice; 3] {
+            [
+                // Front IO V3P3_SYS_A2 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1b,
+                ),
+                // Front IO V3P3_QSFP0_A0 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+                // Front IO V3P3_QSFP1_A0 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1a,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_northeast1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // V3P3_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x1a,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_northwest0(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // V5P0_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_south1(task: TaskId) -> [I2cDevice; 2] {
+            [
+                // V1P0_MGMT rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1b,
+                ),
+                // V1P8_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1c,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_local_vpd(task: TaskId) -> I2cDevice {
+                // Mainboard FRUID
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn bmr491_ibc(task: TaskId) -> I2cDevice {
+                // Intermediate bus converter
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_east(task: TaskId) -> I2cDevice {
+                // Fan 0/1 controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x23,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_west(task: TaskId) -> I2cDevice {
+                // Fan 2/3 controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x20,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_front_leds_left(task: TaskId) -> I2cDevice {
+                // Front IO LED driver (left)
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0xa,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_front_leds_right(task: TaskId) -> I2cDevice {
+                // Front IO LED driver (right)
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0xb,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_nne(task: TaskId) -> I2cDevice {
+                // North-northeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x49,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_nnw(task: TaskId) -> I2cDevice {
+                // North-northwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northeast(task: TaskId) -> I2cDevice {
+                // Northeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_northwest(task: TaskId) -> I2cDevice {
+                // Northwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_south(task: TaskId) -> I2cDevice {
+                // South temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x4a,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_southeast(task: TaskId) -> I2cDevice {
+                // Southeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_southwest(task: TaskId) -> I2cDevice {
+                // Southwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_tf2(task: TaskId) -> I2cDevice {
+                // TF2 temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x4c,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_vsc7448(task: TaskId) -> I2cDevice {
+                // VSC7448 temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x4c,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u10(task: TaskId) -> I2cDevice {
+                // Fan 3 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x10,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u2(task: TaskId) -> I2cDevice {
+                // 54V hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x16,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u4(task: TaskId) -> I2cDevice {
+                // Fan 0 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u6(task: TaskId) -> I2cDevice {
+                // Fan 1 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x10,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn adm127x_u8(task: TaskId) -> I2cDevice {
+                // Fan 2 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_u91(task: TaskId) -> I2cDevice {
+                // Mainboard FRUID
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j61_u3(task: TaskId) -> I2cDevice {
+                // Front IO board FRUID
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j74_u1(task: TaskId) -> I2cDevice {
+                // Fan 1 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j75_u1(task: TaskId) -> I2cDevice {
+                // Fan 0 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j76_u1(task: TaskId) -> I2cDevice {
+                // Fan 3 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn at24csw080_j77_u1(task: TaskId) -> I2cDevice {
+                // Fan 2 FRUID
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn bmr491_u12(task: TaskId) -> I2cDevice {
+                // Intermediate bus converter
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn idt8a34001_u38(task: TaskId) -> I2cDevice {
+                // Clock generator
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x58,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn isl68224_u33(task: TaskId) -> I2cDevice {
+                // VDD[A]18 rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn ltc4282_u647(task: TaskId) -> I2cDevice {
+                // Front I/O hotswap controller
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_u66(task: TaskId) -> I2cDevice {
+                // Fan 0/1 controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x23,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn max31790_u78(task: TaskId) -> I2cDevice {
+                // Fan 2/3 controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x20,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9538_j61_u4(task: TaskId) -> I2cDevice {
+                // Front IO GPIO expander
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x73,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545_u90(task: TaskId) -> I2cDevice {
+                // Northwest fan mux
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x70,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9545_u92(task: TaskId) -> I2cDevice {
+                // Northeast fan mux
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x70,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_j61_u5(task: TaskId) -> I2cDevice {
+                // Front IO LED driver (left)
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0xa,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn pca9956b_j61_u6(task: TaskId) -> I2cDevice {
+                // Front IO LED driver (right)
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0xb,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618_u31(task: TaskId) -> I2cDevice {
+                // TF2 VDD rail
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x63,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618_u32(task: TaskId) -> I2cDevice {
+                // TF2 VDDA rail
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j67(task: TaskId) -> I2cDevice {
+                // Northwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j68(task: TaskId) -> I2cDevice {
+                // North-northwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j69(task: TaskId) -> I2cDevice {
+                // North-northeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x49,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j70(task: TaskId) -> I2cDevice {
+                // Northeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j71(task: TaskId) -> I2cDevice {
+                // South temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x4a,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j72(task: TaskId) -> I2cDevice {
+                // Southwest temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp117_j73(task: TaskId) -> I2cDevice {
+                // Southeast temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_u64(task: TaskId) -> I2cDevice {
+                // TF2 temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x4c,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tmp451_u65(task: TaskId) -> I2cDevice {
+                // VSC7448 temperature sensor
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x4c,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_u18(task: TaskId) -> I2cDevice {
+                // V5P0_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_u19(task: TaskId) -> I2cDevice {
+                // V3P3_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x1a,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_u20(task: TaskId) -> I2cDevice {
+                // V1P8_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1c,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_u21(task: TaskId) -> I2cDevice {
+                // V1P0_MGMT rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1b,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_j61_u15(task: TaskId) -> I2cDevice {
+                // Front IO V3P3_QSFP0_A0 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_j61_u18(task: TaskId) -> I2cDevice {
+                // Front IO V3P3_QSFP1_A0 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1a,
+                )
+        }
+
+        #[allow(dead_code)]
+        pub fn tps546b24a_j61_u7(task: TaskId) -> I2cDevice {
+                // Front IO V3P3_SYS_A2 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1b,
+                )
+        }
+    }
+
+    pub mod pmbus {
+        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        pub fn v0p8_tf2_vdd_core(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // TF2 VDD rail
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x63,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P8_TF2_VDD_CORE_PHASES: Option<&'static [u8]> = Some(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+
+        #[allow(dead_code)]
+        pub fn v0p9_tf2_vddt(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // TF2 VDDA rail
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                ), Some(0))
+        }
+
+        #[allow(dead_code)]
+        pub const RAA229618_V0P9_TF2_VDDT_PHASES: Option<&'static [u8]> = Some(&[2, 6, 7]);
+
+        #[allow(dead_code)]
+        pub fn v12p0_front_io(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Front I/O hotswap controller
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const LTC4282_V12P0_FRONT_IO_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v12p0_sys(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Intermediate bus converter
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const BMR491_V12P0_SYS_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v1p0_mgmt(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // V1P0_MGMT rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1b,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P0_MGMT_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v1p5_tf2_vdda(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // TF2 VDDA rail
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                ), Some(1))
+        }
+
+        #[allow(dead_code)]
+        pub const RAA229618_V1P5_TF2_VDDA_PHASES: Option<&'static [u8]> = Some(&[0, 1]);
+
+        #[allow(dead_code)]
+        pub fn v1p8_sys(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // V1P8_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1c,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V1P8_SYS_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v1p8_tf2_vdd(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // VDD[A]18 rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                ), Some(0))
+        }
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDD_PHASES: Option<&'static [u8]> = Some(&[1]);
+
+        #[allow(dead_code)]
+        pub fn v1p8_tf2_vdda(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // VDD[A]18 rail
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                ), Some(1))
+        }
+
+        #[allow(dead_code)]
+        pub const ISL68224_V1P8_TF2_VDDA_PHASES: Option<&'static [u8]> = Some(&[0]);
+
+        #[allow(dead_code)]
+        pub fn v3p3_qsfp0_a0(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Front IO V3P3_QSFP0_A0 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP0_A0_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v3p3_qsfp1_a0(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Front IO V3P3_QSFP1_A0 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1a,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_QSFP1_A0_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v3p3_sys(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // V3P3_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x1a,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v3p3_sys_a2(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Front IO V3P3_SYS_A2 rail
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1b,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V3P3_SYS_A2_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_fan0(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Fan 0 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN0_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_fan1(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Fan 1 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x10,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN1_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_fan2(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Fan 2 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN2_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_fan3(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Fan 3 hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x10,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_FAN3_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v54_hsc(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // 54V hot swap controller
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x16,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const ADM127X_V54_HSC_PHASES: Option<&'static [u8]> = None;
+
+        #[allow(dead_code)]
+        pub fn v5p0_sys(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // V5P0_SYS rail
+                I2cDevice::new(task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ), None)
+        }
+
+        #[allow(dead_code)]
+        pub const TPS546B24A_V5P0_SYS_PHASES: Option<&'static [u8]> = None;
+    }
+
+    pub mod power {
+        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        pub fn v12p0_front_io(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // Front I/O hotswap controller
+                I2cDevice::new(task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                ), None)
+        }
+    }

@@ -12,13 +12,13 @@
 
 use std::path::Path;
 
-use build_i2c::Disposition;
+use anyhow::Result;
+use build_i2c::{CodegenOutputs, ConfigGenerator, Disposition};
 use insta::assert_snapshot;
 use tempfile::tempdir;
 
 #[test]
 fn snapshot() {
-    let disps: &[Disposition] = &[Disposition::Sensors];
     let manifests: &[&Path] = &[
         Path::new("app/gimlet/rev-f-dev.toml"),
         Path::new("app/cosmo/rev-b-dev.toml"),
@@ -26,12 +26,42 @@ fn snapshot() {
         Path::new("app/observer/rev-a-dev.toml"),
         Path::new("app/psc/rev-c-dev.toml"),
     ];
-    // self.generate_controllers()?;
-    // self.generate_devices()?;
-    // self.generate_muxes()?;
-    // self.generate_pins()?;
-    // self.generate_ports()?;
-    // self.generate_validation()?;
+    type GenFn = fn(&ConfigGenerator, &mut String) -> Result<()>;
+
+    // TODO: Some analysis and generation is gated in either `new_with_config`
+    // or in the generate functions themselves to only work with
+    let funcs: &[(&str, Disposition, GenFn)] = &[
+        (
+            "controllers",
+            Disposition::Initiator,
+            ConfigGenerator::generate_controllers,
+        ),
+        (
+            "devices",
+            Disposition::Sensors,
+            ConfigGenerator::generate_devices,
+        ),
+        (
+            "muxes",
+            Disposition::Sensors,
+            ConfigGenerator::generate_muxes,
+        ),
+        (
+            "pins",
+            Disposition::Initiator,
+            ConfigGenerator::generate_pins,
+        ),
+        (
+            "ports",
+            Disposition::Sensors,
+            ConfigGenerator::generate_ports,
+        ),
+        (
+            "validation",
+            Disposition::Validation,
+            ConfigGenerator::generate_validation,
+        ),
+    ];
 
     // oh no, loading manifests doesn't work if we aren't at the base of the
     // repository.
@@ -41,15 +71,22 @@ fn snapshot() {
     let tempdir = tempdir().unwrap();
 
     for manifest in manifests {
-        for disp in disps {
+        for (case, disp, f) in funcs {
             let name = manifest.to_string_lossy().replace("/", "_");
-            let name = format!("{name}.{disp:?}");
+            let name = format!("{name}.{case}-{disp:?}");
             let dest = format!("{name}.snap");
             let temp_out = tempdir.path().join(Path::new(&dest));
 
+            let mut out = String::new();
+
+            // Create the generator...
+            let g =
+                xtask::i2c_codegen::setup_generator(*manifest, (*disp).into())
+                    .unwrap();
+            // Do code generation with the given function
+            (f)(&g, &mut out).unwrap();
             // Write and format the file...
-            xtask::i2c_codegen::run(*manifest, *disp, Some(&temp_out), true)
-                .unwrap();
+            xtask::i2c_codegen::write_file(&out, &temp_out, false).unwrap();
 
             // ...then read it back
             let contents = std::fs::read_to_string(temp_out).unwrap();
