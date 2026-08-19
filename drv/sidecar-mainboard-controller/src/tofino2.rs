@@ -35,27 +35,32 @@ impl TryFrom<[u8; 6]> for TofinoSeqStatus {
         let state = TofinoSeqState::try_from(value(
             Addr::TOFINO_SEQ_STATE,
             Reg::TOFINO_SEQ_STATE::VALUE,
-        )).map_err(|_| FpgaError::InvalidValue)?;
+        ))
+        .map_err(|_| FpgaError::InvalidValue)?;
 
         let step = TofinoSeqStep::try_from(value(
             Addr::TOFINO_SEQ_STEP,
             Reg::TOFINO_SEQ_STEP::VALUE,
-        )).map_err(|_| FpgaError::InvalidValue)?;
+        ))
+        .map_err(|_| FpgaError::InvalidValue)?;
 
         let error = TofinoSeqError::try_from(value(
             Addr::TOFINO_SEQ_ERROR,
             Reg::TOFINO_SEQ_ERROR::VALUE,
-        )).map_err(|_| FpgaError::InvalidValue)?;
+        ))
+        .map_err(|_| FpgaError::InvalidValue)?;
 
         let error_state = TofinoSeqState::try_from(value(
             Addr::TOFINO_SEQ_ERROR_STATE,
             Reg::TOFINO_SEQ_ERROR_STATE::VALUE,
-        )).map_err(|_| FpgaError::InvalidValue)?;
+        ))
+        .map_err(|_| FpgaError::InvalidValue)?;
 
         let error_step = TofinoSeqStep::try_from(value(
             Addr::TOFINO_SEQ_ERROR_STEP,
             Reg::TOFINO_SEQ_ERROR_STEP::VALUE,
-        )).map_err(|_| FpgaError::InvalidValue)?;
+        ))
+        .map_err(|_| FpgaError::InvalidValue)?;
 
         Ok(TofinoSeqStatus {
             state,

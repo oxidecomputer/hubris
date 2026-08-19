@@ -1176,7 +1176,8 @@ ereports::declare_ereporter! {
 mod idl {
     use super::{
         DebugPortState, DirectBarSegment, FanModuleIndex, FanModulePresence,
-        FanModuleStatus, FpgaError, SeqError, TofinoPcieReset, TofinoSequencerPolicy,
+        FanModuleStatus, FpgaError, SeqError, TofinoPcieReset,
+        TofinoSequencerPolicy,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
