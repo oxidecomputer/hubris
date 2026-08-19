@@ -119,7 +119,7 @@ jobs:
 
       # Apparently free runners only guarantee 14GiB of free disk space:
       # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
-      - name: Debug disk usage
+      - name: Debug disk usage (post-dist)
         if: runner.os == 'Linux'
         run: |
           du -sh ./target
@@ -157,6 +157,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cargo xtask clippy ${{ matrix.app_toml }} -- --deny warnings
+
+      - name: Debug disk usage (post-clippy)
+        if: runner.os == 'Linux'
+        run: |
+          du -sh ./target
 
       - name: Attestation
         uses: actions/attest-build-provenance@v1
