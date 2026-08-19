@@ -9,6 +9,17 @@
 //!
 //! So, pragmatically, xtask is going to host the snapshot testing party for
 //! build-i2c to avoid churning a lot of other things.
+//!
+//! ALSO, note that the existence of this type is intended to be a temporary
+//! band-aid for a lack of any testing for `build-i2c`. The hope is to someday
+//! test this more directly using unit tests of analysis and much more targeted
+//! snapshot testing of generation behavior, which will allow for much smaller
+//! fragments and less breakage on intentional changes.
+//!
+//! Apologies to those that need to update these snapshots until that day comes.
+//! You will need to install `cargo-insta`, e.g. `cargo install cargo-insta`,
+//! run the tests with `cargo insta test -p xtask`, and then review+bless any
+//! new changes with `cargo insta review`.
 
 use std::path::Path;
 
@@ -29,7 +40,10 @@ fn snapshot() {
     type GenFn = fn(&ConfigGenerator, &mut String) -> Result<()>;
 
     // TODO: Some analysis and generation is gated in either `new_with_config`
-    // or in the generate functions themselves to only work with
+    // or in the generate functions themselves to only work with certain
+    // dispositions. We should probably reconsider this at some point, and make
+    // snapshotting just per-function and not require a manual statement of
+    // disposition here.
     let funcs: &[(&str, Disposition, GenFn)] = &[
         (
             "controllers",
