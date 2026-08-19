@@ -4,6 +4,7 @@
 
 use anyhow::{Context, Result, bail};
 use convert_case::{Case, Casing};
+use iddqd::IdOrdMap;
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use rangemap::RangeSet;
@@ -11,6 +12,17 @@ use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::fs::File;
+use std::sync::Arc;
+
+/// Outputs from code generation which may be used by other build scripts.
+pub struct CodegenOutputs {
+    /// The generated code that would be output to `i2c_config.rs`.
+    pub code: String,
+    /// If codegen was run with [`DispositionSensors`], the generated sensor
+    /// description, which may be used as an input to other code generation
+    /// steps.
+    pub sensors: Option<I2cSensorsDescription>,
+}
 
 //
 // Our definition of the `Config` type.  We share this type with all other
@@ -237,7 +249,7 @@ struct I2cSensors {
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialOrd, PartialEq, Eq, Ord)]
 #[serde(untagged)]
-enum Refdes {
+pub enum Refdes {
     Component(String),
     Path(Vec<String>),
 }
@@ -292,13 +304,25 @@ struct DeviceRefdesKey {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceSensor {
+    pub refdes: Option<Refdes>,
     pub name: Option<String>,
     pub kind: Sensor,
     pub id: usize,
 }
 
+impl iddqd::IdOrdItem for DeviceSensor {
+    type Key<'a> = &'a usize;
+
+    /// Retrieves the key.
+    fn key(&self) -> Self::Key<'_> {
+        &self.id
+    }
+
+    iddqd::id_upcast!();
+}
+
 #[derive(Debug)]
-struct I2cSensorsDescription {
+pub struct I2cSensorsDescription {
     // In all multimaps below, the value is the sensor ID. The same sensor ID
     // can show up in multiple (including all!) of these maps.
     //
@@ -308,12 +332,13 @@ struct I2cSensorsDescription {
     by_device: MultiMap<DeviceKey, usize>,
     by_name: MultiMap<DeviceNameKey, usize>,
     by_refdes: MultiMap<DeviceRefdesKey, usize>,
+    pub by_id: IdOrdMap<Arc<DeviceSensor>>,
 
     // list of all devices and a list of their sensors, with an optional sensor
     // name (if present)
-    device_sensors: Vec<Vec<DeviceSensor>>,
+    device_sensors: Vec<Vec<Arc<DeviceSensor>>>,
 
-    total_sensors: usize,
+    pub total_sensors: usize,
 }
 
 impl I2cSensorsDescription {
@@ -322,6 +347,7 @@ impl I2cSensorsDescription {
             by_device: MultiMap::with_capacity(devices.len()),
             by_name: MultiMap::new(),
             by_refdes: MultiMap::new(),
+            by_id: IdOrdMap::new(),
             device_sensors: vec![Vec::new(); devices.len()],
             total_sensors: 0,
         };
@@ -413,11 +439,18 @@ impl I2cSensorsDescription {
             );
         }
 
-        if let Some(refdes) = d.refdes.clone() {
+        let sensor = Arc::new(DeviceSensor {
+            refdes: d.refdes.clone(),
+            name: name.clone(),
+            kind,
+            id,
+        });
+
+        if let Some(ref refdes) = sensor.refdes {
             self.by_refdes.insert(
                 DeviceRefdesKey {
                     device: d.device.clone(),
-                    refdes,
+                    refdes: refdes.clone(),
                     kind,
                 },
                 id,
@@ -431,7 +464,12 @@ impl I2cSensorsDescription {
             },
             id,
         );
-        self.device_sensors[dev_index].push(DeviceSensor { name, kind, id });
+
+        if let Err(prev) = self.by_id.insert_unique(sensor.clone()) {
+            panic!("weird: colliding sensor ID {id}: {prev:?} and {sensor:?}",);
+        };
+
+        self.device_sensors[dev_index].push(sensor);
     }
 }
 
@@ -1604,7 +1642,7 @@ impl ConfigGenerator {
         d: &I2cDevice,
         label: String,
         name: &str,
-        sensors: &[DeviceSensor],
+        sensors: &[Arc<DeviceSensor>],
     ) -> Result<()> {
         write!(
             &mut self.output,
@@ -1661,7 +1699,7 @@ impl ConfigGenerator {
         I2cSensorsDescription::new(&self.devices)
     }
 
-    pub fn generate_sensors(&mut self) -> Result<()> {
+    fn generate_sensors(&mut self) -> Result<I2cSensorsDescription> {
         let s = self.sensors_description();
 
         write!(
@@ -1752,7 +1790,7 @@ impl ConfigGenerator {
         }
 
         writeln!(&mut self.output, "\n    }}")?;
-        Ok(())
+        Ok(s)
     }
 
     pub fn generate_ports(&mut self) -> Result<()> {
@@ -1781,9 +1819,16 @@ impl ConfigGenerator {
     }
 
     /// Use the given ConfigGenerator to do code generation.
-    pub fn codegen_to_string(mut self) -> Result<String> {
+    ///
+    /// This does not write the output to a file, but returns the generated code
+    /// in the `code` field of the `CodegenOutputs` struct. Using
+    /// [`codegen_to_file`] will also write the generated code to the
+    /// `i2c_config.rs` file for the task currently being built. This method may
+    /// be used instead when running codegen outside of a task.
+    pub fn codegen(mut self) -> Result<CodegenOutputs> {
         self.generate_header()?;
 
+        let mut output_sensors = None;
         match self.settings.disposition {
             Disposition::Target => {
                 let n = self.ncontrollers();
@@ -1818,7 +1863,8 @@ impl ConfigGenerator {
 
             Disposition::Sensors => {
                 self.generate_devices()?;
-                self.generate_sensors()?;
+                let desc = self.generate_sensors()?;
+                output_sensors = Some(desc);
             }
 
             Disposition::Validation => {
@@ -1829,7 +1875,10 @@ impl ConfigGenerator {
 
         self.generate_footer()?;
 
-        Ok(self.output)
+        Ok(CodegenOutputs {
+            code: self.output,
+            sensors: output_sensors,
+        })
     }
 }
 
@@ -1848,32 +1897,37 @@ impl From<Disposition> for CodegenSettings {
     }
 }
 
+/// Run code generation and write the output to an `i2c_config.rs` file in the
+/// build output directory of the task being built.
+///
 /// This is the usual entrypoint for task `build.rs` files.
 ///
 /// We (usually) take a `Disposition`, and automatically determine the output
 /// as a predictable file name in the OUT directory.
-pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
+pub fn codegen_to_file(
+    settings: impl Into<CodegenSettings>,
+) -> Result<CodegenOutputs> {
     use std::io::Write;
 
     let settings = settings.into();
+    assert_eq!(cfg!(feature = "component-id"), settings.component_ids);
 
     let g = ConfigGenerator::new(settings);
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("i2c_config.rs");
     let mut file = File::create(dest_path)?;
 
-    let output = g.codegen_to_string()?;
+    let outputs = g.codegen()?;
 
-    file.write_all(output.as_bytes())?;
+    file.write_all(outputs.code.as_bytes())?;
 
-    Ok(())
+    Ok(outputs)
 }
 
-#[derive(Debug, Clone)]
 pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
-    pub sensors: Vec<DeviceSensor>,
+    pub sensors: Vec<Arc<DeviceSensor>>,
     pub device_id: Option<String>,
     pub name: Option<String>,
     pub validate_with_raw_read: bool,
@@ -2007,7 +2061,7 @@ where
 }
 
 impl Refdes {
-    fn to_component_id(&self) -> String {
+    pub fn to_component_id(&self) -> String {
         self.join_with_case(str::make_ascii_uppercase, "/")
     }
 
@@ -2019,7 +2073,7 @@ impl Refdes {
         self.join_with_case(str::make_ascii_lowercase, "_")
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         match self {
             Self::Component(c) => c.len(),
             Self::Path(p) => {
@@ -2029,6 +2083,11 @@ impl Refdes {
                 + (p.len() - 1)
             }
         }
+    }
+
+    // This is never used but it's necessary to shut Clippy up
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     fn join_with_case(

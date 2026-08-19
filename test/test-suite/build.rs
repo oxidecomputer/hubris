@@ -6,7 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_m_profile()?;
 
     #[cfg(feature = "i2c-devices")]
-    build_i2c::codegen(build_i2c::Disposition::Devices)?;
+    build_i2c::codegen_to_file(build_i2c::Disposition::Devices)?;
 
     build_util::build_notifications()?;
 

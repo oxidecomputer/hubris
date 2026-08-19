@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             idol::server::ServerStyle::InOrder,
         )?;
 
-    build_i2c::codegen(build_i2c::Disposition::Sensors)?;
+    build_i2c::codegen_to_file(build_i2c::Disposition::Sensors)?;
 
     Ok(())
 }

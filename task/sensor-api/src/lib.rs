@@ -6,11 +6,12 @@
 
 #![no_std]
 
-use userlib::{FromPrimitive, sys_get_timer, sys_send};
+use userlib::*;
 
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
+use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// A validated sensor ID.
@@ -79,6 +80,25 @@ impl SensorId {
     /// Converts an array of `SensorId`s into an array of `u32`s.
     pub fn into_u32_array<const N: usize>(ids: [Self; N]) -> [u32; N] {
         ids.map(Into::into)
+    }
+
+    /// Returns the component ID (refdes) corresponding to this sensor.
+    ///
+    /// Note that multiple sensor IDs may have the same component ID, when a
+    /// single device exposes multiple measurement channels.
+    #[cfg(feature = "component-id-lookup")]
+    pub fn component_id(
+        &self,
+    ) -> fixedstr::FixedStr<'static, { config::MAX_COMPONENT_ID_LEN }> {
+        config::SENSOR_ID_TO_COMPONENT_ID[self.0 as usize]
+    }
+
+    /// Returns the name of this sensor.
+    #[cfg(feature = "sensor-name-lookup")]
+    pub fn name(
+        &self,
+    ) -> fixedstr::FixedStr<'static, { config::MAX_SENSOR_NAME_LEN }> {
+        config::SENSOR_ID_TO_NAME[self.0 as usize]
     }
 }
 
