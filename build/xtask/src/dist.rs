@@ -547,9 +547,6 @@ mod checked_types {
         pub fn iter(&self) -> impl Iterator<Item = &u32> {
             self.data.iter()
         }
-        pub fn into_iter(self) -> impl DoubleEndedIterator<Item = u32> {
-            self.data.into_iter()
-        }
         pub fn front(&self) -> Option<&u32> {
             self.data.front()
         }
@@ -575,6 +572,16 @@ mod checked_types {
     impl From<OrderedVecDeque> for VecDeque<u32> {
         fn from(v: OrderedVecDeque) -> Self {
             v.data
+        }
+    }
+
+    // We're just forwarding IntoIterator to whatever VecDeque<u32> does
+    impl IntoIterator for OrderedVecDeque {
+        type Item = <VecDeque<u32> as IntoIterator>::Item;
+        type IntoIter = <VecDeque<u32> as IntoIterator>::IntoIter;
+
+        fn into_iter(self) -> Self::IntoIter {
+            self.data.into_iter()
         }
     }
 }

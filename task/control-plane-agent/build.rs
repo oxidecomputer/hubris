@@ -40,9 +40,11 @@ fn main() -> Result<()> {
     }
 
     // Generate the necessary rail names
-    build_i2c::codegen(build_i2c::Disposition::Devices).inspect_err(|e| {
-        println!("cargo::error=failed to generate I2C devices: {e}");
-    })?;
+    build_i2c::codegen_to_file(build_i2c::Disposition::Devices).inspect_err(
+        |e| {
+            println!("cargo::error=failed to generate I2C devices: {e}");
+        },
+    )?;
 
     do_pmbus()?;
 

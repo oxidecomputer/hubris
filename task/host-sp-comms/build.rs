@@ -7,10 +7,12 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::build_notifications()?;
 
     #[cfg(any(feature = "gimlet", feature = "cosmo"))]
-    build_i2c::codegen(build_i2c::CodegenSettings {
-        disposition: build_i2c::Disposition::Sensors,
-        component_ids: true,
-    })?;
+    {
+        let cfg: build_i2c::CodegenSettings =
+            build_i2c::Disposition::Sensors.into();
+        assert!(cfg.component_ids, "We require component IDs");
+        build_i2c::codegen_to_file(cfg)?;
+    }
 
     idol::Generator::new()
         .with_counters(
