@@ -117,6 +117,13 @@ jobs:
           HUBRIS_CABOOSE_VERS: ${{ inputs.caboose-version }}
           RUST_BACKTRACE: 1
 
+      # Apparently free runners only guarantee 14GiB of free disk space:
+      # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+      - name: Debug disk usage
+        if: runner.os == 'Linux'
+        run: |
+          du -sh ./target
+
       - name: Fetch Humility
         if: runner.os == 'Linux'
         run: |
