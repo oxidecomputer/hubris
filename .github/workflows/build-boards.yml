@@ -85,6 +85,11 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
+      - name: Debug disk availability (start)
+        if: runner.os == 'Linux'
+        run: |
+          df -ah
+
       - name: Install Rust toolchain
         run: |
           rustup show active-toolchain || rustup toolchain install
@@ -162,6 +167,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           du -sh ./target
+
+      - name: Debug disk availability (end)
+        if: runner.os == 'Linux'
+        run: |
+          df -ah
 
       - name: Attestation
         uses: actions/attest-build-provenance@v1
