@@ -540,12 +540,6 @@ pub struct ConfigGenerator {
     /// Settings
     settings: CodegenSettings,
 
-    /// output that we're building
-    output: String,
-
-    /// disposition of this configuration: target v. initiator v. devices
-    disposition: Disposition,
-
     /// all controllers
     controllers: Vec<I2cController>,
 
@@ -560,22 +554,56 @@ pub struct ConfigGenerator {
 
     /// hash of controllers to single port indices
     singletons: HashMap<u8, usize>,
+}
 
-    /// if `true`, include component ID string in output.
-    ///
-    /// this requires that the `"drv-i2c-api/component-id"` feature flag is
-    /// enabled. if that feature flag is enabled, then this MUST also be
-    /// enabled.
-    component_ids: bool,
+fn calculate_validate_drivers() -> Result<HashSet<String>> {
+    //
+    // Lord, have mercy: we are going to find the crate containing i2c
+    // devices, and go fishing for where we believe the device drivers
+    // themselves to be.  It does not need to be said that this is
+    // operating by convention; there are (many) ways to envision this
+    // breaking -- with apologies, dear reader, if that's what brings you
+    // here!
+    //
+    // Apology accepted. Perhaps this should be completely redesigned, but
+    // I've at least made it so the build will now fail with a helpful error
+    // message if the device driver isn't found.
+    let mut drivers = std::collections::HashSet::new();
+
+    use cargo_metadata::MetadataCommand;
+
+    let metadata = MetadataCommand::new()
+        .manifest_path("./Cargo.toml")
+        .exec()
+        .unwrap();
+
+    let pkg = metadata
+        .packages
+        .iter()
+        .find(|p| p.name.as_str() == "drv-i2c-devices")
+        .context("failed to find drv-i2c-devices")?;
+
+    let dir = pkg
+        .manifest_path
+        .parent()
+        .context("failed to get i2c device path")?;
+
+    println!("cargo::rerun-if-changed={}", dir.join("src"));
+
+    for entry in std::fs::read_dir(dir.join("src"))? {
+        if let Some(f) = entry?.path().file_name()
+            && let Some(name) = f.to_str().unwrap().strip_suffix(".rs")
+        {
+            drivers.insert(name.to_string());
+        }
+    }
+
+    drivers.remove("lib");
+    Ok(drivers)
 }
 
 impl ConfigGenerator {
     pub fn new_with_config(settings: CodegenSettings, i2c: I2cConfig) -> Self {
-        let CodegenSettings {
-            disposition,
-            component_ids,
-        } = settings;
-
         let mut controllers = vec![];
         let mut buses = HashMap::new();
         let mut ports = IndexMap::new();
@@ -603,7 +631,7 @@ impl ConfigGenerator {
                 ports.insert((c.controller, p.clone()), index);
             }
 
-            if c.target != (disposition == Disposition::Target) {
+            if c.target != (settings.disposition == Disposition::Target) {
                 continue;
             }
 
@@ -640,14 +668,11 @@ impl ConfigGenerator {
         }
 
         Self {
-            output: String::new(),
             devices: i2c.devices.unwrap_or_default(),
-            disposition,
             controllers,
             buses,
             ports,
             singletons,
-            component_ids,
             settings,
         }
     }
@@ -667,20 +692,18 @@ impl ConfigGenerator {
         self.controllers.len()
     }
 
-    pub fn generate_header(&mut self) -> Result<()> {
-        writeln!(&mut self.output, "pub(crate) mod i2c_config {{")?;
+    pub fn generate_header(&self, output: &mut String) -> Result<()> {
+        writeln!(output, "pub(crate) mod i2c_config {{")?;
         Ok(())
     }
 
-    pub fn generate_footer(&mut self) -> Result<()> {
-        writeln!(&mut self.output, "}}")?;
+    pub fn generate_footer(&self, output: &mut String) -> Result<()> {
+        writeln!(output, "}}")?;
         Ok(())
     }
 
-    pub fn generate_controllers(&mut self) -> Result<()> {
-        let mut s = &mut self.output;
-
-        match self.disposition {
+    pub fn generate_controllers(&self, output: &mut String) -> Result<()> {
+        match self.settings.disposition {
             Disposition::Initiator | Disposition::Target => {}
 
             _ => {
@@ -689,7 +712,7 @@ impl ConfigGenerator {
         }
 
         writeln!(
-            &mut s,
+            output,
             r##"
     #[allow(dead_code)]
     pub const NCONTROLLERS: usize = {ncontrollers};
@@ -702,35 +725,31 @@ impl ConfigGenerator {
 
         if !self.controllers.is_empty() {
             writeln!(
-                &mut s,
+                output,
                 r##"
         use drv_stm32xx_sys_api::Peripheral;
         use drv_i2c_api::Controller;"##
             )?;
 
-            if build_util::has_feature("h743") {
-                writeln!(&mut s, "use stm32h7::stm32h743 as device;")?;
-            }
-            if build_util::has_feature("h753") {
-                writeln!(&mut s, "use stm32h7::stm32h753 as device;")?;
-            }
-            if build_util::has_feature("g031") {
-                writeln!(&mut s, "use stm32g0::stm32g031 as device;")?;
-            }
-            if build_util::has_feature("g030") {
-                writeln!(&mut s, "use stm32g0::stm32g030 as device;")?;
-            }
+            let text = match self.settings.codegen_target {
+                CodegenTarget::None => "",
+                CodegenTarget::Stm32H743 => "use stm32h7::stm32h743 as device;",
+                CodegenTarget::Stm32H753 => "use stm32h7::stm32h753 as device;",
+                CodegenTarget::Stm32G031 => "use stm32g0::stm32g031 as device;",
+                CodegenTarget::Stm32G030 => "use stm32g0::stm32g030 as device;",
+            };
+            writeln!(output, "{text}")?;
         }
 
         write!(
-            &mut s,
+            output,
             r##"
         ["##
         )?;
 
         for c in &self.controllers {
             write!(
-                &mut s,
+                output,
                 r##"
             I2cController {{
                 controller: Controller::I2C{controller},
@@ -743,7 +762,7 @@ impl ConfigGenerator {
         }
 
         writeln!(
-            &mut s,
+            output,
             r##"
         ]
     }}"##
@@ -752,11 +771,10 @@ impl ConfigGenerator {
         Ok(())
     }
 
-    pub fn generate_pins(&mut self) -> Result<()> {
-        let mut s = &mut self.output;
+    pub fn generate_pins(&self, output: &mut String) -> Result<()> {
         let mut len = 0;
 
-        match self.disposition {
+        match self.settings.disposition {
             Disposition::Initiator | Disposition::Target => {}
 
             _ => {
@@ -769,7 +787,7 @@ impl ConfigGenerator {
         }
 
         writeln!(
-            &mut s,
+            output,
             r##"
     #[allow(unused_imports)]
     use drv_stm32xx_i2c::{{I2cPins, I2cGpio}};
@@ -779,7 +797,7 @@ impl ConfigGenerator {
 
         if len > 0 {
             writeln!(
-                &mut s,
+                output,
                 r##"
         use drv_i2c_api::{{Controller, PortIndex}};
         use drv_stm32xx_sys_api::{{self as gpio_api, Alternate}};"##
@@ -787,7 +805,7 @@ impl ConfigGenerator {
         }
 
         write!(
-            &mut s,
+            output,
             r##"
         ["##
         )?;
@@ -795,7 +813,7 @@ impl ConfigGenerator {
         for c in &self.controllers {
             for (index, (p, port)) in c.ports.iter().enumerate() {
                 writeln!(
-                    &mut s,
+                    output,
                     r##"
             I2cPins {{
                 controller: Controller::I2C{controller},
@@ -821,7 +839,7 @@ impl ConfigGenerator {
         }
 
         writeln!(
-            &mut s,
+            output,
             r##"
         ]
     }}"##
@@ -830,12 +848,11 @@ impl ConfigGenerator {
         Ok(())
     }
 
-    pub fn generate_muxes(&mut self) -> Result<()> {
-        if self.disposition == Disposition::Target {
+    pub fn generate_muxes(&self, output: &mut String) -> Result<()> {
+        if self.settings.disposition == Disposition::Target {
             panic!("cannot generate muxes when configured as target");
         }
 
-        let mut s = &mut self.output;
         let mut nmuxedbuses = 0;
         let mut len = 0;
 
@@ -850,7 +867,7 @@ impl ConfigGenerator {
         }
 
         write!(
-            &mut s,
+            output,
             r##"
     #[allow(dead_code)]
     pub const NMUXEDBUSES: usize = {nmuxedbuses};
@@ -862,7 +879,7 @@ impl ConfigGenerator {
 
         if len > 0 {
             writeln!(
-                &mut s,
+                output,
                 r##"
         use drv_i2c_api::{{Controller, PortIndex, Mux}};
 
@@ -872,7 +889,7 @@ impl ConfigGenerator {
         }
 
         write!(
-            &mut s,
+            output,
             r##"
         ["##
         )?;
@@ -901,7 +918,7 @@ impl ConfigGenerator {
                     );
 
                     write!(
-                        &mut s,
+                        output,
                         r##"
             I2cMux {{
                 controller: Controller::I2C{controller},
@@ -923,7 +940,7 @@ impl ConfigGenerator {
         }
 
         writeln!(
-            &mut s,
+            output,
             r##"
         ]
     }}"##
@@ -1015,7 +1032,7 @@ impl ConfigGenerator {
 
         let indent = format!("{:indent$}", "", indent = indent);
 
-        let component_id = if self.component_ids {
+        let component_id = if self.settings.component_ids {
             if let Some(ref refdes) = d.refdes {
                 let id = refdes.to_component_id();
                 format!("\n{indent}    {id:?},")
@@ -1048,7 +1065,7 @@ impl ConfigGenerator {
         )
     }
 
-    pub fn generate_devices(&mut self) -> Result<()> {
+    pub fn generate_devices(&self, output: &mut String) -> Result<()> {
         //
         // Throw all devices into a MultiMap based on device.
         //
@@ -1095,7 +1112,7 @@ impl ConfigGenerator {
         }
 
         write!(
-            &mut self.output,
+            output,
             r##"
     pub mod devices {{
         #[allow(unused_imports)]
@@ -1106,7 +1123,7 @@ impl ConfigGenerator {
         )?;
 
         write!(
-            &mut self.output,
+            output,
             r##"
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
@@ -1117,12 +1134,10 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_controller.iter_all().collect();
         all.sort();
 
-        match_arms(&mut self.output, all, |c| {
-            format!("Some(Controller::I2C{c})")
-        })?;
+        match_arms(output, all, |c| format!("Some(Controller::I2C{c})"))?;
 
         write!(
-            &mut self.output,
+            output,
             r##"
                 _ => None
             }}
@@ -1131,7 +1146,7 @@ impl ConfigGenerator {
         )?;
 
         write!(
-            &mut self.output,
+            output,
             r##"
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
@@ -1142,10 +1157,10 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_port.iter_all().collect();
         all.sort();
 
-        match_arms(&mut self.output, all, |p| format!("Some(PortIndex({p}))"))?;
+        match_arms(output, all, |p| format!("Some(PortIndex({p}))"))?;
 
         write!(
-            &mut self.output,
+            output,
             r##"
                 _ => None
             }}
@@ -1158,7 +1173,7 @@ impl ConfigGenerator {
 
         for (device, devices) in all {
             write!(
-                &mut self.output,
+                output,
                 r##"
         #[allow(dead_code)]
         pub fn {}(task: TaskId) -> [I2cDevice; {}] {{
@@ -1169,11 +1184,11 @@ impl ConfigGenerator {
 
             for d in devices {
                 let out = self.generate_device(d, 16);
-                write!(&mut self.output, "{out},")?;
+                write!(output, "{out},")?;
             }
 
             writeln!(
-                &mut self.output,
+                output,
                 r##"
             ]
         }}"##
@@ -1185,7 +1200,7 @@ impl ConfigGenerator {
 
         for ((device, bus), devices) in all {
             write!(
-                &mut self.output,
+                output,
                 r##"
         #[allow(dead_code)]
         pub fn {}_{}(task: TaskId) -> [I2cDevice; {}] {{
@@ -1197,10 +1212,10 @@ impl ConfigGenerator {
 
             for d in devices {
                 let out = self.generate_device(d, 16);
-                write!(&mut self.output, "{out},")?;
+                write!(output, "{out},")?;
             }
             writeln!(
-                &mut self.output,
+                output,
                 r##"
             ]
         }}"##
@@ -1211,7 +1226,7 @@ impl ConfigGenerator {
         all.sort();
         for ((device, name), d) in &all {
             write!(
-                &mut self.output,
+                output,
                 r##"
         #[allow(dead_code)]
         pub fn {}_{}(task: TaskId) -> I2cDevice {{"##,
@@ -1220,10 +1235,10 @@ impl ConfigGenerator {
             )?;
 
             let out = self.generate_device(d, 16);
-            write!(&mut self.output, "{out}")?;
+            write!(output, "{out}")?;
 
             writeln!(
-                &mut self.output,
+                output,
                 r##"
         }}"##
             )?;
@@ -1237,85 +1252,44 @@ impl ConfigGenerator {
             max_component_id_len = max_component_id_len.max(refdes.len());
             let name = refdes.to_lower_ident();
             write!(
-                &mut self.output,
+                output,
                 r##"
         #[allow(dead_code)]
         pub fn {device}_{name}(task: TaskId) -> I2cDevice {{"##,
             )?;
 
             let out = self.generate_device(d, 16);
-            write!(&mut self.output, "{out}")?;
+            write!(output, "{out}")?;
 
             writeln!(
-                &mut self.output,
+                output,
                 r##"
         }}"##
             )?;
         }
 
-        writeln!(&mut self.output, "    }}")?;
+        writeln!(output, "    }}")?;
 
-        if self.component_ids {
+        if self.settings.component_ids {
             writeln!(
-                &mut self.output,
+                output,
                 r##"
         #[allow(dead_code)]
         pub const MAX_COMPONENT_ID_LEN: usize = {max_component_id_len};"##,
             )?;
         }
 
-        self.generate_power(PowerDevices::PMBus)?;
-        self.generate_power(PowerDevices::NonPMBus)?;
+        self.generate_power(PowerDevices::PMBus, output)?;
+        self.generate_power(PowerDevices::NonPMBus, output)?;
 
         Ok(())
     }
 
-    pub fn generate_validation(&mut self) -> Result<()> {
-        //
-        // Lord, have mercy: we are going to find the crate containing i2c
-        // devices, and go fishing for where we believe the device drivers
-        // themselves to be.  It does not need to be said that this is
-        // operating by convention; there are (many) ways to envision this
-        // breaking -- with apologies, dear reader, if that's what brings you
-        // here!
-        //
-        // Apology accepted. Perhaps this should be completely redesigned, but
-        // I've at least made it so the build will now fail with a helpful error
-        // message if the device driver isn't found.
-        use cargo_metadata::MetadataCommand;
-
-        let metadata = MetadataCommand::new()
-            .manifest_path("./Cargo.toml")
-            .exec()
-            .unwrap();
-
-        let pkg = metadata
-            .packages
-            .iter()
-            .find(|p| p.name.as_str() == "drv-i2c-devices")
-            .context("failed to find drv-i2c-devices")?;
-
-        let dir = pkg
-            .manifest_path
-            .parent()
-            .context("failed to get i2c device path")?;
-
-        let mut drivers = std::collections::HashSet::new();
-
-        println!("cargo::rerun-if-changed={}", dir.join("src"));
-
-        for entry in std::fs::read_dir(dir.join("src"))? {
-            if let Some(f) = entry?.path().file_name()
-                && let Some(name) = f.to_str().unwrap().strip_suffix(".rs")
-            {
-                drivers.insert(name.to_string());
-            }
-        }
-
-        drivers.remove("lib");
+    pub fn generate_validation(&self, output: &mut String) -> Result<()> {
+        let drivers = &self.settings.drivers;
 
         write!(
-            &mut self.output,
+            output,
             r##"
     pub mod validation {{
         #[allow(unused_imports)]
@@ -1369,7 +1343,7 @@ impl ConfigGenerator {
                 let out = self.generate_device(device, 24);
 
                 write!(
-                    &mut self.output,
+                    output,
                     r##"
                 {index} => {{
                     if drv_i2c_devices::{device}::{driver}::validate(&{out})? {{
@@ -1402,7 +1376,7 @@ impl ConfigGenerator {
                 }
                 let out = self.generate_device(device, 20);
                 write!(
-                    &mut self.output,
+                    output,
                     r##"
                 {index} => {{{out}.read::<u8>()?;
                     Ok(I2cValidation::RawReadOk)
@@ -1412,7 +1386,7 @@ impl ConfigGenerator {
         }
 
         writeln!(
-            &mut self.output,
+            output,
             r##"
                 _ => Err(drv_i2c_api::ResponseCode::BadArg)
             }}
@@ -1423,7 +1397,11 @@ impl ConfigGenerator {
         Ok(())
     }
 
-    fn generate_power(&mut self, which: PowerDevices) -> Result<()> {
+    fn generate_power(
+        &self,
+        which: PowerDevices,
+        output: &mut String,
+    ) -> Result<()> {
         let mut byrail = HashMap::new();
 
         for d in &self.devices {
@@ -1472,7 +1450,7 @@ impl ConfigGenerator {
 
         if !byrail.is_empty() {
             write!(
-                &mut self.output,
+                output,
                 r##"
     pub mod {} {{
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
@@ -1494,22 +1472,19 @@ impl ConfigGenerator {
                 // Accessor, returns `(I2cDevice, Option<u8>)`
 
                 write!(
-                    &mut self.output,
+                    output,
                     r##"
         #[allow(dead_code)]
         pub fn {}(task: TaskId)"##,
                     rail.to_lowercase(),
                 )?;
-                write!(&mut self.output, " -> (I2cDevice, Option<u8>) {{")?;
+                write!(output, " -> (I2cDevice, Option<u8>) {{")?;
 
                 let out = self.generate_device(device, 16);
                 if let Some(idx) = index {
-                    writeln!(
-                        &mut self.output,
-                        "({out}, Some({idx}))\n        }}"
-                    )?;
+                    writeln!(output, "({out}, Some({idx}))\n        }}")?;
                 } else {
-                    writeln!(&mut self.output, "({out}, None)\n        }}")?;
+                    writeln!(output, "({out}, None)\n        }}")?;
                 }
 
                 if which == PowerDevices::PMBus {
@@ -1530,7 +1505,7 @@ impl ConfigGenerator {
                     };
 
                     writeln!(
-                        &mut self.output,
+                        output,
                         r##"
         #[allow(dead_code)]
         pub const {}_{rail}_PHASES: Option<&'static [u8]> = {phases};"##,
@@ -1539,21 +1514,22 @@ impl ConfigGenerator {
                 }
             }
 
-            writeln!(&mut self.output, "    }}")?;
+            writeln!(output, "    }}")?;
         }
         Ok(())
     }
 
     fn emit_sensor(
-        &mut self,
+        &self,
         device: &str,
         label: &str,
         ids: &[usize],
+        output: &mut String,
     ) -> Result<()> {
         let device = device.to_uppercase();
         let n_sensors = ids.len();
         writeln!(
-            &mut self.output,
+            output,
             r##"
         #[allow(dead_code)]
         pub const NUM_{device}_{label}_SENSORS: usize = {n_sensors};"##,
@@ -1561,7 +1537,7 @@ impl ConfigGenerator {
 
         if ids.len() == 1 {
             writeln!(
-                &mut self.output,
+                output,
                 r##"
         #[allow(dead_code)]
         pub const {device}_{label}_SENSOR: SensorId = SensorId::new({});"##,
@@ -1569,26 +1545,27 @@ impl ConfigGenerator {
             )?;
         } else {
             writeln!(
-                &mut self.output,
+                output,
                 r##"
         #[allow(dead_code)]
         pub const {device}_{label}_SENSORS: [SensorId; {n_sensors}] = [ "##,
             )?;
 
             for id in ids {
-                writeln!(&mut self.output, "            SensorId::new({id}),",)?;
+                writeln!(output, "            SensorId::new({id}),",)?;
             }
 
-            writeln!(&mut self.output, "        ];")?;
+            writeln!(output, "        ];")?;
         }
 
         Ok(())
     }
 
     fn declare_sensor_struct(
-        &mut self,
+        &self,
         d: &I2cDevice,
         struct_name: &str,
+        output: &mut String,
     ) -> Result<()> {
         // Manually unpack the field so that changes to the sensor types
         // will require changes here as well.
@@ -1604,18 +1581,15 @@ impl ConfigGenerator {
         }) = &d.sensors
         {
             writeln!(
-                &mut self.output,
+                output,
                 "\n        #[allow(non_camel_case_types, dead_code)]
         pub struct Sensors_{struct_name} {{",
             )?;
             let mut f = |name, count| match count {
                 0 => Ok(()),
-                1 => writeln!(
-                    &mut self.output,
-                    "            pub {name}: SensorId,"
-                ),
+                1 => writeln!(output, "            pub {name}: SensorId,"),
                 _ => writeln!(
-                    &mut self.output,
+                    output,
                     "            pub {name}: [SensorId; {count}],"
                 ),
             };
@@ -1626,10 +1600,10 @@ impl ConfigGenerator {
             f("input_current", *input_current)?;
             f("input_voltage", *input_voltage)?;
             f("speed", *speed)?;
-            writeln!(&mut self.output, "        }}")?;
+            writeln!(output, "        }}")?;
         } else {
             writeln!(
-                &mut self.output,
+                output,
                 "\n        #[allow(dead_code, non_camel_case_types)]
         type Sensors_{struct_name} = ();",
             )?;
@@ -1638,14 +1612,15 @@ impl ConfigGenerator {
     }
 
     fn emit_sensor_struct(
-        &mut self,
+        &self,
         d: &I2cDevice,
         label: String,
         name: &str,
         sensors: &[Arc<DeviceSensor>],
+        output: &mut String,
     ) -> Result<()> {
         write!(
-            &mut self.output,
+            output,
             "        #[allow(dead_code)]
         pub const {}_{label}_SENSORS: Sensors_{name} = ",
             d.device.to_uppercase(),
@@ -1656,11 +1631,11 @@ impl ConfigGenerator {
             sensors_by_kind.entry(s.kind).or_default().push(s.id);
         }
         if sensors_by_kind.is_empty() {
-            writeln!(&mut self.output, "();")?;
+            writeln!(output, "();")?;
             return Ok(());
         }
 
-        writeln!(&mut self.output, "Sensors_{name} {{")?;
+        writeln!(output, "Sensors_{name} {{")?;
 
         for (kind, values) in sensors_by_kind {
             let field = match kind {
@@ -1675,23 +1650,23 @@ impl ConfigGenerator {
             };
             if values.len() == 1 {
                 writeln!(
-                    &mut self.output,
+                    output,
                     "            {field}: SensorId::new({}),",
                     values[0]
                 )?;
             } else {
-                write!(&mut self.output, "            {field}: [")?;
+                write!(output, "            {field}: [")?;
                 for (i, v) in values.iter().enumerate() {
                     if i > 0 {
-                        write!(&mut self.output, ", ")?;
+                        write!(output, ", ")?;
                     }
-                    write!(&mut self.output, "SensorId::new({v})")?;
+                    write!(output, "SensorId::new({v})")?;
                 }
-                writeln!(&mut self.output, "],")?;
+                writeln!(output, "],")?;
             }
         }
 
-        writeln!(&mut self.output, "        }};")?;
+        writeln!(output, "        }};")?;
         Ok(())
     }
 
@@ -1699,11 +1674,14 @@ impl ConfigGenerator {
         I2cSensorsDescription::new(&self.devices)
     }
 
-    fn generate_sensors(&mut self) -> Result<I2cSensorsDescription> {
+    pub fn generate_sensors(
+        &self,
+        output: &mut String,
+    ) -> Result<I2cSensorsDescription> {
         let s = self.sensors_description();
 
         write!(
-            &mut self.output,
+            output,
             r##"
     pub mod sensors {{
         #[allow(unused_imports)]
@@ -1744,7 +1722,7 @@ impl ConfigGenerator {
                 }
             } else {
                 emitted_structs.insert(struct_name.clone(), d.sensors.clone());
-                self.declare_sensor_struct(d, &struct_name)?;
+                self.declare_sensor_struct(d, &struct_name, output)?;
             }
             let s = s.device_sensors[i].as_slice();
             if let Some(name) = &d.name {
@@ -1753,6 +1731,7 @@ impl ConfigGenerator {
                     name.to_uppercase(),
                     &struct_name,
                     s,
+                    output,
                 )?;
             }
             if let Some(refdes) = &d.refdes {
@@ -1761,6 +1740,7 @@ impl ConfigGenerator {
                     refdes.to_upper_ident(),
                     &struct_name,
                     s,
+                    output,
                 )?;
             }
         }
@@ -1769,7 +1749,7 @@ impl ConfigGenerator {
         by_device_sorted.sort();
 
         for (k, ids) in &by_device_sorted {
-            self.emit_sensor(&k.device, &format!("{}", k.kind), ids)?;
+            self.emit_sensor(&k.device, &format!("{}", k.kind), ids, output)?;
         }
 
         let mut by_name_sorted: Vec<_> = s.by_name.iter_all().collect();
@@ -1777,7 +1757,7 @@ impl ConfigGenerator {
 
         for (k, ids) in &by_name_sorted {
             let label = format!("{}_{}", k.name.to_uppercase(), k.kind);
-            self.emit_sensor(&k.device, &label, ids)?;
+            self.emit_sensor(&k.device, &label, ids, output)?;
         }
 
         let mut by_refdes_sorted: Vec<_> = s.by_refdes.iter_all().collect();
@@ -1786,23 +1766,23 @@ impl ConfigGenerator {
         for (k, ids) in &by_refdes_sorted {
             let refdes = k.refdes.to_upper_ident();
             let label = format!("{refdes}_{}", k.kind);
-            self.emit_sensor(&k.device, &label, ids)?;
+            self.emit_sensor(&k.device, &label, ids, output)?;
         }
 
-        writeln!(&mut self.output, "\n    }}")?;
+        writeln!(output, "\n    }}")?;
         Ok(s)
     }
 
-    pub fn generate_ports(&mut self) -> Result<()> {
+    pub fn generate_ports(&self, output: &mut String) -> Result<()> {
         writeln!(
-            &mut self.output,
+            output,
             r##"
     pub mod ports {{"##
         )?;
 
         for ((controller, port), index) in &self.ports {
             writeln!(
-                &mut self.output,
+                output,
                 r##"
         #[allow(dead_code)]
         pub const fn i2c{controller}_{port}() -> drv_i2c_api::PortIndex {{
@@ -1814,7 +1794,7 @@ impl ConfigGenerator {
             )?;
         }
 
-        writeln!(&mut self.output, "    }}")?;
+        writeln!(output, "    }}")?;
         Ok(())
     }
 
@@ -1825,8 +1805,9 @@ impl ConfigGenerator {
     /// [`codegen_to_file`] will also write the generated code to the
     /// `i2c_config.rs` file for the task currently being built. This method may
     /// be used instead when running codegen outside of a task.
-    pub fn codegen(mut self) -> Result<CodegenOutputs> {
-        self.generate_header()?;
+    pub fn codegen(self) -> Result<CodegenOutputs> {
+        let mut output = String::new();
+        self.generate_header(&mut output)?;
 
         let mut output_sensors = None;
         match self.settings.disposition {
@@ -1844,48 +1825,97 @@ impl ConfigGenerator {
                     );
                 }
 
-                self.generate_controllers()?;
-                self.generate_pins()?;
-                self.generate_ports()?;
+                self.generate_controllers(&mut output)?;
+                self.generate_pins(&mut output)?;
+                self.generate_ports(&mut output)?;
             }
 
             Disposition::Initiator => {
-                self.generate_controllers()?;
-                self.generate_pins()?;
-                self.generate_ports()?;
-                self.generate_muxes()?;
+                self.generate_controllers(&mut output)?;
+                self.generate_pins(&mut output)?;
+                self.generate_ports(&mut output)?;
+                self.generate_muxes(&mut output)?;
             }
 
             Disposition::Devices => {
-                self.generate_devices()?;
-                self.generate_ports()?;
+                self.generate_devices(&mut output)?;
+                self.generate_ports(&mut output)?;
             }
 
             Disposition::Sensors => {
-                self.generate_devices()?;
-                let desc = self.generate_sensors()?;
+                self.generate_devices(&mut output)?;
+                let desc = self.generate_sensors(&mut output)?;
                 output_sensors = Some(desc);
             }
 
             Disposition::Validation => {
-                self.generate_devices()?;
-                self.generate_validation()?;
+                self.generate_devices(&mut output)?;
+                self.generate_validation(&mut output)?;
             }
         }
 
-        self.generate_footer()?;
+        self.generate_footer(&mut output)?;
 
         Ok(CodegenOutputs {
-            code: self.output,
+            code: output,
             sensors: output_sensors,
         })
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
+pub enum CodegenTarget {
+    None,
+    Stm32H743,
+    Stm32H753,
+    Stm32G031,
+    Stm32G030,
+}
+
+impl CodegenTarget {
+    fn from_env() -> Self {
+        let h743 = build_util::has_feature("h743");
+        let h753 = build_util::has_feature("h753");
+        let g031 = build_util::has_feature("g031");
+        let g030 = build_util::has_feature("g030");
+        let mut count = 0;
+        for sel in [h743, h753, g031, g030] {
+            if sel {
+                count += 1;
+            }
+        }
+
+        if count > 1 {
+            panic!("Too many features selected!");
+        }
+
+        if h743 {
+            Self::Stm32H743
+        } else if h753 {
+            Self::Stm32H753
+        } else if g031 {
+            Self::Stm32G031
+        } else if g030 {
+            Self::Stm32G030
+        } else {
+            Self::None
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct CodegenSettings {
+    /// disposition of this configuration: target v. initiator v. devices
     pub disposition: Disposition,
+    /// if `true`, include component ID string in output.
+    ///
+    /// this requires that the `"drv-i2c-api/component-id"` feature flag is
+    /// enabled. if that feature flag is enabled, then this MUST also be
+    /// enabled.
     pub component_ids: bool,
+    pub codegen_target: CodegenTarget,
+    /// List of drivers relevant to validation
+    pub drivers: HashSet<String>,
 }
 
 impl From<Disposition> for CodegenSettings {
@@ -1893,6 +1923,12 @@ impl From<Disposition> for CodegenSettings {
         CodegenSettings {
             disposition,
             component_ids: cfg!(feature = "component-id"),
+            codegen_target: CodegenTarget::from_env(),
+            drivers: if disposition == Disposition::Validation {
+                calculate_validate_drivers().unwrap()
+            } else {
+                HashSet::new()
+            },
         }
     }
 }
@@ -2031,7 +2067,7 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
 }
 
 fn match_arms<'a, C>(
-    mut out: impl Write,
+    out: &mut impl Write,
     source: impl IntoIterator<Item = (&'a C, &'a Vec<usize>)>,
     fmt: impl Fn(&C) -> String,
 ) -> Result<()>
@@ -2052,7 +2088,7 @@ where
         let result = fmt(controller);
 
         write!(
-            &mut out,
+            out,
             r##"
                 {s} => {result},"##,
         )?;

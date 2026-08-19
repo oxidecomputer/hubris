@@ -1,0 +1,43 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+
+#[allow(unused_imports)]
+use drv_stm32xx_i2c::{I2cGpio, I2cPins};
+
+pub fn pins() -> [I2cPins; 4] {
+    use drv_i2c_api::{Controller, PortIndex};
+    use drv_stm32xx_sys_api::{self as gpio_api, Alternate};
+
+    [
+        I2cPins {
+            controller: Controller::I2C3,
+            port: PortIndex(0),
+            scl: gpio_api::Port::H.pin(7),
+            sda: gpio_api::Port::H.pin(8),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C4,
+            port: PortIndex(0),
+            scl: gpio_api::Port::F.pin(14),
+            sda: gpio_api::Port::F.pin(15),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C2,
+            port: PortIndex(0),
+            scl: gpio_api::Port::B.pin(10),
+            sda: gpio_api::Port::B.pin(11),
+            function: Alternate::AF4,
+        },
+        I2cPins {
+            controller: Controller::I2C2,
+            port: PortIndex(1),
+            scl: gpio_api::Port::F.pin(1),
+            sda: gpio_api::Port::F.pin(0),
+            function: Alternate::AF4,
+        },
+    ]
+}

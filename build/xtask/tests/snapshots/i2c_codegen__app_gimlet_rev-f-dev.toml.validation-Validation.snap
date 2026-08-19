@@ -1,0 +1,1219 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+
+pub mod validation {
+    #[allow(unused_imports)]
+    use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+    #[allow(unused_imports)]
+    use drv_i2c_devices::Validate;
+    use userlib::TaskId;
+
+    #[allow(dead_code)]
+    pub enum I2cValidation {
+        RawReadOk,
+        Good,
+        Bad,
+    }
+
+    #[allow(unused_variables)]
+    #[allow(clippy::match_single_binding)]
+    pub fn validate(
+        task: TaskId,
+        index: usize,
+    ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {
+        match index {
+            0 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
+                        // Southwest temperature sensor
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            None,
+                            0x48,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            1 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
+                        // South temperature sensor
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            None,
+                            0x49,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            2 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
+                        // Southeast temperature sensor
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            None,
+                            0x4a,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            3 => {
+                // U.2 ABCD mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(1),
+                    None,
+                    0x70,
+                )
+                .read::<u8>()?;
+                Ok(I2cValidation::RawReadOk)
+            }
+            4 => {
+                // U.2 EFGH mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(1),
+                    None,
+                    0x71,
+                )
+                .read::<u8>()?;
+                Ok(I2cValidation::RawReadOk)
+            }
+            5 => {
+                // U.2 IJ/FRUID mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(1),
+                    None,
+                    0x72,
+                )
+                .read::<u8>()?;
+                Ok(I2cValidation::RawReadOk)
+            }
+            6 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin A VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            7 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin A hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            8 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 A NVMe Basic Management Command
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            9 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin B VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            10 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin B hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            11 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 B NVMe Basic Management Control
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            12 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin C VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            13 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin C hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            14 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 C NVMe Basic Management Control
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            15 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin D VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            16 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin D hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            17 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 D NVMe Basic Management Control
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            18 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin E VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S1)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            19 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin E hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S1)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            20 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 E NVMe Basic Management Control
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S1)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            21 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin F VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S2)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            22 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin F hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S2)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            23 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 F NVMe Basic Management Control
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S2)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            24 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin G VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S3)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            25 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin G hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S3)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            26 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 G NVMe Basic Management Control
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S3)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            27 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin H VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S4)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            28 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin H hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S4)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            29 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 H NVMe Basic Management Control
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S4)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            30 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin I VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S1)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            31 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin I hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S1)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            32 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 I NVMe Basic Management Control
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S1)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            33 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // U.2 Sharkfin J VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S2)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            34 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // U.2 Sharkfin J hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S2)),
+                            0x38,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            35 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // U.2 J NVMe Basic Management Control
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S2)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            36 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // Gimlet VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(1),
+                            Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S4)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            37 => {
+                // M.2 mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x73,
+                )
+                .read::<u8>()?;
+                Ok(I2cValidation::RawReadOk)
+            }
+            38 => {
+                if drv_i2c_devices::at24csw080::At24Csw080::validate(
+                    &
+                        // Fan VPD
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(0),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                            0x50,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            39 => {
+                if drv_i2c_devices::tmp451::Tmp451::validate(&
+                        // T6 temperature sensor
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(0),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                            0x4c,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            40 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
+                        // A2 3.3V rail
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x24,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            41 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
+                        // A0 3.3V rail
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x26,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            42 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
+                        // A2 5V rail
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x27,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            43 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
+                        // A2 1.8V rail
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x29,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            44 => {
+                if drv_i2c_devices::max5970::Max5970::validate(&
+                        // M.2 hot plug controller
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x3a,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            45 => {
+                if drv_i2c_devices::sbrmi::Sbrmi::validate(&
+                        // CPU via SB-RMI
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x3c,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            46 => {
+                if drv_i2c_devices::sbtsi::Sbtsi::validate(&
+                        // CPU temperature sensor
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x4c,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            47 => {
+                // Clock generator
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x58,
+                )
+                .read::<u8>()?;
+                Ok(I2cValidation::RawReadOk)
+            }
+            48 => {
+                if drv_i2c_devices::raa229618::Raa229618::validate(
+                    &
+                        // CPU power controller
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x5a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            49 => {
+                if drv_i2c_devices::raa229618::Raa229618::validate(
+                    &
+                        // SoC power controller
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x5b,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            50 => {
+                if drv_i2c_devices::isl68224::Isl68224::validate(
+                    &
+                        // DIMM/SP3 1.8V A0 power controller
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x5c,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            51 => {
+                if drv_i2c_devices::adm127x::Adm127X::validate(&
+                        // Fan hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x10,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            52 => {
+                if drv_i2c_devices::adm127x::Adm127X::validate(&
+                        // Sled hot swap controller
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x14,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            53 => {
+                if drv_i2c_devices::max31790::Max31790::validate(
+                    &
+                        // Fan controller
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x20,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            54 => {
+                if drv_i2c_devices::tps546b24a::Tps546B24A::validate(
+                    &
+                        // T6 power controller
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x25,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            55 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
+                        // Northeast temperature sensor
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x48,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            56 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
+                        // North temperature sensor
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x49,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            57 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&
+                        // Northwest temperature sensor
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x4a,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            58 => {
+                if drv_i2c_devices::bmr491::Bmr491::validate(&
+                        // Intermediate bus converter
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x67,
+                        ))?
+                {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            59 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM A0
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x18,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            60 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM A1
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x19,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            61 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM B0
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x1a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            62 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM B1
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x1b,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            63 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM C0
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x1c,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            64 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM C1
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x1d,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            65 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM D0
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x1e,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            66 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM D1
+                        I2cDevice::new(task,
+                            Controller::I2C3,
+                            PortIndex(0),
+                            None,
+                            0x1f,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            67 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM E0
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x18,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            68 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM E1
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x19,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            69 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM F0
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x1a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            70 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM F1
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x1b,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            71 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM G0
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x1c,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            72 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM G1
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x1d,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            73 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM H0
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x1e,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            74 => {
+                if drv_i2c_devices::tse2004av::Tse2004Av::validate(
+                    &
+                        // DIMM H1
+                        I2cDevice::new(task,
+                            Controller::I2C4,
+                            PortIndex(0),
+                            None,
+                            0x1f,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            75 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // M.2 A NVMe Basic Management Command
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(0),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            76 => {
+                if drv_i2c_devices::nvme_bmc::NvmeBmc::validate(
+                    &
+                        // M.2 B NVMe Basic Management Command
+                        I2cDevice::new(task,
+                            Controller::I2C2,
+                            PortIndex(0),
+                            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                            0x6a,
+                        ),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
+                }
+            }
+            _ => Err(drv_i2c_api::ResponseCode::BadArg),
+        }
+    }
+}

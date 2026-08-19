@@ -808,6 +808,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "console"
+version = "0.16.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fe5f465a4f6fee88fad41b85d990f84c835335e85b5d9e6e63e0d06d28cba7c"
+dependencies = [
+ "encode_unicode 1.0.0",
+ "libc",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3114,6 +3125,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
+name = "encode_unicode"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
+
+[[package]]
 name = "endoscope"
 version = "0.1.0"
 dependencies = [
@@ -3939,6 +3956,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0c10553d664a4d0bcff9f4215d0aac67a639cc68ef660840afe309b807bc9f5"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "insta"
+version = "1.48.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86f0f8fee8c926415c58d6ae43a08523a26faccb2323f5e6b644fe7dd4ef6b82"
+dependencies = [
+ "console",
+ "once_cell",
+ "similar",
+ "tempfile",
 ]
 
 [[package]]
@@ -5761,6 +5790,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+
+[[package]]
 name = "smallvec"
 version = "0.6.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5894,7 +5929,7 @@ name = "ssmarshal"
 version = "1.0.0"
 source = "git+https://gitlab.com/de-vri-es/ssmarshal?rev=10e90cbe389c8f07c52815857551a051946881ab#10e90cbe389c8f07c52815857551a051946881ab"
 dependencies = [
- "encode_unicode",
+ "encode_unicode 0.3.6",
  "serde",
 ]
 
@@ -8127,6 +8162,7 @@ dependencies = [
  "hex",
  "hubtools",
  "indexmap 1.9.1",
+ "insta",
  "lpc55-rom-data",
  "lpc55_sign",
  "memchr",
@@ -8143,6 +8179,7 @@ dependencies = [
  "sha2 0.11.0",
  "sha3 0.11.0",
  "strsim 0.10.0",
+ "tempfile",
  "tlvc",
  "tlvc-text",
  "toml 1.1.2+spec-1.1.0",
