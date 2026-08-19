@@ -757,7 +757,21 @@ impl MgsCommon {
         // Yep! Call the i2c-generated function to get back an I2cDevice
         // and the rail index necessary to call the status function
         let info = &crate::pmbus::PMBUS_RAIL_TO_I2C_DEVICE_MAP[idx];
-        let (device, rail_idx) = (info.summon_fn)(crate::I2C.get_task_id());
+        let device = crate::i2c_config::pmbus::device_by_index(
+            crate::I2C.get_task_id(),
+            info.device_index,
+        )
+        // This should only fail if the lookup table doesn't contain an entry
+        // for this device index, which is a codegen bug.
+        .unwrap_lite();
+        let device_caps = task_validate_api::DEVICES
+            // Use `get()` here so we can have one unique panic site rather than
+            // two :)
+            .get(info.device_index)
+            .and_then(|d| d.pmbus_capabilities)
+            // Similarly, not having an entry in `task_validate_api::DEVICES`,
+            // or that device not being PMBus, would also be a codegen bug.
+            .unwrap_lite();
 
         // Local version of:
         // `impl From<i2c::PmbusStatusError> for mgs::PmbusStatusReadError`
@@ -781,8 +795,8 @@ impl MgsCommon {
         // isn't successful. Plumb the errors as necessary if that happens.
         let status = drv_i2c_devices::PmbusStatus::try_read_from(
             &device,
-            rail_idx,
-            info.status_bits,
+            info.rail_index,
+            device_caps,
         )
         .map_err(err_fixer)
         .map_err(PmbusStatusError::FailedStatusWord)
