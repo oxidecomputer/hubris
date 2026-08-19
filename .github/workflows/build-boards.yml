@@ -149,7 +149,11 @@ jobs:
         # is really really more than we need, but also much less than 6 hours.
         timeout-minutes: 5
         run: |
-          sudo apt-get -o Debug::Acquire::https=true -o Debug::Acquire::http=true update
+          sudo apt-get \
+              -o Debug::Acquire::https=true \
+              -o Debug::Acquire::http=true \
+              -o Debug::pkgAcquire=true \
+              update
           sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           for image in ${images}; do
               target/release/humility -a "target/${name}/dist/${image}/build-${name}-image-${image}.zip" manifest;
