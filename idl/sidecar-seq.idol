@@ -31,7 +31,7 @@ Interface(
             doc: "Return the Tofino sequencer state",
             args: {},
             reply: Result(
-                ok: "drv_sidecar_seq_api::reg_map::Reg::TOFINO_SEQ_STATE::ValueEncoded",
+                ok: "drv_sidecar_mainboard_controller::reg_map::Reg::TOFINO_SEQ_STATE::ValueEncoded",
                 err: CLike("SeqError"),
             ),
             encoding: Hubpack
@@ -40,7 +40,7 @@ Interface(
             doc: "Return the Tofino sequencer error, if any",
             args: {},
             reply: Result(
-                ok: "drv_sidecar_seq_api::reg_map::Reg::TOFINO_SEQ_ERROR::ValueEncoded",
+                ok: "drv_sidecar_mainboard_controller::reg_map::Reg::TOFINO_SEQ_ERROR::ValueEncoded",
                 err: CLike("SeqError"),
             ),
             encoding: Hubpack
@@ -48,7 +48,7 @@ Interface(
         "tofino_seq_error_step": (
             doc: "Return the step when a Tofino sequencer error occurred, if any",
             reply: Result(
-                ok: "drv_sidecar_seq_api::reg_map::Reg::TOFINO_SEQ_STEP::ValueEncoded",
+                ok: "drv_sidecar_mainboard_controller::reg_map::Reg::TOFINO_SEQ_STEP::ValueEncoded",
                 err: CLike("SeqError"),
             ),
             encoding: Hubpack
