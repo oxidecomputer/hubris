@@ -150,9 +150,6 @@ jobs:
         timeout-minutes: 5
         run: |
           sudo apt-get \
-              -o Debug::Acquire::https=true \
-              -o Debug::Acquire::http=true \
-              -o Debug::pkgAcquire=true \
               -o Acquire::http::Timeout=30 \
               -o Acquire::https::Timeout=30 \
               -o Acquire::Retries=3 \
