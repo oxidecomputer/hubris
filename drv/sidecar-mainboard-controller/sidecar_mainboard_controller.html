@@ -1287,7 +1287,7 @@
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="10*">RSVD</td>
-                <td class="validspandef" colspan="6*">STATE</td>
+                <td class="validspandef" colspan="6*">VALUE</td>
     </tr>
     <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1299,11 +1299,18 @@
     </tr>
     <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">STATE</td>
+        <td class="FieldDesc" colspan="2*">VALUE</td>
         <td class="FieldDesc" colspan="1*">2..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Tofino Sequencer State
+        <br>
+        <br>
+            Init = 0x0 <br>
+            A2 = 0x1 <br>
+            A0 = 0x2 <br>
+            InPowerUp = 0x3 <br>
+            InPowerDown = 0x4 
         </td>
     </tr>
     <tr class="Register">
@@ -1321,7 +1328,7 @@
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="8*">RSVD</td>
-                <td class="validspandef" colspan="8*">STEP</td>
+                <td class="validspandef" colspan="8*">VALUE</td>
     </tr>
     <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1333,11 +1340,27 @@
     </tr>
     <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">STEP</td>
+        <td class="FieldDesc" colspan="2*">VALUE</td>
         <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Sequencing Step
+        <br>
+        <br>
+            Init = 0x0 <br>
+            AwaitPowerUp = 0x1 <br>
+            AwaitVdd18PowerGood = 0x2 <br>
+            AwaitVddCorePowerGood = 0x3 <br>
+            AwaitVddPCIePowerGood = 0x4 <br>
+            AwaitVddtPowerGood = 0x5 <br>
+            AwaitVdda15PowerGood = 0x6 <br>
+            AwaitVdda18PowerGood = 0x7 <br>
+            AwaitPoR = 0x8 <br>
+            AwaitVidValid = 0x9 <br>
+            AwaitVidAck = 0xa <br>
+            AwaitPowerUpComplete = 0xb <br>
+            AwaitPowerDown = 0xc <br>
+            AwaitPowerDownComplete = 0xd 
         </td>
     </tr>
     <tr class="Register">
@@ -1355,7 +1378,7 @@
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="10*">RSVD</td>
-                <td class="validspandef" colspan="6*">ERROR</td>
+                <td class="validspandef" colspan="6*">VALUE</td>
     </tr>
     <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1367,11 +1390,21 @@
     </tr>
     <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
+        <td class="FieldDesc" colspan="2*">VALUE</td>
         <td class="FieldDesc" colspan="1*">2..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Sequencing Error
+        <br>
+        <br>
+            None = 0x0 <br>
+            PowerGoodTimeout = 0x1 <br>
+            PowerFault = 0x2 <br>
+            PowerVrHot = 0x3 <br>
+            PowerAbort = 0x4 <br>
+            SoftwareAbort = 0x5 <br>
+            VidAckTimeout = 0x6 <br>
+            ThermalAlert = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -1382,14 +1415,14 @@
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Tofino Sequencer Error State</td>
+        <td class="Description" colspan="16">&nbsp;Tofino Sequencer State at Error</td>
     </tr>
     <tr class="cat26" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="10*">RSVD</td>
-                <td class="validspandef" colspan="6*">STATE</td>
+                <td class="validspandef" colspan="6*">VALUE</td>
     </tr>
     <tr class="cat26" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1401,11 +1434,18 @@
     </tr>
     <tr class="cat26" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">STATE</td>
+        <td class="FieldDesc" colspan="2*">VALUE</td>
         <td class="FieldDesc" colspan="1*">2..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Sequencer state when error occured
+        <td class="FieldDesc" colspan="14">Tofino Sequencer State
+        <br>
+        <br>
+            Init = 0x0 <br>
+            A2 = 0x1 <br>
+            A0 = 0x2 <br>
+            InPowerUp = 0x3 <br>
+            InPowerDown = 0x4 
         </td>
     </tr>
     <tr class="Register">
@@ -1416,14 +1456,14 @@
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Tofino Sequencing Error Step</td>
+        <td class="Description" colspan="16">&nbsp;Tofino Sequencer Step at Error</td>
     </tr>
     <tr class="cat27" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="8*">RSVD</td>
-                <td class="validspandef" colspan="8*">STEP</td>
+                <td class="validspandef" colspan="8*">VALUE</td>
     </tr>
     <tr class="cat27" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1435,11 +1475,27 @@
     </tr>
     <tr class="cat27" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">STEP</td>
+        <td class="FieldDesc" colspan="2*">VALUE</td>
         <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Sequencing step when error occured
+        <td class="FieldDesc" colspan="14">Sequencing Step
+        <br>
+        <br>
+            Init = 0x0 <br>
+            AwaitPowerUp = 0x1 <br>
+            AwaitVdd18PowerGood = 0x2 <br>
+            AwaitVddCorePowerGood = 0x3 <br>
+            AwaitVddPCIePowerGood = 0x4 <br>
+            AwaitVddtPowerGood = 0x5 <br>
+            AwaitVdda15PowerGood = 0x6 <br>
+            AwaitVdda18PowerGood = 0x7 <br>
+            AwaitPoR = 0x8 <br>
+            AwaitVidValid = 0x9 <br>
+            AwaitVidAck = 0xa <br>
+            AwaitPowerUpComplete = 0xb <br>
+            AwaitPowerDown = 0xc <br>
+            AwaitPowerDownComplete = 0xd 
         </td>
     </tr>
     <tr class="Register">
