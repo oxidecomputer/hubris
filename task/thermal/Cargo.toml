@@ -33,6 +33,7 @@ task-thermal-api.path = "../thermal-api"
 task-packrat-api.path= "../packrat-api"
 ereports = { path = "../../lib/ereports", features = ["ereporter-macro"] }
 microcbor = { path = "../../lib/microcbor" }
+fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
 
 [build-dependencies]
 anyhow = { workspace = true }

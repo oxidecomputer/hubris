@@ -75,7 +75,9 @@ use drv_i2c_devices::max31790::I2cWatchdog;
 use microcbor::Encode;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_packrat_api::Packrat;
-use task_sensor_api::{NoData, Sensor as SensorApi, SensorId};
+use task_sensor_api::{
+    NoData, Sensor as SensorApi, SensorId, config::MAX_SENSOR_NAME_LEN,
+};
 use task_thermal_api::{
     FanProperties, SensorReadError, ThermalAutoState, ThermalProperties,
 };
@@ -242,6 +244,7 @@ pub struct Fan<D> {
     pub bsp_data: D,
     /// Parameter model for this fan
     pub model: FanProperties,
+    pub name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
@@ -259,6 +262,7 @@ impl<D> Fan<D> {
             cur_state: FanState::NotPresent,
             bsp_data,
             model,
+            name: rpm_sensor_id.name(),
         }
     }
 
@@ -1568,11 +1572,11 @@ fn report_fan_state<D>(
         match fan.cur_state {
             Fs::NotPresent => {
                 ringbuf_entry!(Trace::FanRemoved(id));
-                _ = ereporter.deliver_ereport(&FanRemoved { id: id.into() });
+                _ = ereporter.deliver_ereport(&FanRemoved { name: fan.name });
             }
             Fs::Present(_) => {
                 ringbuf_entry!(Trace::FanAdded(id));
-                _ = ereporter.deliver_ereport(&FanInserted { id: id.into() })
+                _ = ereporter.deliver_ereport(&FanInserted { name: fan.name })
             }
         };
         fan.presence_acked = true;
@@ -1603,14 +1607,14 @@ fn report_fan_state<D>(
     // Step three: handle state reporting, if unreported
     if !fan.state_acked {
         let fan_info = || FanInfo {
-            id: id.into(),
+            name: fan.name,
             lo_rpm_lim: fan.model.underspeed_rpm.0,
             hi_rpm_lim: fan.model.overspeed_rpm.0,
         };
         match pres {
             Fps::Unresponsive(e) => {
                 _ = ereporter
-                    .deliver_ereport(&FanRpmReadFailed { id: id.into() });
+                    .deliver_ereport(&FanRpmReadFailed { name: fan.name });
                 ringbuf_entry!(Trace::FanReadFailed(id, e));
             }
             Fps::Nominal(_) => {
@@ -1649,7 +1653,7 @@ ereports::declare_ereporter! {
 
 #[derive(microcbor::EncodeFields)]
 struct FanInfo {
-    id: u32,
+    name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
     lo_rpm_lim: u16,
     hi_rpm_lim: u16,
 }
@@ -1658,14 +1662,14 @@ struct FanInfo {
 #[derive(Encode)]
 #[ereport(class = "hw.remove.fan", version = 0)]
 struct FanRemoved {
-    id: u32,
+    name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
 }
 
 /// An ereport representing a fan being inserted
 #[derive(Encode)]
 #[ereport(class = "hw.insert.fan", version = 0)]
 struct FanInserted {
-    id: u32,
+    name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
 }
 
 /// An ereport representing a fan entering a nominal state
@@ -1698,5 +1702,5 @@ struct FanUnderspeed {
 #[derive(Encode)]
 #[ereport(class = "hw.fan.rpm.err", version = 0)]
 struct FanRpmReadFailed {
-    id: u32,
+    name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
 }

@@ -6921,6 +6921,7 @@ dependencies = [
  "drv-sidecar-seq-api",
  "drv-transceivers-api",
  "ereports",
+ "fixedstr",
  "hubpack",
  "idol",
  "idol-runtime",
