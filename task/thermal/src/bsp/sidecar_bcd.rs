@@ -9,16 +9,15 @@ use crate::control::{
     DynamicTemperatureState, MiscSensorPollingOutcome, PidConfig,
     TimestampedTemperatureReading,
 };
+use drv_i2c_devices::max31790::Fan as MaxFan;
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
-use task_thermal_api::ThermalError;
-use task_thermal_api::{
-    SANYO_DENKI_FAN_PROPERTIES, SensorReadError, ThermalProperties,
-};
+use task_thermal_api::ThermalProperties;
+use task_thermal_api::{SANYO_DENKI_FAN_PROPERTIES, ThermalError};
 use userlib::{TaskId, task_slot, units::Celsius};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -155,17 +154,13 @@ impl crate::control::BspInterface for Bsp {
         if let Ok(fctl) = self.fctrl_east.try_initialize() {
             for fan in east.iter_mut() {
                 let bsp_data = fan.bsp_data;
-                fan.poll_rpm_with(&SANYO_DENKI_FAN_PROPERTIES, || {
-                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
-                });
+                fan.poll_rpm_with(|| fctl.fan_rpm(bsp_data));
             }
         }
         if let Ok(fctl) = self.fctrl_west.try_initialize() {
             for fan in west.iter_mut() {
                 let bsp_data = fan.bsp_data;
-                fan.poll_rpm_with(&SANYO_DENKI_FAN_PROPERTIES, || {
-                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
-                });
+                fan.poll_rpm_with(|| fctl.fan_rpm(bsp_data));
             }
         }
 
@@ -521,40 +516,23 @@ const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [
 //     5            West           NW            3 (4)
 //     6            West           WSW           0 (1)
 //     7            West           WNW           1 (2)
-type Fan = crate::control::Fan<drv_i2c_devices::max31790::Fan>;
-const FANS: [Fan; NUM_FANS] = [
-    // EAST FANS
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[0],
-        drv_i2c_devices::max31790::Fan::new_const(2),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[1],
-        drv_i2c_devices::max31790::Fan::new_const(3),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[2],
-        drv_i2c_devices::max31790::Fan::new_const(0),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[3],
-        drv_i2c_devices::max31790::Fan::new_const(1),
-    ),
-    // WEST FANS
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[4],
-        drv_i2c_devices::max31790::Fan::new_const(2),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[5],
-        drv_i2c_devices::max31790::Fan::new_const(3),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[6],
-        drv_i2c_devices::max31790::Fan::new_const(0),
-    ),
-    Fan::new(
-        sensors::MAX31790_SPEED_SENSORS[7],
-        drv_i2c_devices::max31790::Fan::new_const(1),
-    ),
-];
+type Fan = crate::control::Fan<MaxFan>;
+const FAN_ORDER: [u8; NUM_FANS] = [2, 3, 0, 1, 2, 3, 0, 1];
+const fn make_fans() -> [Fan; NUM_FANS] {
+    const ONE_FAN: Fan = Fan::new(
+        SensorId::new(0),
+        SANYO_DENKI_FAN_PROPERTIES,
+        MaxFan::new_const(0),
+    );
+    let mut fans = [ONE_FAN; NUM_FANS];
+    let mut idx = 0;
+    while idx < NUM_FANS {
+        fans[idx].rpm_sensor_id = sensors::MAX31790_SPEED_SENSORS[idx];
+        fans[idx].bsp_data = MaxFan::new_const(FAN_ORDER[idx]);
+        idx += 1;
+    }
+
+    fans
+}
+
+const FANS: [Fan; NUM_FANS] = make_fans();
