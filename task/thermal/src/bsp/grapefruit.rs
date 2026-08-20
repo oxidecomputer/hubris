@@ -8,7 +8,7 @@ use crate::control::{ActiveInputState, MiscSensorPollingOutcome};
 use crate::control::{ChannelType, PidConfig};
 use drv_i2c_devices::max31790::I2cWatchdog;
 use task_sensor_api::SensorId;
-use task_thermal_api::{SensorReadError, ThermalError, ThermalProperties};
+use task_thermal_api::{ThermalError, ThermalProperties};
 use userlib::TaskId;
 use userlib::units::{Celsius, PWMDuty};
 
@@ -88,9 +88,7 @@ impl crate::control::BspInterface for Bsp {
         if let Ok(fctl) = self.fctrl.try_initialize() {
             for fan in self.fans.iter_mut() {
                 let bsp_data = fan.bsp_data;
-                fan.poll_rpm_with(|| {
-                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
-                });
+                fan.poll_rpm_with(|| fctl.fan_rpm(bsp_data));
             }
         }
 

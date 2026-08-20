@@ -127,6 +127,7 @@ enum Trace {
     /// because an entry with two u64s doubles the size of the ringbuf.
     #[count(skip)]
     CriticalFor(u64),
+    /// Fan is present and read failed
     FanReadFailed(SensorId, SensorReadError),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
@@ -160,6 +161,8 @@ enum Trace {
     FanOverspeed(SensorId, Rpm),
     /// Fan is present and underspeed
     FanUnderspeed(SensorId, Rpm),
+    /// Fan is present but BSP didn't poll it
+    FanUnpolled(SensorId),
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 

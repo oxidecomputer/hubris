@@ -111,9 +111,7 @@ pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
     while idx < N {
         out[idx].rpm_sensor_id = sensors[idx];
         out[idx].bsp_data = EmcFan::new_const(idx as u8);
-        out[idx].cur_state = FanState::Present(FanPresentState::Unresponsive(
-            SensorReadError::NoData,
-        ));
+        out[idx].cur_state = FanState::Present(FanPresentState::Unpolled);
         out[idx].presence_acked = true;
         idx += 1;
     }

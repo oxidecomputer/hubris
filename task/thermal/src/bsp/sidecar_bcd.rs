@@ -16,8 +16,8 @@ pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
+use task_thermal_api::ThermalProperties;
 use task_thermal_api::{SANYO_DENKI_FAN_PROPERTIES, ThermalError};
-use task_thermal_api::{SensorReadError, ThermalProperties};
 use userlib::{TaskId, task_slot, units::Celsius};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -154,17 +154,13 @@ impl crate::control::BspInterface for Bsp {
         if let Ok(fctl) = self.fctrl_east.try_initialize() {
             for fan in east.iter_mut() {
                 let bsp_data = fan.bsp_data;
-                fan.poll_rpm_with(|| {
-                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
-                });
+                fan.poll_rpm_with(|| fctl.fan_rpm(bsp_data));
             }
         }
         if let Ok(fctl) = self.fctrl_west.try_initialize() {
             for fan in west.iter_mut() {
                 let bsp_data = fan.bsp_data;
-                fan.poll_rpm_with(|| {
-                    fctl.fan_rpm(bsp_data).map_err(SensorReadError::I2cError)
-                });
+                fan.poll_rpm_with(|| fctl.fan_rpm(bsp_data));
             }
         }
 

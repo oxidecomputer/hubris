@@ -213,8 +213,10 @@ pub enum FanState {
 #[allow(dead_code)] // Not all bsps have fans!
 #[derive(Copy, Clone, PartialEq)]
 pub enum FanPresentState {
-    /// The fan is physically present, but is unresponsive to RPM queries
-    Unresponsive(SensorReadError),
+    /// The fan is present but has not yet been polled
+    Unpolled,
+    /// The fan is present, but is unresponsive to RPM queries
+    I2cReadError(drv_i2c_api::ResponseCode),
     /// The fan is present and at a reasonable speed
     Nominal(Rpm),
     /// The fan is present, but is overspeed
@@ -289,9 +291,7 @@ impl<D> Fan<D> {
     pub(crate) fn update_presence(&mut self, is_present: bool) {
         match (is_present, self.cur_state) {
             (true, FanState::NotPresent) => {
-                self.update_state(FanState::Present(
-                    FanPresentState::Unresponsive(SensorReadError::NoData),
-                ))
+                self.update_state(FanState::Present(FanPresentState::Unpolled))
             }
             (true, _) => {}
             (false, _) => {
@@ -324,31 +324,27 @@ impl<D> Fan<D> {
             }
             // Present -> Present
             (Fs::Present(cur), Fs::Present(newp)) => match (cur, newp) {
-                // Same -> Same, just take state
                 (Fps::Nominal(_), Fps::Nominal(_))
                 | (Fps::TooFast(_), Fps::TooFast(_))
                 | (Fps::TooSlow(_), Fps::TooSlow(_))
-                | (Fps::Unresponsive(_), Fps::Unresponsive(_)) => {
+                | (Fps::I2cReadError(_), Fps::I2cReadError(_))
+                | (Fps::Unpolled, Fps::Unpolled) => {
                     self.cur_state = new;
                 }
-                // Any of the following:
-                //
-                // - Nominal -> Deviant
-                // - Deviant -> Nominal
-                // - Deviant -> Deviant
-                //
-                // Take:
-                //
-                // - New state
-                // - Status ack state
                 (Fps::Nominal(_), _)
                 | (_, Fps::Nominal(_))
-                | (Fps::TooFast(_), Fps::Unresponsive(_))
+                | (Fps::TooFast(_), Fps::Unpolled)
                 | (Fps::TooFast(_), Fps::TooSlow(_))
-                | (Fps::TooSlow(_), Fps::Unresponsive(_))
+                | (Fps::TooFast(_), Fps::I2cReadError(_))
+                | (Fps::TooSlow(_), Fps::Unpolled)
                 | (Fps::TooSlow(_), Fps::TooFast(_))
-                | (Fps::Unresponsive(_), Fps::TooFast(_))
-                | (Fps::Unresponsive(_), Fps::TooSlow(_)) => {
+                | (Fps::TooSlow(_), Fps::I2cReadError(_))
+                | (Fps::Unpolled, Fps::TooFast(_))
+                | (Fps::Unpolled, Fps::TooSlow(_))
+                | (Fps::Unpolled, Fps::I2cReadError(_))
+                | (Fps::I2cReadError(_), Fps::Unpolled)
+                | (Fps::I2cReadError(_), Fps::TooFast(_))
+                | (Fps::I2cReadError(_), Fps::TooSlow(_)) => {
                     self.cur_state = new;
                     self.state_acked = false;
                 }
@@ -358,9 +354,9 @@ impl<D> Fan<D> {
 
     /// Update the RPM of a present fan with the given closure, which should
     /// retrieve the RPM. Used to share logic across different fan controllers
-    pub(crate) fn poll_rpm_with<E: Into<SensorReadError>>(
+    pub(crate) fn poll_rpm_with(
         &mut self,
-        poll_rpm: impl FnOnce() -> Result<Rpm, E>,
+        poll_rpm: impl FnOnce() -> Result<Rpm, drv_i2c_api::ResponseCode>,
     ) {
         // If this fan is not present, then do not attempt to poll it. Presence
         // is only restored via presence polling.
@@ -386,7 +382,7 @@ impl<D> Fan<D> {
             Err(e) => {
                 // No good, mark as unresponsive
                 self.update_state(FanState::Present(
-                    FanPresentState::Unresponsive(e.into()),
+                    FanPresentState::I2cReadError(e),
                 ));
             }
         }
@@ -1604,7 +1600,7 @@ fn report_fan_state<D>(
     };
     match pres {
         // If the fan is unresponsive, clear the data from the sensor API
-        Fps::Unresponsive(_) => {
+        Fps::Unpolled | Fps::I2cReadError(_) => {
             sensor_api.nodata(id, NoData::DeviceUnavailable, now_ms);
         }
         // If we have valid RPM data, report it immediately.
@@ -1622,12 +1618,16 @@ fn report_fan_state<D>(
             hi_rpm_lim: fan.model.overspeed_rpm.0,
         };
         match pres {
-            Fps::Unresponsive(e) => {
+            Fps::I2cReadError(e) => {
                 _ = ereporter.deliver_ereport(&FanRpmReadFailed {
                     name: fan.name,
                     component_id: fan.component_id,
+                    raw_response_code: e as u8,
                 });
-                ringbuf_entry!(Trace::FanReadFailed(id, e));
+                ringbuf_entry!(Trace::FanReadFailed(
+                    id,
+                    SensorReadError::I2cError(e)
+                ));
             }
             Fps::Nominal(_) => {
                 _ = ereporter.deliver_ereport(&FanNominal { info: fan_info() });
@@ -1646,6 +1646,13 @@ fn report_fan_state<D>(
                     rpm: rpm.0,
                 });
                 ringbuf_entry!(Trace::FanUnderspeed(id, rpm));
+            }
+            Fps::Unpolled => {
+                // This is likely a bug, this means that a BSP failed to call
+                // `poll_rpm_with`. Don't panic, because that's worse than just
+                // not monitoring the fan at all, but ringbuf so we can catch
+                // it while developing.
+                ringbuf_entry!(Trace::FanUnpolled(id));
             }
         };
         fan.state_acked = true;
@@ -1719,4 +1726,10 @@ struct FanUnderspeed {
 struct FanRpmReadFailed {
     name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
     component_id: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
+    /// The raw I2C driver code reported when this query failed. This value
+    /// is not stable across versions of the SP firmware, and should only
+    /// be logged or used for interactive or post-mortem debugging.
+    /// Requires knowledge of the exact firmware revision to meaningfully
+    /// decode.
+    raw_response_code: u8,
 }
