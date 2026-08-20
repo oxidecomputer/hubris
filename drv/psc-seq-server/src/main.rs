@@ -1080,7 +1080,7 @@ impl Psu {
             #[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
             let mut rail_name = *b"V54_PSUx";
             #[cfg(target_board = "observer-a")]
-            let mut rail_name = *b"V50_MAIN_PSUx";
+            let mut rail_name = *b"V50_PSUx";
 
             rail_name[rail_name.len() - 1] = match self.slot {
                 Slot::Psu0 => b'0',
@@ -1235,7 +1235,7 @@ struct PowerUngoodEreport {
 #[derive(microcbor::EncodeFields)]
 struct EreportFields {
     refdes: FixedStr<'static, 20>, // Component ID max length
-    rail: FixedString<13>,         // Example: "V54_PSU0"
+    rail: FixedString<8>,          // Example: "V54_PSU0"
     slot: u8,
     fruid: PsuFruid,
 }

@@ -307,146 +307,74 @@ pub mod pmbus {
     use userlib::TaskId;
 
     #[allow(dead_code)]
-    pub fn v50_aux_psu0(task: TaskId) -> (I2cDevice, Option<u8>) {
+    pub fn v50_psu0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
             // PSU 0 MCU
             I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58),
-            Some(1),
+            None,
         )
     }
 
     #[allow(dead_code)]
-    pub const MWOCP67_V50_AUX_PSU0_PHASES: Option<&'static [u8]> = None;
+    pub const MWOCP67_V50_PSU0_PHASES: Option<&'static [u8]> = None;
 
     #[allow(dead_code)]
-    pub fn v50_aux_psu1(task: TaskId) -> (I2cDevice, Option<u8>) {
+    pub fn v50_psu1(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
             // PSU 1 MCU
             I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59),
-            Some(1),
+            None,
         )
     }
 
     #[allow(dead_code)]
-    pub const MWOCP67_V50_AUX_PSU1_PHASES: Option<&'static [u8]> = None;
+    pub const MWOCP67_V50_PSU1_PHASES: Option<&'static [u8]> = None;
 
     #[allow(dead_code)]
-    pub fn v50_aux_psu2(task: TaskId) -> (I2cDevice, Option<u8>) {
+    pub fn v50_psu2(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
             // PSU 2 MCU
             I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a),
-            Some(1),
+            None,
         )
     }
 
     #[allow(dead_code)]
-    pub const MWOCP67_V50_AUX_PSU2_PHASES: Option<&'static [u8]> = None;
+    pub const MWOCP67_V50_PSU2_PHASES: Option<&'static [u8]> = None;
 
     #[allow(dead_code)]
-    pub fn v50_aux_psu3(task: TaskId) -> (I2cDevice, Option<u8>) {
+    pub fn v50_psu3(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
             // PSU 3 MCU
             I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b),
-            Some(1),
+            None,
         )
     }
 
     #[allow(dead_code)]
-    pub const MWOCP67_V50_AUX_PSU3_PHASES: Option<&'static [u8]> = None;
+    pub const MWOCP67_V50_PSU3_PHASES: Option<&'static [u8]> = None;
 
     #[allow(dead_code)]
-    pub fn v50_aux_psu4(task: TaskId) -> (I2cDevice, Option<u8>) {
+    pub fn v50_psu4(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
             // PSU 4 MCU
             I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c),
-            Some(1),
+            None,
         )
     }
 
     #[allow(dead_code)]
-    pub const MWOCP67_V50_AUX_PSU4_PHASES: Option<&'static [u8]> = None;
+    pub const MWOCP67_V50_PSU4_PHASES: Option<&'static [u8]> = None;
 
     #[allow(dead_code)]
-    pub fn v50_aux_psu5(task: TaskId) -> (I2cDevice, Option<u8>) {
+    pub fn v50_psu5(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
             // PSU 5 MCU
             I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d),
-            Some(1),
+            None,
         )
     }
 
     #[allow(dead_code)]
-    pub const MWOCP67_V50_AUX_PSU5_PHASES: Option<&'static [u8]> = None;
-
-    #[allow(dead_code)]
-    pub fn v50_main_psu0(task: TaskId) -> (I2cDevice, Option<u8>) {
-        (
-            // PSU 0 MCU
-            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58),
-            Some(0),
-        )
-    }
-
-    #[allow(dead_code)]
-    pub const MWOCP67_V50_MAIN_PSU0_PHASES: Option<&'static [u8]> = None;
-
-    #[allow(dead_code)]
-    pub fn v50_main_psu1(task: TaskId) -> (I2cDevice, Option<u8>) {
-        (
-            // PSU 1 MCU
-            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x59),
-            Some(0),
-        )
-    }
-
-    #[allow(dead_code)]
-    pub const MWOCP67_V50_MAIN_PSU1_PHASES: Option<&'static [u8]> = None;
-
-    #[allow(dead_code)]
-    pub fn v50_main_psu2(task: TaskId) -> (I2cDevice, Option<u8>) {
-        (
-            // PSU 2 MCU
-            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a),
-            Some(0),
-        )
-    }
-
-    #[allow(dead_code)]
-    pub const MWOCP67_V50_MAIN_PSU2_PHASES: Option<&'static [u8]> = None;
-
-    #[allow(dead_code)]
-    pub fn v50_main_psu3(task: TaskId) -> (I2cDevice, Option<u8>) {
-        (
-            // PSU 3 MCU
-            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b),
-            Some(0),
-        )
-    }
-
-    #[allow(dead_code)]
-    pub const MWOCP67_V50_MAIN_PSU3_PHASES: Option<&'static [u8]> = None;
-
-    #[allow(dead_code)]
-    pub fn v50_main_psu4(task: TaskId) -> (I2cDevice, Option<u8>) {
-        (
-            // PSU 4 MCU
-            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c),
-            Some(0),
-        )
-    }
-
-    #[allow(dead_code)]
-    pub const MWOCP67_V50_MAIN_PSU4_PHASES: Option<&'static [u8]> = None;
-
-    #[allow(dead_code)]
-    pub fn v50_main_psu5(task: TaskId) -> (I2cDevice, Option<u8>) {
-        (
-            // PSU 5 MCU
-            I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5d),
-            Some(0),
-        )
-    }
-
-    #[allow(dead_code)]
-    pub const MWOCP67_V50_MAIN_PSU5_PHASES: Option<&'static [u8]> = None;
+    pub const MWOCP67_V50_PSU5_PHASES: Option<&'static [u8]> = None;
 }
