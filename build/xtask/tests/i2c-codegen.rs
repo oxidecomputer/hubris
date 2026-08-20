@@ -19,7 +19,8 @@
 //! Apologies to those that need to update these snapshots until that day comes.
 //! You will need to install `cargo-insta`, e.g. `cargo install cargo-insta`,
 //! run the tests with `cargo insta test -p xtask`, and then review+bless any
-//! new changes with `cargo insta review`.
+//! new changes with `cargo insta review`, OR by using environment variables,
+//! see: <https://insta.rs/docs/quickstart/#tests-without-insta>.
 
 use std::path::Path;
 
