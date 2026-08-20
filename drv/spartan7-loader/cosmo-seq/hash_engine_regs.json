@@ -1,0 +1,404 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 64,
+    "inst_name": "hash_engine_regs",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "CONTROL",
+            "addr_offset": 0,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "start",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Write 1 to start a hash. Self clearing. Writing this while a\nhash is already running restarts it from the beginning with the\ncurrently programmed configuration. Configuration is sampled at start,\nso changing CONFIG/PREPEND/FLASH_ADDR/LENGTH mid-hash has no effect on\nthe run in flight."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "abort",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Write 1 to abort a hash in flight. Self clearing. The engine\nreturns to idle, clears busy and sets STATUS.aborted. Any digest from\na previous run is discarded."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CONFIG",
+            "addr_offset": 4,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "source",
+                    "lsb": 0,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Selects where message bytes come from once any prepended 0xFF\nbytes have been fed. 4 bits so more sources can be added later.",
+                    "encode": [
+                        {
+                            "name": "LOCAL_REG",
+                            "value": 0
+                        },
+                        {
+                            "name": "HOST_QSPI",
+                            "value": 1
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PREPEND",
+            "addr_offset": 8,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0xFF byte count"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FLASH_ADDR",
+            "addr_offset": 12,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "addr",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash byte address"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "LENGTH",
+            "addr_offset": 16,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Total message length in bytes"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "STATUS",
+            "addr_offset": 20,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "busy",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set from an accepted start until the digest is available or the\nhash is aborted."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "done",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set when a hash has completed and the DIGEST registers hold a\nvalid result. Cleared on the next accepted start or on abort."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "wfifo_full",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Software data FIFO is full. Writes to WDATA while this is set\nare dropped, so poll it when feeding from LOCAL_REG."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "wfifo_empty",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Software data FIFO is empty."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "aborted",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set when a hash was ended early by CONTROL.abort. Cleared on\nthe next accepted start."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "cfg_err",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set when a start was refused because the configuration is\ninvalid: LENGTH of zero, or PREPEND greater than LENGTH. Cleared on the\nnext accepted start."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "WDATA",
+            "addr_offset": 24,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Four message bytes"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PROGRESS",
+            "addr_offset": 28,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "bytes",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Bytes processed"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DIGEST0",
+            "addr_offset": 32,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DIGEST1",
+            "addr_offset": 36,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DIGEST2",
+            "addr_offset": 40,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DIGEST3",
+            "addr_offset": 44,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DIGEST4",
+            "addr_offset": 48,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DIGEST5",
+            "addr_offset": 52,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DIGEST6",
+            "addr_offset": 56,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DIGEST7",
+            "addr_offset": 60,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        }
+    ]
+}

@@ -6,7 +6,7 @@ board = "donglet-g031"
 
 [kernel]
 name = "app-donglet"
-requires = {flash = 19168, ram = 1824}
+requires = {flash = 19168, ram = 1832}
 features = ["g031"]
 stacksize = 936
 

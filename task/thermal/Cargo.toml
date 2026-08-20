@@ -26,7 +26,7 @@ drv-onewire.path = "../../drv/onewire"
 mutable-statics.path = "../../lib/mutable-statics"
 ringbuf.path = "../../lib/ringbuf"
 static-cell.path = "../../lib/static-cell"
-task-sensor-api.path = "../sensor-api"
+task-sensor-api = { path = "../sensor-api", features = ["sensor-name-lookup", "component-id-lookup"] }
 task-thermal-api.path = "../thermal-api"
 
 # ereports deps

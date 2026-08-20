@@ -36,6 +36,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator-api2"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
+
+[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -425,7 +431,9 @@ dependencies = [
  "build-util",
  "cargo_metadata",
  "cfg-if",
+ "clap 3.2.23",
  "convert_case 0.4.0",
+ "iddqd",
  "indexmap 1.9.1",
  "multimap",
  "rangemap",
@@ -797,6 +805,17 @@ dependencies = [
  "atty",
  "lazy_static",
  "winapi",
+]
+
+[[package]]
+name = "console"
+version = "0.16.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fe5f465a4f6fee88fad41b85d990f84c835335e85b5d9e6e63e0d06d28cba7c"
+dependencies = [
+ "encode_unicode 1.0.0",
+ "libc",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3106,6 +3125,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
+name = "encode_unicode"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
+
+[[package]]
 name = "endoscope"
 version = "0.1.0"
 dependencies = [
@@ -3180,9 +3205,9 @@ dependencies = [
 
 [[package]]
 name = "equivalent"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
+checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "erased-serde"
@@ -3542,6 +3567,7 @@ version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 dependencies = [
+ "allocator-api2",
  "foldhash 0.2.0",
 ]
 
@@ -3830,6 +3856,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "iddqd"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8450e1521a7518a32addf0b805ffcfbc8f9c558d2ad5769f068f2aeef5a81126"
+dependencies = [
+ "allocator-api2",
+ "equivalent",
+ "foldhash 0.2.0",
+ "hashbrown 0.17.1",
+]
+
+[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3918,6 +3956,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0c10553d664a4d0bcff9f4215d0aac67a639cc68ef660840afe309b807bc9f5"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "insta"
+version = "1.48.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86f0f8fee8c926415c58d6ae43a08523a26faccb2323f5e6b644fe7dd4ef6b82"
+dependencies = [
+ "console",
+ "once_cell",
+ "similar",
+ "tempfile",
 ]
 
 [[package]]
@@ -5740,6 +5790,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+
+[[package]]
 name = "smallvec"
 version = "0.6.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5873,7 +5929,7 @@ name = "ssmarshal"
 version = "1.0.0"
 source = "git+https://gitlab.com/de-vri-es/ssmarshal?rev=10e90cbe389c8f07c52815857551a051946881ab#10e90cbe389c8f07c52815857551a051946881ab"
 dependencies = [
- "encode_unicode",
+ "encode_unicode 0.3.6",
  "serde",
 ]
 
@@ -6777,9 +6833,12 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-i2c-api",
+ "fixedstr",
  "hubpack",
+ "iddqd",
  "idol",
  "idol-runtime",
+ "num-derive",
  "num-traits",
  "serde",
  "userlib",
@@ -8083,10 +8142,13 @@ dependencies = [
  "base64 0.22.1",
  "build-elf",
  "build-fpga-regmap",
+ "build-i2c",
  "build-kconfig",
  "build-stack",
+ "build-util",
  "byteorder",
  "bzip2-rs",
+ "call_rustfmt",
  "cargo_metadata",
  "clap 3.2.23",
  "colored",
@@ -8103,6 +8165,7 @@ dependencies = [
  "hex",
  "hubtools",
  "indexmap 1.9.1",
+ "insta",
  "lpc55-rom-data",
  "lpc55_sign",
  "memchr",
@@ -8119,6 +8182,7 @@ dependencies = [
  "sha2 0.11.0",
  "sha3 0.11.0",
  "strsim 0.10.0",
+ "tempfile",
  "tlvc",
  "tlvc-text",
  "toml 1.1.2+spec-1.1.0",

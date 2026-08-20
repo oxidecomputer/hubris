@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 784,
+    "addr_span_bytes": 49408,
     "inst_name": "top_level_map",
     "orig_type_name": "top_level_map",
     "addr_offset": 0,
@@ -23,19 +23,36 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 40,
-            "inst_name": "espi",
-            "orig_type_name": "espi_regs",
+            "addr_span_bytes": 16,
+            "inst_name": "sgpio",
+            "orig_type_name": "gfruit_sgpio_regs",
             "addr_offset": 512,
             "children": []
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 16,
-            "inst_name": "sgpio",
-            "orig_type_name": "gfruit_sgpio_regs",
-            "addr_offset": 768,
+            "addr_span_bytes": 64,
+            "inst_name": "hash",
+            "orig_type_name": "hash_engine_regs",
+            "addr_offset": 1792,
             "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 16640,
+            "inst_name": "espi",
+            "orig_type_name": "espi_regs",
+            "addr_offset": 32768,
+            "children": [
+                {
+                    "type": "addrmap",
+                    "addr_span_bytes": 72,
+                    "inst_name": "spec_regs",
+                    "orig_type_name": "eSPI_Spec",
+                    "addr_offset": 128,
+                    "children": []
+                }
+            ]
         }
     ]
 }

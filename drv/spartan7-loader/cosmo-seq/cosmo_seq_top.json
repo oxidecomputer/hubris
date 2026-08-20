@@ -63,6 +63,14 @@
         },
         {
             "type": "addrmap",
+            "addr_span_bytes": 64,
+            "inst_name": "hash",
+            "orig_type_name": "hash_engine_regs",
+            "addr_offset": 1792,
+            "children": []
+        },
+        {
+            "type": "addrmap",
             "addr_span_bytes": 16640,
             "inst_name": "espi",
             "orig_type_name": "espi_regs",

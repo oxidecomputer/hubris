@@ -306,9 +306,13 @@ fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
         Ok(c) => c,
     };
 
-    let rval =
-        toml::from_str(&config).context("deserializing configuration")?;
+    let rval = toml_from_str(&config)?;
     Ok(Some(rval))
+}
+
+/// Partse the contents of text as toml.
+pub fn toml_from_str<T: DeserializeOwned>(contents: &str) -> Result<T> {
+    toml::from_str(contents).context("deserializing configuration")
 }
 
 pub fn build_notifications() -> Result<()> {
