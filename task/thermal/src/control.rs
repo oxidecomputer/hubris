@@ -1720,7 +1720,7 @@ struct FanUnderspeed {
     rpm: u16,
 }
 
-/// An ereport representing a failure to remove a fan
+/// An ereport representing a failure to read from a fan
 #[derive(Encode)]
 #[ereport(class = "hw.fan.rpm.err", version = 0)]
 struct FanRpmReadFailed {
