@@ -1,0 +1,2821 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: desc
+---
+I2cSensorsDescription {
+    by_device: {
+        DeviceKey {
+            device: "mwocp68",
+            kind: InputCurrent,
+        }: [
+            7,
+            8,
+            20,
+            21,
+            33,
+            34,
+            46,
+            47,
+            59,
+            60,
+            72,
+            73,
+        ],
+        DeviceKey {
+            device: "mwocp68",
+            kind: Current,
+        }: [
+            3,
+            4,
+            16,
+            17,
+            29,
+            30,
+            42,
+            43,
+            55,
+            56,
+            68,
+            69,
+        ],
+        DeviceKey {
+            device: "mwocp68",
+            kind: Temperature,
+        }: [
+            0,
+            1,
+            2,
+            13,
+            14,
+            15,
+            26,
+            27,
+            28,
+            39,
+            40,
+            41,
+            52,
+            53,
+            54,
+            65,
+            66,
+            67,
+        ],
+        DeviceKey {
+            device: "mwocp68",
+            kind: Voltage,
+        }: [
+            5,
+            6,
+            18,
+            19,
+            31,
+            32,
+            44,
+            45,
+            57,
+            58,
+            70,
+            71,
+        ],
+        DeviceKey {
+            device: "mwocp68",
+            kind: InputVoltage,
+        }: [
+            9,
+            10,
+            22,
+            23,
+            35,
+            36,
+            48,
+            49,
+            61,
+            62,
+            74,
+            75,
+        ],
+        DeviceKey {
+            device: "mwocp68",
+            kind: Speed,
+        }: [
+            11,
+            12,
+            24,
+            25,
+            37,
+            38,
+            50,
+            51,
+            63,
+            64,
+            76,
+            77,
+        ],
+    },
+    by_name: {
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU5",
+            kind: Voltage,
+        }: [
+            70,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU3",
+            kind: InputCurrent,
+        }: [
+            46,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU2",
+            kind: Current,
+        }: [
+            30,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU5",
+            kind: InputVoltage,
+        }: [
+            74,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU1",
+            kind: Current,
+        }: [
+            16,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU3",
+            kind: Current,
+        }: [
+            42,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU4",
+            kind: InputVoltage,
+        }: [
+            62,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU1",
+            kind: InputCurrent,
+        }: [
+            21,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU2",
+            kind: InputCurrent,
+        }: [
+            33,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu4mcu",
+            kind: Temperature,
+        }: [
+            52,
+            53,
+            54,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU0",
+            kind: InputCurrent,
+        }: [
+            8,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU3",
+            kind: InputCurrent,
+        }: [
+            47,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU3",
+            kind: InputVoltage,
+        }: [
+            49,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU0",
+            kind: Current,
+        }: [
+            3,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU4",
+            kind: Voltage,
+        }: [
+            58,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU3",
+            kind: Voltage,
+        }: [
+            44,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU5",
+            kind: Current,
+        }: [
+            69,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU2",
+            kind: Voltage,
+        }: [
+            32,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu4mcu",
+            kind: Speed,
+        }: [
+            63,
+            64,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu5mcu",
+            kind: Speed,
+        }: [
+            76,
+            77,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu0mcu",
+            kind: Temperature,
+        }: [
+            0,
+            1,
+            2,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu0mcu",
+            kind: Speed,
+        }: [
+            11,
+            12,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU1",
+            kind: Current,
+        }: [
+            17,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU5",
+            kind: Voltage,
+        }: [
+            71,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU2",
+            kind: InputVoltage,
+        }: [
+            35,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU5",
+            kind: InputVoltage,
+        }: [
+            75,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu1mcu",
+            kind: Speed,
+        }: [
+            24,
+            25,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU4",
+            kind: Current,
+        }: [
+            55,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU3",
+            kind: Current,
+        }: [
+            43,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu3mcu",
+            kind: Temperature,
+        }: [
+            39,
+            40,
+            41,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU0",
+            kind: InputVoltage,
+        }: [
+            9,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU2",
+            kind: Current,
+        }: [
+            29,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU0",
+            kind: InputVoltage,
+        }: [
+            10,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU2",
+            kind: InputCurrent,
+        }: [
+            34,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU1",
+            kind: Voltage,
+        }: [
+            19,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU3",
+            kind: InputVoltage,
+        }: [
+            48,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU3",
+            kind: Voltage,
+        }: [
+            45,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU5",
+            kind: InputCurrent,
+        }: [
+            73,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU2",
+            kind: InputVoltage,
+        }: [
+            36,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU0",
+            kind: InputCurrent,
+        }: [
+            7,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU5",
+            kind: InputCurrent,
+        }: [
+            72,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU0",
+            kind: Voltage,
+        }: [
+            5,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu1mcu",
+            kind: Temperature,
+        }: [
+            13,
+            14,
+            15,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU1",
+            kind: InputCurrent,
+        }: [
+            20,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu3mcu",
+            kind: Speed,
+        }: [
+            50,
+            51,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU4",
+            kind: Current,
+        }: [
+            56,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU4",
+            kind: Voltage,
+        }: [
+            57,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU4",
+            kind: InputCurrent,
+        }: [
+            59,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU4",
+            kind: InputVoltage,
+        }: [
+            61,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU4",
+            kind: InputCurrent,
+        }: [
+            60,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu2mcu",
+            kind: Speed,
+        }: [
+            37,
+            38,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU5",
+            kind: Current,
+        }: [
+            68,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU1",
+            kind: InputVoltage,
+        }: [
+            22,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU2",
+            kind: Voltage,
+        }: [
+            31,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu5mcu",
+            kind: Temperature,
+        }: [
+            65,
+            66,
+            67,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU1",
+            kind: InputVoltage,
+        }: [
+            23,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU0",
+            kind: Voltage,
+        }: [
+            6,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "psu2mcu",
+            kind: Temperature,
+        }: [
+            26,
+            27,
+            28,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V54_PSU1",
+            kind: Voltage,
+        }: [
+            18,
+        ],
+        DeviceNameKey {
+            device: "mwocp68",
+            name: "V12_PSU0",
+            kind: Current,
+        }: [
+            4,
+        ],
+    },
+    by_refdes: {
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU1",
+            ),
+            kind: InputCurrent,
+        }: [
+            20,
+            21,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU2",
+            ),
+            kind: InputVoltage,
+        }: [
+            35,
+            36,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU0",
+            ),
+            kind: Current,
+        }: [
+            3,
+            4,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU5",
+            ),
+            kind: InputCurrent,
+        }: [
+            72,
+            73,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU5",
+            ),
+            kind: Speed,
+        }: [
+            76,
+            77,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU3",
+            ),
+            kind: InputVoltage,
+        }: [
+            48,
+            49,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU3",
+            ),
+            kind: InputCurrent,
+        }: [
+            46,
+            47,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU2",
+            ),
+            kind: Temperature,
+        }: [
+            26,
+            27,
+            28,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU0",
+            ),
+            kind: Speed,
+        }: [
+            11,
+            12,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU3",
+            ),
+            kind: Voltage,
+        }: [
+            44,
+            45,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU4",
+            ),
+            kind: InputVoltage,
+        }: [
+            61,
+            62,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU4",
+            ),
+            kind: Temperature,
+        }: [
+            52,
+            53,
+            54,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU5",
+            ),
+            kind: Voltage,
+        }: [
+            70,
+            71,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU1",
+            ),
+            kind: Current,
+        }: [
+            16,
+            17,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU5",
+            ),
+            kind: Current,
+        }: [
+            68,
+            69,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU2",
+            ),
+            kind: Speed,
+        }: [
+            37,
+            38,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU4",
+            ),
+            kind: Speed,
+        }: [
+            63,
+            64,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU4",
+            ),
+            kind: InputCurrent,
+        }: [
+            59,
+            60,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU0",
+            ),
+            kind: Temperature,
+        }: [
+            0,
+            1,
+            2,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU3",
+            ),
+            kind: Speed,
+        }: [
+            50,
+            51,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU5",
+            ),
+            kind: Temperature,
+        }: [
+            65,
+            66,
+            67,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU4",
+            ),
+            kind: Current,
+        }: [
+            55,
+            56,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU0",
+            ),
+            kind: Voltage,
+        }: [
+            5,
+            6,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU0",
+            ),
+            kind: InputCurrent,
+        }: [
+            7,
+            8,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU1",
+            ),
+            kind: Voltage,
+        }: [
+            18,
+            19,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU2",
+            ),
+            kind: InputCurrent,
+        }: [
+            33,
+            34,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU5",
+            ),
+            kind: InputVoltage,
+        }: [
+            74,
+            75,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU2",
+            ),
+            kind: Current,
+        }: [
+            29,
+            30,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU1",
+            ),
+            kind: Speed,
+        }: [
+            24,
+            25,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU2",
+            ),
+            kind: Voltage,
+        }: [
+            31,
+            32,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU3",
+            ),
+            kind: Temperature,
+        }: [
+            39,
+            40,
+            41,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU0",
+            ),
+            kind: InputVoltage,
+        }: [
+            9,
+            10,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU1",
+            ),
+            kind: InputVoltage,
+        }: [
+            22,
+            23,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU3",
+            ),
+            kind: Current,
+        }: [
+            42,
+            43,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU4",
+            ),
+            kind: Voltage,
+        }: [
+            57,
+            58,
+        ],
+        DeviceRefdesKey {
+            device: "mwocp68",
+            refdes: Component(
+                "PSU1",
+            ),
+            kind: Temperature,
+        }: [
+            13,
+            14,
+            15,
+        ],
+    },
+    by_id: {
+        0: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "psu0mcu",
+            ),
+            kind: Temperature,
+            id: 0,
+        },
+        1: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "psu0mcu",
+            ),
+            kind: Temperature,
+            id: 1,
+        },
+        2: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "psu0mcu",
+            ),
+            kind: Temperature,
+            id: 2,
+        },
+        3: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "V54_PSU0",
+            ),
+            kind: Current,
+            id: 3,
+        },
+        4: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "V12_PSU0",
+            ),
+            kind: Current,
+            id: 4,
+        },
+        5: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "V54_PSU0",
+            ),
+            kind: Voltage,
+            id: 5,
+        },
+        6: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "V12_PSU0",
+            ),
+            kind: Voltage,
+            id: 6,
+        },
+        7: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "V54_PSU0",
+            ),
+            kind: InputCurrent,
+            id: 7,
+        },
+        8: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "V12_PSU0",
+            ),
+            kind: InputCurrent,
+            id: 8,
+        },
+        9: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "V54_PSU0",
+            ),
+            kind: InputVoltage,
+            id: 9,
+        },
+        10: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "V12_PSU0",
+            ),
+            kind: InputVoltage,
+            id: 10,
+        },
+        11: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "psu0mcu",
+            ),
+            kind: Speed,
+            id: 11,
+        },
+        12: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU0",
+                ),
+            ),
+            name: Some(
+                "psu0mcu",
+            ),
+            kind: Speed,
+            id: 12,
+        },
+        13: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "psu1mcu",
+            ),
+            kind: Temperature,
+            id: 13,
+        },
+        14: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "psu1mcu",
+            ),
+            kind: Temperature,
+            id: 14,
+        },
+        15: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "psu1mcu",
+            ),
+            kind: Temperature,
+            id: 15,
+        },
+        16: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "V54_PSU1",
+            ),
+            kind: Current,
+            id: 16,
+        },
+        17: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "V12_PSU1",
+            ),
+            kind: Current,
+            id: 17,
+        },
+        18: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "V54_PSU1",
+            ),
+            kind: Voltage,
+            id: 18,
+        },
+        19: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "V12_PSU1",
+            ),
+            kind: Voltage,
+            id: 19,
+        },
+        20: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "V54_PSU1",
+            ),
+            kind: InputCurrent,
+            id: 20,
+        },
+        21: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "V12_PSU1",
+            ),
+            kind: InputCurrent,
+            id: 21,
+        },
+        22: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "V54_PSU1",
+            ),
+            kind: InputVoltage,
+            id: 22,
+        },
+        23: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "V12_PSU1",
+            ),
+            kind: InputVoltage,
+            id: 23,
+        },
+        24: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "psu1mcu",
+            ),
+            kind: Speed,
+            id: 24,
+        },
+        25: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU1",
+                ),
+            ),
+            name: Some(
+                "psu1mcu",
+            ),
+            kind: Speed,
+            id: 25,
+        },
+        26: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "psu2mcu",
+            ),
+            kind: Temperature,
+            id: 26,
+        },
+        27: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "psu2mcu",
+            ),
+            kind: Temperature,
+            id: 27,
+        },
+        28: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "psu2mcu",
+            ),
+            kind: Temperature,
+            id: 28,
+        },
+        29: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "V54_PSU2",
+            ),
+            kind: Current,
+            id: 29,
+        },
+        30: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "V12_PSU2",
+            ),
+            kind: Current,
+            id: 30,
+        },
+        31: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "V54_PSU2",
+            ),
+            kind: Voltage,
+            id: 31,
+        },
+        32: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "V12_PSU2",
+            ),
+            kind: Voltage,
+            id: 32,
+        },
+        33: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "V54_PSU2",
+            ),
+            kind: InputCurrent,
+            id: 33,
+        },
+        34: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "V12_PSU2",
+            ),
+            kind: InputCurrent,
+            id: 34,
+        },
+        35: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "V54_PSU2",
+            ),
+            kind: InputVoltage,
+            id: 35,
+        },
+        36: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "V12_PSU2",
+            ),
+            kind: InputVoltage,
+            id: 36,
+        },
+        37: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "psu2mcu",
+            ),
+            kind: Speed,
+            id: 37,
+        },
+        38: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU2",
+                ),
+            ),
+            name: Some(
+                "psu2mcu",
+            ),
+            kind: Speed,
+            id: 38,
+        },
+        39: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "psu3mcu",
+            ),
+            kind: Temperature,
+            id: 39,
+        },
+        40: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "psu3mcu",
+            ),
+            kind: Temperature,
+            id: 40,
+        },
+        41: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "psu3mcu",
+            ),
+            kind: Temperature,
+            id: 41,
+        },
+        42: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "V54_PSU3",
+            ),
+            kind: Current,
+            id: 42,
+        },
+        43: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "V12_PSU3",
+            ),
+            kind: Current,
+            id: 43,
+        },
+        44: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "V54_PSU3",
+            ),
+            kind: Voltage,
+            id: 44,
+        },
+        45: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "V12_PSU3",
+            ),
+            kind: Voltage,
+            id: 45,
+        },
+        46: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "V54_PSU3",
+            ),
+            kind: InputCurrent,
+            id: 46,
+        },
+        47: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "V12_PSU3",
+            ),
+            kind: InputCurrent,
+            id: 47,
+        },
+        48: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "V54_PSU3",
+            ),
+            kind: InputVoltage,
+            id: 48,
+        },
+        49: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "V12_PSU3",
+            ),
+            kind: InputVoltage,
+            id: 49,
+        },
+        50: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "psu3mcu",
+            ),
+            kind: Speed,
+            id: 50,
+        },
+        51: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU3",
+                ),
+            ),
+            name: Some(
+                "psu3mcu",
+            ),
+            kind: Speed,
+            id: 51,
+        },
+        52: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "psu4mcu",
+            ),
+            kind: Temperature,
+            id: 52,
+        },
+        53: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "psu4mcu",
+            ),
+            kind: Temperature,
+            id: 53,
+        },
+        54: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "psu4mcu",
+            ),
+            kind: Temperature,
+            id: 54,
+        },
+        55: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "V54_PSU4",
+            ),
+            kind: Current,
+            id: 55,
+        },
+        56: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "V12_PSU4",
+            ),
+            kind: Current,
+            id: 56,
+        },
+        57: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "V54_PSU4",
+            ),
+            kind: Voltage,
+            id: 57,
+        },
+        58: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "V12_PSU4",
+            ),
+            kind: Voltage,
+            id: 58,
+        },
+        59: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "V54_PSU4",
+            ),
+            kind: InputCurrent,
+            id: 59,
+        },
+        60: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "V12_PSU4",
+            ),
+            kind: InputCurrent,
+            id: 60,
+        },
+        61: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "V54_PSU4",
+            ),
+            kind: InputVoltage,
+            id: 61,
+        },
+        62: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "V12_PSU4",
+            ),
+            kind: InputVoltage,
+            id: 62,
+        },
+        63: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "psu4mcu",
+            ),
+            kind: Speed,
+            id: 63,
+        },
+        64: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU4",
+                ),
+            ),
+            name: Some(
+                "psu4mcu",
+            ),
+            kind: Speed,
+            id: 64,
+        },
+        65: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "psu5mcu",
+            ),
+            kind: Temperature,
+            id: 65,
+        },
+        66: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "psu5mcu",
+            ),
+            kind: Temperature,
+            id: 66,
+        },
+        67: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "psu5mcu",
+            ),
+            kind: Temperature,
+            id: 67,
+        },
+        68: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "V54_PSU5",
+            ),
+            kind: Current,
+            id: 68,
+        },
+        69: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "V12_PSU5",
+            ),
+            kind: Current,
+            id: 69,
+        },
+        70: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "V54_PSU5",
+            ),
+            kind: Voltage,
+            id: 70,
+        },
+        71: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "V12_PSU5",
+            ),
+            kind: Voltage,
+            id: 71,
+        },
+        72: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "V54_PSU5",
+            ),
+            kind: InputCurrent,
+            id: 72,
+        },
+        73: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "V12_PSU5",
+            ),
+            kind: InputCurrent,
+            id: 73,
+        },
+        74: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "V54_PSU5",
+            ),
+            kind: InputVoltage,
+            id: 74,
+        },
+        75: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "V12_PSU5",
+            ),
+            kind: InputVoltage,
+            id: 75,
+        },
+        76: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "psu5mcu",
+            ),
+            kind: Speed,
+            id: 76,
+        },
+        77: DeviceSensor {
+            refdes: Some(
+                Component(
+                    "PSU5",
+                ),
+            ),
+            name: Some(
+                "psu5mcu",
+            ),
+            kind: Speed,
+            id: 77,
+        },
+    },
+    device_sensors: [
+        [],
+        [],
+        [],
+        [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Temperature,
+                id: 0,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Temperature,
+                id: 1,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Temperature,
+                id: 2,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU0",
+                ),
+                kind: Current,
+                id: 3,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU0",
+                ),
+                kind: Current,
+                id: 4,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU0",
+                ),
+                kind: Voltage,
+                id: 5,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU0",
+                ),
+                kind: Voltage,
+                id: 6,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU0",
+                ),
+                kind: InputCurrent,
+                id: 7,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU0",
+                ),
+                kind: InputCurrent,
+                id: 8,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU0",
+                ),
+                kind: InputVoltage,
+                id: 9,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU0",
+                ),
+                kind: InputVoltage,
+                id: 10,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Speed,
+                id: 11,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Speed,
+                id: 12,
+            },
+        ],
+        [],
+        [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Temperature,
+                id: 13,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Temperature,
+                id: 14,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Temperature,
+                id: 15,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU1",
+                ),
+                kind: Current,
+                id: 16,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU1",
+                ),
+                kind: Current,
+                id: 17,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU1",
+                ),
+                kind: Voltage,
+                id: 18,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU1",
+                ),
+                kind: Voltage,
+                id: 19,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU1",
+                ),
+                kind: InputCurrent,
+                id: 20,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU1",
+                ),
+                kind: InputCurrent,
+                id: 21,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU1",
+                ),
+                kind: InputVoltage,
+                id: 22,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU1",
+                ),
+                kind: InputVoltage,
+                id: 23,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Speed,
+                id: 24,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Speed,
+                id: 25,
+            },
+        ],
+        [],
+        [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Temperature,
+                id: 26,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Temperature,
+                id: 27,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Temperature,
+                id: 28,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU2",
+                ),
+                kind: Current,
+                id: 29,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU2",
+                ),
+                kind: Current,
+                id: 30,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU2",
+                ),
+                kind: Voltage,
+                id: 31,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU2",
+                ),
+                kind: Voltage,
+                id: 32,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU2",
+                ),
+                kind: InputCurrent,
+                id: 33,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU2",
+                ),
+                kind: InputCurrent,
+                id: 34,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU2",
+                ),
+                kind: InputVoltage,
+                id: 35,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU2",
+                ),
+                kind: InputVoltage,
+                id: 36,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Speed,
+                id: 37,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Speed,
+                id: 38,
+            },
+        ],
+        [],
+        [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Temperature,
+                id: 39,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Temperature,
+                id: 40,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Temperature,
+                id: 41,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU3",
+                ),
+                kind: Current,
+                id: 42,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU3",
+                ),
+                kind: Current,
+                id: 43,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU3",
+                ),
+                kind: Voltage,
+                id: 44,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU3",
+                ),
+                kind: Voltage,
+                id: 45,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU3",
+                ),
+                kind: InputCurrent,
+                id: 46,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU3",
+                ),
+                kind: InputCurrent,
+                id: 47,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU3",
+                ),
+                kind: InputVoltage,
+                id: 48,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU3",
+                ),
+                kind: InputVoltage,
+                id: 49,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Speed,
+                id: 50,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Speed,
+                id: 51,
+            },
+        ],
+        [],
+        [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Temperature,
+                id: 52,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Temperature,
+                id: 53,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Temperature,
+                id: 54,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU4",
+                ),
+                kind: Current,
+                id: 55,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU4",
+                ),
+                kind: Current,
+                id: 56,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU4",
+                ),
+                kind: Voltage,
+                id: 57,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU4",
+                ),
+                kind: Voltage,
+                id: 58,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU4",
+                ),
+                kind: InputCurrent,
+                id: 59,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU4",
+                ),
+                kind: InputCurrent,
+                id: 60,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU4",
+                ),
+                kind: InputVoltage,
+                id: 61,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU4",
+                ),
+                kind: InputVoltage,
+                id: 62,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Speed,
+                id: 63,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Speed,
+                id: 64,
+            },
+        ],
+        [],
+        [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Temperature,
+                id: 65,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Temperature,
+                id: 66,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Temperature,
+                id: 67,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU5",
+                ),
+                kind: Current,
+                id: 68,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU5",
+                ),
+                kind: Current,
+                id: 69,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU5",
+                ),
+                kind: Voltage,
+                id: 70,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU5",
+                ),
+                kind: Voltage,
+                id: 71,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU5",
+                ),
+                kind: InputCurrent,
+                id: 72,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU5",
+                ),
+                kind: InputCurrent,
+                id: 73,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V54_PSU5",
+                ),
+                kind: InputVoltage,
+                id: 74,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V12_PSU5",
+                ),
+                kind: InputVoltage,
+                id: 75,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Speed,
+                id: 76,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Speed,
+                id: 77,
+            },
+        ],
+    ],
+    total_sensors: 78,
+}

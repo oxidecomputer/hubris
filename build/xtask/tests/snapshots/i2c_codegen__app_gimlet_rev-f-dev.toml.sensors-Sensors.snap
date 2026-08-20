@@ -1,0 +1,2449 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+
+pub mod sensors {
+    #[allow(unused_imports)]
+    use super::super::SensorId;
+
+    #[allow(dead_code)]
+    pub const NUM_SENSORS: usize = 135;
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_tmp117 {
+        pub temperature: SensorId,
+    }
+    #[allow(dead_code)]
+    pub const TMP117_SOUTHWEST_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(0),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_J194_U1_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(0),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_SOUTH_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(1),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_J195_U1_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(1),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_SOUTHEAST_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(2),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_J196_U1_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(2),
+    };
+
+    #[allow(dead_code, non_camel_case_types)]
+    type Sensors_pca9545 = ();
+    #[allow(dead_code)]
+    pub const PCA9545_U336_SENSORS: Sensors_pca9545 = ();
+    #[allow(dead_code)]
+    pub const PCA9545_U339_SENSORS: Sensors_pca9545 = ();
+    #[allow(dead_code)]
+    pub const PCA9545_U337_SENSORS: Sensors_pca9545 = ();
+
+    #[allow(dead_code, non_camel_case_types)]
+    type Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_A_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J206_U7_SENSORS: Sensors_at24csw080 = ();
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_max5970 {
+        pub current: [SensorId; 2],
+        pub voltage: [SensorId; 2],
+    }
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_A_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(3), SensorId::new(4)],
+            voltage: [SensorId::new(5), SensorId::new(6)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J206_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(3), SensorId::new(4)],
+        voltage: [SensorId::new(5), SensorId::new(6)],
+    };
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_nvme_bmc {
+        pub temperature: SensorId,
+    }
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N0_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(7),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J206_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(7),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_B_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J207_U7_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_B_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(8), SensorId::new(9)],
+            voltage: [SensorId::new(10), SensorId::new(11)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J207_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(8), SensorId::new(9)],
+        voltage: [SensorId::new(10), SensorId::new(11)],
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(12),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J207_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(12),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_C_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J208_U7_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_C_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(13), SensorId::new(14)],
+            voltage: [SensorId::new(15), SensorId::new(16)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J208_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(13), SensorId::new(14)],
+        voltage: [SensorId::new(15), SensorId::new(16)],
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N2_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(17),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J208_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(17),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_D_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J209_U7_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_D_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(18), SensorId::new(19)],
+            voltage: [SensorId::new(20), SensorId::new(21)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J209_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(18), SensorId::new(19)],
+        voltage: [SensorId::new(20), SensorId::new(21)],
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N3_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(22),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J209_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(22),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_E_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J210_U7_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_E_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(23), SensorId::new(24)],
+            voltage: [SensorId::new(25), SensorId::new(26)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J210_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(23), SensorId::new(24)],
+        voltage: [SensorId::new(25), SensorId::new(26)],
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N4_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(27),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J210_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(27),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_F_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J211_U7_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_F_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(28), SensorId::new(29)],
+            voltage: [SensorId::new(30), SensorId::new(31)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J211_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(28), SensorId::new(29)],
+        voltage: [SensorId::new(30), SensorId::new(31)],
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N5_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(32),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J211_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(32),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_G_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J212_U7_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_G_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(33), SensorId::new(34)],
+            voltage: [SensorId::new(35), SensorId::new(36)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J212_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(33), SensorId::new(34)],
+        voltage: [SensorId::new(35), SensorId::new(36)],
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N6_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(37),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J212_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(37),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_H_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J213_U7_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_H_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(38), SensorId::new(39)],
+            voltage: [SensorId::new(40), SensorId::new(41)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J213_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(38), SensorId::new(39)],
+        voltage: [SensorId::new(40), SensorId::new(41)],
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N7_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(42),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J213_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(42),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_I_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J214_U7_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_I_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(43), SensorId::new(44)],
+            voltage: [SensorId::new(45), SensorId::new(46)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J214_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(43), SensorId::new(44)],
+        voltage: [SensorId::new(45), SensorId::new(46)],
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N8_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(47),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J214_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(47),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_SHARKFIN_J_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J215_U7_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const MAX5970_SHARKFIN_J_HSC_SENSORS: Sensors_max5970 =
+        Sensors_max5970 {
+            current: [SensorId::new(48), SensorId::new(49)],
+            voltage: [SensorId::new(50), SensorId::new(51)],
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_J215_U8_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(48), SensorId::new(49)],
+        voltage: [SensorId::new(50), SensorId::new(51)],
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N9_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(52),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_J215_J1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(52),
+    };
+    #[allow(dead_code)]
+    pub const AT24CSW080_LOCAL_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_U615_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const PCA9545_U422_SENSORS: Sensors_pca9545 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_FAN_VPD_SENSORS: Sensors_at24csw080 = ();
+    #[allow(dead_code)]
+    pub const AT24CSW080_J180_U1_SENSORS: Sensors_at24csw080 = ();
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_tmp451 {
+        pub temperature: SensorId,
+    }
+    #[allow(dead_code)]
+    pub const TMP451_T6_SENSORS: Sensors_tmp451 = Sensors_tmp451 {
+        temperature: SensorId::new(53),
+    };
+    #[allow(dead_code)]
+    pub const TMP451_U491_SENSORS: Sensors_tmp451 = Sensors_tmp451 {
+        temperature: SensorId::new(53),
+    };
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_tps546b24a {
+        pub temperature: SensorId,
+        pub current: SensorId,
+        pub voltage: SensorId,
+    }
+    #[allow(dead_code)]
+    pub const TPS546B24A_V3P3_SP_A2_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(54),
+            current: SensorId::new(55),
+            voltage: SensorId::new(56),
+        };
+    #[allow(dead_code)]
+    pub const TPS546B24A_U522_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(54),
+            current: SensorId::new(55),
+            voltage: SensorId::new(56),
+        };
+    #[allow(dead_code)]
+    pub const TPS546B24A_V3P3_SYS_A0_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(57),
+            current: SensorId::new(58),
+            voltage: SensorId::new(59),
+        };
+    #[allow(dead_code)]
+    pub const TPS546B24A_U560_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(57),
+            current: SensorId::new(58),
+            voltage: SensorId::new(59),
+        };
+    #[allow(dead_code)]
+    pub const TPS546B24A_V5P0_SYS_A2_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(60),
+            current: SensorId::new(61),
+            voltage: SensorId::new(62),
+        };
+    #[allow(dead_code)]
+    pub const TPS546B24A_U524_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(60),
+            current: SensorId::new(61),
+            voltage: SensorId::new(62),
+        };
+    #[allow(dead_code)]
+    pub const TPS546B24A_V1P8_SYS_A2_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(63),
+            current: SensorId::new(64),
+            voltage: SensorId::new(65),
+        };
+    #[allow(dead_code)]
+    pub const TPS546B24A_U561_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(63),
+            current: SensorId::new(64),
+            voltage: SensorId::new(65),
+        };
+    #[allow(dead_code)]
+    pub const MAX5970_M2_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(66), SensorId::new(67)],
+        voltage: [SensorId::new(68), SensorId::new(69)],
+    };
+    #[allow(dead_code)]
+    pub const MAX5970_U275_SENSORS: Sensors_max5970 = Sensors_max5970 {
+        current: [SensorId::new(66), SensorId::new(67)],
+        voltage: [SensorId::new(68), SensorId::new(69)],
+    };
+
+    #[allow(dead_code, non_camel_case_types)]
+    type Sensors_sbrmi = ();
+    #[allow(dead_code)]
+    pub const SBRMI_RMI_SENSORS: Sensors_sbrmi = ();
+    #[allow(dead_code)]
+    pub const SBRMI_P0_SBRMI_SENSORS: Sensors_sbrmi = ();
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_sbtsi {
+        pub temperature: SensorId,
+    }
+    #[allow(dead_code)]
+    pub const SBTSI_CPU_SENSORS: Sensors_sbtsi = Sensors_sbtsi {
+        temperature: SensorId::new(70),
+    };
+    #[allow(dead_code)]
+    pub const SBTSI_P0_SBTSI_SENSORS: Sensors_sbtsi = Sensors_sbtsi {
+        temperature: SensorId::new(70),
+    };
+
+    #[allow(dead_code, non_camel_case_types)]
+    type Sensors_idt8a34003 = ();
+    #[allow(dead_code)]
+    pub const IDT8A34003_U446_SENSORS: Sensors_idt8a34003 = ();
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_raa229618 {
+        pub temperature: [SensorId; 2],
+        pub power: [SensorId; 2],
+        pub current: [SensorId; 2],
+        pub voltage: [SensorId; 2],
+    }
+    #[allow(dead_code)]
+    pub const RAA229618_U350_SENSORS: Sensors_raa229618 = Sensors_raa229618 {
+        temperature: [SensorId::new(71), SensorId::new(72)],
+        power: [SensorId::new(73), SensorId::new(74)],
+        current: [SensorId::new(75), SensorId::new(76)],
+        voltage: [SensorId::new(77), SensorId::new(78)],
+    };
+    #[allow(dead_code)]
+    pub const RAA229618_U351_SENSORS: Sensors_raa229618 = Sensors_raa229618 {
+        temperature: [SensorId::new(79), SensorId::new(80)],
+        power: [SensorId::new(81), SensorId::new(82)],
+        current: [SensorId::new(83), SensorId::new(84)],
+        voltage: [SensorId::new(85), SensorId::new(86)],
+    };
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_isl68224 {
+        pub temperature: [SensorId; 3],
+        pub current: [SensorId; 3],
+        pub voltage: [SensorId; 3],
+    }
+    #[allow(dead_code)]
+    pub const ISL68224_U352_SENSORS: Sensors_isl68224 = Sensors_isl68224 {
+        temperature: [SensorId::new(87), SensorId::new(88), SensorId::new(89)],
+        current: [SensorId::new(90), SensorId::new(91), SensorId::new(92)],
+        voltage: [SensorId::new(93), SensorId::new(94), SensorId::new(95)],
+    };
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_adm127x {
+        pub temperature: SensorId,
+        pub current: SensorId,
+        pub voltage: SensorId,
+    }
+    #[allow(dead_code)]
+    pub const ADM127X_U419_SENSORS: Sensors_adm127x = Sensors_adm127x {
+        temperature: SensorId::new(96),
+        current: SensorId::new(97),
+        voltage: SensorId::new(98),
+    };
+    #[allow(dead_code)]
+    pub const ADM127X_U452_SENSORS: Sensors_adm127x = Sensors_adm127x {
+        temperature: SensorId::new(99),
+        current: SensorId::new(100),
+        voltage: SensorId::new(101),
+    };
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_max31790 {
+        pub speed: [SensorId; 6],
+    }
+    #[allow(dead_code)]
+    pub const MAX31790_U321_SENSORS: Sensors_max31790 = Sensors_max31790 {
+        speed: [
+            SensorId::new(102),
+            SensorId::new(103),
+            SensorId::new(104),
+            SensorId::new(105),
+            SensorId::new(106),
+            SensorId::new(107),
+        ],
+    };
+    #[allow(dead_code)]
+    pub const TPS546B24A_V0P96_NIC_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(108),
+            current: SensorId::new(109),
+            voltage: SensorId::new(110),
+        };
+    #[allow(dead_code)]
+    pub const TPS546B24A_U565_SENSORS: Sensors_tps546b24a =
+        Sensors_tps546b24a {
+            temperature: SensorId::new(108),
+            current: SensorId::new(109),
+            voltage: SensorId::new(110),
+        };
+    #[allow(dead_code)]
+    pub const TMP117_NORTHEAST_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(111),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_J197_U1_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(111),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_NORTH_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(112),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_J198_U1_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(112),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_NORTHWEST_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(113),
+    };
+    #[allow(dead_code)]
+    pub const TMP117_J199_U1_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(113),
+    };
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_bmr491 {
+        pub temperature: SensorId,
+        pub current: SensorId,
+        pub voltage: SensorId,
+    }
+    #[allow(dead_code)]
+    pub const BMR491_IBC_SENSORS: Sensors_bmr491 = Sensors_bmr491 {
+        temperature: SensorId::new(114),
+        current: SensorId::new(115),
+        voltage: SensorId::new(116),
+    };
+    #[allow(dead_code)]
+    pub const BMR491_U431_SENSORS: Sensors_bmr491 = Sensors_bmr491 {
+        temperature: SensorId::new(114),
+        current: SensorId::new(115),
+        voltage: SensorId::new(116),
+    };
+
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_tse2004av {
+        pub temperature: SensorId,
+    }
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_A0_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(117),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M0_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(117),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_A1_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(118),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M8_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(118),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_B0_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(119),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M1_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(119),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_B1_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(120),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M9_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(120),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_C0_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(121),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M2_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(121),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_C1_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(122),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M10_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(122),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_D0_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(123),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M3_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(123),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_D1_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(124),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M11_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(124),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_E0_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(125),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M4_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(125),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_E1_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(126),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M12_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(126),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_F0_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(127),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M5_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(127),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_F1_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(128),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M13_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(128),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_G0_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(129),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M6_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(129),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_G1_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(130),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M14_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(130),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_H0_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(131),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M7_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(131),
+    };
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_H1_SENSORS: Sensors_tse2004av =
+        Sensors_tse2004av {
+            temperature: SensorId::new(132),
+        };
+    #[allow(dead_code)]
+    pub const TSE2004AV_M15_SENSORS: Sensors_tse2004av = Sensors_tse2004av {
+        temperature: SensorId::new(132),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_M2_A_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(133),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_P1_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(133),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_M2_B_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(134),
+    };
+    #[allow(dead_code)]
+    pub const NVME_BMC_P2_SENSORS: Sensors_nvme_bmc = Sensors_nvme_bmc {
+        temperature: SensorId::new(134),
+    };
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_TEMPERATURE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const ADM127X_TEMPERATURE_SENSORS: [SensorId; 2] =
+        [SensorId::new(96), SensorId::new(99)];
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const ADM127X_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(97), SensorId::new(100)];
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const ADM127X_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(98), SensorId::new(101)];
+
+    #[allow(dead_code)]
+    pub const NUM_BMR491_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const BMR491_TEMPERATURE_SENSOR: SensorId = SensorId::new(114);
+
+    #[allow(dead_code)]
+    pub const NUM_BMR491_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const BMR491_CURRENT_SENSOR: SensorId = SensorId::new(115);
+
+    #[allow(dead_code)]
+    pub const NUM_BMR491_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const BMR491_VOLTAGE_SENSOR: SensorId = SensorId::new(116);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_TEMPERATURE_SENSORS: usize = 3;
+
+    #[allow(dead_code)]
+    pub const ISL68224_TEMPERATURE_SENSORS: [SensorId; 3] =
+        [SensorId::new(87), SensorId::new(88), SensorId::new(89)];
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_CURRENT_SENSORS: usize = 3;
+
+    #[allow(dead_code)]
+    pub const ISL68224_CURRENT_SENSORS: [SensorId; 3] =
+        [SensorId::new(90), SensorId::new(91), SensorId::new(92)];
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_VOLTAGE_SENSORS: usize = 3;
+
+    #[allow(dead_code)]
+    pub const ISL68224_VOLTAGE_SENSORS: [SensorId; 3] =
+        [SensorId::new(93), SensorId::new(94), SensorId::new(95)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_SPEED_SENSORS: usize = 6;
+
+    #[allow(dead_code)]
+    pub const MAX31790_SPEED_SENSORS: [SensorId; 6] = [
+        SensorId::new(102),
+        SensorId::new(103),
+        SensorId::new(104),
+        SensorId::new(105),
+        SensorId::new(106),
+        SensorId::new(107),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_CURRENT_SENSORS: usize = 22;
+
+    #[allow(dead_code)]
+    pub const MAX5970_CURRENT_SENSORS: [SensorId; 22] = [
+        SensorId::new(3),
+        SensorId::new(4),
+        SensorId::new(8),
+        SensorId::new(9),
+        SensorId::new(13),
+        SensorId::new(14),
+        SensorId::new(18),
+        SensorId::new(19),
+        SensorId::new(23),
+        SensorId::new(24),
+        SensorId::new(28),
+        SensorId::new(29),
+        SensorId::new(33),
+        SensorId::new(34),
+        SensorId::new(38),
+        SensorId::new(39),
+        SensorId::new(43),
+        SensorId::new(44),
+        SensorId::new(48),
+        SensorId::new(49),
+        SensorId::new(66),
+        SensorId::new(67),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_VOLTAGE_SENSORS: usize = 22;
+
+    #[allow(dead_code)]
+    pub const MAX5970_VOLTAGE_SENSORS: [SensorId; 22] = [
+        SensorId::new(5),
+        SensorId::new(6),
+        SensorId::new(10),
+        SensorId::new(11),
+        SensorId::new(15),
+        SensorId::new(16),
+        SensorId::new(20),
+        SensorId::new(21),
+        SensorId::new(25),
+        SensorId::new(26),
+        SensorId::new(30),
+        SensorId::new(31),
+        SensorId::new(35),
+        SensorId::new(36),
+        SensorId::new(40),
+        SensorId::new(41),
+        SensorId::new(45),
+        SensorId::new(46),
+        SensorId::new(50),
+        SensorId::new(51),
+        SensorId::new(68),
+        SensorId::new(69),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize = 12;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_TEMPERATURE_SENSORS: [SensorId; 12] = [
+        SensorId::new(7),
+        SensorId::new(12),
+        SensorId::new(17),
+        SensorId::new(22),
+        SensorId::new(27),
+        SensorId::new(32),
+        SensorId::new(37),
+        SensorId::new(42),
+        SensorId::new(47),
+        SensorId::new(52),
+        SensorId::new(133),
+        SensorId::new(134),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_TEMPERATURE_SENSORS: usize = 4;
+
+    #[allow(dead_code)]
+    pub const RAA229618_TEMPERATURE_SENSORS: [SensorId; 4] = [
+        SensorId::new(71),
+        SensorId::new(72),
+        SensorId::new(79),
+        SensorId::new(80),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_POWER_SENSORS: usize = 4;
+
+    #[allow(dead_code)]
+    pub const RAA229618_POWER_SENSORS: [SensorId; 4] = [
+        SensorId::new(73),
+        SensorId::new(74),
+        SensorId::new(81),
+        SensorId::new(82),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_CURRENT_SENSORS: usize = 4;
+
+    #[allow(dead_code)]
+    pub const RAA229618_CURRENT_SENSORS: [SensorId; 4] = [
+        SensorId::new(75),
+        SensorId::new(76),
+        SensorId::new(83),
+        SensorId::new(84),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VOLTAGE_SENSORS: usize = 4;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VOLTAGE_SENSORS: [SensorId; 4] = [
+        SensorId::new(77),
+        SensorId::new(78),
+        SensorId::new(85),
+        SensorId::new(86),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_SBTSI_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const SBTSI_TEMPERATURE_SENSOR: SensorId = SensorId::new(70);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_TEMPERATURE_SENSORS: usize = 6;
+
+    #[allow(dead_code)]
+    pub const TMP117_TEMPERATURE_SENSORS: [SensorId; 6] = [
+        SensorId::new(0),
+        SensorId::new(1),
+        SensorId::new(2),
+        SensorId::new(111),
+        SensorId::new(112),
+        SensorId::new(113),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_TMP451_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP451_TEMPERATURE_SENSOR: SensorId = SensorId::new(53);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_TEMPERATURE_SENSORS: usize = 5;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_TEMPERATURE_SENSORS: [SensorId; 5] = [
+        SensorId::new(54),
+        SensorId::new(57),
+        SensorId::new(60),
+        SensorId::new(63),
+        SensorId::new(108),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_CURRENT_SENSORS: usize = 5;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_CURRENT_SENSORS: [SensorId; 5] = [
+        SensorId::new(55),
+        SensorId::new(58),
+        SensorId::new(61),
+        SensorId::new(64),
+        SensorId::new(109),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_VOLTAGE_SENSORS: usize = 5;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_VOLTAGE_SENSORS: [SensorId; 5] = [
+        SensorId::new(56),
+        SensorId::new(59),
+        SensorId::new(62),
+        SensorId::new(65),
+        SensorId::new(110),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_TEMPERATURE_SENSORS: usize = 16;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_TEMPERATURE_SENSORS: [SensorId; 16] = [
+        SensorId::new(117),
+        SensorId::new(118),
+        SensorId::new(119),
+        SensorId::new(120),
+        SensorId::new(121),
+        SensorId::new(122),
+        SensorId::new(123),
+        SensorId::new(124),
+        SensorId::new(125),
+        SensorId::new(126),
+        SensorId::new(127),
+        SensorId::new(128),
+        SensorId::new(129),
+        SensorId::new(130),
+        SensorId::new(131),
+        SensorId::new(132),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_V54_FAN_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_V54_FAN_TEMPERATURE_SENSOR: SensorId = SensorId::new(96);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_V54_FAN_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_V54_FAN_CURRENT_SENSOR: SensorId = SensorId::new(97);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_V54_FAN_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_V54_FAN_VOLTAGE_SENSOR: SensorId = SensorId::new(98);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_V54_HS_OUTPUT_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_V54_HS_OUTPUT_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(99);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_V54_HS_OUTPUT_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_V54_HS_OUTPUT_CURRENT_SENSOR: SensorId =
+        SensorId::new(100);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_V54_HS_OUTPUT_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_V54_HS_OUTPUT_VOLTAGE_SENSOR: SensorId =
+        SensorId::new(101);
+
+    #[allow(dead_code)]
+    pub const NUM_BMR491_V12_SYS_A2_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const BMR491_V12_SYS_A2_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(114);
+
+    #[allow(dead_code)]
+    pub const NUM_BMR491_V12_SYS_A2_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const BMR491_V12_SYS_A2_CURRENT_SENSOR: SensorId = SensorId::new(115);
+
+    #[allow(dead_code)]
+    pub const NUM_BMR491_V12_SYS_A2_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const BMR491_V12_SYS_A2_VOLTAGE_SENSOR: SensorId = SensorId::new(116);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_V1P8_SP3_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ISL68224_V1P8_SP3_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(89);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_V1P8_SP3_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ISL68224_V1P8_SP3_CURRENT_SENSOR: SensorId = SensorId::new(92);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_V1P8_SP3_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ISL68224_V1P8_SP3_VOLTAGE_SENSOR: SensorId = SensorId::new(95);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_VPP_ABCD_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ISL68224_VPP_ABCD_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(87);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_VPP_ABCD_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ISL68224_VPP_ABCD_CURRENT_SENSOR: SensorId = SensorId::new(90);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_VPP_ABCD_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ISL68224_VPP_ABCD_VOLTAGE_SENSOR: SensorId = SensorId::new(93);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_VPP_EFGH_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ISL68224_VPP_EFGH_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(88);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_VPP_EFGH_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ISL68224_VPP_EFGH_CURRENT_SENSOR: SensorId = SensorId::new(91);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_VPP_EFGH_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ISL68224_VPP_EFGH_VOLTAGE_SENSOR: SensorId = SensorId::new(94);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_NORTH_SPEED_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX31790_NORTH_SPEED_SENSOR: SensorId = SensorId::new(105);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_NORTHEAST_SPEED_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX31790_NORTHEAST_SPEED_SENSOR: SensorId = SensorId::new(103);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_NORTHWEST_SPEED_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX31790_NORTHWEST_SPEED_SENSOR: SensorId = SensorId::new(107);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_SOUTH_SPEED_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX31790_SOUTH_SPEED_SENSOR: SensorId = SensorId::new(104);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_SOUTHEAST_SPEED_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX31790_SOUTHEAST_SPEED_SENSOR: SensorId = SensorId::new(102);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_SOUTHWEST_SPEED_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX31790_SOUTHWEST_SPEED_SENSOR: SensorId = SensorId::new(106);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2A_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2A_A0_CURRENT_SENSOR: SensorId = SensorId::new(3);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2A_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2A_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(5);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2B_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2B_A0_CURRENT_SENSOR: SensorId = SensorId::new(8);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2B_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2B_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(10);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2C_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2C_A0_CURRENT_SENSOR: SensorId = SensorId::new(13);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2C_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2C_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(15);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2D_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2D_A0_CURRENT_SENSOR: SensorId = SensorId::new(18);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2D_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2D_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(20);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2E_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2E_A0_CURRENT_SENSOR: SensorId = SensorId::new(23);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2E_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2E_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(25);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2F_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2F_A0_CURRENT_SENSOR: SensorId = SensorId::new(28);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2F_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2F_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(30);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2G_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2G_A0_CURRENT_SENSOR: SensorId = SensorId::new(33);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2G_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2G_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(35);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2H_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2H_A0_CURRENT_SENSOR: SensorId = SensorId::new(38);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2H_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2H_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(40);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2I_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2I_A0_CURRENT_SENSOR: SensorId = SensorId::new(43);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2I_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2I_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(45);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2J_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2J_A0_CURRENT_SENSOR: SensorId = SensorId::new(48);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V12_U2J_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V12_U2J_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(50);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_M2A_A0HP_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_M2A_A0HP_CURRENT_SENSOR: SensorId =
+        SensorId::new(66);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_M2A_A0HP_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_M2A_A0HP_VOLTAGE_SENSOR: SensorId =
+        SensorId::new(68);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_M2B_A0HP_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_M2B_A0HP_CURRENT_SENSOR: SensorId =
+        SensorId::new(67);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_M2B_A0HP_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_M2B_A0HP_VOLTAGE_SENSOR: SensorId =
+        SensorId::new(69);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2A_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2A_A0_CURRENT_SENSOR: SensorId = SensorId::new(4);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2A_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2A_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(6);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2B_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2B_A0_CURRENT_SENSOR: SensorId = SensorId::new(9);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2B_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2B_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(11);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2C_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2C_A0_CURRENT_SENSOR: SensorId = SensorId::new(14);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2C_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2C_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(16);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2D_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2D_A0_CURRENT_SENSOR: SensorId = SensorId::new(19);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2D_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2D_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(21);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2E_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2E_A0_CURRENT_SENSOR: SensorId = SensorId::new(24);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2E_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2E_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(26);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2F_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2F_A0_CURRENT_SENSOR: SensorId = SensorId::new(29);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2F_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2F_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(31);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2G_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2G_A0_CURRENT_SENSOR: SensorId = SensorId::new(34);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2G_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2G_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(36);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2H_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2H_A0_CURRENT_SENSOR: SensorId = SensorId::new(39);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2H_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2H_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(41);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2I_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2I_A0_CURRENT_SENSOR: SensorId = SensorId::new(44);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2I_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2I_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(46);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2J_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2J_A0_CURRENT_SENSOR: SensorId = SensorId::new(49);
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_V3P3_U2J_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const MAX5970_V3P3_U2J_A0_VOLTAGE_SENSOR: SensorId = SensorId::new(51);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_M2_A_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_M2_A_TEMPERATURE_SENSOR: SensorId = SensorId::new(133);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_M2_B_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_M2_B_TEMPERATURE_SENSOR: SensorId = SensorId::new(134);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N0_TEMPERATURE_SENSOR: SensorId = SensorId::new(7);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N1_TEMPERATURE_SENSOR: SensorId = SensorId::new(12);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N2_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N2_TEMPERATURE_SENSOR: SensorId = SensorId::new(17);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N3_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N3_TEMPERATURE_SENSOR: SensorId = SensorId::new(22);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N4_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N4_TEMPERATURE_SENSOR: SensorId = SensorId::new(27);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N5_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N5_TEMPERATURE_SENSOR: SensorId = SensorId::new(32);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N6_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N6_TEMPERATURE_SENSOR: SensorId = SensorId::new(37);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N7_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N7_TEMPERATURE_SENSOR: SensorId = SensorId::new(42);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N8_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N8_TEMPERATURE_SENSOR: SensorId = SensorId::new(47);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_U2_N9_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_U2_N9_TEMPERATURE_SENSOR: SensorId = SensorId::new(52);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDDCR_SOC_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDDCR_SOC_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(79);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDDCR_SOC_POWER_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDDCR_SOC_POWER_SENSOR: SensorId = SensorId::new(81);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDDCR_SOC_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDDCR_SOC_CURRENT_SENSOR: SensorId = SensorId::new(83);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDDCR_SOC_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDDCR_SOC_VOLTAGE_SENSOR: SensorId = SensorId::new(85);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_MEM_ABCD_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_MEM_ABCD_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(72);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_MEM_ABCD_POWER_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_MEM_ABCD_POWER_SENSOR: SensorId = SensorId::new(74);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_MEM_ABCD_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_MEM_ABCD_CURRENT_SENSOR: SensorId =
+        SensorId::new(76);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_MEM_ABCD_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_MEM_ABCD_VOLTAGE_SENSOR: SensorId =
+        SensorId::new(78);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_MEM_EFGH_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_MEM_EFGH_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(80);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_MEM_EFGH_POWER_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_MEM_EFGH_POWER_SENSOR: SensorId = SensorId::new(82);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_MEM_EFGH_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_MEM_EFGH_CURRENT_SENSOR: SensorId =
+        SensorId::new(84);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_MEM_EFGH_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_MEM_EFGH_VOLTAGE_SENSOR: SensorId =
+        SensorId::new(86);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_VCORE_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_VCORE_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(71);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_VCORE_POWER_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_VCORE_POWER_SENSOR: SensorId = SensorId::new(73);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_VCORE_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_VCORE_CURRENT_SENSOR: SensorId = SensorId::new(75);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_VDD_VCORE_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const RAA229618_VDD_VCORE_VOLTAGE_SENSOR: SensorId = SensorId::new(77);
+
+    #[allow(dead_code)]
+    pub const NUM_SBTSI_CPU_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const SBTSI_CPU_TEMPERATURE_SENSOR: SensorId = SensorId::new(70);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_NORTH_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_NORTH_TEMPERATURE_SENSOR: SensorId = SensorId::new(112);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_NORTHEAST_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_NORTHEAST_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(111);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_NORTHWEST_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_NORTHWEST_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(113);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_SOUTH_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_SOUTH_TEMPERATURE_SENSOR: SensorId = SensorId::new(1);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_SOUTHEAST_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_SOUTHEAST_TEMPERATURE_SENSOR: SensorId = SensorId::new(2);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_SOUTHWEST_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_SOUTHWEST_TEMPERATURE_SENSOR: SensorId = SensorId::new(0);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP451_T6_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP451_T6_TEMPERATURE_SENSOR: SensorId = SensorId::new(53);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V0P96_NIC_VDD_A0HP_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V0P96_NIC_VDD_A0HP_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(108);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V0P96_NIC_VDD_A0HP_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V0P96_NIC_VDD_A0HP_CURRENT_SENSOR: SensorId =
+        SensorId::new(109);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V0P96_NIC_VDD_A0HP_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V0P96_NIC_VDD_A0HP_VOLTAGE_SENSOR: SensorId =
+        SensorId::new(110);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V1P8_SYS_A2_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V1P8_SYS_A2_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(63);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V1P8_SYS_A2_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V1P8_SYS_A2_CURRENT_SENSOR: SensorId =
+        SensorId::new(64);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V1P8_SYS_A2_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V1P8_SYS_A2_VOLTAGE_SENSOR: SensorId =
+        SensorId::new(65);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V3P3_SP_A2_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V3P3_SP_A2_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(54);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V3P3_SP_A2_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V3P3_SP_A2_CURRENT_SENSOR: SensorId =
+        SensorId::new(55);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V3P3_SP_A2_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V3P3_SP_A2_VOLTAGE_SENSOR: SensorId =
+        SensorId::new(56);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V3P3_SYS_A0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V3P3_SYS_A0_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(57);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V3P3_SYS_A0_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V3P3_SYS_A0_CURRENT_SENSOR: SensorId =
+        SensorId::new(58);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V3P3_SYS_A0_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V3P3_SYS_A0_VOLTAGE_SENSOR: SensorId =
+        SensorId::new(59);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V5_SYS_A2_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V5_SYS_A2_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(60);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V5_SYS_A2_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V5_SYS_A2_CURRENT_SENSOR: SensorId = SensorId::new(61);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_V5_SYS_A2_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_V5_SYS_A2_VOLTAGE_SENSOR: SensorId = SensorId::new(62);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_A0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_A0_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(117);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_A1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_A1_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(118);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_B0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_B0_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(119);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_B1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_B1_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(120);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_C0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_C0_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(121);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_C1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_C1_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(122);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_D0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_D0_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(123);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_D1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_D1_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(124);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_E0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_E0_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(125);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_E1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_E1_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(126);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_F0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_F0_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(127);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_F1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_F1_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(128);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_G0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_G0_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(129);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_G1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_G1_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(130);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_H0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_H0_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(131);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_DIMM_H1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_DIMM_H1_TEMPERATURE_SENSOR: SensorId =
+        SensorId::new(132);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_U419_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_U419_TEMPERATURE_SENSOR: SensorId = SensorId::new(96);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_U419_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_U419_CURRENT_SENSOR: SensorId = SensorId::new(97);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_U419_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_U419_VOLTAGE_SENSOR: SensorId = SensorId::new(98);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_U452_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_U452_TEMPERATURE_SENSOR: SensorId = SensorId::new(99);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_U452_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_U452_CURRENT_SENSOR: SensorId = SensorId::new(100);
+
+    #[allow(dead_code)]
+    pub const NUM_ADM127X_U452_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const ADM127X_U452_VOLTAGE_SENSOR: SensorId = SensorId::new(101);
+
+    #[allow(dead_code)]
+    pub const NUM_BMR491_U431_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const BMR491_U431_TEMPERATURE_SENSOR: SensorId = SensorId::new(114);
+
+    #[allow(dead_code)]
+    pub const NUM_BMR491_U431_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const BMR491_U431_CURRENT_SENSOR: SensorId = SensorId::new(115);
+
+    #[allow(dead_code)]
+    pub const NUM_BMR491_U431_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const BMR491_U431_VOLTAGE_SENSOR: SensorId = SensorId::new(116);
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_U352_TEMPERATURE_SENSORS: usize = 3;
+
+    #[allow(dead_code)]
+    pub const ISL68224_U352_TEMPERATURE_SENSORS: [SensorId; 3] =
+        [SensorId::new(87), SensorId::new(88), SensorId::new(89)];
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_U352_CURRENT_SENSORS: usize = 3;
+
+    #[allow(dead_code)]
+    pub const ISL68224_U352_CURRENT_SENSORS: [SensorId; 3] =
+        [SensorId::new(90), SensorId::new(91), SensorId::new(92)];
+
+    #[allow(dead_code)]
+    pub const NUM_ISL68224_U352_VOLTAGE_SENSORS: usize = 3;
+
+    #[allow(dead_code)]
+    pub const ISL68224_U352_VOLTAGE_SENSORS: [SensorId; 3] =
+        [SensorId::new(93), SensorId::new(94), SensorId::new(95)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_U321_SPEED_SENSORS: usize = 6;
+
+    #[allow(dead_code)]
+    pub const MAX31790_U321_SPEED_SENSORS: [SensorId; 6] = [
+        SensorId::new(102),
+        SensorId::new(103),
+        SensorId::new(104),
+        SensorId::new(105),
+        SensorId::new(106),
+        SensorId::new(107),
+    ];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_U275_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_U275_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(66), SensorId::new(67)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_U275_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_U275_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(68), SensorId::new(69)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J206_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J206_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(3), SensorId::new(4)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J206_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J206_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(5), SensorId::new(6)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J207_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J207_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(8), SensorId::new(9)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J207_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J207_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(10), SensorId::new(11)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J208_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J208_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(13), SensorId::new(14)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J208_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J208_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(15), SensorId::new(16)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J209_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J209_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(18), SensorId::new(19)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J209_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J209_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(20), SensorId::new(21)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J210_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J210_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(23), SensorId::new(24)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J210_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J210_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(25), SensorId::new(26)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J211_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J211_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(28), SensorId::new(29)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J211_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J211_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(30), SensorId::new(31)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J212_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J212_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(33), SensorId::new(34)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J212_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J212_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(35), SensorId::new(36)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J213_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J213_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(38), SensorId::new(39)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J213_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J213_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(40), SensorId::new(41)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J214_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J214_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(43), SensorId::new(44)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J214_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J214_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(45), SensorId::new(46)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J215_U8_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J215_U8_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(48), SensorId::new(49)];
+
+    #[allow(dead_code)]
+    pub const NUM_MAX5970_J215_U8_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const MAX5970_J215_U8_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(50), SensorId::new(51)];
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_P1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_P1_TEMPERATURE_SENSOR: SensorId = SensorId::new(133);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_P2_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_P2_TEMPERATURE_SENSOR: SensorId = SensorId::new(134);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J206_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J206_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(7);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J207_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J207_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(12);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J208_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J208_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(17);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J209_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J209_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(22);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J210_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J210_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(27);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J211_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J211_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(32);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J212_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J212_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(37);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J213_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J213_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(42);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J214_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J214_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(47);
+
+    #[allow(dead_code)]
+    pub const NUM_NVME_BMC_J215_J1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const NVME_BMC_J215_J1_TEMPERATURE_SENSOR: SensorId = SensorId::new(52);
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_U350_TEMPERATURE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const RAA229618_U350_TEMPERATURE_SENSORS: [SensorId; 2] =
+        [SensorId::new(71), SensorId::new(72)];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_U350_POWER_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const RAA229618_U350_POWER_SENSORS: [SensorId; 2] =
+        [SensorId::new(73), SensorId::new(74)];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_U350_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const RAA229618_U350_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(75), SensorId::new(76)];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_U350_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const RAA229618_U350_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(77), SensorId::new(78)];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_U351_TEMPERATURE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const RAA229618_U351_TEMPERATURE_SENSORS: [SensorId; 2] =
+        [SensorId::new(79), SensorId::new(80)];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_U351_POWER_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const RAA229618_U351_POWER_SENSORS: [SensorId; 2] =
+        [SensorId::new(81), SensorId::new(82)];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_U351_CURRENT_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const RAA229618_U351_CURRENT_SENSORS: [SensorId; 2] =
+        [SensorId::new(83), SensorId::new(84)];
+
+    #[allow(dead_code)]
+    pub const NUM_RAA229618_U351_VOLTAGE_SENSORS: usize = 2;
+
+    #[allow(dead_code)]
+    pub const RAA229618_U351_VOLTAGE_SENSORS: [SensorId; 2] =
+        [SensorId::new(85), SensorId::new(86)];
+
+    #[allow(dead_code)]
+    pub const NUM_SBTSI_P0_SBTSI_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const SBTSI_P0_SBTSI_TEMPERATURE_SENSOR: SensorId = SensorId::new(70);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_J194_U1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_J194_U1_TEMPERATURE_SENSOR: SensorId = SensorId::new(0);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_J195_U1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_J195_U1_TEMPERATURE_SENSOR: SensorId = SensorId::new(1);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_J196_U1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_J196_U1_TEMPERATURE_SENSOR: SensorId = SensorId::new(2);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_J197_U1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_J197_U1_TEMPERATURE_SENSOR: SensorId = SensorId::new(111);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_J198_U1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_J198_U1_TEMPERATURE_SENSOR: SensorId = SensorId::new(112);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP117_J199_U1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP117_J199_U1_TEMPERATURE_SENSOR: SensorId = SensorId::new(113);
+
+    #[allow(dead_code)]
+    pub const NUM_TMP451_U491_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TMP451_U491_TEMPERATURE_SENSOR: SensorId = SensorId::new(53);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U522_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U522_TEMPERATURE_SENSOR: SensorId = SensorId::new(54);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U522_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U522_CURRENT_SENSOR: SensorId = SensorId::new(55);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U522_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U522_VOLTAGE_SENSOR: SensorId = SensorId::new(56);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U524_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U524_TEMPERATURE_SENSOR: SensorId = SensorId::new(60);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U524_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U524_CURRENT_SENSOR: SensorId = SensorId::new(61);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U524_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U524_VOLTAGE_SENSOR: SensorId = SensorId::new(62);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U560_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U560_TEMPERATURE_SENSOR: SensorId = SensorId::new(57);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U560_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U560_CURRENT_SENSOR: SensorId = SensorId::new(58);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U560_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U560_VOLTAGE_SENSOR: SensorId = SensorId::new(59);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U561_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U561_TEMPERATURE_SENSOR: SensorId = SensorId::new(63);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U561_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U561_CURRENT_SENSOR: SensorId = SensorId::new(64);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U561_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U561_VOLTAGE_SENSOR: SensorId = SensorId::new(65);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U565_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U565_TEMPERATURE_SENSOR: SensorId = SensorId::new(108);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U565_CURRENT_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U565_CURRENT_SENSOR: SensorId = SensorId::new(109);
+
+    #[allow(dead_code)]
+    pub const NUM_TPS546B24A_U565_VOLTAGE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TPS546B24A_U565_VOLTAGE_SENSOR: SensorId = SensorId::new(110);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M0_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M0_TEMPERATURE_SENSOR: SensorId = SensorId::new(117);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M1_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M1_TEMPERATURE_SENSOR: SensorId = SensorId::new(119);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M10_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M10_TEMPERATURE_SENSOR: SensorId = SensorId::new(122);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M11_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M11_TEMPERATURE_SENSOR: SensorId = SensorId::new(124);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M12_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M12_TEMPERATURE_SENSOR: SensorId = SensorId::new(126);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M13_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M13_TEMPERATURE_SENSOR: SensorId = SensorId::new(128);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M14_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M14_TEMPERATURE_SENSOR: SensorId = SensorId::new(130);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M15_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M15_TEMPERATURE_SENSOR: SensorId = SensorId::new(132);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M2_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M2_TEMPERATURE_SENSOR: SensorId = SensorId::new(121);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M3_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M3_TEMPERATURE_SENSOR: SensorId = SensorId::new(123);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M4_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M4_TEMPERATURE_SENSOR: SensorId = SensorId::new(125);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M5_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M5_TEMPERATURE_SENSOR: SensorId = SensorId::new(127);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M6_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M6_TEMPERATURE_SENSOR: SensorId = SensorId::new(129);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M7_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M7_TEMPERATURE_SENSOR: SensorId = SensorId::new(131);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M8_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M8_TEMPERATURE_SENSOR: SensorId = SensorId::new(118);
+
+    #[allow(dead_code)]
+    pub const NUM_TSE2004AV_M9_TEMPERATURE_SENSORS: usize = 1;
+
+    #[allow(dead_code)]
+    pub const TSE2004AV_M9_TEMPERATURE_SENSOR: SensorId = SensorId::new(120);
+}
