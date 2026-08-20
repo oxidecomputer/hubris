@@ -26,7 +26,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use build_i2c::{ConfigGenerator, Disposition, I2cSensorsDescription};
-use insta::{assert_debug_snapshot, assert_snapshot};
+use insta::assert_snapshot;
 use tempfile::{TempDir, tempdir};
 
 type GenFn<T> = fn(&ConfigGenerator, &mut String) -> Result<T>;
@@ -110,7 +110,7 @@ fn snapshot() {
 
         // Now snapshot the generated description
         let name = format!("{name}-desc");
-        assert_debug_snapshot!(name, desc);
+        assert_snapshot!(name, desc.to_string());
     }
 }
 

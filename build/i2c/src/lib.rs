@@ -341,6 +341,43 @@ pub struct I2cSensorsDescription {
     pub total_sensors: usize,
 }
 
+impl std::fmt::Display for I2cSensorsDescription {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let I2cSensorsDescription {
+            by_device,
+            by_name,
+            by_refdes,
+            by_id,
+            device_sensors,
+            total_sensors,
+        } = self;
+        writeln!(f, "by_device:")?;
+        for (k, vs) in by_device {
+            writeln!(f, "  - {k:?} :: {vs:?}")?;
+        }
+        writeln!(f, "by_name:")?;
+        for (k, vs) in by_name {
+            writeln!(f, "  - {k:?} :: {vs:?}")?;
+        }
+        writeln!(f, "by_refdes:")?;
+        for (k, vs) in by_refdes {
+            writeln!(f, "  - {k:?} :: {vs:?}")?;
+        }
+        writeln!(f, "by_id:")?;
+        for s in by_id {
+            writeln!(f, "  - {s:?}")?;
+        }
+        writeln!(f, "device_sensors:")?;
+        for (i, d) in device_sensors.iter().enumerate() {
+            writeln!(f, "  - I2cDevice({i})")?;
+            for (j, s) in d.iter().enumerate() {
+                writeln!(f, "    - {i}.{j}: {s:?}")?;
+            }
+        }
+        writeln!(f, "total_sensors: {total_sensors}")
+    }
+}
+
 impl From<I2cSensorsDescriptionInner> for I2cSensorsDescription {
     fn from(value: I2cSensorsDescriptionInner) -> Self {
         Self {
