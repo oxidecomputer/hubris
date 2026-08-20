@@ -3,924 +3,1230 @@ source: build/xtask/tests/i2c-codegen.rs
 expression: desc
 ---
 I2cSensorsDescription {
-    by_device: {
-        DeviceKey {
-            device: "mwocp68",
-            kind: InputCurrent,
-        }: [
-            7,
-            8,
-            20,
-            21,
-            33,
-            34,
-            46,
-            47,
-            59,
-            60,
-            72,
-            73,
-        ],
-        DeviceKey {
-            device: "mwocp68",
-            kind: Current,
-        }: [
-            3,
-            4,
-            16,
-            17,
-            29,
-            30,
-            42,
-            43,
-            55,
-            56,
-            68,
-            69,
-        ],
-        DeviceKey {
-            device: "mwocp68",
-            kind: Temperature,
-        }: [
-            0,
-            1,
-            2,
-            13,
-            14,
-            15,
-            26,
-            27,
-            28,
-            39,
-            40,
-            41,
-            52,
-            53,
-            54,
-            65,
-            66,
-            67,
-        ],
-        DeviceKey {
-            device: "mwocp68",
-            kind: Voltage,
-        }: [
-            5,
-            6,
-            18,
-            19,
-            31,
-            32,
-            44,
-            45,
-            57,
-            58,
-            70,
-            71,
-        ],
-        DeviceKey {
-            device: "mwocp68",
-            kind: InputVoltage,
-        }: [
-            9,
-            10,
-            22,
-            23,
-            35,
-            36,
-            48,
-            49,
-            61,
-            62,
-            74,
-            75,
-        ],
-        DeviceKey {
-            device: "mwocp68",
-            kind: Speed,
-        }: [
-            11,
-            12,
-            24,
-            25,
-            37,
-            38,
-            50,
-            51,
-            63,
-            64,
-            76,
-            77,
-        ],
-    },
-    by_name: {
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU5",
-            kind: Voltage,
-        }: [
-            70,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU3",
-            kind: InputCurrent,
-        }: [
-            46,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU2",
-            kind: Current,
-        }: [
-            30,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU5",
-            kind: InputVoltage,
-        }: [
-            74,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU1",
-            kind: Current,
-        }: [
-            16,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU3",
-            kind: Current,
-        }: [
-            42,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU4",
-            kind: InputVoltage,
-        }: [
-            62,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU1",
-            kind: InputCurrent,
-        }: [
-            21,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU2",
-            kind: InputCurrent,
-        }: [
-            33,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu4mcu",
-            kind: Temperature,
-        }: [
-            52,
-            53,
-            54,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU0",
-            kind: InputCurrent,
-        }: [
-            8,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU3",
-            kind: InputCurrent,
-        }: [
-            47,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU3",
-            kind: InputVoltage,
-        }: [
-            49,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU0",
-            kind: Current,
-        }: [
-            3,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU4",
-            kind: Voltage,
-        }: [
-            58,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU3",
-            kind: Voltage,
-        }: [
-            44,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU5",
-            kind: Current,
-        }: [
-            69,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU2",
-            kind: Voltage,
-        }: [
-            32,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu4mcu",
-            kind: Speed,
-        }: [
-            63,
-            64,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu5mcu",
-            kind: Speed,
-        }: [
-            76,
-            77,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu0mcu",
-            kind: Temperature,
-        }: [
-            0,
-            1,
-            2,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu0mcu",
-            kind: Speed,
-        }: [
-            11,
-            12,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU1",
-            kind: Current,
-        }: [
-            17,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU5",
-            kind: Voltage,
-        }: [
-            71,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU2",
-            kind: InputVoltage,
-        }: [
-            35,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU5",
-            kind: InputVoltage,
-        }: [
-            75,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu1mcu",
-            kind: Speed,
-        }: [
-            24,
-            25,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU4",
-            kind: Current,
-        }: [
-            55,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU3",
-            kind: Current,
-        }: [
-            43,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu3mcu",
-            kind: Temperature,
-        }: [
-            39,
-            40,
-            41,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU0",
-            kind: InputVoltage,
-        }: [
-            9,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU2",
-            kind: Current,
-        }: [
-            29,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU0",
-            kind: InputVoltage,
-        }: [
-            10,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU2",
-            kind: InputCurrent,
-        }: [
-            34,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU1",
-            kind: Voltage,
-        }: [
-            19,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU3",
-            kind: InputVoltage,
-        }: [
-            48,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU3",
-            kind: Voltage,
-        }: [
-            45,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU5",
-            kind: InputCurrent,
-        }: [
-            73,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU2",
-            kind: InputVoltage,
-        }: [
-            36,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU0",
-            kind: InputCurrent,
-        }: [
-            7,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU5",
-            kind: InputCurrent,
-        }: [
-            72,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU0",
-            kind: Voltage,
-        }: [
-            5,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu1mcu",
-            kind: Temperature,
-        }: [
-            13,
-            14,
-            15,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU1",
-            kind: InputCurrent,
-        }: [
-            20,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu3mcu",
-            kind: Speed,
-        }: [
-            50,
-            51,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU4",
-            kind: Current,
-        }: [
-            56,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU4",
-            kind: Voltage,
-        }: [
-            57,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU4",
-            kind: InputCurrent,
-        }: [
-            59,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU4",
-            kind: InputVoltage,
-        }: [
-            61,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU4",
-            kind: InputCurrent,
-        }: [
-            60,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu2mcu",
-            kind: Speed,
-        }: [
-            37,
-            38,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU5",
-            kind: Current,
-        }: [
-            68,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU1",
-            kind: InputVoltage,
-        }: [
-            22,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU2",
-            kind: Voltage,
-        }: [
-            31,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu5mcu",
-            kind: Temperature,
-        }: [
-            65,
-            66,
-            67,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU1",
-            kind: InputVoltage,
-        }: [
-            23,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU0",
-            kind: Voltage,
-        }: [
-            6,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "psu2mcu",
-            kind: Temperature,
-        }: [
-            26,
-            27,
-            28,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V54_PSU1",
-            kind: Voltage,
-        }: [
-            18,
-        ],
-        DeviceNameKey {
-            device: "mwocp68",
-            name: "V12_PSU0",
-            kind: Current,
-        }: [
-            4,
-        ],
-    },
-    by_refdes: {
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU1",
-            ),
-            kind: InputCurrent,
-        }: [
-            20,
-            21,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU2",
-            ),
-            kind: InputVoltage,
-        }: [
-            35,
-            36,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU0",
-            ),
-            kind: Current,
-        }: [
-            3,
-            4,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU5",
-            ),
-            kind: InputCurrent,
-        }: [
-            72,
-            73,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU5",
-            ),
-            kind: Speed,
-        }: [
-            76,
-            77,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU3",
-            ),
-            kind: InputVoltage,
-        }: [
-            48,
-            49,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU3",
-            ),
-            kind: InputCurrent,
-        }: [
-            46,
-            47,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU2",
-            ),
-            kind: Temperature,
-        }: [
-            26,
-            27,
-            28,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU0",
-            ),
-            kind: Speed,
-        }: [
-            11,
-            12,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU3",
-            ),
-            kind: Voltage,
-        }: [
-            44,
-            45,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU4",
-            ),
-            kind: InputVoltage,
-        }: [
-            61,
-            62,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU4",
-            ),
-            kind: Temperature,
-        }: [
-            52,
-            53,
-            54,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU5",
-            ),
-            kind: Voltage,
-        }: [
-            70,
-            71,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU1",
-            ),
-            kind: Current,
-        }: [
-            16,
-            17,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU5",
-            ),
-            kind: Current,
-        }: [
-            68,
-            69,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU2",
-            ),
-            kind: Speed,
-        }: [
-            37,
-            38,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU4",
-            ),
-            kind: Speed,
-        }: [
-            63,
-            64,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU4",
-            ),
-            kind: InputCurrent,
-        }: [
-            59,
-            60,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU0",
-            ),
-            kind: Temperature,
-        }: [
-            0,
-            1,
-            2,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU3",
-            ),
-            kind: Speed,
-        }: [
-            50,
-            51,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU5",
-            ),
-            kind: Temperature,
-        }: [
-            65,
-            66,
-            67,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU4",
-            ),
-            kind: Current,
-        }: [
-            55,
-            56,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU0",
-            ),
-            kind: Voltage,
-        }: [
-            5,
-            6,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU0",
-            ),
-            kind: InputCurrent,
-        }: [
-            7,
-            8,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU1",
-            ),
-            kind: Voltage,
-        }: [
-            18,
-            19,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU2",
-            ),
-            kind: InputCurrent,
-        }: [
-            33,
-            34,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU5",
-            ),
-            kind: InputVoltage,
-        }: [
-            74,
-            75,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU2",
-            ),
-            kind: Current,
-        }: [
-            29,
-            30,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU1",
-            ),
-            kind: Speed,
-        }: [
-            24,
-            25,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU2",
-            ),
-            kind: Voltage,
-        }: [
-            31,
-            32,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU3",
-            ),
-            kind: Temperature,
-        }: [
-            39,
-            40,
-            41,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU0",
-            ),
-            kind: InputVoltage,
-        }: [
-            9,
-            10,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU1",
-            ),
-            kind: InputVoltage,
-        }: [
-            22,
-            23,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU3",
-            ),
-            kind: Current,
-        }: [
-            42,
-            43,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU4",
-            ),
-            kind: Voltage,
-        }: [
-            57,
-            58,
-        ],
-        DeviceRefdesKey {
-            device: "mwocp68",
-            refdes: Component(
-                "PSU1",
-            ),
-            kind: Temperature,
-        }: [
-            13,
-            14,
-            15,
-        ],
-    },
+    by_device: [
+        (
+            DeviceKey {
+                device: "mwocp68",
+                kind: Temperature,
+            },
+            [
+                0,
+                1,
+                2,
+                13,
+                14,
+                15,
+                26,
+                27,
+                28,
+                39,
+                40,
+                41,
+                52,
+                53,
+                54,
+                65,
+                66,
+                67,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "mwocp68",
+                kind: Current,
+            },
+            [
+                3,
+                4,
+                16,
+                17,
+                29,
+                30,
+                42,
+                43,
+                55,
+                56,
+                68,
+                69,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "mwocp68",
+                kind: Voltage,
+            },
+            [
+                5,
+                6,
+                18,
+                19,
+                31,
+                32,
+                44,
+                45,
+                57,
+                58,
+                70,
+                71,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "mwocp68",
+                kind: InputCurrent,
+            },
+            [
+                7,
+                8,
+                20,
+                21,
+                33,
+                34,
+                46,
+                47,
+                59,
+                60,
+                72,
+                73,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "mwocp68",
+                kind: InputVoltage,
+            },
+            [
+                9,
+                10,
+                22,
+                23,
+                35,
+                36,
+                48,
+                49,
+                61,
+                62,
+                74,
+                75,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "mwocp68",
+                kind: Speed,
+            },
+            [
+                11,
+                12,
+                24,
+                25,
+                37,
+                38,
+                50,
+                51,
+                63,
+                64,
+                76,
+                77,
+            ],
+        ),
+    ],
+    by_name: [
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU0",
+                kind: Current,
+            },
+            [
+                4,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU0",
+                kind: Voltage,
+            },
+            [
+                6,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU0",
+                kind: InputCurrent,
+            },
+            [
+                8,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU0",
+                kind: InputVoltage,
+            },
+            [
+                10,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU1",
+                kind: Current,
+            },
+            [
+                17,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU1",
+                kind: Voltage,
+            },
+            [
+                19,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU1",
+                kind: InputCurrent,
+            },
+            [
+                21,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU1",
+                kind: InputVoltage,
+            },
+            [
+                23,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU2",
+                kind: Current,
+            },
+            [
+                30,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU2",
+                kind: Voltage,
+            },
+            [
+                32,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU2",
+                kind: InputCurrent,
+            },
+            [
+                34,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU2",
+                kind: InputVoltage,
+            },
+            [
+                36,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU3",
+                kind: Current,
+            },
+            [
+                43,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU3",
+                kind: Voltage,
+            },
+            [
+                45,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU3",
+                kind: InputCurrent,
+            },
+            [
+                47,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU3",
+                kind: InputVoltage,
+            },
+            [
+                49,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU4",
+                kind: Current,
+            },
+            [
+                56,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU4",
+                kind: Voltage,
+            },
+            [
+                58,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU4",
+                kind: InputCurrent,
+            },
+            [
+                60,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU4",
+                kind: InputVoltage,
+            },
+            [
+                62,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU5",
+                kind: Current,
+            },
+            [
+                69,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU5",
+                kind: Voltage,
+            },
+            [
+                71,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU5",
+                kind: InputCurrent,
+            },
+            [
+                73,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V12_PSU5",
+                kind: InputVoltage,
+            },
+            [
+                75,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU0",
+                kind: Current,
+            },
+            [
+                3,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU0",
+                kind: Voltage,
+            },
+            [
+                5,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU0",
+                kind: InputCurrent,
+            },
+            [
+                7,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU0",
+                kind: InputVoltage,
+            },
+            [
+                9,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU1",
+                kind: Current,
+            },
+            [
+                16,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU1",
+                kind: Voltage,
+            },
+            [
+                18,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU1",
+                kind: InputCurrent,
+            },
+            [
+                20,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU1",
+                kind: InputVoltage,
+            },
+            [
+                22,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU2",
+                kind: Current,
+            },
+            [
+                29,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU2",
+                kind: Voltage,
+            },
+            [
+                31,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU2",
+                kind: InputCurrent,
+            },
+            [
+                33,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU2",
+                kind: InputVoltage,
+            },
+            [
+                35,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU3",
+                kind: Current,
+            },
+            [
+                42,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU3",
+                kind: Voltage,
+            },
+            [
+                44,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU3",
+                kind: InputCurrent,
+            },
+            [
+                46,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU3",
+                kind: InputVoltage,
+            },
+            [
+                48,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU4",
+                kind: Current,
+            },
+            [
+                55,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU4",
+                kind: Voltage,
+            },
+            [
+                57,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU4",
+                kind: InputCurrent,
+            },
+            [
+                59,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU4",
+                kind: InputVoltage,
+            },
+            [
+                61,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU5",
+                kind: Current,
+            },
+            [
+                68,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU5",
+                kind: Voltage,
+            },
+            [
+                70,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU5",
+                kind: InputCurrent,
+            },
+            [
+                72,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "V54_PSU5",
+                kind: InputVoltage,
+            },
+            [
+                74,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu0mcu",
+                kind: Temperature,
+            },
+            [
+                0,
+                1,
+                2,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu0mcu",
+                kind: Speed,
+            },
+            [
+                11,
+                12,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu1mcu",
+                kind: Temperature,
+            },
+            [
+                13,
+                14,
+                15,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu1mcu",
+                kind: Speed,
+            },
+            [
+                24,
+                25,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu2mcu",
+                kind: Temperature,
+            },
+            [
+                26,
+                27,
+                28,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu2mcu",
+                kind: Speed,
+            },
+            [
+                37,
+                38,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu3mcu",
+                kind: Temperature,
+            },
+            [
+                39,
+                40,
+                41,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu3mcu",
+                kind: Speed,
+            },
+            [
+                50,
+                51,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu4mcu",
+                kind: Temperature,
+            },
+            [
+                52,
+                53,
+                54,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu4mcu",
+                kind: Speed,
+            },
+            [
+                63,
+                64,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu5mcu",
+                kind: Temperature,
+            },
+            [
+                65,
+                66,
+                67,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "mwocp68",
+                name: "psu5mcu",
+                kind: Speed,
+            },
+            [
+                76,
+                77,
+            ],
+        ),
+    ],
+    by_refdes: [
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU0",
+                ),
+                kind: Temperature,
+            },
+            [
+                0,
+                1,
+                2,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU0",
+                ),
+                kind: Current,
+            },
+            [
+                3,
+                4,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU0",
+                ),
+                kind: Voltage,
+            },
+            [
+                5,
+                6,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU0",
+                ),
+                kind: InputCurrent,
+            },
+            [
+                7,
+                8,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU0",
+                ),
+                kind: InputVoltage,
+            },
+            [
+                9,
+                10,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU0",
+                ),
+                kind: Speed,
+            },
+            [
+                11,
+                12,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU1",
+                ),
+                kind: Temperature,
+            },
+            [
+                13,
+                14,
+                15,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU1",
+                ),
+                kind: Current,
+            },
+            [
+                16,
+                17,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU1",
+                ),
+                kind: Voltage,
+            },
+            [
+                18,
+                19,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU1",
+                ),
+                kind: InputCurrent,
+            },
+            [
+                20,
+                21,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU1",
+                ),
+                kind: InputVoltage,
+            },
+            [
+                22,
+                23,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU1",
+                ),
+                kind: Speed,
+            },
+            [
+                24,
+                25,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU2",
+                ),
+                kind: Temperature,
+            },
+            [
+                26,
+                27,
+                28,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU2",
+                ),
+                kind: Current,
+            },
+            [
+                29,
+                30,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU2",
+                ),
+                kind: Voltage,
+            },
+            [
+                31,
+                32,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU2",
+                ),
+                kind: InputCurrent,
+            },
+            [
+                33,
+                34,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU2",
+                ),
+                kind: InputVoltage,
+            },
+            [
+                35,
+                36,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU2",
+                ),
+                kind: Speed,
+            },
+            [
+                37,
+                38,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU3",
+                ),
+                kind: Temperature,
+            },
+            [
+                39,
+                40,
+                41,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU3",
+                ),
+                kind: Current,
+            },
+            [
+                42,
+                43,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU3",
+                ),
+                kind: Voltage,
+            },
+            [
+                44,
+                45,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU3",
+                ),
+                kind: InputCurrent,
+            },
+            [
+                46,
+                47,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU3",
+                ),
+                kind: InputVoltage,
+            },
+            [
+                48,
+                49,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU3",
+                ),
+                kind: Speed,
+            },
+            [
+                50,
+                51,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU4",
+                ),
+                kind: Temperature,
+            },
+            [
+                52,
+                53,
+                54,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU4",
+                ),
+                kind: Current,
+            },
+            [
+                55,
+                56,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU4",
+                ),
+                kind: Voltage,
+            },
+            [
+                57,
+                58,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU4",
+                ),
+                kind: InputCurrent,
+            },
+            [
+                59,
+                60,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU4",
+                ),
+                kind: InputVoltage,
+            },
+            [
+                61,
+                62,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU4",
+                ),
+                kind: Speed,
+            },
+            [
+                63,
+                64,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU5",
+                ),
+                kind: Temperature,
+            },
+            [
+                65,
+                66,
+                67,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU5",
+                ),
+                kind: Current,
+            },
+            [
+                68,
+                69,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU5",
+                ),
+                kind: Voltage,
+            },
+            [
+                70,
+                71,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU5",
+                ),
+                kind: InputCurrent,
+            },
+            [
+                72,
+                73,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU5",
+                ),
+                kind: InputVoltage,
+            },
+            [
+                74,
+                75,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "mwocp68",
+                refdes: Component(
+                    "PSU5",
+                ),
+                kind: Speed,
+            },
+            [
+                76,
+                77,
+            ],
+        ),
+    ],
     by_id: {
         0: DeviceSensor {
             refdes: Some(

@@ -3,2123 +3,2855 @@ source: build/xtask/tests/i2c-codegen.rs
 expression: desc
 ---
 I2cSensorsDescription {
-    by_device: {
-        DeviceKey {
-            device: "ltc4282",
-            kind: Current,
-        }: [
-            70,
-            72,
-            74,
-        ],
-        DeviceKey {
-            device: "isl68224",
-            kind: Voltage,
-        }: [
-            95,
-            96,
-            97,
-        ],
-        DeviceKey {
-            device: "max31790",
-            kind: Speed,
-        }: [
-            108,
-            109,
-            110,
-            111,
-            112,
-            113,
-        ],
-        DeviceKey {
-            device: "sbtsi",
-            kind: Temperature,
-        }: [
-            55,
-        ],
-        DeviceKey {
-            device: "tps546b24a",
-            kind: Voltage,
-        }: [
-            59,
-            62,
-            65,
-            104,
-        ],
-        DeviceKey {
-            device: "lm5066i",
-            kind: Voltage,
-        }: [
-            119,
-            122,
-            125,
-        ],
-        DeviceKey {
-            device: "adm127x",
-            kind: Temperature,
-        }: [
-            126,
-        ],
-        DeviceKey {
-            device: "tmp117",
-            kind: Temperature,
-        }: [
-            50,
-            51,
-            52,
-            105,
-            106,
-            107,
-        ],
-        DeviceKey {
-            device: "tmp451",
-            kind: Temperature,
-        }: [
-            56,
-        ],
-        DeviceKey {
-            device: "bmr491",
-            kind: Voltage,
-        }: [
-            116,
-        ],
-        DeviceKey {
-            device: "lm5066i",
-            kind: Temperature,
-        }: [
-            117,
-            120,
-            123,
-        ],
-        DeviceKey {
-            device: "raa229620a",
-            kind: Current,
-        }: [
-            80,
-            81,
-            88,
-            89,
-        ],
-        DeviceKey {
-            device: "isl68224",
-            kind: Current,
-        }: [
-            92,
-            93,
-            94,
-        ],
-        DeviceKey {
-            device: "lm5066i",
-            kind: Current,
-        }: [
-            118,
-            121,
-            124,
-        ],
-        DeviceKey {
-            device: "raa229620a",
-            kind: Power,
-        }: [
-            78,
-            79,
-            86,
-            87,
-        ],
-        DeviceKey {
-            device: "raa229620a",
-            kind: Voltage,
-        }: [
-            82,
-            83,
-            90,
-            91,
-        ],
-        DeviceKey {
-            device: "max5970",
-            kind: Voltage,
-        }: [
-            2,
-            3,
-            7,
-            8,
-            12,
-            13,
-            17,
-            18,
-            22,
-            23,
-            27,
-            28,
-            32,
-            33,
-            37,
-            38,
-            42,
-            43,
-            47,
-            48,
-            68,
-            69,
-            100,
-            101,
-        ],
-        DeviceKey {
-            device: "max5970",
-            kind: Current,
-        }: [
-            0,
-            1,
-            5,
-            6,
-            10,
-            11,
-            15,
-            16,
-            20,
-            21,
-            25,
-            26,
-            30,
-            31,
-            35,
-            36,
-            40,
-            41,
-            45,
-            46,
-            66,
-            67,
-            98,
-            99,
-        ],
-        DeviceKey {
-            device: "nvme_bmc",
-            kind: Temperature,
-        }: [
-            4,
-            9,
-            14,
-            19,
-            24,
-            29,
-            34,
-            39,
-            44,
-            49,
-            53,
-            54,
-        ],
-        DeviceKey {
-            device: "tps546b24a",
-            kind: Current,
-        }: [
-            58,
-            61,
-            64,
-            103,
-        ],
-        DeviceKey {
-            device: "bmr491",
-            kind: Current,
-        }: [
-            115,
-        ],
-        DeviceKey {
-            device: "adm127x",
-            kind: Voltage,
-        }: [
-            128,
-        ],
-        DeviceKey {
-            device: "raa229620a",
-            kind: Temperature,
-        }: [
-            76,
-            77,
-            84,
-            85,
-        ],
-        DeviceKey {
-            device: "adm127x",
-            kind: Current,
-        }: [
-            127,
-        ],
-        DeviceKey {
-            device: "tps546b24a",
-            kind: Temperature,
-        }: [
-            57,
-            60,
-            63,
-            102,
-        ],
-        DeviceKey {
-            device: "bmr491",
-            kind: Temperature,
-        }: [
-            114,
-        ],
-        DeviceKey {
-            device: "ltc4282",
-            kind: Voltage,
-        }: [
-            71,
-            73,
-            75,
-        ],
-    },
-    by_name: {
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2D_A0",
-            kind: Current,
-        }: [
-            16,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2F_A0",
-            kind: Current,
-        }: [
-            25,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2G_A0",
-            kind: Current,
-        }: [
-            31,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N9",
-            kind: Temperature,
-        }: [
-            49,
-        ],
-        DeviceNameKey {
-            device: "ltc4282",
-            name: "V12_DDR5_ABCDEF_A0",
-            kind: Current,
-        }: [
-            74,
-        ],
-        DeviceNameKey {
-            device: "adm127x",
-            name: "V54P5_IBC_A3",
-            kind: Current,
-        }: [
-            127,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2J_A0",
-            kind: Current,
-        }: [
-            45,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2A_A0",
-            kind: Voltage,
-        }: [
-            2,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2D_A0",
-            kind: Current,
-        }: [
-            15,
-        ],
-        DeviceNameKey {
-            device: "tmp117",
-            name: "South",
-            kind: Temperature,
-        }: [
-            51,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V1P8_SYS_A2",
-            kind: Temperature,
-        }: [
-            63,
-        ],
-        DeviceNameKey {
-            device: "ltc4282",
-            name: "V12_DDR5_GHIJKL_A0",
-            kind: Voltage,
-        }: [
-            73,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V5P0_NIC_A0HP",
-            kind: Voltage,
-        }: [
-            101,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDIO_SP5_A0",
-            kind: Power,
-        }: [
-            87,
-        ],
-        DeviceNameKey {
-            device: "lm5066i",
-            name: "V54P5_FAN_WEST",
-            kind: Voltage,
-        }: [
-            125,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N0",
-            kind: Temperature,
-        }: [
-            4,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2C_A0",
-            kind: Voltage,
-        }: [
-            13,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDIO_SP5_A0",
-            kind: Temperature,
-        }: [
-            85,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12P0_NIC_A0HP",
-            kind: Current,
-        }: [
-            98,
-        ],
-        DeviceNameKey {
-            device: "bmr491",
-            name: "V12_SYS_A2",
-            kind: Temperature,
-        }: [
-            114,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2G_A0",
-            kind: Voltage,
-        }: [
-            32,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2A_A0",
-            kind: Voltage,
-        }: [
-            3,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_CPU0_A0",
-            kind: Current,
-        }: [
-            80,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2A_A0",
-            kind: Current,
-        }: [
-            1,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2J_A0",
-            kind: Current,
-        }: [
-            46,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2H_A0",
-            kind: Current,
-        }: [
-            35,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2B_A0",
-            kind: Current,
-        }: [
-            5,
-        ],
-        DeviceNameKey {
-            device: "isl68224",
-            name: "V1P8_SP5_A1",
-            kind: Voltage,
-        }: [
-            96,
-        ],
-        DeviceNameKey {
-            device: "adm127x",
-            name: "V54P5_IBC_A3",
-            kind: Voltage,
-        }: [
-            128,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V0P96_NIC_VDD_A0HP",
-            kind: Voltage,
-        }: [
-            104,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "M2_B",
-            kind: Temperature,
-        }: [
-            54,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2B_A0",
-            kind: Voltage,
-        }: [
-            7,
-        ],
-        DeviceNameKey {
-            device: "tmp117",
-            name: "North",
-            kind: Temperature,
-        }: [
-            106,
-        ],
-        DeviceNameKey {
-            device: "lm5066i",
-            name: "V54P5_FAN_CENTRAL",
-            kind: Current,
-        }: [
-            121,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V3P3_SP_A2",
-            kind: Voltage,
-        }: [
-            59,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_SOC_A0",
-            kind: Temperature,
-        }: [
-            77,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2D_A0",
-            kind: Voltage,
-        }: [
-            18,
-        ],
-        DeviceNameKey {
-            device: "ltc4282",
-            name: "V12_MCIO_A0HP",
-            kind: Current,
-        }: [
-            70,
-        ],
-        DeviceNameKey {
-            device: "bmr491",
-            name: "V12_SYS_A2",
-            kind: Current,
-        }: [
-            115,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2A_A0",
-            kind: Current,
-        }: [
-            0,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2E_A0",
-            kind: Current,
-        }: [
-            21,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2G_A0",
-            kind: Voltage,
-        }: [
-            33,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_M2B_A0HP",
-            kind: Current,
-        }: [
-            67,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2J_A0",
-            kind: Voltage,
-        }: [
-            48,
-        ],
-        DeviceNameKey {
-            device: "max31790",
-            name: "North",
-            kind: Speed,
-        }: [
-            111,
-        ],
-        DeviceNameKey {
-            device: "lm5066i",
-            name: "V54P5_FAN_WEST",
-            kind: Temperature,
-        }: [
-            123,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_M2A_A0HP",
-            kind: Voltage,
-        }: [
-            68,
-        ],
-        DeviceNameKey {
-            device: "max31790",
-            name: "South",
-            kind: Speed,
-        }: [
-            110,
-        ],
-        DeviceNameKey {
-            device: "tmp451",
-            name: "t6",
-            kind: Temperature,
-        }: [
-            56,
-        ],
-        DeviceNameKey {
-            device: "max31790",
-            name: "Southwest",
-            kind: Speed,
-        }: [
-            112,
-        ],
-        DeviceNameKey {
-            device: "isl68224",
-            name: "V3P3_SP5_A1",
-            kind: Current,
-        }: [
-            94,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2E_A0",
-            kind: Voltage,
-        }: [
-            23,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V1P8_SYS_A2",
-            kind: Voltage,
-        }: [
-            65,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V1P8_SYS_A2",
-            kind: Current,
-        }: [
-            64,
-        ],
-        DeviceNameKey {
-            device: "bmr491",
-            name: "V12_SYS_A2",
-            kind: Voltage,
-        }: [
-            116,
-        ],
-        DeviceNameKey {
-            device: "lm5066i",
-            name: "V54P5_FAN_EAST",
-            kind: Temperature,
-        }: [
-            117,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N7",
-            kind: Temperature,
-        }: [
-            39,
-        ],
-        DeviceNameKey {
-            device: "max31790",
-            name: "Northeast",
-            kind: Speed,
-        }: [
-            109,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V3P3_SP_A2",
-            kind: Current,
-        }: [
-            58,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2F_A0",
-            kind: Voltage,
-        }: [
-            27,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2H_A0",
-            kind: Voltage,
-        }: [
-            37,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_CPU0_A0",
-            kind: Voltage,
-        }: [
-            82,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N6",
-            kind: Temperature,
-        }: [
-            34,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12P0_NIC_A0HP",
-            kind: Voltage,
-        }: [
-            100,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2F_A0",
-            kind: Voltage,
-        }: [
-            28,
-        ],
-        DeviceNameKey {
-            device: "ltc4282",
-            name: "V12_DDR5_ABCDEF_A0",
-            kind: Voltage,
-        }: [
-            75,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N3",
-            kind: Temperature,
-        }: [
-            19,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2F_A0",
-            kind: Current,
-        }: [
-            26,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "M2_A",
-            kind: Temperature,
-        }: [
-            53,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_M2B_A0HP",
-            kind: Voltage,
-        }: [
-            69,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_M2A_A0HP",
-            kind: Current,
-        }: [
-            66,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N5",
-            kind: Temperature,
-        }: [
-            29,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2B_A0",
-            kind: Voltage,
-        }: [
-            8,
-        ],
-        DeviceNameKey {
-            device: "isl68224",
-            name: "V1P1_SP5_A0",
-            kind: Current,
-        }: [
-            92,
-        ],
-        DeviceNameKey {
-            device: "ltc4282",
-            name: "V12_MCIO_A0HP",
-            kind: Voltage,
-        }: [
-            71,
-        ],
-        DeviceNameKey {
-            device: "lm5066i",
-            name: "V54P5_FAN_CENTRAL",
-            kind: Voltage,
-        }: [
-            122,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDIO_SP5_A0",
-            kind: Current,
-        }: [
-            89,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V5_SYS_A2",
-            kind: Temperature,
-        }: [
-            60,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2I_A0",
-            kind: Voltage,
-        }: [
-            42,
-        ],
-        DeviceNameKey {
-            device: "tmp117",
-            name: "Northwest",
-            kind: Temperature,
-        }: [
-            105,
-        ],
-        DeviceNameKey {
-            device: "ltc4282",
-            name: "V12_DDR5_GHIJKL_A0",
-            kind: Current,
-        }: [
-            72,
-        ],
-        DeviceNameKey {
-            device: "lm5066i",
-            name: "V54P5_FAN_EAST",
-            kind: Current,
-        }: [
-            118,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2C_A0",
-            kind: Voltage,
-        }: [
-            12,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2E_A0",
-            kind: Current,
-        }: [
-            20,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2J_A0",
-            kind: Voltage,
-        }: [
-            47,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_CPU1_A0",
-            kind: Current,
-        }: [
-            88,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N1",
-            kind: Temperature,
-        }: [
-            9,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_CPU1_A0",
-            kind: Temperature,
-        }: [
-            84,
-        ],
-        DeviceNameKey {
-            device: "isl68224",
-            name: "V1P1_SP5_A0",
-            kind: Voltage,
-        }: [
-            95,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V5_SYS_A2",
-            kind: Current,
-        }: [
-            61,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2D_A0",
-            kind: Voltage,
-        }: [
-            17,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2C_A0",
-            kind: Current,
-        }: [
-            11,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2H_A0",
-            kind: Voltage,
-        }: [
-            38,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_SOC_A0",
-            kind: Power,
-        }: [
-            79,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_SOC_A0",
-            kind: Current,
-        }: [
-            81,
-        ],
-        DeviceNameKey {
-            device: "tmp117",
-            name: "Southwest",
-            kind: Temperature,
-        }: [
-            50,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2H_A0",
-            kind: Current,
-        }: [
-            36,
-        ],
-        DeviceNameKey {
-            device: "sbtsi",
-            name: "CPU",
-            kind: Temperature,
-        }: [
-            55,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2C_A0",
-            kind: Current,
-        }: [
-            10,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N4",
-            kind: Temperature,
-        }: [
-            24,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2I_A0",
-            kind: Current,
-        }: [
-            41,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V3P3_SP_A2",
-            kind: Temperature,
-        }: [
-            57,
-        ],
-        DeviceNameKey {
-            device: "tmp117",
-            name: "Southeast",
-            kind: Temperature,
-        }: [
-            52,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDIO_SP5_A0",
-            kind: Voltage,
-        }: [
-            91,
-        ],
-        DeviceNameKey {
-            device: "max31790",
-            name: "Northwest",
-            kind: Speed,
-        }: [
-            113,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2B_A0",
-            kind: Current,
-        }: [
-            6,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V5_SYS_A2",
-            kind: Voltage,
-        }: [
-            62,
-        ],
-        DeviceNameKey {
-            device: "adm127x",
-            name: "V54P5_IBC_A3",
-            kind: Temperature,
-        }: [
-            126,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2I_A0",
-            kind: Current,
-        }: [
-            40,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_CPU1_A0",
-            kind: Voltage,
-        }: [
-            90,
-        ],
-        DeviceNameKey {
-            device: "lm5066i",
-            name: "V54P5_FAN_WEST",
-            kind: Current,
-        }: [
-            124,
-        ],
-        DeviceNameKey {
-            device: "isl68224",
-            name: "V1P8_SP5_A1",
-            kind: Current,
-        }: [
-            93,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_SOC_A0",
-            kind: Voltage,
-        }: [
-            83,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N8",
-            kind: Temperature,
-        }: [
-            44,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V0P96_NIC_VDD_A0HP",
-            kind: Current,
-        }: [
-            103,
-        ],
-        DeviceNameKey {
-            device: "lm5066i",
-            name: "V54P5_FAN_EAST",
-            kind: Voltage,
-        }: [
-            119,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V3P3_U2I_A0",
-            kind: Voltage,
-        }: [
-            43,
-        ],
-        DeviceNameKey {
-            device: "tps546b24a",
-            name: "V0P96_NIC_VDD_A0HP",
-            kind: Temperature,
-        }: [
-            102,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_CPU1_A0",
-            kind: Power,
-        }: [
-            86,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V5P0_NIC_A0HP",
-            kind: Current,
-        }: [
-            99,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2E_A0",
-            kind: Voltage,
-        }: [
-            22,
-        ],
-        DeviceNameKey {
-            device: "max5970",
-            name: "V12_U2G_A0",
-            kind: Current,
-        }: [
-            30,
-        ],
-        DeviceNameKey {
-            device: "tmp117",
-            name: "Northeast",
-            kind: Temperature,
-        }: [
-            107,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_CPU0_A0",
-            kind: Temperature,
-        }: [
-            76,
-        ],
-        DeviceNameKey {
-            device: "isl68224",
-            name: "V3P3_SP5_A1",
-            kind: Voltage,
-        }: [
-            97,
-        ],
-        DeviceNameKey {
-            device: "raa229620a",
-            name: "VDDCR_CPU0_A0",
-            kind: Power,
-        }: [
-            78,
-        ],
-        DeviceNameKey {
-            device: "max31790",
-            name: "Southeast",
-            kind: Speed,
-        }: [
-            108,
-        ],
-        DeviceNameKey {
-            device: "lm5066i",
-            name: "V54P5_FAN_CENTRAL",
-            kind: Temperature,
-        }: [
-            120,
-        ],
-        DeviceNameKey {
-            device: "nvme_bmc",
-            name: "U2_N2",
-            kind: Temperature,
-        }: [
-            14,
-        ],
-    },
-    by_refdes: {
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J206",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            30,
-            31,
-        ],
-        DeviceRefdesKey {
-            device: "adm127x",
-            refdes: Component(
-                "U79",
-            ),
-            kind: Voltage,
-        }: [
-            128,
-        ],
-        DeviceRefdesKey {
-            device: "ltc4282",
-            refdes: Component(
-                "U127",
-            ),
-            kind: Voltage,
-        }: [
-            75,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J200",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            0,
-            1,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U123",
-            ),
-            kind: Current,
-        }: [
-            103,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J208",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            42,
-            43,
-        ],
-        DeviceRefdesKey {
-            device: "sbtsi",
-            refdes: Path(
-                [
-                    "U1",
-                    "SBTSI",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            55,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U123",
-            ),
-            kind: Temperature,
-        }: [
-            102,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J208",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            44,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U81",
-            ),
-            kind: Voltage,
-        }: [
-            65,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J202",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            12,
-            13,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J205",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            25,
-            26,
-        ],
-        DeviceRefdesKey {
-            device: "tmp451",
-            refdes: Component(
-                "U53",
-            ),
-            kind: Temperature,
-        }: [
-            56,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J206",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            32,
-            33,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J201",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            5,
-            6,
-        ],
-        DeviceRefdesKey {
-            device: "raa229620a",
-            refdes: Component(
-                "U90",
-            ),
-            kind: Current,
-        }: [
-            80,
-            81,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Component(
-                "U15",
-            ),
-            kind: Voltage,
-        }: [
-            68,
-            69,
-        ],
-        DeviceRefdesKey {
-            device: "bmr491",
-            refdes: Component(
-                "U80",
-            ),
-            kind: Current,
-        }: [
-            115,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U83",
-            ),
-            kind: Temperature,
-        }: [
-            60,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U83",
-            ),
-            kind: Voltage,
-        }: [
-            62,
-        ],
-        DeviceRefdesKey {
-            device: "raa229620a",
-            refdes: Component(
-                "U90",
-            ),
-            kind: Voltage,
-        }: [
-            82,
-            83,
-        ],
-        DeviceRefdesKey {
-            device: "lm5066i",
-            refdes: Component(
-                "U72",
-            ),
-            kind: Current,
-        }: [
-            121,
-        ],
-        DeviceRefdesKey {
-            device: "lm5066i",
-            refdes: Component(
-                "U71",
-            ),
-            kind: Voltage,
-        }: [
-            119,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J207",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            37,
-            38,
-        ],
-        DeviceRefdesKey {
-            device: "ltc4282",
-            refdes: Component(
-                "U42",
-            ),
-            kind: Current,
-        }: [
-            72,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J207",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            35,
-            36,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J200",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            2,
-            3,
-        ],
-        DeviceRefdesKey {
-            device: "max31790",
-            refdes: Component(
-                "U58",
-            ),
-            kind: Speed,
-        }: [
-            108,
-            109,
-            110,
-            111,
-            112,
-            113,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Component(
-                "U15",
-            ),
-            kind: Current,
-        }: [
-            66,
-            67,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J201",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            7,
-            8,
-        ],
-        DeviceRefdesKey {
-            device: "tmp117",
-            refdes: Path(
-                [
-                    "J46",
-                    "U1",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            52,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U82",
-            ),
-            kind: Current,
-        }: [
-            58,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J203",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            15,
-            16,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U82",
-            ),
-            kind: Voltage,
-        }: [
-            59,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J209",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            49,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J204",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            20,
-            21,
-        ],
-        DeviceRefdesKey {
-            device: "tmp117",
-            refdes: Path(
-                [
-                    "J45",
-                    "U1",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            51,
-        ],
-        DeviceRefdesKey {
-            device: "isl68224",
-            refdes: Component(
-                "U116",
-            ),
-            kind: Voltage,
-        }: [
-            95,
-            96,
-            97,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Component(
-                "J211",
-            ),
-            kind: Temperature,
-        }: [
-            54,
-        ],
-        DeviceRefdesKey {
-            device: "tmp117",
-            refdes: Path(
-                [
-                    "J47",
-                    "U1",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            105,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J201",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            9,
-        ],
-        DeviceRefdesKey {
-            device: "adm127x",
-            refdes: Component(
-                "U79",
-            ),
-            kind: Current,
-        }: [
-            127,
-        ],
-        DeviceRefdesKey {
-            device: "ltc4282",
-            refdes: Component(
-                "U127",
-            ),
-            kind: Current,
-        }: [
-            74,
-        ],
-        DeviceRefdesKey {
-            device: "lm5066i",
-            refdes: Component(
-                "U72",
-            ),
-            kind: Voltage,
-        }: [
-            122,
-        ],
-        DeviceRefdesKey {
-            device: "raa229620a",
-            refdes: Component(
-                "U103",
-            ),
-            kind: Voltage,
-        }: [
-            90,
-            91,
-        ],
-        DeviceRefdesKey {
-            device: "adm127x",
-            refdes: Component(
-                "U79",
-            ),
-            kind: Temperature,
-        }: [
-            126,
-        ],
-        DeviceRefdesKey {
-            device: "tmp117",
-            refdes: Path(
-                [
-                    "J44",
-                    "U1",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            50,
-        ],
-        DeviceRefdesKey {
-            device: "lm5066i",
-            refdes: Component(
-                "U72",
-            ),
-            kind: Temperature,
-        }: [
-            120,
-        ],
-        DeviceRefdesKey {
-            device: "raa229620a",
-            refdes: Component(
-                "U103",
-            ),
-            kind: Power,
-        }: [
-            86,
-            87,
-        ],
-        DeviceRefdesKey {
-            device: "isl68224",
-            refdes: Component(
-                "U116",
-            ),
-            kind: Current,
-        }: [
-            92,
-            93,
-            94,
-        ],
-        DeviceRefdesKey {
-            device: "tmp117",
-            refdes: Path(
-                [
-                    "J48",
-                    "U1",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            106,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J203",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            19,
-        ],
-        DeviceRefdesKey {
-            device: "tmp117",
-            refdes: Path(
-                [
-                    "J49",
-                    "U1",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            107,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U82",
-            ),
-            kind: Temperature,
-        }: [
-            57,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U83",
-            ),
-            kind: Current,
-        }: [
-            61,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U81",
-            ),
-            kind: Current,
-        }: [
-            64,
-        ],
-        DeviceRefdesKey {
-            device: "ltc4282",
-            refdes: Component(
-                "U16",
-            ),
-            kind: Current,
-        }: [
-            70,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J205",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            29,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J206",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            34,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J203",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            17,
-            18,
-        ],
-        DeviceRefdesKey {
-            device: "ltc4282",
-            refdes: Component(
-                "U16",
-            ),
-            kind: Voltage,
-        }: [
-            71,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J202",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            10,
-            11,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Component(
-                "J210",
-            ),
-            kind: Temperature,
-        }: [
-            53,
-        ],
-        DeviceRefdesKey {
-            device: "raa229620a",
-            refdes: Component(
-                "U103",
-            ),
-            kind: Temperature,
-        }: [
-            84,
-            85,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Component(
-                "U54",
-            ),
-            kind: Current,
-        }: [
-            98,
-            99,
-        ],
-        DeviceRefdesKey {
-            device: "ltc4282",
-            refdes: Component(
-                "U42",
-            ),
-            kind: Voltage,
-        }: [
-            73,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Component(
-                "U54",
-            ),
-            kind: Voltage,
-        }: [
-            100,
-            101,
-        ],
-        DeviceRefdesKey {
-            device: "bmr491",
-            refdes: Component(
-                "U80",
-            ),
-            kind: Temperature,
-        }: [
-            114,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J209",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            47,
-            48,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J204",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            22,
-            23,
-        ],
-        DeviceRefdesKey {
-            device: "raa229620a",
-            refdes: Component(
-                "U103",
-            ),
-            kind: Current,
-        }: [
-            88,
-            89,
-        ],
-        DeviceRefdesKey {
-            device: "bmr491",
-            refdes: Component(
-                "U80",
-            ),
-            kind: Voltage,
-        }: [
-            116,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J208",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            40,
-            41,
-        ],
-        DeviceRefdesKey {
-            device: "lm5066i",
-            refdes: Component(
-                "U73",
-            ),
-            kind: Temperature,
-        }: [
-            123,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J202",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            14,
-        ],
-        DeviceRefdesKey {
-            device: "lm5066i",
-            refdes: Component(
-                "U73",
-            ),
-            kind: Current,
-        }: [
-            124,
-        ],
-        DeviceRefdesKey {
-            device: "lm5066i",
-            refdes: Component(
-                "U73",
-            ),
-            kind: Voltage,
-        }: [
-            125,
-        ],
-        DeviceRefdesKey {
-            device: "raa229620a",
-            refdes: Component(
-                "U90",
-            ),
-            kind: Power,
-        }: [
-            78,
-            79,
-        ],
-        DeviceRefdesKey {
-            device: "lm5066i",
-            refdes: Component(
-                "U71",
-            ),
-            kind: Temperature,
-        }: [
-            117,
-        ],
-        DeviceRefdesKey {
-            device: "raa229620a",
-            refdes: Component(
-                "U90",
-            ),
-            kind: Temperature,
-        }: [
-            76,
-            77,
-        ],
-        DeviceRefdesKey {
-            device: "lm5066i",
-            refdes: Component(
-                "U71",
-            ),
-            kind: Current,
-        }: [
-            118,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J209",
-                    "U1",
-                ],
-            ),
-            kind: Current,
-        }: [
-            45,
-            46,
-        ],
-        DeviceRefdesKey {
-            device: "max5970",
-            refdes: Path(
-                [
-                    "J205",
-                    "U1",
-                ],
-            ),
-            kind: Voltage,
-        }: [
-            27,
-            28,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U81",
-            ),
-            kind: Temperature,
-        }: [
-            63,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J207",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            39,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J200",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            4,
-        ],
-        DeviceRefdesKey {
-            device: "tps546b24a",
-            refdes: Component(
-                "U123",
-            ),
-            kind: Voltage,
-        }: [
-            104,
-        ],
-        DeviceRefdesKey {
-            device: "nvme_bmc",
-            refdes: Path(
-                [
-                    "J204",
-                    "J2",
-                ],
-            ),
-            kind: Temperature,
-        }: [
-            24,
-        ],
-    },
+    by_device: [
+        (
+            DeviceKey {
+                device: "adm127x",
+                kind: Temperature,
+            },
+            [
+                126,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "adm127x",
+                kind: Current,
+            },
+            [
+                127,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "adm127x",
+                kind: Voltage,
+            },
+            [
+                128,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "bmr491",
+                kind: Temperature,
+            },
+            [
+                114,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "bmr491",
+                kind: Current,
+            },
+            [
+                115,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "bmr491",
+                kind: Voltage,
+            },
+            [
+                116,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "isl68224",
+                kind: Current,
+            },
+            [
+                92,
+                93,
+                94,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "isl68224",
+                kind: Voltage,
+            },
+            [
+                95,
+                96,
+                97,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "lm5066i",
+                kind: Temperature,
+            },
+            [
+                117,
+                120,
+                123,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "lm5066i",
+                kind: Current,
+            },
+            [
+                118,
+                121,
+                124,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "lm5066i",
+                kind: Voltage,
+            },
+            [
+                119,
+                122,
+                125,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "ltc4282",
+                kind: Current,
+            },
+            [
+                70,
+                72,
+                74,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "ltc4282",
+                kind: Voltage,
+            },
+            [
+                71,
+                73,
+                75,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "max31790",
+                kind: Speed,
+            },
+            [
+                108,
+                109,
+                110,
+                111,
+                112,
+                113,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "max5970",
+                kind: Current,
+            },
+            [
+                0,
+                1,
+                5,
+                6,
+                10,
+                11,
+                15,
+                16,
+                20,
+                21,
+                25,
+                26,
+                30,
+                31,
+                35,
+                36,
+                40,
+                41,
+                45,
+                46,
+                66,
+                67,
+                98,
+                99,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "max5970",
+                kind: Voltage,
+            },
+            [
+                2,
+                3,
+                7,
+                8,
+                12,
+                13,
+                17,
+                18,
+                22,
+                23,
+                27,
+                28,
+                32,
+                33,
+                37,
+                38,
+                42,
+                43,
+                47,
+                48,
+                68,
+                69,
+                100,
+                101,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "nvme_bmc",
+                kind: Temperature,
+            },
+            [
+                4,
+                9,
+                14,
+                19,
+                24,
+                29,
+                34,
+                39,
+                44,
+                49,
+                53,
+                54,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "raa229620a",
+                kind: Temperature,
+            },
+            [
+                76,
+                77,
+                84,
+                85,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "raa229620a",
+                kind: Power,
+            },
+            [
+                78,
+                79,
+                86,
+                87,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "raa229620a",
+                kind: Current,
+            },
+            [
+                80,
+                81,
+                88,
+                89,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "raa229620a",
+                kind: Voltage,
+            },
+            [
+                82,
+                83,
+                90,
+                91,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "sbtsi",
+                kind: Temperature,
+            },
+            [
+                55,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "tmp117",
+                kind: Temperature,
+            },
+            [
+                50,
+                51,
+                52,
+                105,
+                106,
+                107,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "tmp451",
+                kind: Temperature,
+            },
+            [
+                56,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "tps546b24a",
+                kind: Temperature,
+            },
+            [
+                57,
+                60,
+                63,
+                102,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "tps546b24a",
+                kind: Current,
+            },
+            [
+                58,
+                61,
+                64,
+                103,
+            ],
+        ),
+        (
+            DeviceKey {
+                device: "tps546b24a",
+                kind: Voltage,
+            },
+            [
+                59,
+                62,
+                65,
+                104,
+            ],
+        ),
+    ],
+    by_name: [
+        (
+            DeviceNameKey {
+                device: "adm127x",
+                name: "V54P5_IBC_A3",
+                kind: Temperature,
+            },
+            [
+                126,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "adm127x",
+                name: "V54P5_IBC_A3",
+                kind: Current,
+            },
+            [
+                127,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "adm127x",
+                name: "V54P5_IBC_A3",
+                kind: Voltage,
+            },
+            [
+                128,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "bmr491",
+                name: "V12_SYS_A2",
+                kind: Temperature,
+            },
+            [
+                114,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "bmr491",
+                name: "V12_SYS_A2",
+                kind: Current,
+            },
+            [
+                115,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "bmr491",
+                name: "V12_SYS_A2",
+                kind: Voltage,
+            },
+            [
+                116,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "isl68224",
+                name: "V1P1_SP5_A0",
+                kind: Current,
+            },
+            [
+                92,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "isl68224",
+                name: "V1P1_SP5_A0",
+                kind: Voltage,
+            },
+            [
+                95,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "isl68224",
+                name: "V1P8_SP5_A1",
+                kind: Current,
+            },
+            [
+                93,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "isl68224",
+                name: "V1P8_SP5_A1",
+                kind: Voltage,
+            },
+            [
+                96,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "isl68224",
+                name: "V3P3_SP5_A1",
+                kind: Current,
+            },
+            [
+                94,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "isl68224",
+                name: "V3P3_SP5_A1",
+                kind: Voltage,
+            },
+            [
+                97,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "lm5066i",
+                name: "V54P5_FAN_CENTRAL",
+                kind: Temperature,
+            },
+            [
+                120,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "lm5066i",
+                name: "V54P5_FAN_CENTRAL",
+                kind: Current,
+            },
+            [
+                121,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "lm5066i",
+                name: "V54P5_FAN_CENTRAL",
+                kind: Voltage,
+            },
+            [
+                122,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "lm5066i",
+                name: "V54P5_FAN_EAST",
+                kind: Temperature,
+            },
+            [
+                117,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "lm5066i",
+                name: "V54P5_FAN_EAST",
+                kind: Current,
+            },
+            [
+                118,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "lm5066i",
+                name: "V54P5_FAN_EAST",
+                kind: Voltage,
+            },
+            [
+                119,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "lm5066i",
+                name: "V54P5_FAN_WEST",
+                kind: Temperature,
+            },
+            [
+                123,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "lm5066i",
+                name: "V54P5_FAN_WEST",
+                kind: Current,
+            },
+            [
+                124,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "lm5066i",
+                name: "V54P5_FAN_WEST",
+                kind: Voltage,
+            },
+            [
+                125,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "ltc4282",
+                name: "V12_DDR5_ABCDEF_A0",
+                kind: Current,
+            },
+            [
+                74,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "ltc4282",
+                name: "V12_DDR5_ABCDEF_A0",
+                kind: Voltage,
+            },
+            [
+                75,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "ltc4282",
+                name: "V12_DDR5_GHIJKL_A0",
+                kind: Current,
+            },
+            [
+                72,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "ltc4282",
+                name: "V12_DDR5_GHIJKL_A0",
+                kind: Voltage,
+            },
+            [
+                73,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "ltc4282",
+                name: "V12_MCIO_A0HP",
+                kind: Current,
+            },
+            [
+                70,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "ltc4282",
+                name: "V12_MCIO_A0HP",
+                kind: Voltage,
+            },
+            [
+                71,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max31790",
+                name: "North",
+                kind: Speed,
+            },
+            [
+                111,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max31790",
+                name: "Northeast",
+                kind: Speed,
+            },
+            [
+                109,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max31790",
+                name: "Northwest",
+                kind: Speed,
+            },
+            [
+                113,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max31790",
+                name: "South",
+                kind: Speed,
+            },
+            [
+                110,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max31790",
+                name: "Southeast",
+                kind: Speed,
+            },
+            [
+                108,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max31790",
+                name: "Southwest",
+                kind: Speed,
+            },
+            [
+                112,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12P0_NIC_A0HP",
+                kind: Current,
+            },
+            [
+                98,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12P0_NIC_A0HP",
+                kind: Voltage,
+            },
+            [
+                100,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2A_A0",
+                kind: Current,
+            },
+            [
+                0,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2A_A0",
+                kind: Voltage,
+            },
+            [
+                2,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2B_A0",
+                kind: Current,
+            },
+            [
+                5,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2B_A0",
+                kind: Voltage,
+            },
+            [
+                7,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2C_A0",
+                kind: Current,
+            },
+            [
+                10,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2C_A0",
+                kind: Voltage,
+            },
+            [
+                12,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2D_A0",
+                kind: Current,
+            },
+            [
+                15,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2D_A0",
+                kind: Voltage,
+            },
+            [
+                17,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2E_A0",
+                kind: Current,
+            },
+            [
+                20,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2E_A0",
+                kind: Voltage,
+            },
+            [
+                22,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2F_A0",
+                kind: Current,
+            },
+            [
+                25,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2F_A0",
+                kind: Voltage,
+            },
+            [
+                27,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2G_A0",
+                kind: Current,
+            },
+            [
+                30,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2G_A0",
+                kind: Voltage,
+            },
+            [
+                32,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2H_A0",
+                kind: Current,
+            },
+            [
+                35,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2H_A0",
+                kind: Voltage,
+            },
+            [
+                37,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2I_A0",
+                kind: Current,
+            },
+            [
+                40,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2I_A0",
+                kind: Voltage,
+            },
+            [
+                42,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2J_A0",
+                kind: Current,
+            },
+            [
+                45,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V12_U2J_A0",
+                kind: Voltage,
+            },
+            [
+                47,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_M2A_A0HP",
+                kind: Current,
+            },
+            [
+                66,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_M2A_A0HP",
+                kind: Voltage,
+            },
+            [
+                68,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_M2B_A0HP",
+                kind: Current,
+            },
+            [
+                67,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_M2B_A0HP",
+                kind: Voltage,
+            },
+            [
+                69,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2A_A0",
+                kind: Current,
+            },
+            [
+                1,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2A_A0",
+                kind: Voltage,
+            },
+            [
+                3,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2B_A0",
+                kind: Current,
+            },
+            [
+                6,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2B_A0",
+                kind: Voltage,
+            },
+            [
+                8,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2C_A0",
+                kind: Current,
+            },
+            [
+                11,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2C_A0",
+                kind: Voltage,
+            },
+            [
+                13,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2D_A0",
+                kind: Current,
+            },
+            [
+                16,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2D_A0",
+                kind: Voltage,
+            },
+            [
+                18,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2E_A0",
+                kind: Current,
+            },
+            [
+                21,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2E_A0",
+                kind: Voltage,
+            },
+            [
+                23,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2F_A0",
+                kind: Current,
+            },
+            [
+                26,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2F_A0",
+                kind: Voltage,
+            },
+            [
+                28,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2G_A0",
+                kind: Current,
+            },
+            [
+                31,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2G_A0",
+                kind: Voltage,
+            },
+            [
+                33,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2H_A0",
+                kind: Current,
+            },
+            [
+                36,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2H_A0",
+                kind: Voltage,
+            },
+            [
+                38,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2I_A0",
+                kind: Current,
+            },
+            [
+                41,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2I_A0",
+                kind: Voltage,
+            },
+            [
+                43,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2J_A0",
+                kind: Current,
+            },
+            [
+                46,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V3P3_U2J_A0",
+                kind: Voltage,
+            },
+            [
+                48,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V5P0_NIC_A0HP",
+                kind: Current,
+            },
+            [
+                99,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "max5970",
+                name: "V5P0_NIC_A0HP",
+                kind: Voltage,
+            },
+            [
+                101,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "M2_A",
+                kind: Temperature,
+            },
+            [
+                53,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "M2_B",
+                kind: Temperature,
+            },
+            [
+                54,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N0",
+                kind: Temperature,
+            },
+            [
+                4,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N1",
+                kind: Temperature,
+            },
+            [
+                9,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N2",
+                kind: Temperature,
+            },
+            [
+                14,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N3",
+                kind: Temperature,
+            },
+            [
+                19,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N4",
+                kind: Temperature,
+            },
+            [
+                24,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N5",
+                kind: Temperature,
+            },
+            [
+                29,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N6",
+                kind: Temperature,
+            },
+            [
+                34,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N7",
+                kind: Temperature,
+            },
+            [
+                39,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N8",
+                kind: Temperature,
+            },
+            [
+                44,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "nvme_bmc",
+                name: "U2_N9",
+                kind: Temperature,
+            },
+            [
+                49,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_CPU0_A0",
+                kind: Temperature,
+            },
+            [
+                76,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_CPU0_A0",
+                kind: Power,
+            },
+            [
+                78,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_CPU0_A0",
+                kind: Current,
+            },
+            [
+                80,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_CPU0_A0",
+                kind: Voltage,
+            },
+            [
+                82,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_CPU1_A0",
+                kind: Temperature,
+            },
+            [
+                84,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_CPU1_A0",
+                kind: Power,
+            },
+            [
+                86,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_CPU1_A0",
+                kind: Current,
+            },
+            [
+                88,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_CPU1_A0",
+                kind: Voltage,
+            },
+            [
+                90,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_SOC_A0",
+                kind: Temperature,
+            },
+            [
+                77,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_SOC_A0",
+                kind: Power,
+            },
+            [
+                79,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_SOC_A0",
+                kind: Current,
+            },
+            [
+                81,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDCR_SOC_A0",
+                kind: Voltage,
+            },
+            [
+                83,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDIO_SP5_A0",
+                kind: Temperature,
+            },
+            [
+                85,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDIO_SP5_A0",
+                kind: Power,
+            },
+            [
+                87,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDIO_SP5_A0",
+                kind: Current,
+            },
+            [
+                89,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "raa229620a",
+                name: "VDDIO_SP5_A0",
+                kind: Voltage,
+            },
+            [
+                91,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "sbtsi",
+                name: "CPU",
+                kind: Temperature,
+            },
+            [
+                55,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tmp117",
+                name: "North",
+                kind: Temperature,
+            },
+            [
+                106,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tmp117",
+                name: "Northeast",
+                kind: Temperature,
+            },
+            [
+                107,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tmp117",
+                name: "Northwest",
+                kind: Temperature,
+            },
+            [
+                105,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tmp117",
+                name: "South",
+                kind: Temperature,
+            },
+            [
+                51,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tmp117",
+                name: "Southeast",
+                kind: Temperature,
+            },
+            [
+                52,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tmp117",
+                name: "Southwest",
+                kind: Temperature,
+            },
+            [
+                50,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tmp451",
+                name: "t6",
+                kind: Temperature,
+            },
+            [
+                56,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V0P96_NIC_VDD_A0HP",
+                kind: Temperature,
+            },
+            [
+                102,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V0P96_NIC_VDD_A0HP",
+                kind: Current,
+            },
+            [
+                103,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V0P96_NIC_VDD_A0HP",
+                kind: Voltage,
+            },
+            [
+                104,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V1P8_SYS_A2",
+                kind: Temperature,
+            },
+            [
+                63,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V1P8_SYS_A2",
+                kind: Current,
+            },
+            [
+                64,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V1P8_SYS_A2",
+                kind: Voltage,
+            },
+            [
+                65,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V3P3_SP_A2",
+                kind: Temperature,
+            },
+            [
+                57,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V3P3_SP_A2",
+                kind: Current,
+            },
+            [
+                58,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V3P3_SP_A2",
+                kind: Voltage,
+            },
+            [
+                59,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V5_SYS_A2",
+                kind: Temperature,
+            },
+            [
+                60,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V5_SYS_A2",
+                kind: Current,
+            },
+            [
+                61,
+            ],
+        ),
+        (
+            DeviceNameKey {
+                device: "tps546b24a",
+                name: "V5_SYS_A2",
+                kind: Voltage,
+            },
+            [
+                62,
+            ],
+        ),
+    ],
+    by_refdes: [
+        (
+            DeviceRefdesKey {
+                device: "adm127x",
+                refdes: Component(
+                    "U79",
+                ),
+                kind: Temperature,
+            },
+            [
+                126,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "adm127x",
+                refdes: Component(
+                    "U79",
+                ),
+                kind: Current,
+            },
+            [
+                127,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "adm127x",
+                refdes: Component(
+                    "U79",
+                ),
+                kind: Voltage,
+            },
+            [
+                128,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "bmr491",
+                refdes: Component(
+                    "U80",
+                ),
+                kind: Temperature,
+            },
+            [
+                114,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "bmr491",
+                refdes: Component(
+                    "U80",
+                ),
+                kind: Current,
+            },
+            [
+                115,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "bmr491",
+                refdes: Component(
+                    "U80",
+                ),
+                kind: Voltage,
+            },
+            [
+                116,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "isl68224",
+                refdes: Component(
+                    "U116",
+                ),
+                kind: Current,
+            },
+            [
+                92,
+                93,
+                94,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "isl68224",
+                refdes: Component(
+                    "U116",
+                ),
+                kind: Voltage,
+            },
+            [
+                95,
+                96,
+                97,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "lm5066i",
+                refdes: Component(
+                    "U71",
+                ),
+                kind: Temperature,
+            },
+            [
+                117,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "lm5066i",
+                refdes: Component(
+                    "U71",
+                ),
+                kind: Current,
+            },
+            [
+                118,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "lm5066i",
+                refdes: Component(
+                    "U71",
+                ),
+                kind: Voltage,
+            },
+            [
+                119,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "lm5066i",
+                refdes: Component(
+                    "U72",
+                ),
+                kind: Temperature,
+            },
+            [
+                120,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "lm5066i",
+                refdes: Component(
+                    "U72",
+                ),
+                kind: Current,
+            },
+            [
+                121,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "lm5066i",
+                refdes: Component(
+                    "U72",
+                ),
+                kind: Voltage,
+            },
+            [
+                122,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "lm5066i",
+                refdes: Component(
+                    "U73",
+                ),
+                kind: Temperature,
+            },
+            [
+                123,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "lm5066i",
+                refdes: Component(
+                    "U73",
+                ),
+                kind: Current,
+            },
+            [
+                124,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "lm5066i",
+                refdes: Component(
+                    "U73",
+                ),
+                kind: Voltage,
+            },
+            [
+                125,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "ltc4282",
+                refdes: Component(
+                    "U127",
+                ),
+                kind: Current,
+            },
+            [
+                74,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "ltc4282",
+                refdes: Component(
+                    "U127",
+                ),
+                kind: Voltage,
+            },
+            [
+                75,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "ltc4282",
+                refdes: Component(
+                    "U16",
+                ),
+                kind: Current,
+            },
+            [
+                70,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "ltc4282",
+                refdes: Component(
+                    "U16",
+                ),
+                kind: Voltage,
+            },
+            [
+                71,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "ltc4282",
+                refdes: Component(
+                    "U42",
+                ),
+                kind: Current,
+            },
+            [
+                72,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "ltc4282",
+                refdes: Component(
+                    "U42",
+                ),
+                kind: Voltage,
+            },
+            [
+                73,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max31790",
+                refdes: Component(
+                    "U58",
+                ),
+                kind: Speed,
+            },
+            [
+                108,
+                109,
+                110,
+                111,
+                112,
+                113,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Component(
+                    "U15",
+                ),
+                kind: Current,
+            },
+            [
+                66,
+                67,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Component(
+                    "U15",
+                ),
+                kind: Voltage,
+            },
+            [
+                68,
+                69,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Component(
+                    "U54",
+                ),
+                kind: Current,
+            },
+            [
+                98,
+                99,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Component(
+                    "U54",
+                ),
+                kind: Voltage,
+            },
+            [
+                100,
+                101,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J200",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                0,
+                1,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J200",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                2,
+                3,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J201",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                5,
+                6,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J201",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                7,
+                8,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J202",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                10,
+                11,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J202",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                12,
+                13,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J203",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                15,
+                16,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J203",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                17,
+                18,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J204",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                20,
+                21,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J204",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                22,
+                23,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J205",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                25,
+                26,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J205",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                27,
+                28,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J206",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                30,
+                31,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J206",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                32,
+                33,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J207",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                35,
+                36,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J207",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                37,
+                38,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J208",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                40,
+                41,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J208",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                42,
+                43,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J209",
+                        "U1",
+                    ],
+                ),
+                kind: Current,
+            },
+            [
+                45,
+                46,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "max5970",
+                refdes: Path(
+                    [
+                        "J209",
+                        "U1",
+                    ],
+                ),
+                kind: Voltage,
+            },
+            [
+                47,
+                48,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Component(
+                    "J210",
+                ),
+                kind: Temperature,
+            },
+            [
+                53,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Component(
+                    "J211",
+                ),
+                kind: Temperature,
+            },
+            [
+                54,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J200",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                4,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J201",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                9,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J202",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                14,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J203",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                19,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J204",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                24,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J205",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                29,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J206",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                34,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J207",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                39,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J208",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                44,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "nvme_bmc",
+                refdes: Path(
+                    [
+                        "J209",
+                        "J2",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                49,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "raa229620a",
+                refdes: Component(
+                    "U103",
+                ),
+                kind: Temperature,
+            },
+            [
+                84,
+                85,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "raa229620a",
+                refdes: Component(
+                    "U103",
+                ),
+                kind: Power,
+            },
+            [
+                86,
+                87,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "raa229620a",
+                refdes: Component(
+                    "U103",
+                ),
+                kind: Current,
+            },
+            [
+                88,
+                89,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "raa229620a",
+                refdes: Component(
+                    "U103",
+                ),
+                kind: Voltage,
+            },
+            [
+                90,
+                91,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "raa229620a",
+                refdes: Component(
+                    "U90",
+                ),
+                kind: Temperature,
+            },
+            [
+                76,
+                77,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "raa229620a",
+                refdes: Component(
+                    "U90",
+                ),
+                kind: Power,
+            },
+            [
+                78,
+                79,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "raa229620a",
+                refdes: Component(
+                    "U90",
+                ),
+                kind: Current,
+            },
+            [
+                80,
+                81,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "raa229620a",
+                refdes: Component(
+                    "U90",
+                ),
+                kind: Voltage,
+            },
+            [
+                82,
+                83,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "sbtsi",
+                refdes: Path(
+                    [
+                        "U1",
+                        "SBTSI",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                55,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tmp117",
+                refdes: Path(
+                    [
+                        "J44",
+                        "U1",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                50,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tmp117",
+                refdes: Path(
+                    [
+                        "J45",
+                        "U1",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                51,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tmp117",
+                refdes: Path(
+                    [
+                        "J46",
+                        "U1",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                52,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tmp117",
+                refdes: Path(
+                    [
+                        "J47",
+                        "U1",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                105,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tmp117",
+                refdes: Path(
+                    [
+                        "J48",
+                        "U1",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                106,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tmp117",
+                refdes: Path(
+                    [
+                        "J49",
+                        "U1",
+                    ],
+                ),
+                kind: Temperature,
+            },
+            [
+                107,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tmp451",
+                refdes: Component(
+                    "U53",
+                ),
+                kind: Temperature,
+            },
+            [
+                56,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U123",
+                ),
+                kind: Temperature,
+            },
+            [
+                102,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U123",
+                ),
+                kind: Current,
+            },
+            [
+                103,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U123",
+                ),
+                kind: Voltage,
+            },
+            [
+                104,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U81",
+                ),
+                kind: Temperature,
+            },
+            [
+                63,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U81",
+                ),
+                kind: Current,
+            },
+            [
+                64,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U81",
+                ),
+                kind: Voltage,
+            },
+            [
+                65,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U82",
+                ),
+                kind: Temperature,
+            },
+            [
+                57,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U82",
+                ),
+                kind: Current,
+            },
+            [
+                58,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U82",
+                ),
+                kind: Voltage,
+            },
+            [
+                59,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U83",
+                ),
+                kind: Temperature,
+            },
+            [
+                60,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U83",
+                ),
+                kind: Current,
+            },
+            [
+                61,
+            ],
+        ),
+        (
+            DeviceRefdesKey {
+                device: "tps546b24a",
+                refdes: Component(
+                    "U83",
+                ),
+                kind: Voltage,
+            },
+            [
+                62,
+            ],
+        ),
+    ],
     by_id: {
         0: DeviceSensor {
             refdes: Some(
