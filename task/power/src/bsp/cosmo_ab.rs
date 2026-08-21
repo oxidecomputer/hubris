@@ -22,9 +22,9 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     rail_controller!(Core, raa229620A, vddcr_soc_a0, A0),
     rail_controller!(Core, raa229620A, vddcr_cpu1_a0, A0),
     rail_controller!(Core, raa229620A, vddio_sp5_a0, A0),
-    rail_controller_notemp!(Core, isl68224, v1p1_sp5_a0, A0),
-    rail_controller_notemp!(Core, isl68224, v1p8_sp5_a1, A0), // XXX A0 or A2?
-    rail_controller_notemp!(Core, isl68224, v3p3_sp5_a1, A0), // XXX A0 or A2?
+    rail_controller!(Core, isl68224, v1p1_sp5_a0, A0),
+    rail_controller!(Core, isl68224, v1p8_sp5_a1, A0), // XXX A0 or A2?
+    rail_controller!(Core, isl68224, v3p3_sp5_a1, A0), // XXX A0 or A2?
     rail_controller!(Sys, tps546B24A, v3p3_sp_a2, A2),
     rail_controller!(Sys, tps546B24A, v5_sys_a2, A2),
     rail_controller!(Sys, tps546B24A, v1p8_sys_a2, A2),
