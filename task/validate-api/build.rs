@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_i2c_types::PmbusCapabilities;
 use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -59,7 +60,25 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     let mut id2idx = std::collections::BTreeMap::new();
 
     for (idx, dev) in devices.into_iter().enumerate() {
-        let is_pmbus = dev.is_pmbus();
+        let pmbus_capabilities = if dev.pmbus.is_some() {
+            let device_name = &dev.device;
+            let Some(caps) =
+                PMBUS_GENERATOR.iter().find_map(|&(name, generate)| {
+                    (name == device_name).then(generate)
+                })
+            else {
+                println!(
+                    "cargo::error=unknown pmbus device: {device_name}, add an \
+                     entry to  PMBUS_GENERATOR in {} for PMBus status register \
+                     and VPD support.",
+                    file!(),
+                );
+                panic!("Unsupported pmbus device: {device_name}");
+            };
+            Some(caps)
+        } else {
+            None
+        };
         writeln!(file, "    DeviceDescription {{")?;
         writeln!(file, "        device: {:?},", dev.device)?;
         writeln!(file, "        description: {:?},", dev.description)?;
@@ -84,7 +103,14 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             );
             missing_ids += 1;
         };
-        writeln!(file, "        is_pmbus: {is_pmbus:?},")?;
+        match pmbus_capabilities {
+            Some(caps) => writeln!(
+                file,
+                "        pmbus_capabilities: Some(drv_i2c_api::PmbusCapabilities(0x{:08x})),",
+                caps.0,
+            )?,
+            None => writeln!(file, "        pmbus_capabilities: None,")?,
+        }
         writeln!(file, "        sensors: &[")?;
         for s in dev.sensors {
             writeln!(file, "            SensorDescription {{")?;
@@ -131,3 +157,71 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+/// Look at the `pmbus` crate metadata to see if a specific command is "Illegal"
+/// and set the capability bit if not.
+macro_rules! set_if_pmbus_read_illegal {
+    ($out:ident, $module:ident, $cmd:ident) => {{
+        use pmbus::{Command, Operation};
+        if pmbus::commands::$module::CommandCode::$cmd.read_op()
+            != Operation::Illegal
+        {
+            $out |= PmbusCapabilities::$cmd.0;
+        }
+    }};
+}
+
+/// For a given device, calculate the `PmbusCapabilities` for each of the
+/// status registers.
+///
+/// The pmbus functions are not const, so generate a closure instead.
+macro_rules! pmbus_generator {
+    ($name:literal, $module:ident) => {
+        ($name, || {
+            let mut out = 0u32;
+            set_if_pmbus_read_illegal!(out, $module, STATUS_WORD);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_VOUT);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_IOUT);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_TEMPERATURE);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_CML);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_OTHER);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_INPUT);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_MFR_SPECIFIC);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_1_2);
+            set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_3_4);
+            // VPD bits
+            set_if_pmbus_read_illegal!(out, $module, MFR_ID);
+            set_if_pmbus_read_illegal!(out, $module, MFR_MODEL);
+            set_if_pmbus_read_illegal!(out, $module, MFR_REVISION);
+            set_if_pmbus_read_illegal!(out, $module, MFR_SERIAL);
+            set_if_pmbus_read_illegal!(out, $module, MFR_LOCATION);
+            set_if_pmbus_read_illegal!(out, $module, MFR_DATE);
+            set_if_pmbus_read_illegal!(out, $module, IC_DEVICE_ID);
+            set_if_pmbus_read_illegal!(out, $module, IC_DEVICE_REV);
+            PmbusCapabilities(out)
+        })
+    };
+}
+
+type PmbusDeviceRow = (&'static str, fn() -> PmbusCapabilities);
+
+// Before you add a pmbus device to this list, you should make sure that you
+// have reviewed the pmbus crate to make sure that any unsupported status
+// registers are marked as illegal, similar to oxidecomputer/pmbus#35.
+//
+// Failure to do so could cause CML or OTHER error bits to be set. Just adding
+// the device to this list (without accurate `pmbus` crate information) will
+// likely make the compilation succeed, but should not be done for production
+// devices where this may trigger runtime CML errors.
+const PMBUS_GENERATOR: &[PmbusDeviceRow] = &[
+    pmbus_generator!("adm127x", adm127x),
+    pmbus_generator!("bmr491", bmr491),
+    pmbus_generator!("isl68224", isl68224),
+    pmbus_generator!("lm5066", lm5066),
+    pmbus_generator!("lm5066i", lm5066i),
+    pmbus_generator!("mwocp67", mwocp67),
+    pmbus_generator!("mwocp68", mwocp68),
+    pmbus_generator!("raa229618", raa229618),
+    pmbus_generator!("raa229620a", raa229620a),
+    pmbus_generator!("tps546b24a", tps546b24a),
+];
