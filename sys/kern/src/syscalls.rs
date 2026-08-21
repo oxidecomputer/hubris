@@ -46,6 +46,10 @@ use crate::umem::{USlice, safe_copy};
 #[cfg(hubris_phantom_svc_mitigation)]
 pub(crate) static EXPECT_PHANTOM_SYSCALL: AtomicBool = AtomicBool::new(false);
 
+/// Time spent in the kernel servicing syscalls or swapping tasks
+#[unsafe(no_mangle)]
+pub(crate) static mut KERNEL_SYSCALL_PTIME: u64 = 0;
+
 /// Entry point accessed by arch-specific syscall entry sequence.
 ///
 /// Before calling this, task volatile state (e.g. callee-save registers on ARM)
@@ -71,7 +75,8 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
     // Safety: we're trusting the interrupt entry routine to pass us a valid
     // task pointer.
     let idx = unsafe {
-        let t = &*task;
+        let t = &mut *task;
+        t.account_task_active_time();
         usize::from(t.descriptor().index)
     };
 
@@ -111,6 +116,28 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
             }
         }
     });
+
+    // Account for time spent sys-calling.
+    //
+    // Like [`Task::account_task_active_time`()], but instead accounts into
+    // KERNEL_SYSCALL_PTIME instead of the task table.
+    if let Some(ptimer) = hubris_ptime::ptimer() {
+        let now = (ptimer.now)();
+        let mut old = now;
+
+        // SAFETY: Only the kernel has access to PTIME_LAST_SWITCH, and
+        // we only access it long enough here to update with a new value.
+        unsafe {
+            core::ptr::swap(&mut old, &raw mut crate::task::PTIME_LAST_SWITCH);
+        }
+        // Time *should* never flow backwards, but if it does, just truncate
+        let elapsed = now.0.saturating_sub(old.0);
+        // Similarly, we don't expect to run for ~hundreds of thousands of
+        // years, but if we do, just wrap around.
+        unsafe {
+            KERNEL_SYSCALL_PTIME = KERNEL_SYSCALL_PTIME.wrapping_add(elapsed);
+        }
+    }
 
     crate::profiling::event_syscall_exit();
 }
