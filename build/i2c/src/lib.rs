@@ -323,15 +323,15 @@ impl iddqd::IdOrdItem for DeviceSensor {
 
 #[derive(Debug)]
 pub struct I2cSensorsDescription {
-    // In all arrays below, the value is the sensor ID. The same sensor ID
+    // In all multimaps below, the value is the sensor ID. The same sensor ID
     // can show up in multiple (including all!) of these maps.
     //
     // All sensors are guaranteed to be present in `by_device`, but
     // may not be present in the other maps (devices may or may not have a
     // name/bus in app.toml).
-    by_device: Vec<(DeviceKey, Vec<usize>)>,
-    by_name: Vec<(DeviceNameKey, Vec<usize>)>,
-    by_refdes: Vec<(DeviceRefdesKey, Vec<usize>)>,
+    by_device: BTreeMap<DeviceKey, Vec<usize>>,
+    by_name: BTreeMap<DeviceNameKey, Vec<usize>>,
+    by_refdes: BTreeMap<DeviceRefdesKey, Vec<usize>>,
     pub by_id: IdOrdMap<Arc<DeviceSensor>>,
 
     // list of all devices and a list of their sensors, with an optional sensor
@@ -378,45 +378,12 @@ impl std::fmt::Display for I2cSensorsDescription {
     }
 }
 
-impl From<I2cSensorsDescriptionInner> for I2cSensorsDescription {
-    fn from(value: I2cSensorsDescriptionInner) -> Self {
-        Self {
-            by_device: stable_multimap(value.by_device),
-            by_name: stable_multimap(value.by_name),
-            by_refdes: stable_multimap(value.by_refdes),
-            by_id: value.by_id,
-            device_sensors: value.device_sensors,
-            total_sensors: value.total_sensors,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct I2cSensorsDescriptionInner {
-    // In all multimaps below, the value is the sensor ID. The same sensor ID
-    // can show up in multiple (including all!) of these maps.
-    //
-    // All sensors are guaranteed to be present in `by_device`, but
-    // may not be present in the other maps (devices may or may not have a
-    // name/bus in app.toml).
-    by_device: MultiMap<DeviceKey, usize>,
-    by_name: MultiMap<DeviceNameKey, usize>,
-    by_refdes: MultiMap<DeviceRefdesKey, usize>,
-    by_id: IdOrdMap<Arc<DeviceSensor>>,
-
-    // list of all devices and a list of their sensors, with an optional sensor
-    // name (if present)
-    device_sensors: Vec<Vec<Arc<DeviceSensor>>>,
-
-    total_sensors: usize,
-}
-
-impl I2cSensorsDescriptionInner {
+impl I2cSensorsDescription {
     fn new(devices: &[I2cDevice]) -> Self {
         let mut desc = Self {
-            by_device: MultiMap::with_capacity(devices.len()),
-            by_name: MultiMap::new(),
-            by_refdes: MultiMap::new(),
+            by_device: BTreeMap::new(),
+            by_name: BTreeMap::new(),
+            by_refdes: BTreeMap::new(),
             by_id: IdOrdMap::new(),
             device_sensors: vec![Vec::new(); devices.len()],
             total_sensors: 0,
@@ -499,14 +466,14 @@ impl I2cSensorsDescriptionInner {
         };
 
         if let Some(name) = name.clone() {
-            self.by_name.insert(
-                DeviceNameKey {
+            self.by_name
+                .entry(DeviceNameKey {
                     device: d.device.clone(),
                     name,
                     kind,
-                },
-                id,
-            );
+                })
+                .or_default()
+                .push(id);
         }
 
         let sensor = Arc::new(DeviceSensor {
@@ -517,23 +484,23 @@ impl I2cSensorsDescriptionInner {
         });
 
         if let Some(ref refdes) = sensor.refdes {
-            self.by_refdes.insert(
-                DeviceRefdesKey {
+            self.by_refdes
+                .entry(DeviceRefdesKey {
                     device: d.device.clone(),
                     refdes: refdes.clone(),
                     kind,
-                },
-                id,
-            );
+                })
+                .or_default()
+                .push(id);
         }
 
-        self.by_device.insert(
-            DeviceKey {
+        self.by_device
+            .entry(DeviceKey {
                 device: d.device.clone(),
                 kind,
-            },
-            id,
-        );
+            })
+            .or_default()
+            .push(id);
 
         if let Err(prev) = self.by_id.insert_unique(sensor.clone()) {
             panic!("weird: colliding sensor ID {id}: {prev:?} and {sensor:?}",);
@@ -1741,7 +1708,7 @@ impl ConfigGenerator {
     }
 
     fn sensors_description(&self) -> I2cSensorsDescription {
-        I2cSensorsDescriptionInner::new(&self.devices).into()
+        I2cSensorsDescription::new(&self.devices)
     }
 
     pub fn generate_sensors(
@@ -2215,17 +2182,4 @@ impl Refdes {
             }
         }
     }
-}
-
-use std::hash::Hash;
-pub fn stable_multimap<K: Eq + Hash + Ord, V: Ord>(
-    m: MultiMap<K, V>,
-) -> Vec<(K, Vec<V>)> {
-    let mut out = vec![];
-    for (k, mut v) in m.into_iter() {
-        v.sort_unstable();
-        out.push((k, v));
-    }
-    out.sort_unstable_by(|(k1, _v1), (k2, _v2)| k1.cmp(k2));
-    out
 }
