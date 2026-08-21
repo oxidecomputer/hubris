@@ -1,0 +1,610 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: desc.to_string()
+---
+by_device:
+  - DeviceKey { device: "adm127x", kind: Temperature } :: [96, 99]
+  - DeviceKey { device: "adm127x", kind: Current } :: [97, 100]
+  - DeviceKey { device: "adm127x", kind: Voltage } :: [98, 101]
+  - DeviceKey { device: "bmr491", kind: Temperature } :: [114]
+  - DeviceKey { device: "bmr491", kind: Current } :: [115]
+  - DeviceKey { device: "bmr491", kind: Voltage } :: [116]
+  - DeviceKey { device: "isl68224", kind: Temperature } :: [87, 88, 89]
+  - DeviceKey { device: "isl68224", kind: Current } :: [90, 91, 92]
+  - DeviceKey { device: "isl68224", kind: Voltage } :: [93, 94, 95]
+  - DeviceKey { device: "max31790", kind: Speed } :: [102, 103, 104, 105, 106, 107]
+  - DeviceKey { device: "max5970", kind: Current } :: [3, 4, 8, 9, 13, 14, 18, 19, 23, 24, 28, 29, 33, 34, 38, 39, 43, 44, 48, 49, 66, 67]
+  - DeviceKey { device: "max5970", kind: Voltage } :: [5, 6, 10, 11, 15, 16, 20, 21, 25, 26, 30, 31, 35, 36, 40, 41, 45, 46, 50, 51, 68, 69]
+  - DeviceKey { device: "nvme_bmc", kind: Temperature } :: [7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 133, 134]
+  - DeviceKey { device: "raa229618", kind: Temperature } :: [71, 72, 79, 80]
+  - DeviceKey { device: "raa229618", kind: Power } :: [73, 74, 81, 82]
+  - DeviceKey { device: "raa229618", kind: Current } :: [75, 76, 83, 84]
+  - DeviceKey { device: "raa229618", kind: Voltage } :: [77, 78, 85, 86]
+  - DeviceKey { device: "sbtsi", kind: Temperature } :: [70]
+  - DeviceKey { device: "tmp117", kind: Temperature } :: [0, 1, 2, 111, 112, 113]
+  - DeviceKey { device: "tmp451", kind: Temperature } :: [53]
+  - DeviceKey { device: "tps546b24a", kind: Temperature } :: [54, 57, 60, 63, 108]
+  - DeviceKey { device: "tps546b24a", kind: Current } :: [55, 58, 61, 64, 109]
+  - DeviceKey { device: "tps546b24a", kind: Voltage } :: [56, 59, 62, 65, 110]
+  - DeviceKey { device: "tse2004av", kind: Temperature } :: [117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132]
+by_name:
+  - DeviceNameKey { device: "adm127x", name: "V54_FAN", kind: Temperature } :: [96]
+  - DeviceNameKey { device: "adm127x", name: "V54_FAN", kind: Current } :: [97]
+  - DeviceNameKey { device: "adm127x", name: "V54_FAN", kind: Voltage } :: [98]
+  - DeviceNameKey { device: "adm127x", name: "V54_HS_OUTPUT", kind: Temperature } :: [99]
+  - DeviceNameKey { device: "adm127x", name: "V54_HS_OUTPUT", kind: Current } :: [100]
+  - DeviceNameKey { device: "adm127x", name: "V54_HS_OUTPUT", kind: Voltage } :: [101]
+  - DeviceNameKey { device: "bmr491", name: "V12_SYS_A2", kind: Temperature } :: [114]
+  - DeviceNameKey { device: "bmr491", name: "V12_SYS_A2", kind: Current } :: [115]
+  - DeviceNameKey { device: "bmr491", name: "V12_SYS_A2", kind: Voltage } :: [116]
+  - DeviceNameKey { device: "isl68224", name: "V1P8_SP3", kind: Temperature } :: [89]
+  - DeviceNameKey { device: "isl68224", name: "V1P8_SP3", kind: Current } :: [92]
+  - DeviceNameKey { device: "isl68224", name: "V1P8_SP3", kind: Voltage } :: [95]
+  - DeviceNameKey { device: "isl68224", name: "VPP_ABCD", kind: Temperature } :: [87]
+  - DeviceNameKey { device: "isl68224", name: "VPP_ABCD", kind: Current } :: [90]
+  - DeviceNameKey { device: "isl68224", name: "VPP_ABCD", kind: Voltage } :: [93]
+  - DeviceNameKey { device: "isl68224", name: "VPP_EFGH", kind: Temperature } :: [88]
+  - DeviceNameKey { device: "isl68224", name: "VPP_EFGH", kind: Current } :: [91]
+  - DeviceNameKey { device: "isl68224", name: "VPP_EFGH", kind: Voltage } :: [94]
+  - DeviceNameKey { device: "max31790", name: "North", kind: Speed } :: [105]
+  - DeviceNameKey { device: "max31790", name: "Northeast", kind: Speed } :: [103]
+  - DeviceNameKey { device: "max31790", name: "Northwest", kind: Speed } :: [107]
+  - DeviceNameKey { device: "max31790", name: "South", kind: Speed } :: [104]
+  - DeviceNameKey { device: "max31790", name: "Southeast", kind: Speed } :: [102]
+  - DeviceNameKey { device: "max31790", name: "Southwest", kind: Speed } :: [106]
+  - DeviceNameKey { device: "max5970", name: "V12_U2A_A0", kind: Current } :: [3]
+  - DeviceNameKey { device: "max5970", name: "V12_U2A_A0", kind: Voltage } :: [5]
+  - DeviceNameKey { device: "max5970", name: "V12_U2B_A0", kind: Current } :: [8]
+  - DeviceNameKey { device: "max5970", name: "V12_U2B_A0", kind: Voltage } :: [10]
+  - DeviceNameKey { device: "max5970", name: "V12_U2C_A0", kind: Current } :: [13]
+  - DeviceNameKey { device: "max5970", name: "V12_U2C_A0", kind: Voltage } :: [15]
+  - DeviceNameKey { device: "max5970", name: "V12_U2D_A0", kind: Current } :: [18]
+  - DeviceNameKey { device: "max5970", name: "V12_U2D_A0", kind: Voltage } :: [20]
+  - DeviceNameKey { device: "max5970", name: "V12_U2E_A0", kind: Current } :: [23]
+  - DeviceNameKey { device: "max5970", name: "V12_U2E_A0", kind: Voltage } :: [25]
+  - DeviceNameKey { device: "max5970", name: "V12_U2F_A0", kind: Current } :: [28]
+  - DeviceNameKey { device: "max5970", name: "V12_U2F_A0", kind: Voltage } :: [30]
+  - DeviceNameKey { device: "max5970", name: "V12_U2G_A0", kind: Current } :: [33]
+  - DeviceNameKey { device: "max5970", name: "V12_U2G_A0", kind: Voltage } :: [35]
+  - DeviceNameKey { device: "max5970", name: "V12_U2H_A0", kind: Current } :: [38]
+  - DeviceNameKey { device: "max5970", name: "V12_U2H_A0", kind: Voltage } :: [40]
+  - DeviceNameKey { device: "max5970", name: "V12_U2I_A0", kind: Current } :: [43]
+  - DeviceNameKey { device: "max5970", name: "V12_U2I_A0", kind: Voltage } :: [45]
+  - DeviceNameKey { device: "max5970", name: "V12_U2J_A0", kind: Current } :: [48]
+  - DeviceNameKey { device: "max5970", name: "V12_U2J_A0", kind: Voltage } :: [50]
+  - DeviceNameKey { device: "max5970", name: "V3P3_M2A_A0HP", kind: Current } :: [66]
+  - DeviceNameKey { device: "max5970", name: "V3P3_M2A_A0HP", kind: Voltage } :: [68]
+  - DeviceNameKey { device: "max5970", name: "V3P3_M2B_A0HP", kind: Current } :: [67]
+  - DeviceNameKey { device: "max5970", name: "V3P3_M2B_A0HP", kind: Voltage } :: [69]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2A_A0", kind: Current } :: [4]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2A_A0", kind: Voltage } :: [6]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2B_A0", kind: Current } :: [9]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2B_A0", kind: Voltage } :: [11]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2C_A0", kind: Current } :: [14]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2C_A0", kind: Voltage } :: [16]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2D_A0", kind: Current } :: [19]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2D_A0", kind: Voltage } :: [21]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2E_A0", kind: Current } :: [24]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2E_A0", kind: Voltage } :: [26]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2F_A0", kind: Current } :: [29]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2F_A0", kind: Voltage } :: [31]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2G_A0", kind: Current } :: [34]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2G_A0", kind: Voltage } :: [36]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2H_A0", kind: Current } :: [39]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2H_A0", kind: Voltage } :: [41]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2I_A0", kind: Current } :: [44]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2I_A0", kind: Voltage } :: [46]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2J_A0", kind: Current } :: [49]
+  - DeviceNameKey { device: "max5970", name: "V3P3_U2J_A0", kind: Voltage } :: [51]
+  - DeviceNameKey { device: "nvme_bmc", name: "M2_A", kind: Temperature } :: [133]
+  - DeviceNameKey { device: "nvme_bmc", name: "M2_B", kind: Temperature } :: [134]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N0", kind: Temperature } :: [7]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N1", kind: Temperature } :: [12]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N2", kind: Temperature } :: [17]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N3", kind: Temperature } :: [22]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N4", kind: Temperature } :: [27]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N5", kind: Temperature } :: [32]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N6", kind: Temperature } :: [37]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N7", kind: Temperature } :: [42]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N8", kind: Temperature } :: [47]
+  - DeviceNameKey { device: "nvme_bmc", name: "U2_N9", kind: Temperature } :: [52]
+  - DeviceNameKey { device: "raa229618", name: "VDDCR_SOC", kind: Temperature } :: [79]
+  - DeviceNameKey { device: "raa229618", name: "VDDCR_SOC", kind: Power } :: [81]
+  - DeviceNameKey { device: "raa229618", name: "VDDCR_SOC", kind: Current } :: [83]
+  - DeviceNameKey { device: "raa229618", name: "VDDCR_SOC", kind: Voltage } :: [85]
+  - DeviceNameKey { device: "raa229618", name: "VDD_MEM_ABCD", kind: Temperature } :: [72]
+  - DeviceNameKey { device: "raa229618", name: "VDD_MEM_ABCD", kind: Power } :: [74]
+  - DeviceNameKey { device: "raa229618", name: "VDD_MEM_ABCD", kind: Current } :: [76]
+  - DeviceNameKey { device: "raa229618", name: "VDD_MEM_ABCD", kind: Voltage } :: [78]
+  - DeviceNameKey { device: "raa229618", name: "VDD_MEM_EFGH", kind: Temperature } :: [80]
+  - DeviceNameKey { device: "raa229618", name: "VDD_MEM_EFGH", kind: Power } :: [82]
+  - DeviceNameKey { device: "raa229618", name: "VDD_MEM_EFGH", kind: Current } :: [84]
+  - DeviceNameKey { device: "raa229618", name: "VDD_MEM_EFGH", kind: Voltage } :: [86]
+  - DeviceNameKey { device: "raa229618", name: "VDD_VCORE", kind: Temperature } :: [71]
+  - DeviceNameKey { device: "raa229618", name: "VDD_VCORE", kind: Power } :: [73]
+  - DeviceNameKey { device: "raa229618", name: "VDD_VCORE", kind: Current } :: [75]
+  - DeviceNameKey { device: "raa229618", name: "VDD_VCORE", kind: Voltage } :: [77]
+  - DeviceNameKey { device: "sbtsi", name: "CPU", kind: Temperature } :: [70]
+  - DeviceNameKey { device: "tmp117", name: "North", kind: Temperature } :: [112]
+  - DeviceNameKey { device: "tmp117", name: "Northeast", kind: Temperature } :: [111]
+  - DeviceNameKey { device: "tmp117", name: "Northwest", kind: Temperature } :: [113]
+  - DeviceNameKey { device: "tmp117", name: "South", kind: Temperature } :: [1]
+  - DeviceNameKey { device: "tmp117", name: "Southeast", kind: Temperature } :: [2]
+  - DeviceNameKey { device: "tmp117", name: "Southwest", kind: Temperature } :: [0]
+  - DeviceNameKey { device: "tmp451", name: "t6", kind: Temperature } :: [53]
+  - DeviceNameKey { device: "tps546b24a", name: "V0P96_NIC_VDD_A0HP", kind: Temperature } :: [108]
+  - DeviceNameKey { device: "tps546b24a", name: "V0P96_NIC_VDD_A0HP", kind: Current } :: [109]
+  - DeviceNameKey { device: "tps546b24a", name: "V0P96_NIC_VDD_A0HP", kind: Voltage } :: [110]
+  - DeviceNameKey { device: "tps546b24a", name: "V1P8_SYS_A2", kind: Temperature } :: [63]
+  - DeviceNameKey { device: "tps546b24a", name: "V1P8_SYS_A2", kind: Current } :: [64]
+  - DeviceNameKey { device: "tps546b24a", name: "V1P8_SYS_A2", kind: Voltage } :: [65]
+  - DeviceNameKey { device: "tps546b24a", name: "V3P3_SP_A2", kind: Temperature } :: [54]
+  - DeviceNameKey { device: "tps546b24a", name: "V3P3_SP_A2", kind: Current } :: [55]
+  - DeviceNameKey { device: "tps546b24a", name: "V3P3_SP_A2", kind: Voltage } :: [56]
+  - DeviceNameKey { device: "tps546b24a", name: "V3P3_SYS_A0", kind: Temperature } :: [57]
+  - DeviceNameKey { device: "tps546b24a", name: "V3P3_SYS_A0", kind: Current } :: [58]
+  - DeviceNameKey { device: "tps546b24a", name: "V3P3_SYS_A0", kind: Voltage } :: [59]
+  - DeviceNameKey { device: "tps546b24a", name: "V5_SYS_A2", kind: Temperature } :: [60]
+  - DeviceNameKey { device: "tps546b24a", name: "V5_SYS_A2", kind: Current } :: [61]
+  - DeviceNameKey { device: "tps546b24a", name: "V5_SYS_A2", kind: Voltage } :: [62]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_A0", kind: Temperature } :: [117]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_A1", kind: Temperature } :: [118]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_B0", kind: Temperature } :: [119]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_B1", kind: Temperature } :: [120]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_C0", kind: Temperature } :: [121]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_C1", kind: Temperature } :: [122]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_D0", kind: Temperature } :: [123]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_D1", kind: Temperature } :: [124]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_E0", kind: Temperature } :: [125]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_E1", kind: Temperature } :: [126]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_F0", kind: Temperature } :: [127]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_F1", kind: Temperature } :: [128]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_G0", kind: Temperature } :: [129]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_G1", kind: Temperature } :: [130]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_H0", kind: Temperature } :: [131]
+  - DeviceNameKey { device: "tse2004av", name: "DIMM_H1", kind: Temperature } :: [132]
+by_refdes:
+  - DeviceRefdesKey { device: "adm127x", refdes: Component("U419"), kind: Temperature } :: [96]
+  - DeviceRefdesKey { device: "adm127x", refdes: Component("U419"), kind: Current } :: [97]
+  - DeviceRefdesKey { device: "adm127x", refdes: Component("U419"), kind: Voltage } :: [98]
+  - DeviceRefdesKey { device: "adm127x", refdes: Component("U452"), kind: Temperature } :: [99]
+  - DeviceRefdesKey { device: "adm127x", refdes: Component("U452"), kind: Current } :: [100]
+  - DeviceRefdesKey { device: "adm127x", refdes: Component("U452"), kind: Voltage } :: [101]
+  - DeviceRefdesKey { device: "bmr491", refdes: Component("U431"), kind: Temperature } :: [114]
+  - DeviceRefdesKey { device: "bmr491", refdes: Component("U431"), kind: Current } :: [115]
+  - DeviceRefdesKey { device: "bmr491", refdes: Component("U431"), kind: Voltage } :: [116]
+  - DeviceRefdesKey { device: "isl68224", refdes: Component("U352"), kind: Temperature } :: [87, 88, 89]
+  - DeviceRefdesKey { device: "isl68224", refdes: Component("U352"), kind: Current } :: [90, 91, 92]
+  - DeviceRefdesKey { device: "isl68224", refdes: Component("U352"), kind: Voltage } :: [93, 94, 95]
+  - DeviceRefdesKey { device: "max31790", refdes: Component("U321"), kind: Speed } :: [102, 103, 104, 105, 106, 107]
+  - DeviceRefdesKey { device: "max5970", refdes: Component("U275"), kind: Current } :: [66, 67]
+  - DeviceRefdesKey { device: "max5970", refdes: Component("U275"), kind: Voltage } :: [68, 69]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J206", "U8"]), kind: Current } :: [3, 4]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J206", "U8"]), kind: Voltage } :: [5, 6]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J207", "U8"]), kind: Current } :: [8, 9]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J207", "U8"]), kind: Voltage } :: [10, 11]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J208", "U8"]), kind: Current } :: [13, 14]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J208", "U8"]), kind: Voltage } :: [15, 16]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J209", "U8"]), kind: Current } :: [18, 19]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J209", "U8"]), kind: Voltage } :: [20, 21]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J210", "U8"]), kind: Current } :: [23, 24]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J210", "U8"]), kind: Voltage } :: [25, 26]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J211", "U8"]), kind: Current } :: [28, 29]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J211", "U8"]), kind: Voltage } :: [30, 31]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J212", "U8"]), kind: Current } :: [33, 34]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J212", "U8"]), kind: Voltage } :: [35, 36]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J213", "U8"]), kind: Current } :: [38, 39]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J213", "U8"]), kind: Voltage } :: [40, 41]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J214", "U8"]), kind: Current } :: [43, 44]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J214", "U8"]), kind: Voltage } :: [45, 46]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J215", "U8"]), kind: Current } :: [48, 49]
+  - DeviceRefdesKey { device: "max5970", refdes: Path(["J215", "U8"]), kind: Voltage } :: [50, 51]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Component("P1"), kind: Temperature } :: [133]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Component("P2"), kind: Temperature } :: [134]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J206", "J1"]), kind: Temperature } :: [7]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J207", "J1"]), kind: Temperature } :: [12]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J208", "J1"]), kind: Temperature } :: [17]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J209", "J1"]), kind: Temperature } :: [22]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J210", "J1"]), kind: Temperature } :: [27]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J211", "J1"]), kind: Temperature } :: [32]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J212", "J1"]), kind: Temperature } :: [37]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J213", "J1"]), kind: Temperature } :: [42]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J214", "J1"]), kind: Temperature } :: [47]
+  - DeviceRefdesKey { device: "nvme_bmc", refdes: Path(["J215", "J1"]), kind: Temperature } :: [52]
+  - DeviceRefdesKey { device: "raa229618", refdes: Component("U350"), kind: Temperature } :: [71, 72]
+  - DeviceRefdesKey { device: "raa229618", refdes: Component("U350"), kind: Power } :: [73, 74]
+  - DeviceRefdesKey { device: "raa229618", refdes: Component("U350"), kind: Current } :: [75, 76]
+  - DeviceRefdesKey { device: "raa229618", refdes: Component("U350"), kind: Voltage } :: [77, 78]
+  - DeviceRefdesKey { device: "raa229618", refdes: Component("U351"), kind: Temperature } :: [79, 80]
+  - DeviceRefdesKey { device: "raa229618", refdes: Component("U351"), kind: Power } :: [81, 82]
+  - DeviceRefdesKey { device: "raa229618", refdes: Component("U351"), kind: Current } :: [83, 84]
+  - DeviceRefdesKey { device: "raa229618", refdes: Component("U351"), kind: Voltage } :: [85, 86]
+  - DeviceRefdesKey { device: "sbtsi", refdes: Path(["P0", "SBTSI"]), kind: Temperature } :: [70]
+  - DeviceRefdesKey { device: "tmp117", refdes: Path(["J194", "U1"]), kind: Temperature } :: [0]
+  - DeviceRefdesKey { device: "tmp117", refdes: Path(["J195", "U1"]), kind: Temperature } :: [1]
+  - DeviceRefdesKey { device: "tmp117", refdes: Path(["J196", "U1"]), kind: Temperature } :: [2]
+  - DeviceRefdesKey { device: "tmp117", refdes: Path(["J197", "U1"]), kind: Temperature } :: [111]
+  - DeviceRefdesKey { device: "tmp117", refdes: Path(["J198", "U1"]), kind: Temperature } :: [112]
+  - DeviceRefdesKey { device: "tmp117", refdes: Path(["J199", "U1"]), kind: Temperature } :: [113]
+  - DeviceRefdesKey { device: "tmp451", refdes: Component("U491"), kind: Temperature } :: [53]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U522"), kind: Temperature } :: [54]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U522"), kind: Current } :: [55]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U522"), kind: Voltage } :: [56]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U524"), kind: Temperature } :: [60]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U524"), kind: Current } :: [61]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U524"), kind: Voltage } :: [62]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U560"), kind: Temperature } :: [57]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U560"), kind: Current } :: [58]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U560"), kind: Voltage } :: [59]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U561"), kind: Temperature } :: [63]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U561"), kind: Current } :: [64]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U561"), kind: Voltage } :: [65]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U565"), kind: Temperature } :: [108]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U565"), kind: Current } :: [109]
+  - DeviceRefdesKey { device: "tps546b24a", refdes: Component("U565"), kind: Voltage } :: [110]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M0"), kind: Temperature } :: [117]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M1"), kind: Temperature } :: [119]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M10"), kind: Temperature } :: [122]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M11"), kind: Temperature } :: [124]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M12"), kind: Temperature } :: [126]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M13"), kind: Temperature } :: [128]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M14"), kind: Temperature } :: [130]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M15"), kind: Temperature } :: [132]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M2"), kind: Temperature } :: [121]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M3"), kind: Temperature } :: [123]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M4"), kind: Temperature } :: [125]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M5"), kind: Temperature } :: [127]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M6"), kind: Temperature } :: [129]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M7"), kind: Temperature } :: [131]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M8"), kind: Temperature } :: [118]
+  - DeviceRefdesKey { device: "tse2004av", refdes: Component("M9"), kind: Temperature } :: [120]
+by_id:
+  - DeviceSensor { refdes: Some(Path(["J194", "U1"])), name: Some("Southwest"), kind: Temperature, id: 0 }
+  - DeviceSensor { refdes: Some(Path(["J195", "U1"])), name: Some("South"), kind: Temperature, id: 1 }
+  - DeviceSensor { refdes: Some(Path(["J196", "U1"])), name: Some("Southeast"), kind: Temperature, id: 2 }
+  - DeviceSensor { refdes: Some(Path(["J206", "U8"])), name: Some("V12_U2A_A0"), kind: Current, id: 3 }
+  - DeviceSensor { refdes: Some(Path(["J206", "U8"])), name: Some("V3P3_U2A_A0"), kind: Current, id: 4 }
+  - DeviceSensor { refdes: Some(Path(["J206", "U8"])), name: Some("V12_U2A_A0"), kind: Voltage, id: 5 }
+  - DeviceSensor { refdes: Some(Path(["J206", "U8"])), name: Some("V3P3_U2A_A0"), kind: Voltage, id: 6 }
+  - DeviceSensor { refdes: Some(Path(["J206", "J1"])), name: Some("U2_N0"), kind: Temperature, id: 7 }
+  - DeviceSensor { refdes: Some(Path(["J207", "U8"])), name: Some("V12_U2B_A0"), kind: Current, id: 8 }
+  - DeviceSensor { refdes: Some(Path(["J207", "U8"])), name: Some("V3P3_U2B_A0"), kind: Current, id: 9 }
+  - DeviceSensor { refdes: Some(Path(["J207", "U8"])), name: Some("V12_U2B_A0"), kind: Voltage, id: 10 }
+  - DeviceSensor { refdes: Some(Path(["J207", "U8"])), name: Some("V3P3_U2B_A0"), kind: Voltage, id: 11 }
+  - DeviceSensor { refdes: Some(Path(["J207", "J1"])), name: Some("U2_N1"), kind: Temperature, id: 12 }
+  - DeviceSensor { refdes: Some(Path(["J208", "U8"])), name: Some("V12_U2C_A0"), kind: Current, id: 13 }
+  - DeviceSensor { refdes: Some(Path(["J208", "U8"])), name: Some("V3P3_U2C_A0"), kind: Current, id: 14 }
+  - DeviceSensor { refdes: Some(Path(["J208", "U8"])), name: Some("V12_U2C_A0"), kind: Voltage, id: 15 }
+  - DeviceSensor { refdes: Some(Path(["J208", "U8"])), name: Some("V3P3_U2C_A0"), kind: Voltage, id: 16 }
+  - DeviceSensor { refdes: Some(Path(["J208", "J1"])), name: Some("U2_N2"), kind: Temperature, id: 17 }
+  - DeviceSensor { refdes: Some(Path(["J209", "U8"])), name: Some("V12_U2D_A0"), kind: Current, id: 18 }
+  - DeviceSensor { refdes: Some(Path(["J209", "U8"])), name: Some("V3P3_U2D_A0"), kind: Current, id: 19 }
+  - DeviceSensor { refdes: Some(Path(["J209", "U8"])), name: Some("V12_U2D_A0"), kind: Voltage, id: 20 }
+  - DeviceSensor { refdes: Some(Path(["J209", "U8"])), name: Some("V3P3_U2D_A0"), kind: Voltage, id: 21 }
+  - DeviceSensor { refdes: Some(Path(["J209", "J1"])), name: Some("U2_N3"), kind: Temperature, id: 22 }
+  - DeviceSensor { refdes: Some(Path(["J210", "U8"])), name: Some("V12_U2E_A0"), kind: Current, id: 23 }
+  - DeviceSensor { refdes: Some(Path(["J210", "U8"])), name: Some("V3P3_U2E_A0"), kind: Current, id: 24 }
+  - DeviceSensor { refdes: Some(Path(["J210", "U8"])), name: Some("V12_U2E_A0"), kind: Voltage, id: 25 }
+  - DeviceSensor { refdes: Some(Path(["J210", "U8"])), name: Some("V3P3_U2E_A0"), kind: Voltage, id: 26 }
+  - DeviceSensor { refdes: Some(Path(["J210", "J1"])), name: Some("U2_N4"), kind: Temperature, id: 27 }
+  - DeviceSensor { refdes: Some(Path(["J211", "U8"])), name: Some("V12_U2F_A0"), kind: Current, id: 28 }
+  - DeviceSensor { refdes: Some(Path(["J211", "U8"])), name: Some("V3P3_U2F_A0"), kind: Current, id: 29 }
+  - DeviceSensor { refdes: Some(Path(["J211", "U8"])), name: Some("V12_U2F_A0"), kind: Voltage, id: 30 }
+  - DeviceSensor { refdes: Some(Path(["J211", "U8"])), name: Some("V3P3_U2F_A0"), kind: Voltage, id: 31 }
+  - DeviceSensor { refdes: Some(Path(["J211", "J1"])), name: Some("U2_N5"), kind: Temperature, id: 32 }
+  - DeviceSensor { refdes: Some(Path(["J212", "U8"])), name: Some("V12_U2G_A0"), kind: Current, id: 33 }
+  - DeviceSensor { refdes: Some(Path(["J212", "U8"])), name: Some("V3P3_U2G_A0"), kind: Current, id: 34 }
+  - DeviceSensor { refdes: Some(Path(["J212", "U8"])), name: Some("V12_U2G_A0"), kind: Voltage, id: 35 }
+  - DeviceSensor { refdes: Some(Path(["J212", "U8"])), name: Some("V3P3_U2G_A0"), kind: Voltage, id: 36 }
+  - DeviceSensor { refdes: Some(Path(["J212", "J1"])), name: Some("U2_N6"), kind: Temperature, id: 37 }
+  - DeviceSensor { refdes: Some(Path(["J213", "U8"])), name: Some("V12_U2H_A0"), kind: Current, id: 38 }
+  - DeviceSensor { refdes: Some(Path(["J213", "U8"])), name: Some("V3P3_U2H_A0"), kind: Current, id: 39 }
+  - DeviceSensor { refdes: Some(Path(["J213", "U8"])), name: Some("V12_U2H_A0"), kind: Voltage, id: 40 }
+  - DeviceSensor { refdes: Some(Path(["J213", "U8"])), name: Some("V3P3_U2H_A0"), kind: Voltage, id: 41 }
+  - DeviceSensor { refdes: Some(Path(["J213", "J1"])), name: Some("U2_N7"), kind: Temperature, id: 42 }
+  - DeviceSensor { refdes: Some(Path(["J214", "U8"])), name: Some("V12_U2I_A0"), kind: Current, id: 43 }
+  - DeviceSensor { refdes: Some(Path(["J214", "U8"])), name: Some("V3P3_U2I_A0"), kind: Current, id: 44 }
+  - DeviceSensor { refdes: Some(Path(["J214", "U8"])), name: Some("V12_U2I_A0"), kind: Voltage, id: 45 }
+  - DeviceSensor { refdes: Some(Path(["J214", "U8"])), name: Some("V3P3_U2I_A0"), kind: Voltage, id: 46 }
+  - DeviceSensor { refdes: Some(Path(["J214", "J1"])), name: Some("U2_N8"), kind: Temperature, id: 47 }
+  - DeviceSensor { refdes: Some(Path(["J215", "U8"])), name: Some("V12_U2J_A0"), kind: Current, id: 48 }
+  - DeviceSensor { refdes: Some(Path(["J215", "U8"])), name: Some("V3P3_U2J_A0"), kind: Current, id: 49 }
+  - DeviceSensor { refdes: Some(Path(["J215", "U8"])), name: Some("V12_U2J_A0"), kind: Voltage, id: 50 }
+  - DeviceSensor { refdes: Some(Path(["J215", "U8"])), name: Some("V3P3_U2J_A0"), kind: Voltage, id: 51 }
+  - DeviceSensor { refdes: Some(Path(["J215", "J1"])), name: Some("U2_N9"), kind: Temperature, id: 52 }
+  - DeviceSensor { refdes: Some(Component("U491")), name: Some("t6"), kind: Temperature, id: 53 }
+  - DeviceSensor { refdes: Some(Component("U522")), name: Some("V3P3_SP_A2"), kind: Temperature, id: 54 }
+  - DeviceSensor { refdes: Some(Component("U522")), name: Some("V3P3_SP_A2"), kind: Current, id: 55 }
+  - DeviceSensor { refdes: Some(Component("U522")), name: Some("V3P3_SP_A2"), kind: Voltage, id: 56 }
+  - DeviceSensor { refdes: Some(Component("U560")), name: Some("V3P3_SYS_A0"), kind: Temperature, id: 57 }
+  - DeviceSensor { refdes: Some(Component("U560")), name: Some("V3P3_SYS_A0"), kind: Current, id: 58 }
+  - DeviceSensor { refdes: Some(Component("U560")), name: Some("V3P3_SYS_A0"), kind: Voltage, id: 59 }
+  - DeviceSensor { refdes: Some(Component("U524")), name: Some("V5_SYS_A2"), kind: Temperature, id: 60 }
+  - DeviceSensor { refdes: Some(Component("U524")), name: Some("V5_SYS_A2"), kind: Current, id: 61 }
+  - DeviceSensor { refdes: Some(Component("U524")), name: Some("V5_SYS_A2"), kind: Voltage, id: 62 }
+  - DeviceSensor { refdes: Some(Component("U561")), name: Some("V1P8_SYS_A2"), kind: Temperature, id: 63 }
+  - DeviceSensor { refdes: Some(Component("U561")), name: Some("V1P8_SYS_A2"), kind: Current, id: 64 }
+  - DeviceSensor { refdes: Some(Component("U561")), name: Some("V1P8_SYS_A2"), kind: Voltage, id: 65 }
+  - DeviceSensor { refdes: Some(Component("U275")), name: Some("V3P3_M2A_A0HP"), kind: Current, id: 66 }
+  - DeviceSensor { refdes: Some(Component("U275")), name: Some("V3P3_M2B_A0HP"), kind: Current, id: 67 }
+  - DeviceSensor { refdes: Some(Component("U275")), name: Some("V3P3_M2A_A0HP"), kind: Voltage, id: 68 }
+  - DeviceSensor { refdes: Some(Component("U275")), name: Some("V3P3_M2B_A0HP"), kind: Voltage, id: 69 }
+  - DeviceSensor { refdes: Some(Path(["P0", "SBTSI"])), name: Some("CPU"), kind: Temperature, id: 70 }
+  - DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_VCORE"), kind: Temperature, id: 71 }
+  - DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_MEM_ABCD"), kind: Temperature, id: 72 }
+  - DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_VCORE"), kind: Power, id: 73 }
+  - DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_MEM_ABCD"), kind: Power, id: 74 }
+  - DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_VCORE"), kind: Current, id: 75 }
+  - DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_MEM_ABCD"), kind: Current, id: 76 }
+  - DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_VCORE"), kind: Voltage, id: 77 }
+  - DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_MEM_ABCD"), kind: Voltage, id: 78 }
+  - DeviceSensor { refdes: Some(Component("U351")), name: Some("VDDCR_SOC"), kind: Temperature, id: 79 }
+  - DeviceSensor { refdes: Some(Component("U351")), name: Some("VDD_MEM_EFGH"), kind: Temperature, id: 80 }
+  - DeviceSensor { refdes: Some(Component("U351")), name: Some("VDDCR_SOC"), kind: Power, id: 81 }
+  - DeviceSensor { refdes: Some(Component("U351")), name: Some("VDD_MEM_EFGH"), kind: Power, id: 82 }
+  - DeviceSensor { refdes: Some(Component("U351")), name: Some("VDDCR_SOC"), kind: Current, id: 83 }
+  - DeviceSensor { refdes: Some(Component("U351")), name: Some("VDD_MEM_EFGH"), kind: Current, id: 84 }
+  - DeviceSensor { refdes: Some(Component("U351")), name: Some("VDDCR_SOC"), kind: Voltage, id: 85 }
+  - DeviceSensor { refdes: Some(Component("U351")), name: Some("VDD_MEM_EFGH"), kind: Voltage, id: 86 }
+  - DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_ABCD"), kind: Temperature, id: 87 }
+  - DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_EFGH"), kind: Temperature, id: 88 }
+  - DeviceSensor { refdes: Some(Component("U352")), name: Some("V1P8_SP3"), kind: Temperature, id: 89 }
+  - DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_ABCD"), kind: Current, id: 90 }
+  - DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_EFGH"), kind: Current, id: 91 }
+  - DeviceSensor { refdes: Some(Component("U352")), name: Some("V1P8_SP3"), kind: Current, id: 92 }
+  - DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_ABCD"), kind: Voltage, id: 93 }
+  - DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_EFGH"), kind: Voltage, id: 94 }
+  - DeviceSensor { refdes: Some(Component("U352")), name: Some("V1P8_SP3"), kind: Voltage, id: 95 }
+  - DeviceSensor { refdes: Some(Component("U419")), name: Some("V54_FAN"), kind: Temperature, id: 96 }
+  - DeviceSensor { refdes: Some(Component("U419")), name: Some("V54_FAN"), kind: Current, id: 97 }
+  - DeviceSensor { refdes: Some(Component("U419")), name: Some("V54_FAN"), kind: Voltage, id: 98 }
+  - DeviceSensor { refdes: Some(Component("U452")), name: Some("V54_HS_OUTPUT"), kind: Temperature, id: 99 }
+  - DeviceSensor { refdes: Some(Component("U452")), name: Some("V54_HS_OUTPUT"), kind: Current, id: 100 }
+  - DeviceSensor { refdes: Some(Component("U452")), name: Some("V54_HS_OUTPUT"), kind: Voltage, id: 101 }
+  - DeviceSensor { refdes: Some(Component("U321")), name: Some("Southeast"), kind: Speed, id: 102 }
+  - DeviceSensor { refdes: Some(Component("U321")), name: Some("Northeast"), kind: Speed, id: 103 }
+  - DeviceSensor { refdes: Some(Component("U321")), name: Some("South"), kind: Speed, id: 104 }
+  - DeviceSensor { refdes: Some(Component("U321")), name: Some("North"), kind: Speed, id: 105 }
+  - DeviceSensor { refdes: Some(Component("U321")), name: Some("Southwest"), kind: Speed, id: 106 }
+  - DeviceSensor { refdes: Some(Component("U321")), name: Some("Northwest"), kind: Speed, id: 107 }
+  - DeviceSensor { refdes: Some(Component("U565")), name: Some("V0P96_NIC_VDD_A0HP"), kind: Temperature, id: 108 }
+  - DeviceSensor { refdes: Some(Component("U565")), name: Some("V0P96_NIC_VDD_A0HP"), kind: Current, id: 109 }
+  - DeviceSensor { refdes: Some(Component("U565")), name: Some("V0P96_NIC_VDD_A0HP"), kind: Voltage, id: 110 }
+  - DeviceSensor { refdes: Some(Path(["J197", "U1"])), name: Some("Northeast"), kind: Temperature, id: 111 }
+  - DeviceSensor { refdes: Some(Path(["J198", "U1"])), name: Some("North"), kind: Temperature, id: 112 }
+  - DeviceSensor { refdes: Some(Path(["J199", "U1"])), name: Some("Northwest"), kind: Temperature, id: 113 }
+  - DeviceSensor { refdes: Some(Component("U431")), name: Some("V12_SYS_A2"), kind: Temperature, id: 114 }
+  - DeviceSensor { refdes: Some(Component("U431")), name: Some("V12_SYS_A2"), kind: Current, id: 115 }
+  - DeviceSensor { refdes: Some(Component("U431")), name: Some("V12_SYS_A2"), kind: Voltage, id: 116 }
+  - DeviceSensor { refdes: Some(Component("M0")), name: Some("DIMM_A0"), kind: Temperature, id: 117 }
+  - DeviceSensor { refdes: Some(Component("M8")), name: Some("DIMM_A1"), kind: Temperature, id: 118 }
+  - DeviceSensor { refdes: Some(Component("M1")), name: Some("DIMM_B0"), kind: Temperature, id: 119 }
+  - DeviceSensor { refdes: Some(Component("M9")), name: Some("DIMM_B1"), kind: Temperature, id: 120 }
+  - DeviceSensor { refdes: Some(Component("M2")), name: Some("DIMM_C0"), kind: Temperature, id: 121 }
+  - DeviceSensor { refdes: Some(Component("M10")), name: Some("DIMM_C1"), kind: Temperature, id: 122 }
+  - DeviceSensor { refdes: Some(Component("M3")), name: Some("DIMM_D0"), kind: Temperature, id: 123 }
+  - DeviceSensor { refdes: Some(Component("M11")), name: Some("DIMM_D1"), kind: Temperature, id: 124 }
+  - DeviceSensor { refdes: Some(Component("M4")), name: Some("DIMM_E0"), kind: Temperature, id: 125 }
+  - DeviceSensor { refdes: Some(Component("M12")), name: Some("DIMM_E1"), kind: Temperature, id: 126 }
+  - DeviceSensor { refdes: Some(Component("M5")), name: Some("DIMM_F0"), kind: Temperature, id: 127 }
+  - DeviceSensor { refdes: Some(Component("M13")), name: Some("DIMM_F1"), kind: Temperature, id: 128 }
+  - DeviceSensor { refdes: Some(Component("M6")), name: Some("DIMM_G0"), kind: Temperature, id: 129 }
+  - DeviceSensor { refdes: Some(Component("M14")), name: Some("DIMM_G1"), kind: Temperature, id: 130 }
+  - DeviceSensor { refdes: Some(Component("M7")), name: Some("DIMM_H0"), kind: Temperature, id: 131 }
+  - DeviceSensor { refdes: Some(Component("M15")), name: Some("DIMM_H1"), kind: Temperature, id: 132 }
+  - DeviceSensor { refdes: Some(Component("P1")), name: Some("M2_A"), kind: Temperature, id: 133 }
+  - DeviceSensor { refdes: Some(Component("P2")), name: Some("M2_B"), kind: Temperature, id: 134 }
+device_sensors:
+  - I2cDevice(0)
+    - 0.0: DeviceSensor { refdes: Some(Path(["J194", "U1"])), name: Some("Southwest"), kind: Temperature, id: 0 }
+  - I2cDevice(1)
+    - 1.0: DeviceSensor { refdes: Some(Path(["J195", "U1"])), name: Some("South"), kind: Temperature, id: 1 }
+  - I2cDevice(2)
+    - 2.0: DeviceSensor { refdes: Some(Path(["J196", "U1"])), name: Some("Southeast"), kind: Temperature, id: 2 }
+  - I2cDevice(3)
+  - I2cDevice(4)
+  - I2cDevice(5)
+  - I2cDevice(6)
+  - I2cDevice(7)
+    - 7.0: DeviceSensor { refdes: Some(Path(["J206", "U8"])), name: Some("V12_U2A_A0"), kind: Current, id: 3 }
+    - 7.1: DeviceSensor { refdes: Some(Path(["J206", "U8"])), name: Some("V3P3_U2A_A0"), kind: Current, id: 4 }
+    - 7.2: DeviceSensor { refdes: Some(Path(["J206", "U8"])), name: Some("V12_U2A_A0"), kind: Voltage, id: 5 }
+    - 7.3: DeviceSensor { refdes: Some(Path(["J206", "U8"])), name: Some("V3P3_U2A_A0"), kind: Voltage, id: 6 }
+  - I2cDevice(8)
+    - 8.0: DeviceSensor { refdes: Some(Path(["J206", "J1"])), name: Some("U2_N0"), kind: Temperature, id: 7 }
+  - I2cDevice(9)
+  - I2cDevice(10)
+    - 10.0: DeviceSensor { refdes: Some(Path(["J207", "U8"])), name: Some("V12_U2B_A0"), kind: Current, id: 8 }
+    - 10.1: DeviceSensor { refdes: Some(Path(["J207", "U8"])), name: Some("V3P3_U2B_A0"), kind: Current, id: 9 }
+    - 10.2: DeviceSensor { refdes: Some(Path(["J207", "U8"])), name: Some("V12_U2B_A0"), kind: Voltage, id: 10 }
+    - 10.3: DeviceSensor { refdes: Some(Path(["J207", "U8"])), name: Some("V3P3_U2B_A0"), kind: Voltage, id: 11 }
+  - I2cDevice(11)
+    - 11.0: DeviceSensor { refdes: Some(Path(["J207", "J1"])), name: Some("U2_N1"), kind: Temperature, id: 12 }
+  - I2cDevice(12)
+  - I2cDevice(13)
+    - 13.0: DeviceSensor { refdes: Some(Path(["J208", "U8"])), name: Some("V12_U2C_A0"), kind: Current, id: 13 }
+    - 13.1: DeviceSensor { refdes: Some(Path(["J208", "U8"])), name: Some("V3P3_U2C_A0"), kind: Current, id: 14 }
+    - 13.2: DeviceSensor { refdes: Some(Path(["J208", "U8"])), name: Some("V12_U2C_A0"), kind: Voltage, id: 15 }
+    - 13.3: DeviceSensor { refdes: Some(Path(["J208", "U8"])), name: Some("V3P3_U2C_A0"), kind: Voltage, id: 16 }
+  - I2cDevice(14)
+    - 14.0: DeviceSensor { refdes: Some(Path(["J208", "J1"])), name: Some("U2_N2"), kind: Temperature, id: 17 }
+  - I2cDevice(15)
+  - I2cDevice(16)
+    - 16.0: DeviceSensor { refdes: Some(Path(["J209", "U8"])), name: Some("V12_U2D_A0"), kind: Current, id: 18 }
+    - 16.1: DeviceSensor { refdes: Some(Path(["J209", "U8"])), name: Some("V3P3_U2D_A0"), kind: Current, id: 19 }
+    - 16.2: DeviceSensor { refdes: Some(Path(["J209", "U8"])), name: Some("V12_U2D_A0"), kind: Voltage, id: 20 }
+    - 16.3: DeviceSensor { refdes: Some(Path(["J209", "U8"])), name: Some("V3P3_U2D_A0"), kind: Voltage, id: 21 }
+  - I2cDevice(17)
+    - 17.0: DeviceSensor { refdes: Some(Path(["J209", "J1"])), name: Some("U2_N3"), kind: Temperature, id: 22 }
+  - I2cDevice(18)
+  - I2cDevice(19)
+    - 19.0: DeviceSensor { refdes: Some(Path(["J210", "U8"])), name: Some("V12_U2E_A0"), kind: Current, id: 23 }
+    - 19.1: DeviceSensor { refdes: Some(Path(["J210", "U8"])), name: Some("V3P3_U2E_A0"), kind: Current, id: 24 }
+    - 19.2: DeviceSensor { refdes: Some(Path(["J210", "U8"])), name: Some("V12_U2E_A0"), kind: Voltage, id: 25 }
+    - 19.3: DeviceSensor { refdes: Some(Path(["J210", "U8"])), name: Some("V3P3_U2E_A0"), kind: Voltage, id: 26 }
+  - I2cDevice(20)
+    - 20.0: DeviceSensor { refdes: Some(Path(["J210", "J1"])), name: Some("U2_N4"), kind: Temperature, id: 27 }
+  - I2cDevice(21)
+  - I2cDevice(22)
+    - 22.0: DeviceSensor { refdes: Some(Path(["J211", "U8"])), name: Some("V12_U2F_A0"), kind: Current, id: 28 }
+    - 22.1: DeviceSensor { refdes: Some(Path(["J211", "U8"])), name: Some("V3P3_U2F_A0"), kind: Current, id: 29 }
+    - 22.2: DeviceSensor { refdes: Some(Path(["J211", "U8"])), name: Some("V12_U2F_A0"), kind: Voltage, id: 30 }
+    - 22.3: DeviceSensor { refdes: Some(Path(["J211", "U8"])), name: Some("V3P3_U2F_A0"), kind: Voltage, id: 31 }
+  - I2cDevice(23)
+    - 23.0: DeviceSensor { refdes: Some(Path(["J211", "J1"])), name: Some("U2_N5"), kind: Temperature, id: 32 }
+  - I2cDevice(24)
+  - I2cDevice(25)
+    - 25.0: DeviceSensor { refdes: Some(Path(["J212", "U8"])), name: Some("V12_U2G_A0"), kind: Current, id: 33 }
+    - 25.1: DeviceSensor { refdes: Some(Path(["J212", "U8"])), name: Some("V3P3_U2G_A0"), kind: Current, id: 34 }
+    - 25.2: DeviceSensor { refdes: Some(Path(["J212", "U8"])), name: Some("V12_U2G_A0"), kind: Voltage, id: 35 }
+    - 25.3: DeviceSensor { refdes: Some(Path(["J212", "U8"])), name: Some("V3P3_U2G_A0"), kind: Voltage, id: 36 }
+  - I2cDevice(26)
+    - 26.0: DeviceSensor { refdes: Some(Path(["J212", "J1"])), name: Some("U2_N6"), kind: Temperature, id: 37 }
+  - I2cDevice(27)
+  - I2cDevice(28)
+    - 28.0: DeviceSensor { refdes: Some(Path(["J213", "U8"])), name: Some("V12_U2H_A0"), kind: Current, id: 38 }
+    - 28.1: DeviceSensor { refdes: Some(Path(["J213", "U8"])), name: Some("V3P3_U2H_A0"), kind: Current, id: 39 }
+    - 28.2: DeviceSensor { refdes: Some(Path(["J213", "U8"])), name: Some("V12_U2H_A0"), kind: Voltage, id: 40 }
+    - 28.3: DeviceSensor { refdes: Some(Path(["J213", "U8"])), name: Some("V3P3_U2H_A0"), kind: Voltage, id: 41 }
+  - I2cDevice(29)
+    - 29.0: DeviceSensor { refdes: Some(Path(["J213", "J1"])), name: Some("U2_N7"), kind: Temperature, id: 42 }
+  - I2cDevice(30)
+  - I2cDevice(31)
+    - 31.0: DeviceSensor { refdes: Some(Path(["J214", "U8"])), name: Some("V12_U2I_A0"), kind: Current, id: 43 }
+    - 31.1: DeviceSensor { refdes: Some(Path(["J214", "U8"])), name: Some("V3P3_U2I_A0"), kind: Current, id: 44 }
+    - 31.2: DeviceSensor { refdes: Some(Path(["J214", "U8"])), name: Some("V12_U2I_A0"), kind: Voltage, id: 45 }
+    - 31.3: DeviceSensor { refdes: Some(Path(["J214", "U8"])), name: Some("V3P3_U2I_A0"), kind: Voltage, id: 46 }
+  - I2cDevice(32)
+    - 32.0: DeviceSensor { refdes: Some(Path(["J214", "J1"])), name: Some("U2_N8"), kind: Temperature, id: 47 }
+  - I2cDevice(33)
+  - I2cDevice(34)
+    - 34.0: DeviceSensor { refdes: Some(Path(["J215", "U8"])), name: Some("V12_U2J_A0"), kind: Current, id: 48 }
+    - 34.1: DeviceSensor { refdes: Some(Path(["J215", "U8"])), name: Some("V3P3_U2J_A0"), kind: Current, id: 49 }
+    - 34.2: DeviceSensor { refdes: Some(Path(["J215", "U8"])), name: Some("V12_U2J_A0"), kind: Voltage, id: 50 }
+    - 34.3: DeviceSensor { refdes: Some(Path(["J215", "U8"])), name: Some("V3P3_U2J_A0"), kind: Voltage, id: 51 }
+  - I2cDevice(35)
+    - 35.0: DeviceSensor { refdes: Some(Path(["J215", "J1"])), name: Some("U2_N9"), kind: Temperature, id: 52 }
+  - I2cDevice(36)
+  - I2cDevice(37)
+  - I2cDevice(38)
+  - I2cDevice(39)
+    - 39.0: DeviceSensor { refdes: Some(Component("U491")), name: Some("t6"), kind: Temperature, id: 53 }
+  - I2cDevice(40)
+    - 40.0: DeviceSensor { refdes: Some(Component("U522")), name: Some("V3P3_SP_A2"), kind: Temperature, id: 54 }
+    - 40.1: DeviceSensor { refdes: Some(Component("U522")), name: Some("V3P3_SP_A2"), kind: Current, id: 55 }
+    - 40.2: DeviceSensor { refdes: Some(Component("U522")), name: Some("V3P3_SP_A2"), kind: Voltage, id: 56 }
+  - I2cDevice(41)
+    - 41.0: DeviceSensor { refdes: Some(Component("U560")), name: Some("V3P3_SYS_A0"), kind: Temperature, id: 57 }
+    - 41.1: DeviceSensor { refdes: Some(Component("U560")), name: Some("V3P3_SYS_A0"), kind: Current, id: 58 }
+    - 41.2: DeviceSensor { refdes: Some(Component("U560")), name: Some("V3P3_SYS_A0"), kind: Voltage, id: 59 }
+  - I2cDevice(42)
+    - 42.0: DeviceSensor { refdes: Some(Component("U524")), name: Some("V5_SYS_A2"), kind: Temperature, id: 60 }
+    - 42.1: DeviceSensor { refdes: Some(Component("U524")), name: Some("V5_SYS_A2"), kind: Current, id: 61 }
+    - 42.2: DeviceSensor { refdes: Some(Component("U524")), name: Some("V5_SYS_A2"), kind: Voltage, id: 62 }
+  - I2cDevice(43)
+    - 43.0: DeviceSensor { refdes: Some(Component("U561")), name: Some("V1P8_SYS_A2"), kind: Temperature, id: 63 }
+    - 43.1: DeviceSensor { refdes: Some(Component("U561")), name: Some("V1P8_SYS_A2"), kind: Current, id: 64 }
+    - 43.2: DeviceSensor { refdes: Some(Component("U561")), name: Some("V1P8_SYS_A2"), kind: Voltage, id: 65 }
+  - I2cDevice(44)
+    - 44.0: DeviceSensor { refdes: Some(Component("U275")), name: Some("V3P3_M2A_A0HP"), kind: Current, id: 66 }
+    - 44.1: DeviceSensor { refdes: Some(Component("U275")), name: Some("V3P3_M2B_A0HP"), kind: Current, id: 67 }
+    - 44.2: DeviceSensor { refdes: Some(Component("U275")), name: Some("V3P3_M2A_A0HP"), kind: Voltage, id: 68 }
+    - 44.3: DeviceSensor { refdes: Some(Component("U275")), name: Some("V3P3_M2B_A0HP"), kind: Voltage, id: 69 }
+  - I2cDevice(45)
+  - I2cDevice(46)
+    - 46.0: DeviceSensor { refdes: Some(Path(["P0", "SBTSI"])), name: Some("CPU"), kind: Temperature, id: 70 }
+  - I2cDevice(47)
+  - I2cDevice(48)
+    - 48.0: DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_VCORE"), kind: Temperature, id: 71 }
+    - 48.1: DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_MEM_ABCD"), kind: Temperature, id: 72 }
+    - 48.2: DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_VCORE"), kind: Power, id: 73 }
+    - 48.3: DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_MEM_ABCD"), kind: Power, id: 74 }
+    - 48.4: DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_VCORE"), kind: Current, id: 75 }
+    - 48.5: DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_MEM_ABCD"), kind: Current, id: 76 }
+    - 48.6: DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_VCORE"), kind: Voltage, id: 77 }
+    - 48.7: DeviceSensor { refdes: Some(Component("U350")), name: Some("VDD_MEM_ABCD"), kind: Voltage, id: 78 }
+  - I2cDevice(49)
+    - 49.0: DeviceSensor { refdes: Some(Component("U351")), name: Some("VDDCR_SOC"), kind: Temperature, id: 79 }
+    - 49.1: DeviceSensor { refdes: Some(Component("U351")), name: Some("VDD_MEM_EFGH"), kind: Temperature, id: 80 }
+    - 49.2: DeviceSensor { refdes: Some(Component("U351")), name: Some("VDDCR_SOC"), kind: Power, id: 81 }
+    - 49.3: DeviceSensor { refdes: Some(Component("U351")), name: Some("VDD_MEM_EFGH"), kind: Power, id: 82 }
+    - 49.4: DeviceSensor { refdes: Some(Component("U351")), name: Some("VDDCR_SOC"), kind: Current, id: 83 }
+    - 49.5: DeviceSensor { refdes: Some(Component("U351")), name: Some("VDD_MEM_EFGH"), kind: Current, id: 84 }
+    - 49.6: DeviceSensor { refdes: Some(Component("U351")), name: Some("VDDCR_SOC"), kind: Voltage, id: 85 }
+    - 49.7: DeviceSensor { refdes: Some(Component("U351")), name: Some("VDD_MEM_EFGH"), kind: Voltage, id: 86 }
+  - I2cDevice(50)
+    - 50.0: DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_ABCD"), kind: Temperature, id: 87 }
+    - 50.1: DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_EFGH"), kind: Temperature, id: 88 }
+    - 50.2: DeviceSensor { refdes: Some(Component("U352")), name: Some("V1P8_SP3"), kind: Temperature, id: 89 }
+    - 50.3: DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_ABCD"), kind: Current, id: 90 }
+    - 50.4: DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_EFGH"), kind: Current, id: 91 }
+    - 50.5: DeviceSensor { refdes: Some(Component("U352")), name: Some("V1P8_SP3"), kind: Current, id: 92 }
+    - 50.6: DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_ABCD"), kind: Voltage, id: 93 }
+    - 50.7: DeviceSensor { refdes: Some(Component("U352")), name: Some("VPP_EFGH"), kind: Voltage, id: 94 }
+    - 50.8: DeviceSensor { refdes: Some(Component("U352")), name: Some("V1P8_SP3"), kind: Voltage, id: 95 }
+  - I2cDevice(51)
+    - 51.0: DeviceSensor { refdes: Some(Component("U419")), name: Some("V54_FAN"), kind: Temperature, id: 96 }
+    - 51.1: DeviceSensor { refdes: Some(Component("U419")), name: Some("V54_FAN"), kind: Current, id: 97 }
+    - 51.2: DeviceSensor { refdes: Some(Component("U419")), name: Some("V54_FAN"), kind: Voltage, id: 98 }
+  - I2cDevice(52)
+    - 52.0: DeviceSensor { refdes: Some(Component("U452")), name: Some("V54_HS_OUTPUT"), kind: Temperature, id: 99 }
+    - 52.1: DeviceSensor { refdes: Some(Component("U452")), name: Some("V54_HS_OUTPUT"), kind: Current, id: 100 }
+    - 52.2: DeviceSensor { refdes: Some(Component("U452")), name: Some("V54_HS_OUTPUT"), kind: Voltage, id: 101 }
+  - I2cDevice(53)
+    - 53.0: DeviceSensor { refdes: Some(Component("U321")), name: Some("Southeast"), kind: Speed, id: 102 }
+    - 53.1: DeviceSensor { refdes: Some(Component("U321")), name: Some("Northeast"), kind: Speed, id: 103 }
+    - 53.2: DeviceSensor { refdes: Some(Component("U321")), name: Some("South"), kind: Speed, id: 104 }
+    - 53.3: DeviceSensor { refdes: Some(Component("U321")), name: Some("North"), kind: Speed, id: 105 }
+    - 53.4: DeviceSensor { refdes: Some(Component("U321")), name: Some("Southwest"), kind: Speed, id: 106 }
+    - 53.5: DeviceSensor { refdes: Some(Component("U321")), name: Some("Northwest"), kind: Speed, id: 107 }
+  - I2cDevice(54)
+    - 54.0: DeviceSensor { refdes: Some(Component("U565")), name: Some("V0P96_NIC_VDD_A0HP"), kind: Temperature, id: 108 }
+    - 54.1: DeviceSensor { refdes: Some(Component("U565")), name: Some("V0P96_NIC_VDD_A0HP"), kind: Current, id: 109 }
+    - 54.2: DeviceSensor { refdes: Some(Component("U565")), name: Some("V0P96_NIC_VDD_A0HP"), kind: Voltage, id: 110 }
+  - I2cDevice(55)
+    - 55.0: DeviceSensor { refdes: Some(Path(["J197", "U1"])), name: Some("Northeast"), kind: Temperature, id: 111 }
+  - I2cDevice(56)
+    - 56.0: DeviceSensor { refdes: Some(Path(["J198", "U1"])), name: Some("North"), kind: Temperature, id: 112 }
+  - I2cDevice(57)
+    - 57.0: DeviceSensor { refdes: Some(Path(["J199", "U1"])), name: Some("Northwest"), kind: Temperature, id: 113 }
+  - I2cDevice(58)
+    - 58.0: DeviceSensor { refdes: Some(Component("U431")), name: Some("V12_SYS_A2"), kind: Temperature, id: 114 }
+    - 58.1: DeviceSensor { refdes: Some(Component("U431")), name: Some("V12_SYS_A2"), kind: Current, id: 115 }
+    - 58.2: DeviceSensor { refdes: Some(Component("U431")), name: Some("V12_SYS_A2"), kind: Voltage, id: 116 }
+  - I2cDevice(59)
+    - 59.0: DeviceSensor { refdes: Some(Component("M0")), name: Some("DIMM_A0"), kind: Temperature, id: 117 }
+  - I2cDevice(60)
+    - 60.0: DeviceSensor { refdes: Some(Component("M8")), name: Some("DIMM_A1"), kind: Temperature, id: 118 }
+  - I2cDevice(61)
+    - 61.0: DeviceSensor { refdes: Some(Component("M1")), name: Some("DIMM_B0"), kind: Temperature, id: 119 }
+  - I2cDevice(62)
+    - 62.0: DeviceSensor { refdes: Some(Component("M9")), name: Some("DIMM_B1"), kind: Temperature, id: 120 }
+  - I2cDevice(63)
+    - 63.0: DeviceSensor { refdes: Some(Component("M2")), name: Some("DIMM_C0"), kind: Temperature, id: 121 }
+  - I2cDevice(64)
+    - 64.0: DeviceSensor { refdes: Some(Component("M10")), name: Some("DIMM_C1"), kind: Temperature, id: 122 }
+  - I2cDevice(65)
+    - 65.0: DeviceSensor { refdes: Some(Component("M3")), name: Some("DIMM_D0"), kind: Temperature, id: 123 }
+  - I2cDevice(66)
+    - 66.0: DeviceSensor { refdes: Some(Component("M11")), name: Some("DIMM_D1"), kind: Temperature, id: 124 }
+  - I2cDevice(67)
+    - 67.0: DeviceSensor { refdes: Some(Component("M4")), name: Some("DIMM_E0"), kind: Temperature, id: 125 }
+  - I2cDevice(68)
+    - 68.0: DeviceSensor { refdes: Some(Component("M12")), name: Some("DIMM_E1"), kind: Temperature, id: 126 }
+  - I2cDevice(69)
+    - 69.0: DeviceSensor { refdes: Some(Component("M5")), name: Some("DIMM_F0"), kind: Temperature, id: 127 }
+  - I2cDevice(70)
+    - 70.0: DeviceSensor { refdes: Some(Component("M13")), name: Some("DIMM_F1"), kind: Temperature, id: 128 }
+  - I2cDevice(71)
+    - 71.0: DeviceSensor { refdes: Some(Component("M6")), name: Some("DIMM_G0"), kind: Temperature, id: 129 }
+  - I2cDevice(72)
+    - 72.0: DeviceSensor { refdes: Some(Component("M14")), name: Some("DIMM_G1"), kind: Temperature, id: 130 }
+  - I2cDevice(73)
+    - 73.0: DeviceSensor { refdes: Some(Component("M7")), name: Some("DIMM_H0"), kind: Temperature, id: 131 }
+  - I2cDevice(74)
+    - 74.0: DeviceSensor { refdes: Some(Component("M15")), name: Some("DIMM_H1"), kind: Temperature, id: 132 }
+  - I2cDevice(75)
+    - 75.0: DeviceSensor { refdes: Some(Component("P1")), name: Some("M2_A"), kind: Temperature, id: 133 }
+  - I2cDevice(76)
+    - 76.0: DeviceSensor { refdes: Some(Component("P2")), name: Some("M2_B"), kind: Temperature, id: 134 }
+total_sensors: 135
