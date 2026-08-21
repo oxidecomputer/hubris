@@ -3,7 +3,7 @@
 # not changed (look at `remap_paths` in `xtask/src/dist.rs`).  This remapping
 # strips local paths from panic messages, because they're bad for both
 # reproducibility and binary size.
-channel = "1.95.0"
+channel = "1.96.1"
 targets = [ "thumbv6m-none-eabi", "thumbv7em-none-eabihf", "thumbv8m.main-none-eabihf" ]
 profile = "minimal"
 components = [ "clippy", "rustfmt", "rust-analyzer" ]
