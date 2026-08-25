@@ -33,7 +33,7 @@
 
 use drv_i2c_api::*;
 use drv_i2c_devices::mwocp6x::{
-    Error as Mwocp68Error, FirmwareRev, Mwocp68, SerialNumber, UpdateState,
+    Error as Mwocp6xError, FirmwareRev, Mwocp68, SerialNumber, UpdateState,
 };
 use ringbuf::*;
 use static_cell::ClaimOnceCell;
@@ -76,20 +76,20 @@ static PSU: ClaimOnceCell<[Psu; 6]> = ClaimOnceCell::new(
 enum Trace {
     #[count(skip)]
     None,
-    PowerGoodFailed(u8, Mwocp68Error),
-    FirmwareRevFailed(u8, Mwocp68Error),
+    PowerGoodFailed(u8, Mwocp6xError),
+    FirmwareRevFailed(u8, Mwocp6xError),
     AttemptingUpdate(u8),
     BackingOff(u8),
     UpdateFailed,
     UpdateFailedState(Option<UpdateState>),
-    UpdateFailure(Mwocp68Error),
+    UpdateFailure(Mwocp6xError),
     UpdateState(UpdateState),
     WroteBlock,
     UpdateSucceeded(u8),
     UpdateDelay(u64),
     PSUReplaced(u8),
-    SerialNumberError(u8, Mwocp68Error),
-    PGError(u8, Mwocp68Error),
+    SerialNumberError(u8, Mwocp6xError),
+    PGError(u8, Mwocp6xError),
     PowerNotGood(u8),
 }
 
@@ -147,7 +147,7 @@ struct Psu {
     update_succeeded: Option<Ticks>,
 
     /// What time did the update last fail, if any?
-    update_failure: Option<(Ticks, Option<UpdateState>, Option<Mwocp68Error>)>,
+    update_failure: Option<(Ticks, Option<UpdateState>, Option<Mwocp6xError>)>,
 
     /// How long should the next update backoff, if at all? (In ticks.)
     update_backoff: Option<Ticks>,
