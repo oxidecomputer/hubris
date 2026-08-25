@@ -19,14 +19,17 @@
 //! Apologies to those that need to update these snapshots until that day comes.
 //! You will need to install `cargo-insta`, e.g. `cargo install cargo-insta`,
 //! run the tests with `cargo insta test -p xtask`, and then review+bless any
-//! new changes with `cargo insta review`.
+//! new changes with `cargo insta review`, OR by using environment variables,
+//! see: <https://insta.rs/docs/quickstart/#tests-without-insta>.
 
 use std::path::Path;
 
 use anyhow::Result;
-use build_i2c::{ConfigGenerator, Disposition};
+use build_i2c::{ConfigGenerator, Disposition, I2cSensorsDescription};
 use insta::assert_snapshot;
-use tempfile::tempdir;
+use tempfile::{TempDir, tempdir};
+
+type GenFn<T> = fn(&ConfigGenerator, &mut String) -> Result<T>;
 
 #[test]
 fn snapshot() {
@@ -37,14 +40,13 @@ fn snapshot() {
         Path::new("app/observer/rev-a-dev.toml"),
         Path::new("app/psc/rev-c-dev.toml"),
     ];
-    type GenFn = fn(&ConfigGenerator, &mut String) -> Result<()>;
 
     // TODO: Some analysis and generation is gated in either `new_with_config`
     // or in the generate functions themselves to only work with certain
     // dispositions. We should probably reconsider this at some point, and make
     // snapshotting just per-function and not require a manual statement of
     // disposition here.
-    let funcs: &[(&str, Disposition, GenFn)] = &[
+    let funcs: &[(&str, Disposition, GenFn<()>)] = &[
         (
             "controllers",
             Disposition::Initiator,
@@ -88,23 +90,52 @@ fn snapshot() {
         for (case, disp, f) in funcs {
             let name = manifest.to_string_lossy().replace("/", "_");
             let name = format!("{name}.{case}-{disp:?}");
-            let dest = format!("{name}.snap");
-            let temp_out = tempdir.path().join(Path::new(&dest));
-
-            let mut out = String::new();
-
-            // Create the generator...
-            let g =
-                xtask::i2c_codegen::setup_generator(*manifest, (*disp).into())
-                    .unwrap();
-            // Do code generation with the given function
-            (f)(&g, &mut out).unwrap();
-            // Write and format the file...
-            xtask::i2c_codegen::write_file(&out, &temp_out, true).unwrap();
-
-            // ...then read it back
-            let contents = std::fs::read_to_string(temp_out).unwrap();
-            assert_snapshot!(name, contents);
+            snapshot_file::<()>(*manifest, &tempdir, disp, &name, *f);
         }
+
+        // Handle `generate_sensors` separately because it returns data in
+        // addition to the generated code.
+        let disp = Disposition::Sensors;
+        let case = "sensors";
+        let name = manifest.to_string_lossy().replace("/", "_");
+        let name = format!("{name}.{case}-{disp:?}");
+
+        let desc = snapshot_file::<I2cSensorsDescription>(
+            *manifest,
+            &tempdir,
+            &disp,
+            &name,
+            ConfigGenerator::generate_sensors,
+        );
+
+        // Now snapshot the generated description
+        let name = format!("{name}-desc");
+        assert_snapshot!(name, desc.to_string());
     }
+}
+
+fn snapshot_file<T>(
+    manifest: &Path,
+    tempdir: &TempDir,
+    disp: &Disposition,
+    name: &str,
+    f: GenFn<T>,
+) -> T {
+    let dest = format!("{name}.snap");
+    let temp_out = tempdir.path().join(Path::new(&dest));
+
+    let mut out = String::new();
+
+    // Create the generator...
+    let g =
+        xtask::i2c_codegen::setup_generator(manifest, (*disp).into()).unwrap();
+    // Do code generation with the given function
+    let t = (f)(&g, &mut out).unwrap();
+    // Write and format the file...
+    xtask::i2c_codegen::write_file(&out, &temp_out, true).unwrap();
+
+    // ...then read it back
+    let contents = std::fs::read_to_string(temp_out).unwrap();
+    assert_snapshot!(name, contents);
+    t
 }
