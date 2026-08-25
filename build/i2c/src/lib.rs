@@ -323,19 +323,32 @@ impl iddqd::IdOrdItem for DeviceSensor {
 
 #[derive(Debug)]
 pub struct I2cSensorsDescription {
-    // In all multimaps below, the value is the sensor ID. The same sensor ID
+    // In all maps below, the value is the sensor ID. The same sensor ID
     // can show up in multiple (including all!) of these maps.
     //
     // All sensors are guaranteed to be present in `by_device`, but
     // may not be present in the other maps (devices may or may not have a
     // name/bus in app.toml).
+    /// `by_device` tracks items by what the sensor is (e.g. "Temperature"),
+    /// and by what kind of device the sensor exists within, e.g. "TMP117".
+    /// A `(Temperature, TMP117)` may have multiple sensor IDs that match the
+    /// same tuple of options.
     by_device: BTreeMap<DeviceKey, Vec<usize>>,
-    by_name: BTreeMap<DeviceNameKey, Vec<usize>>,
+    /// `by_refdes` tracks items on the two items above, PLUS what "refdes"
+    /// is available, for example "U32". A `(Speed, Max31790, U32)` may
+    /// have multiple sensor IDs, for example if there are 6 separate speed
+    /// sensors hosted on the same physical I2C device.
     by_refdes: BTreeMap<DeviceRefdesKey, Vec<usize>>,
+    /// `by_name` tracks items on the triple of device/name/kind, for example
+    /// `(TMP117, "North", Temperature)`. This actually should probably not
+    /// ever match multiple items, and will be fixed in the future. See
+    /// https://github.com/oxidecomputer/hubris/issues/2637 for details.
+    by_name: BTreeMap<DeviceNameKey, Vec<usize>>,
+    /// All sensors by their ID
     pub by_id: IdOrdMap<Arc<DeviceSensor>>,
 
-    // list of all devices and a list of their sensors, with an optional sensor
-    // name (if present)
+    /// list of all devices and a list of their sensors, with an optional sensor
+    /// name (if present)
     device_sensors: Vec<Vec<Arc<DeviceSensor>>>,
 
     pub total_sensors: usize,
