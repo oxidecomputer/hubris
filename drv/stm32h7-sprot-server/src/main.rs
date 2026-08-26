@@ -55,7 +55,7 @@ enum Trace {
     Debug(bool),
     Error(SprotError),
     FailedRetries {
-        retries: u16,
+        attempts: u16,
         last_errcode: SprotError,
     },
     PulseFailed,
@@ -473,9 +473,9 @@ impl<S: SpiServer> ServerImpl<S> {
         &mut self,
         mut tx_size: usize,
         timeout: u32,
-        retries: u16,
+        attempts: u16,
     ) -> Result<Response<'_>, SprotError> {
-        let mut attempts_left = retries;
+        let mut attempts_left = attempts;
 
         // We must always send an even number of bytes since
         // the RoT waits for 2 bytes in each fifo entry before making data
@@ -538,7 +538,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
             if attempts_left == 0 {
                 ringbuf_entry!(Trace::FailedRetries {
-                    retries,
+                    attempts,
                     last_errcode: err
                 });
                 return Err(err);
@@ -831,7 +831,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let body = ReqBody::Dump(DumpReq::V1 { addr });
         let tx_size = Request::pack(&body, self.tx_buf);
         let rsp =
-            // Dumping is not completely idempotent so don't retry
+            // Dumping is not completely idempotent so only try once
             self.do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)?;
         if let RspBody::Dump(DumpRsp::V1 { err }) = rsp.body? {
             err.map_or(Ok(()), |e| DumpOrSprotError::Dump(e).into())
@@ -1018,7 +1018,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let rsp = self.do_send_recv_retries(
             tx_size,
             TIMEOUT_QUICK,
-            // This is not idempotent so only retry once
+            // This is not idempotent so only try once
             1,
         )?;
 
