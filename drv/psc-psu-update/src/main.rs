@@ -33,8 +33,12 @@
 
 use drv_i2c_api::*;
 use drv_i2c_devices::mwocp6x::{
-    Error as Mwocp6xError, FirmwareRev, Mwocp68, SerialNumber, UpdateState,
+    Error as Mwocp6xError, FirmwareRev, SerialNumber,
 };
+
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
+use drv_i2c_devices::mwocp6x::{Mwocp68, mwocp68::UpdateState};
+
 use ringbuf::*;
 use static_cell::ClaimOnceCell;
 use userlib::{TaskId, hl, sys_get_timer, task_slot};
