@@ -5,24 +5,10 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow, bail};
+use build_i2c::Disposition;
 use clap::Parser;
 
-use crate::config::Config;
-
-mod auxflash;
-mod caboose_pos;
-mod config;
-mod dist;
-mod flash;
-mod gha_prepare_artifacts;
-mod graph;
-mod humility;
-mod lsp;
-mod passthrough;
-mod print;
-mod rust_analyzer;
-mod sizes;
-mod task_slot;
+use xtask::*;
 
 #[derive(Debug, Parser)]
 #[clap(max_term_width = 80, about = "extra tasks to help you work on Hubris")]
@@ -263,37 +249,24 @@ enum Xtask {
         /// Path to the JSONL file containing all of the attestations to upload, if generated.
         attestation: Option<PathBuf>,
     },
-}
 
-#[derive(Clone, Debug, Parser)]
-pub struct HumilityArgs {
-    /// Path to the image configuration file, in TOML.
-    cfg: PathBuf,
+    /// Codegen I2C information
+    I2cCodegen {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
 
-    /// Image name to flash
-    #[clap(long)]
-    image_name: Option<String>,
+        /// This implements ValueEnum
+        #[clap(short, long, value_enum)]
+        disposition: Disposition,
 
-    /// Request verbosity from tools we shell out to.
-    #[clap(short, long)]
-    verbose: bool,
+        /// File to write to. STDOUT is used if `output` not provided.
+        #[clap(long)]
+        output: Option<PathBuf>,
 
-    /// Extra options to pass to Humility
-    #[clap(last = true)]
-    extra_options: Vec<String>,
-}
-
-#[derive(Clone, Debug, Parser, Default)]
-struct CabooseArgs {
-    /// Overrides the `VERS` string in the caboose.
-    ///
-    /// This is intended to be used when an engineering image must be
-    /// flashed in an environment that expects a particular caboose version.
-    ///
-    /// This environment variable is, naturally, ignored if the app.toml does
-    /// not have a [caboose] section.
-    #[clap(env = "HUBRIS_CABOOSE_VERS")]
-    version_override: Option<String>,
+        /// Invoke rustfmt. Requires `--output`.
+        #[clap(long, requires("output"))]
+        fmt: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -578,6 +551,12 @@ fn run(xtask: Xtask) -> Result<()> {
         Xtask::GhaPrepareArtifacts { cfg, attestation } => {
             gha_prepare_artifacts::run(&cfg, attestation.as_deref())?;
         }
+        Xtask::I2cCodegen {
+            cfg,
+            disposition,
+            output,
+            fmt,
+        } => i2c_codegen::run(&cfg, disposition, output.as_deref(), fmt)?,
     }
 
     Ok(())

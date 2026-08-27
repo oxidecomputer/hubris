@@ -426,8 +426,8 @@ fn generate_statics(generated: &Generated) -> Result<()> {
             pub static HUBRIS_IMAGE_ID: u64 = #image_id;
 
             static mut HUBRIS_TASK_TABLE_SPACE:
-                core::mem::MaybeUninit<[crate::task::Task; HUBRIS_TASK_COUNT]> =
-                core::mem::MaybeUninit::uninit();
+                [core::mem::MaybeUninit<crate::task::Task>; HUBRIS_TASK_COUNT] =
+                [const { core::mem::MaybeUninit::uninit() }; HUBRIS_TASK_COUNT];
         },
     )?;
 

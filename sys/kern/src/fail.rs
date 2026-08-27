@@ -47,9 +47,8 @@ fn begin_epitaph() -> &'static mut [u8; EPITAPH_LEN] {
     // Safety: we only access this function from this one site, and only zero or
     // one times in practice -- and never from a context where concurrency or
     // interrupts are enabled.
-    let previous_fail = unsafe {
-        core::ptr::replace(core::ptr::addr_of_mut!(KERNEL_HAS_FAILED), true)
-    };
+    let previous_fail =
+        unsafe { core::ptr::replace(&raw mut KERNEL_HAS_FAILED, true) };
     if previous_fail {
         // Welp, you've called begin_epitaph twice, suggesting a recursive
         // panic. We can't very well panic in response to this since it'll just
@@ -62,6 +61,10 @@ fn begin_epitaph() -> &'static mut [u8; EPITAPH_LEN] {
 
     // Safety: we can get a mutable reference to the epitaph because only one
     // execution of this function will successfully set that flag.
+    //
+    // NOTE: we still use `&mut *addr_of_mut!` here instead of `&mut` because of
+    // the `static_mut_refs` lint, and instead of `&mut *&raw mut` because of
+    // the `clippy::deref-addrof` lint.
     unsafe { &mut *core::ptr::addr_of_mut!(KERNEL_EPITAPH) }
 }
 

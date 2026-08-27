@@ -7,16 +7,16 @@ stacksize = 944
 
 [kernel]
 name = "demo-stm32g0-nucleo"
-requires = {flash = 19264, ram = 1632}
+requires = {flash = 19264, ram = 1640}
 features = ["g070"]
 stacksize = 640
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 4096, ram = 512}
+max-sizes = {flash = 4096, ram = 768}
 start = true
-stacksize = 416
+stacksize = 256
 notifications = ["fault", "timer"]
 
 [tasks.sys]
