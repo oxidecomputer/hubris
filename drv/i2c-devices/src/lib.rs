@@ -405,22 +405,9 @@ impl PmbusStatus {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct PmbusVpd<'buf> {
-    /// `MFR_ID` (PMBus operation 0x99)
-    pub mfr_id: Option<&'buf [u8]>,
-    /// `MFR_MODEL` (PMBus operation 0x9A)
-    pub mfr_model: Option<&'buf [u8]>,
-    /// `MFR_REVISION` (PMBus operation 0x9B)
-    pub mfr_revision: Option<&'buf [u8]>,
-    /// `MFR_LOCATION` (PMBus operation 0x9C)
-    pub mfr_location: Option<&'buf [u8]>,
-    /// `MFR_DATE` (PMBus operation 0x9D)
-    pub mfr_date: Option<&'buf [u8]>,
-    /// `MFR_SERIAL` (PMBus operation 0x9E)
-    pub mfr_serial: Option<&'buf [u8]>,
-    pub ic_device_id: Option<&'buf [u8]>,
-    pub ic_device_rev: Option<&'buf [u8]>,
+pub struct PmbusVpdReader<'dev> {
+    dev: &'dev I2cDevice,
+    caps: PmbusCapabilities,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -456,81 +443,53 @@ pub enum PmbusVpdCmd {
     IcDeviceRev = pmbus::CommandCode::IC_DEVICE_REV as u8,
 }
 
-impl<'buf> PmbusVpd<'buf> {
-    /// SMBus block reads may not be longer than 32 bytes.
-    const BLOCK_LEN: usize = 32;
-    /// Maximum length currently required to read a complete set of VPD
-    /// registers from a PMBus device.
-    ///
-    /// Currently, this is 8 32-byte blocks (one for each register that we may
-    /// read). If more values are added in the future, this will need to be
-    /// embiggened.
-    pub const BUF_LEN: usize = Self::BLOCK_LEN * 8;
-
-    /// Attempt to read a [`PmbusVpd`] from the given device.
-    pub fn try_read_from(
-        dev: &I2cDevice,
-        buf: &'buf mut [u8; PmbusVpd::BUF_LEN],
-        device_caps: PmbusCapabilities,
-    ) -> Result<Self, PmbusVpdError> {
-        use core::ops::Range;
-        // Keep the lines short
-        use PmbusCapabilities as Cap;
-        use PmbusVpdCmd as Cmd;
-
-        if !device_caps.supports_any(&Cap::ANY_VPD_REGS) {
-            return Err(PmbusVpdError::NoVpd);
+impl PmbusVpdCmd {
+    fn capability(&self) -> PmbusCapabilities {
+        match self {
+            Self::MfrId => PmbusCapabilities::MFR_ID,
+            Self::MfrModel => PmbusCapabilities::MFR_MODEL,
+            Self::MfrRevision => PmbusCapabilities::MFR_REVISION,
+            Self::MfrSerial => PmbusCapabilities::MFR_SERIAL,
+            Self::MfrLocation => PmbusCapabilities::MFR_LOCATION,
+            Self::MfrDate => PmbusCapabilities::MFR_DATE,
+            Self::IcDeviceId => PmbusCapabilities::IC_DEVICE_ID,
+            Self::IcDeviceRev => PmbusCapabilities::IC_DEVICE_REV,
         }
+    }
+}
 
-        let read = |cmd: Cmd,
-                    cap: Cap,
-                    buf: &mut [u8; PmbusVpd::BUF_LEN],
-                    curr_off: &mut usize|
-         -> Result<Option<Range<usize>>, PmbusVpdError> {
-            if !device_caps.supports(&cap) {
-                return Ok(None);
-            }
-            let off = *curr_off;
-            // PMBus block reads may not be longer than 32 bytes. Clamp this
-            // down as `drv_i2c_api` gets mad if it sees a lease of >255B.
-            let Some(block) = buf.get_mut(off..off + PmbusVpd::BLOCK_LEN)
-            else {
-                // This shouldn't ever happen as we never call this more than
-                // BUF_LEN * 8 times...
-                unreachable!();
-            };
-            let len = dev
-                .read_block(cmd, block)
-                .map_err(|err| PmbusVpdError::BadRead { cmd, err })?;
-            *curr_off += len;
-            Ok(Some(off..*curr_off))
-        };
+impl<'dev> PmbusVpdReader<'dev> {
+    /// SMBus block reads may not be longer than 32 bytes.
+    pub const BLOCK_LEN: usize = 32;
 
-        let mut off = 0;
-        let mfr_range = read(Cmd::MfrId, Cap::MFR_ID, buf, &mut off)?;
-        let model_range = read(Cmd::MfrModel, Cap::MFR_MODEL, buf, &mut off)?;
-        let rev_range =
-            read(Cmd::MfrRevision, Cap::MFR_REVISION, buf, &mut off)?;
-        let location_range =
-            read(Cmd::MfrLocation, Cap::MFR_LOCATION, buf, &mut off)?;
-        let date_range = read(Cmd::MfrDate, Cap::MFR_DATE, buf, &mut off)?;
-        let serial_range =
-            read(Cmd::MfrSerial, Cap::MFR_SERIAL, buf, &mut off)?;
-        let ic_id_range =
-            read(Cmd::IcDeviceId, Cap::IC_DEVICE_ID, buf, &mut off)?;
-        let ic_rev_range =
-            read(Cmd::IcDeviceRev, Cap::IC_DEVICE_REV, buf, &mut off)?;
+    pub fn new(
+        device: &'dev I2cDevice,
+        device_capabilities: PmbusCapabilities,
+    ) -> Self {
+        Self {
+            dev: device,
+            caps: device_capabilities,
+        }
+    }
 
-        Ok(Self {
-            mfr_id: mfr_range.map(|r| &buf[r]),
-            mfr_model: model_range.map(|r| &buf[r]),
-            mfr_revision: rev_range.map(|r| &buf[r]),
-            mfr_location: location_range.map(|r| &buf[r]),
-            mfr_date: date_range.map(|r| &buf[r]),
-            mfr_serial: serial_range.map(|r| &buf[r]),
-            ic_device_id: ic_id_range.map(|r| &buf[r]),
-            ic_device_rev: ic_rev_range.map(|r| &buf[r]),
-        })
+    /// Attempt to read a PMBus VPD block register from the given device into
+    /// the provided buffer, returning the number of bytes read (or `None`,
+    /// indicating that the device does not support that register).
+    ///
+    /// This does not first zero the buffer. If you want it to be zeroed, you
+    /// must first do that.
+    pub fn try_read(
+        &self,
+        command: PmbusVpdCmd,
+        buf: &mut [u8; PmbusVpdReader::BLOCK_LEN],
+    ) -> Result<Option<usize>, PmbusVpdError> {
+        if !self.caps.supports(&cap) {
+            return Ok(None);
+        }
+        self.dev
+            .read_block(cmd, block)
+            .map_err(|err| PmbusVpdError::BadRead { cmd, err })
+            .map(Some)
     }
 }
 
