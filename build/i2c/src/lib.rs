@@ -74,6 +74,7 @@ struct I2cController {
 // a controller *and* a named bus), so the validation code should go to
 // additional lengths to assure that these mistakes are caught in compilation.
 //
+
 #[derive(Clone, Debug, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
@@ -107,6 +108,10 @@ struct I2cDevice {
 
     /// description of device
     description: String,
+
+    /// Overrides the default VPD representation for this device.
+    #[serde(default)]
+    vpd: EepromVpd,
 
     /// reference designator, if any
     refdes: Option<Refdes>,
@@ -733,8 +738,12 @@ impl ConfigGenerator {
                     }
                     (_, _) => {}
                 }
-                if d.vpd_mode != VpdMode::Default {
-                    assert!(d.device == "at24csw080")
+                if d.vpd == EepromVpd::FanAssembly {
+                    assert!(
+                        d.device == "at24csw080",
+                        "device {} declares fan assembly VPD but is not an AT24CSW080",
+                        d.device,
+                    );
                 }
             }
         }
@@ -1199,6 +1208,29 @@ impl ConfigGenerator {
             r##"
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
+        pub fn device_by_index(
+            task: TaskId,
+            index: usize,
+        ) -> Option<I2cDevice> {{
+            match index {{"##,
+        )?;
+
+        // These indices are shared with `device_descriptions()` and the
+        // generated validation dispatch.
+        for (index, device) in self.devices.iter().enumerate() {
+            let out = self.generate_device(device, 20);
+            writeln!(&mut self.output, "{index} => Some({out}),")?;
+        }
+
+        write!(
+            &mut self.output,
+            r##"
+                _ => None,
+            }}
+        }}
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
         pub fn lookup_controller(index: usize) -> Option<Controller> {{
             match index {{"##
         )?;
@@ -1475,13 +1507,9 @@ impl ConfigGenerator {
         output: &mut String,
     ) -> Result<()> {
         let mut byrail = HashMap::new();
-        let mut pmbus_devices = Vec::new();
 
-        for (device_index, d) in self.devices.iter().enumerate() {
+        for d in &self.devices {
             if let Some(power) = &d.power {
-                if which == PowerDevices::PMBus && power.pmbus {
-                    pmbus_devices.push((device_index, d));
-                }
                 if power.pmbus && which != PowerDevices::PMBus {
                     continue;
                 }
@@ -1524,14 +1552,7 @@ impl ConfigGenerator {
             }
         }
 
-        //
-        // N.B. that if we are generating PMBus devices, we must always generate
-        // the `i2c_config::pmbus` module and the `device_by_index` function
-        // within it, even if we shall generate no actual PMBus devices. In this
-        // case, that function will just always return `None`, which is the
-        // right thing for it to do if there are no PMBus thingies on the board.
-        //
-        if which == PowerDevices::PMBus || !byrail.is_empty() {
+        if !byrail.is_empty() {
             write!(
                 output,
                 r##"
@@ -1545,45 +1566,6 @@ impl ConfigGenerator {
                     PowerDevices::NonPMBus => "power",
                 }
             )?;
-
-            if which == PowerDevices::PMBus {
-                let must_consume_task = if byrail.is_empty() {
-                    // don't get lmaoed by the linter
-                    "let _ = task;"
-                } else {
-                    ""
-                };
-                write!(
-                    &mut self.output,
-                    r##"
-        #[allow(dead_code)]
-        #[allow(clippy::match_single_binding)]
-        pub fn device_by_index(
-            task: TaskId,
-            index: usize,
-        ) -> Option<I2cDevice> {{
-            {must_consume_task}
-            match index {{"##,
-                )?;
-
-                // These indices are shared with `device_descriptions()` and are
-                // used to look up the I2C device corresponding to an index in
-                // the device descriptions array in `task-validate-api`'s
-                // codegen.
-                for (index, device) in &pmbus_devices {
-                    let out = self.generate_device(device, 20);
-                    writeln!(&mut self.output, "{index} => Some({out}),")?;
-                }
-
-                writeln!(
-                    &mut self.output,
-                    r##"
-                _ => None,
-            }}
-        }}
-"##,
-                )?;
-            }
 
             let mut all: Vec<_> = byrail.iter().collect();
             all.sort();
@@ -2081,6 +2063,7 @@ pub struct I2cDeviceDescription {
     pub device_id: Option<String>,
     pub name: Option<String>,
     pub validate_with_raw_read: bool,
+    pub vpd: EepromVpd,
     /// If this is a PMBus device, this field contains additional data about the
     /// PMBus device to be used for generating PMBus-y code.
     pub pmbus: Option<PmbusDeviceDescription>,
@@ -2174,6 +2157,7 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
                 device_id,
                 name: device.name,
                 validate_with_raw_read: device.validate_with_raw_read,
+                vpd: device.vpd,
                 pmbus,
             }
         },

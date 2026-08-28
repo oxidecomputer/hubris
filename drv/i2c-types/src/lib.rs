@@ -276,11 +276,10 @@ pub enum Segment {
     S16 = 16,
 }
 
-/// Type that denotes the STATUS registers supported for a given PMBus
-/// device
+/// Describes the status and VPD registers supported by a PMBus device.
 ///
-/// This is typically code-generated at build time using information
-/// from the `pmbus` crate.
+/// This is typically code-generated at build time using information from the
+/// `pmbus` crate.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct PmbusCapabilities(pub u32);
 
@@ -307,7 +306,7 @@ impl PmbusCapabilities {
     pub const IC_DEVICE_ID: Self = Self(1 << 16);
     pub const IC_DEVICE_REV: Self = Self(1 << 17);
 
-    /// Bitmask for selecting *all* potential VPD register capa
+    /// Bitmask for selecting all potential VPD register capabilities.
     pub const ANY_VPD_REGS: Self = Self(
         // XXX(eliza): this might be less gross if we just used the
         // bitflags crate for this...

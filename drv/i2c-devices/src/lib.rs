@@ -410,18 +410,6 @@ pub struct PmbusVpdReader<'dev> {
     caps: PmbusCapabilities,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
-pub enum PmbusVpdError {
-    /// The device does not support any PMBus VPD registers.
-    NoVpd,
-    BadRead {
-        cmd: PmbusVpdCmd,
-        #[cfg_attr(feature = "counters", count(children))]
-        err: drv_i2c_api::ResponseCode,
-    },
-}
-
 #[derive(
     Copy,
     Clone,
@@ -482,14 +470,11 @@ impl<'dev> PmbusVpdReader<'dev> {
         &self,
         cmd: PmbusVpdCmd,
         buf: &mut [u8; PmbusVpdReader::BLOCK_LEN],
-    ) -> Result<Option<usize>, PmbusVpdError> {
+    ) -> Result<Option<usize>, drv_i2c_api::ResponseCode> {
         if !self.caps.supports(&cmd.capability()) {
             return Ok(None);
         }
-        self.dev
-            .read_block(cmd, buf)
-            .map_err(|err| PmbusVpdError::BadRead { cmd, err })
-            .map(Some)
+        self.dev.read_block(cmd, buf).map(Some)
     }
 }
 

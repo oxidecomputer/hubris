@@ -63,6 +63,17 @@ pub enum Sensor {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum VpdKind {
+    Pmbus = 1,
+    Barcode,
+    FanAssembly,
+    Tmp117,
+}
+
+const _: () = assert!(core::mem::size_of::<Option<VpdKind>>() == 1);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SensorDescription {
     pub name: Option<&'static str>,
     pub kind: Sensor,
@@ -76,6 +87,7 @@ pub struct DeviceDescription {
     pub sensors: &'static [SensorDescription],
     pub id: &'static str,
     pub pmbus_capabilities: Option<PmbusCapabilities>,
+    pub vpd: Option<VpdKind>,
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));

@@ -769,7 +769,7 @@ impl MgsCommon {
         // Yep! Call the i2c-generated function to get back an I2cDevice
         // and the rail index necessary to call the status function
         let info = &crate::pmbus::PMBUS_RAIL_TO_I2C_DEVICE_MAP[idx];
-        let device = crate::i2c_config::pmbus::device_by_index(
+        let device = crate::i2c_config::devices::device_by_index(
             crate::I2C.get_task_id(),
             info.device_index,
         )

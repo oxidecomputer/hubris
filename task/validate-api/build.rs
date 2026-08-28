@@ -79,6 +79,19 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
         } else {
             None
         };
+        let vpd = if pmbus_capabilities.is_some_and(|caps| {
+            caps.supports_any(&PmbusCapabilities::ANY_VPD_REGS)
+        }) {
+            Some("Pmbus")
+        } else if dev.device == "at24csw080" {
+            Some(match dev.vpd {
+                build_i2c::EepromVpd::SingleBarcode => "Barcode",
+                build_i2c::EepromVpd::FanAssembly => "FanAssembly",
+            })
+        } else {
+            None
+        };
+
         writeln!(file, "    DeviceDescription {{")?;
         writeln!(file, "        device: {:?},", dev.device)?;
         writeln!(file, "        description: {:?},", dev.description)?;
@@ -110,6 +123,10 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
                 caps.0,
             )?,
             None => writeln!(file, "        pmbus_capabilities: None,")?,
+        }
+        match vpd {
+            Some(vpd) => writeln!(file, "        vpd: Some(VpdKind::{vpd}),")?,
+            None => writeln!(file, "        vpd: None,")?,
         }
         writeln!(file, "        sensors: &[")?;
         for s in dev.sensors {
@@ -171,8 +188,7 @@ macro_rules! set_if_pmbus_read_illegal {
     }};
 }
 
-/// For a given device, calculate the `PmbusCapabilities` for each of the
-/// status registers.
+/// Calculates the supported PMBus status and VPD registers for a device.
 ///
 /// The pmbus functions are not const, so generate a closure instead.
 macro_rules! pmbus_generator {
