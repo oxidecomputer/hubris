@@ -51,6 +51,8 @@ task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
 task-packrat-api = { path = "../packrat-api" }
 task-sensor-api = { path = "../sensor-api" }
 task-validate-api = { path = "../validate-api" }
+tlvc = {workspace = true }
+oxide-barcode = { path = "../../lib/oxide-barcode" }
 update-buffer = { path = "../../lib/update-buffer" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static-cell = { path = "../../lib/static-cell" }

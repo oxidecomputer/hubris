@@ -3,15 +3,17 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_i2c_api::PmbusCapabilities;
+use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_i2c_devices::{PmbusVpdCmd, PmbusVpdError, PmbusVpdReader};
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
 use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
+use gateway_messages::vpd::FanAssemblyIdentity;
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
     VpdError,
-    vpd::{PmbusVpd, VpdRef},
+    vpd::{PmbusVpd, VpdRef, },
 };
 use static_cell::ClaimOnceCell;
 use task_sensor_api::Sensor as SensorTask;
@@ -26,23 +28,30 @@ userlib::task_slot!(SENSOR, sensor);
 pub(crate) struct Inventory {
     validate_task: Validate,
     sensor_task: SensorTask,
-    pmbus_vpd: &'static mut PmbusVpd,
+    vpd_bufs: &'static mut VpdBufs,
+}
+
+struct VpdBufs {
+    pmbus: PmbusVpd,
+    barcode: [u8; oxide_barcode::VpdIdentity::MAX_LEN],
 }
 
 impl Inventory {
     pub(crate) fn new() -> Self {
         let () = devices_with_static_validation::ASSERT_EACH_DEVICE_FITS_IN_ONE_PACKET;
 
-        // A single static copy of the `PmbusVpd` struct into which we shall
+        // A single static copy of the VPD structures into which we shall
         // read the PMBus blocks, and from which we shall serialzie it when
         // reading VPD. This keeps the rather big struct off our stack.
-        static PMBUS_VPD: ClaimOnceCell<PmbusVpd> =
-            ClaimOnceCell::new(PmbusVpd::EMPTY);
+        static VPD_BUFS: ClaimOnceCell<VpdBufs> = ClaimOnceCell::new(VpdBufs {
+            pmbus: PmbusVpd::EMPTY,
+            barcode: [0u8; oxide_barcode::VpdIdentity::MAX_LEN],
+        });
 
         Self {
             validate_task: Validate::from(VALIDATE.get_task_id()),
             sensor_task: SensorTask::from(SENSOR.get_task_id()),
-            pmbus_vpd: PMBUS_VPD.claim(),
+            vpd_bufs: VPD_BUFS.claim(),
         }
     }
 
@@ -176,11 +185,12 @@ impl Inventory {
         else {
             return Err(SpError::RequestUnsupportedForComponent);
         };
+        let device = VALIDATE_DEVICES
+            .get(device_index)
+            .unwrap_or(SpError::RequestUnsupportedForComponent)?;
 
         // Is this a PMBus device?
-        let vpd = if let Some(capabilities) =
-            VALIDATE_DEVICES[device_index].pmbus_capabilities
-        {
+        let vpd = if let Some(capabilities) = device.pmbus_capabilities {
             // Does it have any VPD registers?
             if !capabilities.supports_any(&PmbusCapabilities::ANY_VPD_REGS) {
                 return Err(SpError::RequestUnsupportedForComponent);
@@ -199,20 +209,7 @@ impl Inventory {
             let map_read_error = |err| match err {
                 PmbusVpdError::NoVpd => SpError::RequestUnsupportedForComponent,
                 PmbusVpdError::BadRead { cmd: _, err } => {
-                    SpError::Vpd(match err {
-                        drv_i2c_api::ResponseCode::NoDevice => {
-                            VpdError::NotPresent
-                        }
-                        drv_i2c_api::ResponseCode::NoRegister => {
-                            VpdError::Unavailable
-                        }
-                        drv_i2c_api::ResponseCode::BusLocked
-                        | drv_i2c_api::ResponseCode::BusLockedMux
-                        | drv_i2c_api::ResponseCode::ControllerBusy => {
-                            VpdError::DeviceTimeout
-                        }
-                        _ => VpdError::DeviceError,
-                    })
+                    SpError::Vpd(i2c_error_to_vpd_error(err))
                 }
             };
 
@@ -241,6 +238,25 @@ impl Inventory {
                 .read_into(|buf| reader.try_read(PmbusVpdCmd::IcDeviceRev, buf))
                 .map_err(map_read_error)?;
             VpdRef::Pmbus(&*vpd)
+        } else if device.device == "at24csw080" {
+            let barcode_buf = &mut self.barcode[..];
+            let eeprom = At24Csw080::new(dev);
+            match drv_oxide_vpd::read_config_nested_from_into(
+                eeprom,
+                &[(*b"SASY", 0), (*b"BARC", 0)],
+                &mut barcode_buf[..],
+            ) {
+                Err(drv_oxide_vpd::VpdError::NoSuchChunk(_)) => {
+                    // Not a fan tray EEPROM, read the top level barcode.
+                    todo!()
+                }
+                Err(e) => {
+                    return Err(SpError::Vpd(convert_vpd_error(e)));
+                },
+                Ok(n) => {
+                    todo!()
+                }
+            }
         } else {
             // ...for now
             return Err(SpError::RequestUnsupportedForComponent);
@@ -309,6 +325,35 @@ impl TryFrom<&'_ SpComponent> for Index {
             }
         }
         Err(SpError::RequestUnsupportedForComponent)
+    }
+}
+)
+
+fn convert_vpd_error(err: drv_oxide_vpd::VpdError) -> VpdError {
+    match err {
+        drv_oxide_vpd::VpdError::ErrorOnBegin(err)
+        | drv_oxide_vpd::VpdError::ErrorOnRead(err)
+        | drv_oxide_vpd::VpdError::ErrorOnNext(err)
+        | drv_oxide_vpd::VpdError::InvalidChecksum(err) => match err {
+            tlvc::TlvcReadError::User(EepromError::I2cError(err)) => {
+                i2c_error_to_vpd_error(err)
+            }
+            _ => VpdError::BadRead,
+        },
+        _ => VpdError::DeviceFailed,
+    }
+}
+
+fn i2c_error_to_vpd_error(
+    err: drv_i2c_api::ResponseCode,
+) -> gateway_messages::VpdError {
+    match err {
+        drv_i2c_api::ResponseCode::NoDevice => VpdError::NotPresent,
+        drv_i2c_api::ResponseCode::NoRegister => VpdError::Unavailable,
+        drv_i2c_api::ResponseCode::BusLocked
+        | drv_i2c_api::ResponseCode::BusLockedMux
+        | drv_i2c_api::ResponseCode::ControllerBusy => VpdError::DeviceTimeout,
+        _ => VpdError::DeviceError,
     }
 }
 

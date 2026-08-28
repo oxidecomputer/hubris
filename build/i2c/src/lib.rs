@@ -577,6 +577,25 @@ impl std::fmt::Display for Sensor {
     }
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Deserialize,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Default,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum EepromVpd {
+    #[default]
+    SingleBarcode,
+    FanAssembly,
+}
+
 #[derive(PartialEq)]
 enum PowerDevices {
     /// PMBus power devices
@@ -713,6 +732,9 @@ impl ConfigGenerator {
                         );
                     }
                     (_, _) => {}
+                }
+                if d.vpd_mode != VpdMode::Default {
+                    assert!(d.device == "at24csw080")
                 }
             }
         }
