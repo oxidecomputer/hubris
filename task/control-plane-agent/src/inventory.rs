@@ -15,7 +15,7 @@ use gateway_messages::vpd::FanAssemblyVpd;
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
     VpdError,
-    vpd::{Barcode, BarcodeReadError, PmbusVpd, VpdRef},
+    vpd::{Barcode, BarcodeReadError, PmbusVpd, Tmp117Identity, VpdRef},
 };
 use static_cell::ClaimOnceCell;
 use task_sensor_api::Sensor as SensorTask;
@@ -260,10 +260,7 @@ impl Inventory {
                 VpdRef::Barcode(&*out)
             }
             VpdKind::FanAssembly => self.read_fan_tray_vpd(&dev)?,
-            VpdKind::Tmp117 => {
-                // TODO(eliza): draw the rest of the tmp117
-                return Err(SpError::RequestUnsupportedForComponent);
-            }
+            VpdKind::Tmp117 => return read_tmp117_vpd(&dev, buf),
         };
 
         hubpack::serialize(buf, &vpd)
@@ -301,6 +298,22 @@ impl Inventory {
         // Only compute sleds should have EEPROMs configured as fan tray VPD.
         Err(SpError::RequestUnsupportedForSp)
     }
+}
+
+fn read_tmp117_vpd(dev: &I2cDevice, buf: &mut [u8]) -> Result<usize, SpError> {
+    let read = |register| {
+        dev.read_reg(register)
+            .map_err(i2c_error_to_vpd_error)
+            .map_err(SpError::Vpd)
+    };
+    let vpd = Tmp117Identity {
+        id: read(0x0f_u8)?,
+        eeprom1: read(0x05_u8)?,
+        eeprom2: read(0x06_u8)?,
+        eeprom3: read(0x08_u8)?,
+    };
+    hubpack::serialize(buf, &VpdRef::Tmp117(&vpd))
+        .map_err(|_| SpError::Vpd(VpdError::BadBuffer))
 }
 
 fn read_one_barcode(

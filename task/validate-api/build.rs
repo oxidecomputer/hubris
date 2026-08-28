@@ -88,6 +88,8 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
                 build_i2c::EepromVpd::SingleBarcode => "Barcode",
                 build_i2c::EepromVpd::FanAssembly => "FanAssembly",
             })
+        } else if dev.device == "tmp117" {
+            Some("Tmp117")
         } else {
             None
         };
