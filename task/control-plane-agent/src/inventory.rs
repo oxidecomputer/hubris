@@ -146,10 +146,15 @@ impl Inventory {
 
         let mut capabilities = DeviceCapabilities::empty();
         if let Some(pmbus_caps) = device.pmbus_capabilities {
+            // If this is a PMBus thing, set the PMBus capability bit...
             capabilities |= DeviceCapabilities::IS_PMBUS;
+            // ...and if it supports any PMBus VPD commands, set that as well.
             if pmbus_caps.supports_any(&PmbusCapabilities::ANY_VPD_REGS) {
                 capabilities |= DeviceCapabilities::HAS_VPD;
             }
+        } else if device.device == AT24CSW080 {
+            // Otherwise, if this is an EEPROM, it also supports VPD.
+            capabilities |= DeviceCapabilities::HAS_VPD;
         }
         if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
@@ -238,7 +243,7 @@ impl Inventory {
                 .read_into(|buf| reader.try_read(PmbusVpdCmd::IcDeviceRev, buf))
                 .map_err(map_read_error)?;
             VpdRef::Pmbus(&*vpd)
-        } else if device.device == "at24csw080" {
+        } else if device.device == "AT24CSW080" {
             let barcode_buf = &mut self.barcode[..];
             let eeprom = At24Csw080::new(dev);
             match drv_oxide_vpd::read_config_nested_from_into(
@@ -266,6 +271,8 @@ impl Inventory {
             .map_err(|_| SpError::Vpd(VpdError::BadBuffer))
     }
 }
+
+const AT24CSW080: &str = "at24csw080";
 
 // Our parent deals primarily in overall device indices (`0..num_devices()`),
 // but internally we partition that into `[OUR_DEVICES | VALIDATE_DEVICES]`.
