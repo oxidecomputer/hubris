@@ -480,14 +480,14 @@ impl<'dev> PmbusVpdReader<'dev> {
     /// must first do that.
     pub fn try_read(
         &self,
-        command: PmbusVpdCmd,
+        cmd: PmbusVpdCmd,
         buf: &mut [u8; PmbusVpdReader::BLOCK_LEN],
     ) -> Result<Option<usize>, PmbusVpdError> {
-        if !self.caps.supports(&cap) {
+        if !self.caps.supports(&cmd.capability()) {
             return Ok(None);
         }
         self.dev
-            .read_block(cmd, block)
+            .read_block(cmd, buf)
             .map_err(|err| PmbusVpdError::BadRead { cmd, err })
             .map(Some)
     }
