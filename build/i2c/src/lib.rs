@@ -1502,11 +1502,19 @@ impl ConfigGenerator {
             }
         }
 
-        if !byrail.is_empty() || !pmbus_devices.is_empty() {
+        //
+        // N.B. that if we are generating PMBus devices, we must always generate
+        // the `i2c_config::pmbus` module and the `device_by_index` function
+        // within it, even if we shall generate no actual PMBus devices. In this
+        // case, that function will just always return `None`, which is the
+        // right thing for it to do if there are no PMBus thingies on the board.
+        //
+        if which == PowerDevices::PMBus || !byrail.is_empty() {
             write!(
                 output,
                 r##"
     pub mod {} {{
+        #[allow(unused_imports)]
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
         use userlib::TaskId;
 "##,
@@ -1517,6 +1525,12 @@ impl ConfigGenerator {
             )?;
 
             if which == PowerDevices::PMBus {
+                let must_consume_task = if byrail.is_empty() {
+                    // don't get lmaoed by the linter
+                    "let _ = task;"
+                } else {
+                    ""
+                };
                 write!(
                     &mut self.output,
                     r##"
@@ -1526,6 +1540,7 @@ impl ConfigGenerator {
             task: TaskId,
             index: usize,
         ) -> Option<I2cDevice> {{
+            {must_consume_task}
             match index {{"##,
                 )?;
 

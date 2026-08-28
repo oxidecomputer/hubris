@@ -3,13 +3,17 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_i2c_api::PmbusCapabilities;
+use drv_i2c_devices::{PmbusVpdCmd, PmbusVpdError, PmbusVpdReader};
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
 use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
+    VpdError,
+    vpd::{PmbusVpd, VpdRef},
 };
+use static_cell::ClaimOnceCell;
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
 use task_validate_api::{DEVICES as VALIDATE_DEVICES, Sensor};
@@ -22,35 +26,28 @@ userlib::task_slot!(SENSOR, sensor);
 pub(crate) struct Inventory {
     validate_task: Validate,
     sensor_task: SensorTask,
+    pmbus_vpd: &'static mut PmbusVpd,
 }
 
 impl Inventory {
     pub(crate) fn new() -> Self {
         let () = devices_with_static_validation::ASSERT_EACH_DEVICE_FITS_IN_ONE_PACKET;
 
+        // A single static copy of the `PmbusVpd` struct into which we shall
+        // read the PMBus blocks, and from which we shall serialzie it when
+        // reading VPD. This keeps the rather big struct off our stack.
+        static PMBUS_VPD: ClaimOnceCell<PmbusVpd> =
+            ClaimOnceCell::new(PmbusVpd::EMPTY);
+
         Self {
             validate_task: Validate::from(VALIDATE.get_task_id()),
             sensor_task: SensorTask::from(SENSOR.get_task_id()),
+            pmbus_vpd: PMBUS_VPD.claim(),
         }
     }
 
     pub(crate) fn num_devices(&self) -> usize {
         OUR_DEVICES.len() + VALIDATE_DEVICES.len()
-    }
-
-    /// Returns the generated device index and PMBus capabilities for a component.
-    pub(crate) fn pmbus_device(
-        &self,
-        component: &SpComponent,
-    ) -> Result<(usize, PmbusCapabilities), SpError> {
-        let Index::ValidateDevice(index) = Index::try_from(component)? else {
-            return Err(SpError::RequestUnsupportedForComponent);
-        };
-        let Some(capabilities) = VALIDATE_DEVICES[index].pmbus_capabilities
-        else {
-            return Err(SpError::RequestUnsupportedForComponent);
-        };
-        Ok((index, capabilities))
     }
 
     pub(crate) fn num_component_details<F>(
@@ -168,6 +165,89 @@ impl Inventory {
             capabilities,
             presence,
         }
+    }
+
+    pub(crate) fn component_vpd(
+        &mut self,
+        component: &SpComponent,
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
+        let Index::ValidateDevice(device_index) = Index::try_from(component)?
+        else {
+            return Err(SpError::RequestUnsupportedForComponent);
+        };
+
+        // Is this a PMBus device?
+        let vpd = if let Some(capabilities) =
+            VALIDATE_DEVICES[device_index].pmbus_capabilities
+        {
+            // Does it have any VPD registers?
+            if !capabilities.supports_any(&PmbusCapabilities::ANY_VPD_REGS) {
+                return Err(SpError::RequestUnsupportedForComponent);
+            }
+
+            let device = crate::i2c_config::pmbus::device_by_index(
+                crate::I2C.get_task_id(),
+                device_index,
+            )
+            // Inventory and I2C device descriptions share indices, so a PMBus
+            // inventory entry must have a generated I2C device.
+            .unwrap_lite();
+            let reader = PmbusVpdReader::new(&device, capabilities);
+            let vpd = &mut *self.pmbus_vpd;
+
+            let map_read_error = |err| match err {
+                PmbusVpdError::NoVpd => SpError::RequestUnsupportedForComponent,
+                PmbusVpdError::BadRead { cmd: _, err } => {
+                    SpError::Vpd(match err {
+                        drv_i2c_api::ResponseCode::NoDevice => {
+                            VpdError::NotPresent
+                        }
+                        drv_i2c_api::ResponseCode::NoRegister => {
+                            VpdError::Unavailable
+                        }
+                        drv_i2c_api::ResponseCode::BusLocked
+                        | drv_i2c_api::ResponseCode::BusLockedMux
+                        | drv_i2c_api::ResponseCode::ControllerBusy => {
+                            VpdError::DeviceTimeout
+                        }
+                        _ => VpdError::DeviceError,
+                    })
+                }
+            };
+
+            vpd.mfr_id
+                .read_into(|buf| reader.try_read(PmbusVpdCmd::MfrId, buf))
+                .map_err(map_read_error)?;
+            vpd.mfr_model
+                .read_into(|buf| reader.try_read(PmbusVpdCmd::MfrModel, buf))
+                .map_err(map_read_error)?;
+            vpd.mfr_revision
+                .read_into(|buf| reader.try_read(PmbusVpdCmd::MfrRevision, buf))
+                .map_err(map_read_error)?;
+            vpd.mfr_location
+                .read_into(|buf| reader.try_read(PmbusVpdCmd::MfrLocation, buf))
+                .map_err(map_read_error)?;
+            vpd.mfr_date
+                .read_into(|buf| reader.try_read(PmbusVpdCmd::MfrDate, buf))
+                .map_err(map_read_error)?;
+            vpd.mfr_serial
+                .read_into(|buf| reader.try_read(PmbusVpdCmd::MfrSerial, buf))
+                .map_err(map_read_error)?;
+            vpd.ic_device_id
+                .read_into(|buf| reader.try_read(PmbusVpdCmd::IcDeviceId, buf))
+                .map_err(map_read_error)?;
+            vpd.ic_device_rev
+                .read_into(|buf| reader.try_read(PmbusVpdCmd::IcDeviceRev, buf))
+                .map_err(map_read_error)?;
+            VpdRef::Pmbus(&*vpd)
+        } else {
+            // ...for now
+            return Err(SpError::RequestUnsupportedForComponent);
+        };
+
+        hubpack::serialize(buf, &vpd)
+            .map_err(|_| SpError::Vpd(VpdError::BadBuffer))
     }
 }
 

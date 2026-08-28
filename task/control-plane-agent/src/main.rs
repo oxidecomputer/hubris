@@ -143,6 +143,7 @@ enum MgsMessage {
         component: SpComponent,
     },
     GetPowerState,
+    GetPowerStateWithReason,
     SetPowerState(PowerState),
     Inventory,
     HostPhase2Data {
@@ -157,6 +158,9 @@ enum MgsMessage {
     GetStartupOptions,
     SetStartupOptions(gateway_messages::StartupOptions),
     ComponentDetails {
+        component: SpComponent,
+    },
+    ComponentGetVpd {
         component: SpComponent,
     },
     ComponentClearStatus {

@@ -717,6 +717,15 @@ impl SpHandler for MgsHandler {
         self.power_state_impl()
     }
 
+    fn power_state_with_reason(
+        &mut self,
+    ) -> Result<gateway_messages::PowerStateWithReason, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::GetPowerStateWithReason
+        ));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
     fn set_power_state(
         &mut self,
         sender: Sender<VLanId>,
@@ -1143,6 +1152,14 @@ impl SpHandler for MgsHandler {
     ) -> Result<usize, SpError> {
         self.common
             .get_component_caboose_value(component, slot, key, buf)
+    }
+
+    fn component_get_vpd(
+        &mut self,
+        component: SpComponent,
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
+        self.common.component_get_vpd(component, buf)
     }
 
     fn reset_component_prepare(

@@ -36,7 +36,7 @@ use task_control_plane_agent_api::OxideIdentity;
 use task_net_api::MacAddress;
 use task_packrat_api::Packrat;
 use task_sensor_api::{Sensor, SensorId};
-use userlib::{kipc, sys_get_timer, task_slot};
+use userlib::{UnwrapLite, kipc, sys_get_timer, task_slot};
 
 task_slot!(SENSOR, sensor);
 task_slot!(pub PACKRAT, packrat);
@@ -235,6 +235,18 @@ impl MgsCommon {
             }
             _ => Err(GwSpError::RequestUnsupportedForComponent),
         }
+    }
+
+    pub(crate) fn component_get_vpd(
+        &mut self,
+        component: SpComponent,
+        buf: &mut [u8],
+    ) -> Result<usize, GwSpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentGetVpd {
+            component
+        }));
+
+        self.inventory.component_vpd(&component, buf)
     }
 
     /// If the targeted component is the SP_ITSELF, then having reset itself,
