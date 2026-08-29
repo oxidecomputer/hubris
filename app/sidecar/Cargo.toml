@@ -16,6 +16,7 @@ stm32h7 = { workspace = true, features = ["rt", "stm32h753"] }
 
 drv-stm32h7-startup = { path = "../../drv/stm32h7-startup", features = ["h753"] }
 kern = { path = "../../sys/kern" }
+hubris-ptime = { path = "../../sys/ptime" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
