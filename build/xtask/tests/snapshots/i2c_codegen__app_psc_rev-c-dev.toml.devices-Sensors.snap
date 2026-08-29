@@ -11,6 +11,155 @@ pub mod devices {
 
     #[allow(dead_code)]
     #[allow(clippy::match_single_binding)]
+    pub fn device_by_index(task: TaskId, index: usize) -> Option<I2cDevice> {
+        match index {
+            0 => Some(
+                // Temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ),
+            ),
+            1 => Some(
+                // FRU ID EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ),
+            2 => Some(
+                // PSU 0 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ),
+            3 => Some(
+                // PSU 0 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x58,
+                ),
+            ),
+            4 => Some(
+                // PSU 1 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x51,
+                ),
+            ),
+            5 => Some(
+                // PSU 1 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x59,
+                ),
+            ),
+            6 => Some(
+                // PSU 2 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x52,
+                ),
+            ),
+            7 => Some(
+                // PSU 2 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5a,
+                ),
+            ),
+            8 => Some(
+                // PSU 3 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x53,
+                ),
+            ),
+            9 => Some(
+                // PSU 3 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5b,
+                ),
+            ),
+            10 => Some(
+                // PSU 4 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x54,
+                ),
+            ),
+            11 => Some(
+                // PSU 4 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5c,
+                ),
+            ),
+            12 => Some(
+                // PSU 5 EEPROM
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x55,
+                ),
+            ),
+            13 => Some(
+                // PSU 5 MCU
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5d,
+                ),
+            ),
+
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
     pub fn lookup_controller(index: usize) -> Option<Controller> {
         match index {
             0..=1 => Some(Controller::I2C2),

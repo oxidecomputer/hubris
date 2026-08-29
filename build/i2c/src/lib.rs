@@ -1219,11 +1219,11 @@ impl ConfigGenerator {
         // generated validation dispatch.
         for (index, device) in self.devices.iter().enumerate() {
             let out = self.generate_device(device, 20);
-            writeln!(&mut self.output, "{index} => Some({out}),")?;
+            writeln!(output, "{index} => Some({out}),")?;
         }
 
         write!(
-            &mut self.output,
+            output,
             r##"
                 _ => None,
             }}
@@ -1557,7 +1557,6 @@ impl ConfigGenerator {
                 output,
                 r##"
     pub mod {} {{
-        #[allow(unused_imports)]
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
         use userlib::TaskId;
 "##,
