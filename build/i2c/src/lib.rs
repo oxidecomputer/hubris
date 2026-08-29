@@ -1203,13 +1203,18 @@ impl ConfigGenerator {
 "##
         )?;
 
+        let task_arg = if self.devices.is_empty() {
+            "_task"
+        } else {
+            "task"
+        };
         write!(
             output,
             r##"
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
         pub fn device_by_index(
-            task: TaskId,
+            {task_arg}: TaskId,
             index: usize,
         ) -> Option<I2cDevice> {{
             match index {{"##,

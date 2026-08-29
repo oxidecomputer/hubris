@@ -39,6 +39,9 @@ fn snapshot() {
         Path::new("app/sidecar/rev-d-dev.toml"),
         Path::new("app/observer/rev-a-dev.toml"),
         Path::new("app/psc/rev-c-dev.toml"),
+        // Generating a Gimletlet image is interesting as Gimletlet is
+        // representative of boards which have no PMBus devices.
+        Path::new("app/gimletlet/app-meanwell.toml"),
     ];
 
     // TODO: Some analysis and generation is gated in either `new_with_config`
@@ -90,7 +93,7 @@ fn snapshot() {
         for (case, disp, f) in funcs {
             let name = manifest.to_string_lossy().replace("/", "_");
             let name = format!("{name}.{case}-{disp:?}");
-            snapshot_file::<()>(*manifest, &tempdir, disp, &name, *f);
+            snapshot_file::<()>(manifest, &tempdir, disp, &name, *f);
         }
 
         // Handle `generate_sensors` separately because it returns data in
@@ -101,7 +104,7 @@ fn snapshot() {
         let name = format!("{name}.{case}-{disp:?}");
 
         let desc = snapshot_file::<I2cSensorsDescription>(
-            *manifest,
+            manifest,
             &tempdir,
             &disp,
             &name,
