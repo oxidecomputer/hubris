@@ -739,10 +739,15 @@ impl ConfigGenerator {
                     (_, _) => {}
                 }
                 if d.vpd == EepromVpd::FanAssembly {
+                    let refdes = d.refdes.as_ref().map(Refdes::to_component_id);
+                    let refdes = refdes.as_deref().unwrap_or("no refdes");
                     assert!(
                         d.device == "at24csw080",
-                        "device {} declares fan assembly VPD but is not an AT24CSW080",
+                        "device {} at address {:#x} ({refdes}) is configured \
+                         with the 'fan-assembly' EEPROM VPD mode, but is not \
+                         an AT24CSW080",
                         d.device,
+                        d.address,
                     );
                 }
             }
@@ -1202,8 +1207,20 @@ impl ConfigGenerator {
         use userlib::TaskId;
 "##
         )?;
-
+        //
+        // Generate a function that looks up an `I2cDevice` based on its index
+        // in the order returned by `device_descriptions()`.
+        //
+        // This is used by the generated code in `task-validate-api` and
+        // `control-plane-agent`, such as when we construct an `I2cDevice handle
+        // in order to read VPD or PMBus registers from a device. These indices
+        // are also referenced by the lookup table of PMBus rail names to
+        // device indices in `control-plane-agent`.
+        //
         let task_arg = if self.devices.is_empty() {
+            // If we are generating a `device_by_index` function that has no
+            // devices in it, this argument will be unused, so suppress clippy
+            // warnings about it.
             "_task"
         } else {
             "task"
@@ -1220,8 +1237,6 @@ impl ConfigGenerator {
             match index {{"##,
         )?;
 
-        // These indices are shared with `device_descriptions()` and the
-        // generated validation dispatch.
         for (index, device) in self.devices.iter().enumerate() {
             let out = self.generate_device(device, 20);
             writeln!(output, "{index} => Some({out}),")?;

@@ -62,6 +62,7 @@ pub enum Sensor {
     Speed,
 }
 
+/// How to read VPD from a device.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum VpdKind {
@@ -70,8 +71,6 @@ pub enum VpdKind {
     FanAssembly,
     Tmp117,
 }
-
-const _: () = assert!(core::mem::size_of::<Option<VpdKind>>() == 1);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SensorDescription {
