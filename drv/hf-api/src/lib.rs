@@ -230,13 +230,18 @@ impl HashData {
 
 /// The state of our async hash
 pub enum HashState {
+    /// We have completed our hash
     Done,
+    /// Hash in progress
     Hashing {
         dev: HfDevSelect,
         addr: usize,
         end: usize,
     },
+    /// No hash has been started
     NotRunning,
+    /// Measurement in progres
+    Measuring,
 }
 
 /// Hash status for each of the hash banks

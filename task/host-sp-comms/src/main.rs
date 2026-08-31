@@ -172,6 +172,12 @@ enum Trace {
         #[count(children)]
         err: drv_hf_api::ApobReadError,
     },
+    Measurement {
+        byte0: u8,
+        byte1: u8,
+        byte2: u8,
+        byte3: u8,
+    },
 }
 
 counted_ringbuf!(Trace, 20, Trace::None);
@@ -575,6 +581,18 @@ impl ServerImpl {
                 // Clear the last power-off, as we have now reached A0;
                 // subsequent power-offs will set a new reason.
                 self.last_power_off = None;
+                if let Ok(hash) = self.hf.get_measurement() {
+                    ringbuf_entry!(Trace::Measurement {
+                        byte0: hash[0],
+                        byte1: hash[1],
+                        byte2: hash[2],
+                        byte3: hash[3]
+                    });
+                    // This is where we would call record but we're not ready
+                    // to commit to that quite yet
+                    //self.sprot
+                    //    .record(drv_sprot_api::HashAlgorithm::Sha3_256, &hash);
+                }
                 // TODO should we clear self.reboot_state here? What if we
                 // transitioned from one A0 state to another? For now, leave it
                 // set, and we'll move back to A0 whenever we transition to

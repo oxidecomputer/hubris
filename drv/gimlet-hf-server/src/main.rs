@@ -170,6 +170,7 @@ fn main() -> ! {
         mux_select_pin: cfg.sp_host_mux_select,
         dev_select_pin: cfg.flash_dev_select,
         hash: HashData::new(hash),
+        measurement: [0; 32],
     };
 
     server.ensure_persistent_data_is_redundant().unwrap(); // TODO: log this?
@@ -212,6 +213,7 @@ struct ServerImpl {
     dev_state: HfDevSelect,
     dev_select_pin: sys_api::PinSet,
     hash: HashData,
+    measurement: [u8; 32],
 }
 
 /// This tunes how many bytes we hash in a single async timer notification
@@ -802,7 +804,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // Need to check hash state before doing anything else
         // that might mess up the hash in progress
         match self.hash.state {
-            HashState::Hashing { .. } => {
+            HashState::Hashing { .. } | HashState::Measuring => {
                 return Err(HfError::HashInProgress.into());
             }
             _ => (),
@@ -974,6 +976,62 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
         Err(drv_hf_api::ApobClearError::NotImplemented.into())
+    }
+
+    fn measure(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
+        // We take exclusive access to the hash block here so
+        // invalidate/stop our running hash calcuation.
+        // Callers will just need to try again when we're
+        // done.
+        self.invalidate_mux_switch();
+        self.hash.state = HashState::Measuring;
+
+        if self.hash.task.init_sha256().is_err() {
+            return Err(HfError::HashError.into());
+        }
+
+        // We purposely initialize the block to `0xff` so we can
+        // represent the first sector which is not measured
+        let mut block: [u8; 4096] = [0xFF; 4096];
+        for _ in (0..SECTOR_SIZE_BYTES).step_by(block.len()) {
+            self.hash
+                .task
+                .update(&block)
+                .map_err(|_| RequestError::Runtime(HfError::HashError))?;
+        }
+
+        let begin = SECTOR_SIZE_BYTES;
+        let end = self.capacity;
+
+        for addr in (begin..end).step_by(block.len()) {
+            let size = block.len().min(end - addr);
+            self.qspi
+                .read_memory(addr as u32, &mut block[..size])
+                .map_err(qspi_to_hf)?;
+            self.hash
+                .task
+                .update_exact(&block[..size])
+                .map_err(|_| HfError::HashError)?;
+        }
+
+        self.hash
+            .task
+            .finalize_sha256(&mut self.measurement)
+            .map_err(|_| RequestError::Runtime(HfError::HashError))?;
+
+        self.hash.state = HashState::NotRunning;
+        Ok(())
+    }
+
+    fn get_measurement(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 32], RequestError<HfError>> {
+        Ok(self.measurement)
     }
 }
 
@@ -1214,6 +1272,20 @@ impl idl::InOrderHostFlashImpl for FailServer {
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
         Err(drv_hf_api::ApobClearError::NotImplemented.into())
+    }
+
+    fn measure(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn get_measurement(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 32], RequestError<HfError>> {
+        Err(self.0.into())
     }
 }
 
