@@ -38,6 +38,7 @@ pub struct ServerImpl {
 
     /// Most recent ABL0 version that has booted
     abl0_version: Option<u32>,
+    measurement: [u8; 32],
 }
 
 pub(crate) struct HfBufs {
@@ -92,6 +93,7 @@ impl ServerImpl {
             apob_state,
             abl0_version: None,
             buf,
+            measurement: [0; 32],
         };
         out.drv.set_flash_mux_state(HfMuxState::SP);
         out.ensure_persistent_data_is_redundant();
@@ -852,6 +854,29 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
 
         Ok(())
     }
+
+    fn measure(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<HfError>> {
+        let base = Self::flash_addr_for(SECTOR_SIZE_BYTES as u32, self.dev)
+            .unwrap_lite();
+        let hash = self.drv.sha3(
+            base,
+            SECTOR_SIZE_BYTES as u32,
+            SLOT_SIZE_BYTES as u32,
+        )?;
+
+        self.measurement.copy_from_slice(&hash);
+        Ok(())
+    }
+
+    fn get_measurement(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 32], RequestError<HfError>> {
+        Ok(self.measurement)
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -1092,6 +1117,20 @@ impl idl::InOrderHostFlashImpl for FailServer {
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
         Err(drv_hf_api::ApobClearError::InvalidState.into())
+    }
+
+    fn measure(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn get_measurement(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 32], RequestError<HfError>> {
+        Err(self.0.into())
     }
 }
 

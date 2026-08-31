@@ -31,6 +31,9 @@ notifications = ["fault", "timer"]
 features = ["dump"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
+[tasks.jefe.config.on-state-change]
+host_sp_comms = "jefe-state-change"
+
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
 set_state = ["grapefruit_seq"]
@@ -144,7 +147,7 @@ notifications = ["hash-irq"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 9
+priority = 10
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -175,11 +178,11 @@ interrupts = {"spi4.irq" = "spi-irq"}
 [tasks.grapefruit_seq]
 name = "drv-grapefruit-seq-server"
 features = ["h753"]
-priority = 5
+priority = 7
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
-task-slots = ["sys", "jefe", "packrat", "spartan7_loader"]
+task-slots = ["sys", "jefe", "packrat", "spartan7_loader", "hf"]
 uses = ["mmio_sgpio", "mmio_espi"]
 
 [tasks.spartan7_loader]
@@ -221,7 +224,7 @@ start = true
 name = "task-host-sp-comms"
 features = ["stm32h753", "baud_rate_3M", "vlan", "grapefruit"]
 uses = ["dbgmcu"]
-priority = 8
+priority = 9
 max-sizes = {flash = 65536, ram = 65536}
 stacksize = 5080
 start = true
@@ -230,7 +233,7 @@ notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 7
+priority = 8
 stacksize = 7000
 start = true
 uses = ["usart1"]
@@ -326,14 +329,14 @@ features = ["h753"]
 priority = 4
 start = true
 task-slots = ["sys", "net"]
-uses = ["mmio_base", "mmio_spi_nor", "mmio_espi", "mmio_sgpio"]
+uses = ["mmio_base", "mmio_spi_nor", "mmio_espi", "mmio_sgpio", "mmio_hash"]
 notifications = ["socket"]
 
 [tasks.hf]
 name = "drv-cosmo-hf"
 priority = 5
 start = true
-uses = ["mmio_base", "mmio_spi_nor"]
+uses = ["mmio_base", "mmio_spi_nor", "mmio_hash"]
 task-slots = ["hash_driver", "spartan7_loader"]
 stacksize = 4000
 notifications = ["timer"]
