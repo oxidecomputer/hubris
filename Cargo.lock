@@ -1068,6 +1068,11 @@ checksum = "ffe7ed1d93f4553003e20b629abe9085e1e81b1429520f897f8f8860bc6dfc21"
 [[package]]
 name = "demo-pi-pico-1"
 version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "rp2040",
+]
 
 [[package]]
 name = "demo-stm32f4-discovery"
@@ -5368,6 +5373,17 @@ dependencies = [
  "lpc55-pac",
  "lpc55-rot-startup",
  "unwrap-lite",
+]
+
+[[package]]
+name = "rp2040"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ed6f0ca1c2a3e4e602719212574a8692e52c51fd26e8c5a582424ae20fcd784"
+dependencies = [
+ "bare-metal 0.2.5",
+ "cortex-m",
+ "vcell",
 ]
 
 [[package]]

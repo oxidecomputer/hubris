@@ -4,3 +4,11 @@ name = "demo-pi-pico-1"
 version = "0.1.0"
 authors = ["Jared Jacobson"]
 description = "Demo of using Hubris on Rasberry Pi Pico 1 board"
+
+[dependencies]
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+rp2040 = { workspace = true }
+
+[lints]
+workspace = true
