@@ -20,8 +20,8 @@ use crate::{
     FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, Trace, apob,
     apob::APOB_PERSISTENT_DATA_STRIDE,
 };
-
-task_slot!(HASH, hash_driver);
+use sha2::Digest;
+use sha2::digest::common::hazmat::SerializableState;
 
 /// We break the 128 MiB flash chip into 2x 32 MiB slots, to match Gimlet
 ///
@@ -88,7 +88,7 @@ impl ServerImpl {
         let mut out = Self {
             dev: drv_hf_api::HfDevSelect::Flash0,
             drv,
-            hash: HashData::new(HASH.get_task_id()),
+            hash: HashData::new(),
             apob_state,
             abl0_version: None,
             buf,
@@ -279,6 +279,7 @@ impl ServerImpl {
         dev: HfDevSelect,
         begin: usize,
         end: usize,
+        hasher: &mut sha2::Sha256,
     ) -> Result<(), HfError> {
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         for addr in (begin..end).step_by(buf.len()) {
@@ -289,10 +290,7 @@ impl ServerImpl {
                 Self::flash_addr_for(addr as u32, dev).unwrap_lite(),
                 &mut buf[..size],
             );
-            if let Err(e) = self.hash.task.update(size as u32, &buf[..size]) {
-                ringbuf_entry!(Trace::HashUpdateError(e));
-                return Err(HfError::HashError);
-            }
+            hasher.update(&buf[..size]);
         }
 
         Ok(())
@@ -300,38 +298,46 @@ impl ServerImpl {
 
     fn step_hash(&mut self) {
         match self.hash.state {
-            HashState::Hashing { dev, addr, end } => {
+            HashState::Hashing {
+                dev,
+                addr,
+                end,
+                start_time,
+                hasher,
+            } => {
                 let step_size = BLOCK_STEP_SIZE;
+
+                let mut ctx = sha2::Sha256::deserialize(&hasher).unwrap();
 
                 let prev = self.dev;
                 self.set_dev(dev).unwrap();
                 // The only way we should get an error from this is if
                 // we somehow call update before we've initialized or
                 // after we've finished the hash.
-                self.hash_range_update(dev, addr, addr + step_size)
+                self.hash_range_update(dev, addr, addr + step_size, &mut ctx)
                     .unwrap_lite();
                 self.set_dev(prev).unwrap(); // infallible if the earlier set_dev worked
 
                 if addr + step_size >= end {
+                    let now = userlib::sys_get_timer().now;
+                    ringbuf_entry!(Trace::AsyncTime(now - start_time));
                     self.hash.state = HashState::Done;
-                    match self.hash.task.finalize_sha256() {
-                        Ok(v) => match dev {
-                            HfDevSelect::Flash0 => {
-                                self.hash.cached_hash0 = SlotHash::Hash(v);
-                            }
-                            HfDevSelect::Flash1 => {
-                                self.hash.cached_hash1 = SlotHash::Hash(v);
-                            }
-                        },
-                        Err(e) => {
-                            ringbuf_entry!(Trace::HashUpdateError(e));
+                    let v = ctx.finalize();
+                    match dev {
+                        HfDevSelect::Flash0 => {
+                            self.hash.cached_hash0 = SlotHash::Hash(v.into());
                         }
-                    };
+                        HfDevSelect::Flash1 => {
+                            self.hash.cached_hash1 = SlotHash::Hash(v.into());
+                        }
+                    }
                 } else {
                     self.hash.state = HashState::Hashing {
                         dev,
                         addr: addr + step_size,
                         end,
+                        start_time,
+                        hasher: ctx.serialize(),
                     };
                     set_timer_relative(1, notifications::TIMER_MASK);
                 };
@@ -707,10 +713,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             _ => (),
         }
 
-        if let Err(e) = self.hash.task.init_sha256() {
-            ringbuf_entry!(Trace::HashInitError(e));
-            return Err(HfError::HashError.into());
-        }
+        let mut hasher = sha2::Sha256::new();
 
         // Check that the hash range is valid.  We **do not** pass the resulting
         // value to `hash_range_update`, which expects relative offsets!
@@ -719,15 +722,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             self.dev,
             addr as usize,
             addr as usize + len as usize,
+            &mut hasher,
         )?;
 
-        match self.hash.task.finalize_sha256() {
-            Ok(sum) => Ok(sum),
-            Err(e) => {
-                ringbuf_entry!(Trace::HashFinalizeError(e));
-                Err(HfError::HashError.into())
-            }
-        }
+        Ok(hasher.finalize().into())
     }
 
     /// This starts a sha256 on the entire range _except_ sector0
@@ -750,10 +748,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             _ => (),
         }
 
-        if self.hash.task.init_sha256().is_err() {
-            return Err(HfError::HashError.into());
-        }
-
         // If we already have a valid hash for the slot don't bother
         // starting again
         match dev {
@@ -771,20 +765,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             },
         }
 
+        let mut hasher = sha2::Sha256::new();
         // Treat sector 0 as all `0xff`
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         buf.fill(0xff);
         for _ in (0..SECTOR_SIZE_BYTES).step_by(buf.len()) {
-            self.hash
-                .task
-                .update(buf.len() as u32, &buf)
-                .map_err(|_| RequestError::Runtime(HfError::HashError))?;
+            hasher.update(&buf);
         }
 
         self.hash.state = HashState::Hashing {
             dev,
             addr: drv_hf_api::SECTOR_SIZE_BYTES,
             end: SLOT_SIZE_BYTES as usize,
+            start_time: userlib::sys_get_timer().now,
+            hasher: hasher.serialize(),
         };
         set_timer_relative(1, notifications::TIMER_MASK);
         Ok(())

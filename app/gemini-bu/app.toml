@@ -94,7 +94,7 @@ notifications = ["timer"]
 
 [tasks.hf]
 name = "drv-mock-gimlet-hf-server"
-features = ["h753", "hash"]
+features = ["h753"]
 priority = 6
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 2048
@@ -102,28 +102,16 @@ start = true
 uses = ["quadspi"]
 notifications = ["qspi-irq"]
 interrupts = {"quadspi.irq" = "qspi-irq"}
-task-slots = ["sys", "hash_driver"]
-
-[tasks.hash_driver]
-name = "drv-stm32h7-hash-server"
-features = ["h753"]
-priority = 5
-max-sizes = {flash = 16384, ram=4096 }
-stacksize = 2048
-start = true
-uses = ["hash"]
-notifications = ["hash-irq"]
-interrupts = {"hash.irq" = "hash-irq"}
 task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash"]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi"]
 priority = 7
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["sys", "i2c_driver", "hf", "hash_driver", "sprot", "update_server"]
+task-slots = ["sys", "i2c_driver", "hf", "sprot", "update_server"]
 notifications = ["timer"]
 
 [tasks.sprot]
