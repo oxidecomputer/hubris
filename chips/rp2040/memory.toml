@@ -1,0 +1,17 @@
+[[flash]]
+# RP2040 Data Sheet - 2.6.2:
+# " Bus reads to a 16MB memory window starting at 0x10000000 are translated into
+#   a serial flash transfer, and the result is returned to the master that
+#   initiated the read"
+#
+# The board is listed as having 2MB flash memory
+address = 0x1000_0000
+size = 0x20_0000 # 2MB
+read = true
+execute = true
+
+[[sram]]
+address = 0x2000_0000
+size = 0x800
+read = true
+write = true

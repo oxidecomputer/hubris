@@ -1,0 +1,3 @@
+[resets]
+address = 0x4000c000
+size = 32
