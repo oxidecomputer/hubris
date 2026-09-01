@@ -16,7 +16,6 @@
 //! - [`adm127x`]: ADM1272 or ADM1273 hot swap controller
 //! - [`adt7420`]: ADT7420 temperature sensor
 //! - [`at24csw080`]: AT24CSW080 serial EEPROM
-//! - [`ds2482`]: DS2482-100 1-wire initiator
 //! - [`emc2305`]: EMC2305 fan driver
 //! - [`isl68224`]: ISL68224 power controller
 //! - [`lm5066`]: LM5066 hot swap controller
@@ -416,7 +415,6 @@ pub mod adm127x;
 pub mod adt7420;
 pub mod at24csw080;
 pub mod bmr491;
-pub mod ds2482;
 pub mod emc2305;
 pub mod isl68224;
 pub mod lm5066;
