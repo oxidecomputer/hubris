@@ -1,0 +1,27 @@
+name = "demo-pi-pico-1"
+target = "thumbv6m-none-eabi"
+chip = "../../chips/rp2040"
+board = "pi-pico-1"
+memory = "memory.toml"
+stacksize = 944
+default-ram = "sram"
+
+[kernel]
+name = "demo-pi-pico-1"
+requires = {flash = 20000, ram = 1136}
+stacksize = 640
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 4096, ram = 512}
+start = true
+stacksize = 352
+notifications = ["fault", "timer"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 5
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true

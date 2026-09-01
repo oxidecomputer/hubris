@@ -1,0 +1,6 @@
+[package]
+edition = "2024"
+name = "demo-pi-pico-1"
+version = "0.1.0"
+authors = ["Jared Jacobson"]
+description = "Demo of using Hubris on Rasberry Pi Pico 1 board"
