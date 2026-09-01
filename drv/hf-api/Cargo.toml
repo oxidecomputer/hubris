@@ -16,6 +16,7 @@ counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 drv-hash-api = { path = "../hash-api" }
 drv-qspi-api = { path = "../qspi-api" }
+drv-stm32h7-hash = { path = "../stm32h7-hash", features = ["h753"] }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]

@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{FromPrimitive, TaskId, sys_send};
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
@@ -211,16 +211,16 @@ pub const HF_PERSISTENT_DATA_STRIDE: usize = 128;
 pub const HF_PERSISTENT_DATA_HEADER_VERSION: u32 = 1;
 
 pub struct HashData {
-    pub task: drv_hash_api::Hash,
+    pub task: drv_stm32h7_hash::Hash,
     pub cached_hash0: SlotHash,
     pub cached_hash1: SlotHash,
     pub state: HashState,
 }
 
 impl HashData {
-    pub fn new(hash: TaskId) -> Self {
+    pub fn new(hash: drv_stm32h7_hash::Hash) -> Self {
         Self {
-            task: drv_hash_api::Hash::from(hash),
+            task: hash,
             cached_hash0: SlotHash::Uncalculated,
             cached_hash1: SlotHash::Uncalculated,
             state: HashState::NotRunning,
