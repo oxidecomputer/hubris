@@ -1,0 +1,22 @@
+# Chips Definitions
+
+Each sub-directory in this directory contains a list of files defining the chip's
+memory and peripherals. These files can then be referenced by an `app.toml` file.
+
+## `chip.toml` file
+
+Defines the peripherals register map for the chip. Each `Peripheral` contains
+the `address`, `size`, and a list of `interrupts`.
+
+The `uses` key for each `tasks` in `app.toml` refers to these.
+
+## `memory.toml` file
+
+Defines the memory regions. Each entry is an array of tables of type `Output`.
+The output requires the `address` and `size`. Then it allows you to specify if it
+is `read`, `write`, `execute`, and/or `dma`.
+
+It seems like a `flash` key is required but there may be a way around that?
+
+It is also required to have a region that matches the `default_ram` key in the
+`app.toml` file. If that key isn't provided, then it defaults to `ram`.
