@@ -30,10 +30,6 @@ enum Trace {
     SectorEraseBusy,
     WriteBusy,
 
-    HashInitError(drv_hash_api::HashError),
-    HashUpdateError(drv_hash_api::HashError),
-    HashFinalizeError(drv_hash_api::HashError),
-
     ApobFound(apob::ApobLocation),
     ApobAbl0Mismatch {
         stored_version: Option<u32>,
@@ -44,6 +40,7 @@ enum Trace {
     PrevAbl0VersionNotUsed(u32),
     Abl0VersionFound(u32),
     Abl0VersionError(apob::ApobError),
+    AsyncTime(u64),
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);

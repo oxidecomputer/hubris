@@ -2,10 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#[cfg(feature = "hash")]
-use crate::common::{
-    hash_digest_sha256, hash_finalize_sha256, hash_init_sha256, hash_update,
-};
 #[cfg(feature = "spi")]
 use crate::common::{spi_read, spi_write};
 use hif::*;
@@ -118,16 +114,8 @@ pub enum Functions {
     QspiSector0Erase((), drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
     QspiVerify((u32, usize, usize), drv_hf_api::HfError),
-    #[cfg(all(feature = "qspi", feature = "hash"))]
+    #[cfg(feature = "qspi")]
     QspiHash((u32, u32), drv_hf_api::HfError),
-    #[cfg(feature = "hash")]
-    HashDigest(u32, drv_hash_api::HashError),
-    #[cfg(feature = "hash")]
-    HashInit((), drv_hash_api::HashError),
-    #[cfg(feature = "hash")]
-    HashUpdate(u32, drv_hash_api::HashError),
-    #[cfg(feature = "hash")]
-    HashFinalize((), drv_hash_api::HashError),
 }
 
 #[cfg(feature = "i2c")]
@@ -566,16 +554,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::qspi_sector0_erase,
     #[cfg(feature = "qspi")]
     crate::common::qspi_verify,
-    #[cfg(all(feature = "qspi", feature = "hash"))]
+    #[cfg(feature = "qspi")]
     crate::common::qspi_hash,
-    #[cfg(feature = "hash")]
-    hash_digest_sha256,
-    #[cfg(feature = "hash")]
-    hash_init_sha256,
-    #[cfg(feature = "hash")]
-    hash_update,
-    #[cfg(feature = "hash")]
-    hash_finalize_sha256,
 ];
 
 //
