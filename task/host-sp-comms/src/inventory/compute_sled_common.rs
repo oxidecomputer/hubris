@@ -180,6 +180,48 @@ impl crate::ServerImpl {
             Ok(self.scratch)
         });
     }
+
+    pub(crate) fn read_tmp117(
+        &mut self,
+        sequence: u64,
+        dev: I2cDevice,
+        sensor: impl Into<host_sp_messages::SensorIndex>,
+    ) {
+        use drv_i2c_devices::tmp117::{Error, Register, Tmp117};
+
+        fn map_err(err: Error) -> drv_i2c_api::ResponseCode {
+            match err {
+                Error::BadRegisterRead { code, .. } => code,
+            }
+        }
+
+        let name = dev.component_id().as_bytes();
+        *self.scratch = InventoryData::Tmp117 {
+            id: 0,
+            eeprom1: 0,
+            eeprom2: 0,
+            eeprom3: 0,
+            temp_sensor: sensor.into(),
+        };
+        self.tx_buf.try_encode_inventory(sequence, name, || {
+            let InventoryData::Tmp117 {
+                id,
+                eeprom1,
+                eeprom2,
+                eeprom3,
+                temp_sensor: _,
+            } = self.scratch
+            else {
+                unreachable!();
+            };
+            let dev = Tmp117::new(&dev);
+            *id = dev.read_reg(Register::DeviceID).map_err(map_err)?;
+            *eeprom1 = dev.read_reg(Register::EEPROM1).map_err(map_err)?;
+            *eeprom2 = dev.read_reg(Register::EEPROM2).map_err(map_err)?;
+            *eeprom3 = dev.read_reg(Register::EEPROM3).map_err(map_err)?;
+            Ok(self.scratch)
+        })
+    }
 }
 
 fn read_fan_barcodes<T>(
