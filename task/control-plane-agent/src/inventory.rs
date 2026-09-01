@@ -301,16 +301,22 @@ impl Inventory {
 }
 
 fn read_tmp117_vpd(dev: &I2cDevice, buf: &mut [u8]) -> Result<usize, SpError> {
-    let read = |register| {
-        dev.read_reg(register)
-            .map_err(i2c_error_to_vpd_error)
-            .map_err(SpError::Vpd)
-    };
+    use drv_i2c_devices::tmp117::{Error, Register, Tmp117};
+
+    fn to_sp_error(e: Error) -> SpError {
+        match e {
+            Error::BadRegisterRead { code, .. } => {
+                SpError::Vpd(i2c_error_to_vpd_error(code))
+            }
+        }
+    }
+
+    let dev = Tmp117::new(dev);
     let vpd = Tmp117Identity {
-        id: read(0x0f_u8)?,
-        eeprom1: read(0x05_u8)?,
-        eeprom2: read(0x06_u8)?,
-        eeprom3: read(0x08_u8)?,
+        id: dev.read_reg(Register::DeviceID).map_err(to_sp_error)?,
+        eeprom1: dev.read_reg(Register::EEPROM1).map_err(to_sp_error)?,
+        eeprom2: dev.read_reg(Register::EEPROM2).map_err(to_sp_error)?,
+        eeprom3: dev.read_reg(Register::EEPROM3).map_err(to_sp_error)?,
     };
     hubpack::serialize(buf, &VpdRef::Tmp117(&vpd))
         .map_err(|_| SpError::Vpd(VpdError::BadBuffer))
