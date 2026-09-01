@@ -48,7 +48,6 @@ use drv_hf_api::{
 };
 
 task_slot!(SYS, sys);
-task_slot!(HASH, hash_driver);
 
 struct Config {
     pub sp_host_mux_select: sys_api::PinSet,
@@ -94,6 +93,11 @@ fn main() -> ! {
 
     sys.enable_clock(sys_api::Peripheral::QuadSpi);
     sys.leave_reset(sys_api::Peripheral::QuadSpi);
+
+    sys.enter_reset(sys_api::Peripheral::Hash);
+    sys.disable_clock(sys_api::Peripheral::Hash);
+    sys.enable_clock(sys_api::Peripheral::Hash);
+    sys.leave_reset(sys_api::Peripheral::Hash);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
     let qspi = Qspi::new(reg, notifications::QSPI_IRQ_MASK, ReadSetting::Quad);
@@ -154,6 +158,9 @@ fn main() -> ! {
     };
     qspi.configure(cfg.clock, log2_capacity);
 
+    let reg = unsafe { &*device::HASH::ptr() };
+    let hash = drv_stm32h7_hash::Hash::new(reg, notifications::HASH_IRQ_MASK);
+
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         qspi,
@@ -162,7 +169,7 @@ fn main() -> ! {
         dev_state: HfDevSelect::Flash0,
         mux_select_pin: cfg.sp_host_mux_select,
         dev_select_pin: cfg.flash_dev_select,
-        hash: HashData::new(HASH.get_task_id()),
+        hash: HashData::new(hash),
     };
 
     server.ensure_persistent_data_is_redundant().unwrap(); // TODO: log this?
@@ -460,7 +467,7 @@ impl ServerImpl {
                 .map_err(qspi_to_hf)?;
             self.hash
                 .task
-                .update(size as u32, &block[..size])
+                .update(&block[..size])
                 .map_err(|_| HfError::HashError)?;
         }
         Ok(())
@@ -485,13 +492,14 @@ impl ServerImpl {
 
                 if addr + step_size >= end {
                     self.hash.state = HashState::Done;
-                    match self.hash.task.finalize_sha256() {
-                        Ok(v) => match dev {
+                    let mut out: [u8; 32] = [0; 32];
+                    match self.hash.task.finalize_sha256(&mut out) {
+                        Ok(()) => match dev {
                             HfDevSelect::Flash0 => {
-                                self.hash.cached_hash0 = SlotHash::Hash(v);
+                                self.hash.cached_hash0 = SlotHash::Hash(out);
                             }
                             HfDevSelect::Flash1 => {
-                                self.hash.cached_hash1 = SlotHash::Hash(v);
+                                self.hash.cached_hash1 = SlotHash::Hash(out);
                             }
                         },
                         Err(_) => (),
@@ -771,11 +779,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         if begin > self.capacity || end > self.capacity {
             return Err(HfError::HashBadRange.into());
         }
+
+        let mut out: [u8; SHA256_SZ] = [0; SHA256_SZ];
+
         self.hash_range_update(begin, end)?;
-        self.hash
-            .task
-            .finalize_sha256()
-            .map_err(|_| HfError::HashError.into())
+        // XXX
+        self.hash.task.finalize_sha256(&mut out);
+        Ok(out)
     }
 
     // This does a sha256 on the entire range _except_ sector0
@@ -825,7 +835,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         for _ in (0..SECTOR_SIZE_BYTES).step_by(block.len()) {
             self.hash
                 .task
-                .update(block.len() as u32, &block)
+                .update(&block)
                 .map_err(|_| RequestError::Runtime(HfError::HashError))?;
         }
 
