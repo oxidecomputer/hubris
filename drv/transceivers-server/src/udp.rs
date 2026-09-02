@@ -492,7 +492,7 @@ impl ServerImpl {
 
                 let result =
                     if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.assert_reset(mask)
+                        self.transceivers().assert_reset(mask)
                     } else {
                         ModuleResultNoFailure::new(LogicalPortMask(0), mask)
                             .unwrap_lite()
@@ -517,7 +517,7 @@ impl ServerImpl {
 
                 let result =
                     if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.deassert_reset(mask)
+                        self.transceivers().deassert_reset(mask)
                     } else {
                         ModuleResultNoFailure::new(LogicalPortMask(0), mask)
                             .unwrap_lite()
@@ -542,7 +542,7 @@ impl ServerImpl {
 
                 let result =
                     if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.assert_lpmode(mask)
+                        self.transceivers().assert_lpmode(mask)
                     } else {
                         ModuleResultNoFailure::new(LogicalPortMask(0), mask)
                             .unwrap_lite()
@@ -567,7 +567,7 @@ impl ServerImpl {
 
                 let result =
                     if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.deassert_lpmode(mask)
+                        self.transceivers().deassert_lpmode(mask)
                     } else {
                         ModuleResultNoFailure::new(LogicalPortMask(0), mask)
                             .unwrap_lite()
@@ -592,7 +592,7 @@ impl ServerImpl {
 
                 let result =
                     if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.enable_power(mask)
+                        self.transceivers().enable_power(mask)
                     } else {
                         ModuleResultNoFailure::new(LogicalPortMask(0), mask)
                             .unwrap_lite()
@@ -617,7 +617,7 @@ impl ServerImpl {
 
                 let result =
                     if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.disable_power(mask)
+                        self.transceivers().disable_power(mask)
                     } else {
                         ModuleResultNoFailure::new(LogicalPortMask(0), mask)
                             .unwrap_lite()
@@ -668,7 +668,7 @@ impl ServerImpl {
 
                 let result =
                     if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.clear_power_fault(mask)
+                        self.transceivers().clear_power_fault(mask)
                     } else {
                         ModuleResultNoFailure::new(LogicalPortMask(0), mask)
                             .unwrap_lite()
@@ -985,7 +985,7 @@ impl ServerImpl {
     ) -> (usize, ModuleResultNoFailure) {
         // This will get the status of every module, so we will have to only
         // select the data which was requested.
-        let (mod_status, full_result) = self.transceivers.get_module_status();
+        let (mod_status, full_result) = self.transceivers().get_module_status();
         // adjust the result success mask to be only our requested modules
         let desired_result = ModuleResultNoFailure::new(
             full_result.success() & modules,
@@ -1040,7 +1040,7 @@ impl ServerImpl {
     ) -> (usize, ModuleResultNoFailure) {
         // This will get the status of every module, so we will have to only
         // select the data which was requested.
-        let (mod_status, full_result) = self.transceivers.get_module_status();
+        let (mod_status, full_result) = self.transceivers().get_module_status();
         // adjust the result success mask to be only our requested modules
         let desired_result = ModuleResultNoFailure::new(
             full_result.success() & modules,
@@ -1110,8 +1110,8 @@ impl ServerImpl {
         // We can always write the lower page; upper pages require modifying
         // registers in the transceiver to select it.
         if let Some(page) = page.page() {
-            self.transceivers.set_i2c_write_buffer(&[page], mask);
-            result = result.chain(self.transceivers.setup_i2c_write(
+            self.transceivers().set_i2c_write_buffer(&[page], mask);
+            result = result.chain(self.transceivers().setup_i2c_write(
                 PAGE_SELECT,
                 1,
                 mask,
@@ -1129,8 +1129,8 @@ impl ServerImpl {
         }
 
         if let Some(bank) = page.bank() {
-            self.transceivers.set_i2c_write_buffer(&[bank], mask);
-            result = result.chain(self.transceivers.setup_i2c_write(
+            self.transceivers().set_i2c_write_buffer(&[bank], mask);
+            result = result.chain(self.transceivers().setup_i2c_write(
                 BANK_SELECT,
                 1,
                 result.success(),
@@ -1153,7 +1153,7 @@ impl ServerImpl {
     // failure: The I2C operation failed.
     // error: The SP could not communicate with the FPGA.
     fn wait_and_check_i2c(&mut self, mask: LogicalPortMask) -> ModuleResult {
-        self.transceivers.wait_and_check_i2c(mask)
+        self.transceivers().wait_and_check_i2c(mask)
     }
 
     fn read(
@@ -1166,7 +1166,7 @@ impl ServerImpl {
         let mut result = self.select_page(*mem.page(), modules);
 
         // Ask the FPGA to start the read
-        result = result.chain(self.transceivers.setup_i2c_read(
+        result = result.chain(self.transceivers().setup_i2c_read(
             mem.offset(),
             mem.len(),
             result.success(),
@@ -1186,7 +1186,7 @@ impl ServerImpl {
             // If we have not encountered any errors, keep pulling full
             // status + buffer payloads.
             let status = match self
-                .transceivers
+                .transceivers()
                 .get_i2c_status_and_read_buffer(port_loc, &mut buf[0..buf_len])
             {
                 Ok(status) => status,
@@ -1235,11 +1235,11 @@ impl ServerImpl {
         let mut result = self.select_page(*mem.page(), modules);
 
         // Copy data into the FPGA write buffer
-        self.transceivers
+        self.transceivers()
             .set_i2c_write_buffer(&data[..mem.len() as usize], modules);
 
         // Trigger a multicast write to all transceivers in the mask
-        result = result.chain(self.transceivers.setup_i2c_write(
+        result = result.chain(self.transceivers().setup_i2c_write(
             mem.offset(),
             mem.len(),
             result.success(),
