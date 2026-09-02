@@ -59,7 +59,7 @@ static XCVR_SERVER_IMPL: ClaimOnceCell<MaybeUninit<ServerImpl>> =
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq, Count)]
+#[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     #[count(skip)]
     None,
@@ -77,31 +77,47 @@ enum Trace {
     TransceiversError(#[count(children)] TransceiversError),
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
-    UnpluggedModule(usize),
-    RemovedDisabledModuleThermalModel(usize),
-    TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::ErrorEncoded),
-    TemperatureReadUnexpectedError(usize, FpgaError),
-    ThermalError(usize, ThermalError),
-    GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::ErrorEncoded),
-    GetInterfaceUnexpectedError(usize, FpgaError),
-    InvalidPortStatusError(usize, u8),
+    UnpluggedModule {
+        port: LogicalPort,
+    },
+    RemovedDisabledModuleThermalModel {
+        port: LogicalPort,
+    },
+    TemperatureReadError {
+        port: LogicalPort,
+        err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
+    },
+    TemperatureReadUnexpectedError {
+        port: LogicalPort,
+        err: FpgaError,
+    },
+    ThermalError {
+        port: LogicalPort,
+        err: ThermalError,
+    },
+    GetInterfaceError {
+        port: LogicalPort,
+        err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
+    },
+    GetInterfaceUnexpectedError {
+        port: LogicalPort,
+        err: FpgaError,
+    },
+    InvalidPortStatusError {
+        port: LogicalPort,
+        raw_err: u8,
+    },
     DisablingPorts(LogicalPortMask),
-    DisableFailed(usize, LogicalPortMask),
+    DisableFailed {
+        step: usize,
+        mask: LogicalPortMask,
+    },
     ClearDisabledPorts(LogicalPortMask),
     SeqError(SeqError),
-    TemperatureGlitch(usize, MilliCelsiusFixed),
-}
-
-/// Trace requires that types are Eq, and floats are not Eq. Make a little
-/// helper type that stores milli-celcius as a fixed point number
-#[derive(Copy, Clone, PartialEq, Eq)]
-struct MilliCelsiusFixed(u32);
-
-impl From<f32> for MilliCelsiusFixed {
-    fn from(value: f32) -> Self {
-        let value = value * 1000.0;
-        Self(value as u32)
-    }
+    TemperatureGlitch {
+        port: LogicalPort,
+        variance: Celsius,
+    },
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
@@ -481,7 +497,8 @@ impl ServerImpl {
         } = self;
 
         for (i, meta) in ports.iter_mut().enumerate() {
-            let port = LogicalPort(i as u8);
+            let port_idx = i as u8;
+            let port = LogicalPort(port_idx);
             let mask = 1 << i;
             let operational = (!status.modprsl & mask) != 0
                 && (status.power_good & mask) != 0
@@ -498,30 +515,35 @@ impl ServerImpl {
                     Err(FpgaError::ImplError(e)) => {
                         match Reg::QSFP::PORT0_STATUS::ErrorEncoded::try_from(e)
                         {
-                            Ok(val) => {
-                                ringbuf_entry!(Trace::GetInterfaceError(i, val))
+                            Ok(err) => {
+                                ringbuf_entry!(Trace::GetInterfaceError {
+                                    port,
+                                    err
+                                })
                             }
                             Err(_) => {
                                 // Error code cannot be decoded
-                                ringbuf_entry!(Trace::InvalidPortStatusError(
-                                    i, e
-                                ))
+                                ringbuf_entry!(Trace::InvalidPortStatusError {
+                                    port,
+                                    raw_err: e
+                                })
                             }
                         }
                     }
-                    Err(e) => {
+                    Err(err) => {
                         // Not much we can do here if reading failed
-                        ringbuf_entry!(Trace::GetInterfaceUnexpectedError(
-                            i, e
-                        ));
+                        ringbuf_entry!(Trace::GetInterfaceUnexpectedError {
+                            port,
+                            err
+                        });
                     }
                 }
             } else if !operational && meta.model.is_some() {
                 #[cfg(feature = "thermal-control")]
                 {
                     // This transceiver went away; remove it from the thermal loop
-                    if let Err(e) = thermal_api.remove_dynamic_input(i) {
-                        ringbuf_entry!(Trace::ThermalError(i, e));
+                    if let Err(err) = thermal_api.remove_dynamic_input(i) {
+                        ringbuf_entry!(Trace::ThermalError { port, err });
                     }
                 }
 
@@ -532,9 +554,11 @@ impl ServerImpl {
                 );
 
                 if (*disabled & port).is_empty() {
-                    ringbuf_entry!(Trace::UnpluggedModule(i));
+                    ringbuf_entry!(Trace::UnpluggedModule { port });
                 } else {
-                    ringbuf_entry!(Trace::RemovedDisabledModuleThermalModel(i));
+                    ringbuf_entry!(Trace::RemovedDisabledModuleThermalModel {
+                        port
+                    });
                 }
                 meta.model = None;
             }
@@ -558,7 +582,9 @@ impl ServerImpl {
                 // cluttering up the logs).
                 match thermal_api.update_dynamic_input(i, m.model) {
                     Ok(()) | Err(ThermalError::NotInAutoMode) => (),
-                    Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
+                    Err(err) => {
+                        ringbuf_entry!(Trace::ThermalError { port, err })
+                    }
                 }
             }
 
@@ -576,7 +602,7 @@ impl ServerImpl {
                 }
                 Err(e) => {
                     // Log error to ringbuf
-                    e.ringbuf(i);
+                    e.ringbuf(port);
 
                     // TODO(AJM): Old behavior here is a bit funky, we should
                     // review this.
@@ -630,7 +656,7 @@ impl ServerImpl {
         {
             let err = f(self.transceivers(), mask).error();
             if !err.is_empty() {
-                ringbuf_entry!(Trace::DisableFailed(step, err));
+                ringbuf_entry!(Trace::DisableFailed { step, mask: err });
             }
         }
         self.disabled |= mask;
@@ -757,21 +783,24 @@ impl From<FpgaError> for TempReadError {
 }
 
 impl TempReadError {
-    fn ringbuf(&self, idx: usize) {
+    fn ringbuf(&self, port: LogicalPort) {
         let trace = match self {
             // We don't ringbuf for this, should never happen
             Self::UnknownInterface => return,
 
             Self::ReallyBadTempRead(e) | Self::BadTempRead(e) => {
-                Trace::TemperatureReadError(idx, *e)
+                Trace::TemperatureReadError { port, err: *e }
             }
-            Self::BadPortStatus(r) => Trace::InvalidPortStatusError(idx, *r),
+            Self::BadPortStatus(r) => {
+                Trace::InvalidPortStatusError { port, raw_err: *r }
+            }
             Self::UnexpectedFpgaErr(e) => {
-                Trace::TemperatureReadUnexpectedError(idx, *e)
+                Trace::TemperatureReadUnexpectedError { port, err: *e }
             }
-            Self::UnexpectedVariance(diff) => {
-                Trace::TemperatureGlitch(idx, (*diff).into())
-            }
+            Self::UnexpectedVariance(diff) => Trace::TemperatureGlitch {
+                port,
+                variance: Celsius(*diff),
+            },
         };
         ringbuf_entry!(trace);
     }
