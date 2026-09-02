@@ -87,6 +87,10 @@ enum Trace {
         port: LogicalPort,
         err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
     },
+    PotentialRemovalError {
+        port: LogicalPort,
+        err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
+    },
     TemperatureReadUnexpectedError {
         port: LogicalPort,
         err: FpgaError,
@@ -161,7 +165,7 @@ enum FrontIOStatus {
     Ready,
 }
 
-struct PortMetadata {
+struct PortData {
     /// Number of consecutive NACKS seen on a given port
     consecutive_errors: u8,
     /// Largest observed temperature drift between two samples
@@ -174,7 +178,7 @@ struct PortMetadata {
     model: Option<ThermalModel>,
 }
 
-impl PortMetadata {
+impl PortData {
     /// New metadata with no model and zeroed counters/stats
     const fn new() -> Self {
         Self {
@@ -217,7 +221,7 @@ struct ServerImpl {
     /// Modules that are physically present but disabled by Hubris
     disabled: LogicalPortMask,
 
-    ports: [PortMetadata; NUM_PORTS as usize],
+    ports: [PortData; NUM_PORTS as usize],
 
     /// Handle to write thermal models and presence to the `thermal` task
     #[cfg(feature = "thermal-control")]
@@ -612,7 +616,7 @@ impl ServerImpl {
                         // because we only add models to known interface types
                         TempReadError::UnknownInterface => {}
                         // This would *increment* consecutive errors
-                        TempReadError::ReallyBadTempRead(_) => {
+                        TempReadError::PotentialRemoval(_) => {
                             meta.consecutive_errors =
                                 meta.consecutive_errors.saturating_add(1);
                         }
@@ -722,17 +726,18 @@ enum TempReadError {
     /// We failed to read, and the FPGA reported an error code that makes us
     /// suspicious that the xcvr is not present or operating correctly in a
     /// way that might lead us to disable it.
-    ReallyBadTempRead(Reg::QSFP::PORT0_STATUS::ErrorEncoded),
+    PotentialRemoval(Reg::QSFP::PORT0_STATUS::ErrorEncoded),
     /// We failed to read, but in some kind of forgivable way that *doesn't*
     /// make us suspect that the xcvr should be disabled.
     BadTempRead(Reg::QSFP::PORT0_STATUS::ErrorEncoded),
-    /// The FPGA gave us back a status codethat we were unable to decode. This
+    /// The FPGA gave us back a status code that we were unable to decode. This
     /// is probably a pretty serious mismatch in FPGA and SP versioning.
     BadPortStatus(u8),
     /// The FPGA gave us back an FpgaError that we didn't expect at all when
     /// reading I2C.
     UnexpectedFpgaErr(FpgaError),
-    /// We read the sensor multiple times, and the
+    /// We read the sensor multiple times, and the difference between samples
+    /// exceeded a reasonable threshold.
     UnexpectedVariance(f32),
 }
 
@@ -757,7 +762,7 @@ impl From<FpgaError> for TempReadError {
             return Self::BadPortStatus(code);
         };
 
-        let is_read_err = match decoded {
+        let is_removal = match decoded {
             // We consider these errors as potentially worth invalidating the
             // QSFP over.
             ErrorEncoded::I2CAddressNack => true,
@@ -774,8 +779,8 @@ impl From<FpgaError> for TempReadError {
             ErrorEncoded::I2CTransactionTimeout => false,
         };
 
-        if is_read_err {
-            Self::ReallyBadTempRead(decoded)
+        if is_removal {
+            Self::PotentialRemoval(decoded)
         } else {
             Self::BadTempRead(decoded)
         }
@@ -787,8 +792,10 @@ impl TempReadError {
         let trace = match self {
             // We don't ringbuf for this, should never happen
             Self::UnknownInterface => return,
-
-            Self::ReallyBadTempRead(e) | Self::BadTempRead(e) => {
+            Self::PotentialRemoval(e) => {
+                Trace::PotentialRemovalError { port, err: *e }
+            }
+            Self::BadTempRead(e) => {
                 Trace::TemperatureReadError { port, err: *e }
             }
             Self::BadPortStatus(r) => {
@@ -902,7 +909,7 @@ fn main() -> ! {
         #[cfg(feature = "thermal-control")]
         thermal_api,
         sensor_api,
-        ports: [const { PortMetadata::new() }; NUM_PORTS as usize],
+        ports: [const { PortData::new() }; NUM_PORTS as usize],
     });
 
     // There are two timers, one for each communication bus:
