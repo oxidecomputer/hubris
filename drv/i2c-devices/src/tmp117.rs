@@ -56,7 +56,7 @@ impl Tmp117 {
     }
 
     pub fn read_reg(&self, reg: Register) -> Result<u16, Error> {
-        self.read_reg_bytes(reg).map(u16::from_be_bytes)
+        self.read_reg_bytes(reg).map(u16::from_le_bytes)
     }
 
     fn read_reg_bytes(&self, reg: Register) -> Result<[u8; 2], Error> {
