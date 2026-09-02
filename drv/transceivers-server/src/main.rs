@@ -5,6 +5,8 @@
 #![no_std]
 #![no_main]
 
+use core::mem::MaybeUninit;
+
 use counters::Count;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -47,6 +49,12 @@ task_slot!(SEQ, seq);
 
 #[cfg(feature = "thermal-control")]
 task_slot!(THERMAL, thermal);
+
+/// We store the ServerImpl as a static so we can pull information about it
+/// in a dump.
+#[unsafe(no_mangle)]
+static XCVR_SERVER_IMPL: ClaimOnceCell<MaybeUninit<ServerImpl>> =
+    ClaimOnceCell::new(MaybeUninit::uninit());
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -111,6 +119,19 @@ counted_ringbuf!(Trace, 16, Trace::None);
 /// already; without handling it, the thermal loop will eventually shut down the
 /// whole system (because the transceiver stops reporting its temperature).
 const MAX_CONSECUTIVE_ERRORS: u8 = 3;
+
+/// We have potentially observed transceivers reporting temperature values that
+/// do not make sense, and in some cases reporting an unbelievably high value
+/// that causes the sidecar's thermal protection loop to shut down immediately.
+///
+/// For this reason, we double-sample each transceiver, and if the two readings
+/// taken in short succession vary by more than this amount, we discard the
+/// reading entirely, trying again on the next tick.
+///
+/// This number is a "wild guess", but across two readings a few milliseconds
+/// apart, we expect very little difference (probably <1.0C), even factoring in
+/// potential sample noise and precision limitations.
+const MAX_RESAMPLE_VARIANCE_CELSIUS: f32 = 5.0f32;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -465,7 +486,8 @@ impl ServerImpl {
                     // review this.
                     match e.kind {
                         // Previously, this did a "continue", and didn't affect
-                        // consecutive errors at all.
+                        // consecutive errors at all. This should never happen
+                        // because we only add models to known interface types
                         TempReadErrorKind::UnknownInterface => {}
                         // This would *increment* consecutive errors
                         TempReadErrorKind::ReallyBadTempRead(_) => {
@@ -575,7 +597,7 @@ impl ServerImpl {
 
         // It has probably been milliseconds, we don't expect the temperature
         // to change significantly in this time.
-        if diff >= 5.0f32 {
+        if diff >= MAX_RESAMPLE_VARIANCE_CELSIUS {
             Err(TempReadError {
                 idx,
                 kind: TempReadErrorKind::UnexpectedVariance(
@@ -782,7 +804,8 @@ fn main() -> ! {
     #[cfg(feature = "thermal-control")]
     let thermal_api = Thermal::from(THERMAL.get_task_id());
 
-    let mut server = ServerImpl {
+    let server = XCVR_SERVER_IMPL.claim();
+    let server = server.write(ServerImpl {
         transceivers,
         leds,
         net,
@@ -799,7 +822,7 @@ fn main() -> ! {
         thermal_api,
         sensor_api,
         thermal_models: [None; NUM_PORTS as usize],
-    };
+    });
 
     // There are two timers, one for each communication bus:
     #[derive(Copy, Clone, Enum)]
@@ -894,7 +917,7 @@ fn main() -> ! {
 
         server
             .check_net(tx_data_buf.as_mut_slice(), rx_data_buf.as_mut_slice());
-        idol_runtime::dispatch(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, server);
     }
 }
 
