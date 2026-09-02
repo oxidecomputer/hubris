@@ -99,7 +99,7 @@ pub struct ClaimOnceCell<T> {
 // Safety: because a `ClaimOnceCell` may only create a single mutable reference to
 // the inner value a single time, it can implement `Sync` freely, as the inner
 // `UnsafeCell`'s value cannot be mutably aliased.
-unsafe impl<T> Sync for ClaimOnceCell<T> where for<'a> &'a T: Send {}
+unsafe impl<T> Sync for ClaimOnceCell<T> where T: Send {}
 
 impl<T> ClaimOnceCell<T> {
     /// Returns a new `ClaimOnceCell` containing the provided `value`.
