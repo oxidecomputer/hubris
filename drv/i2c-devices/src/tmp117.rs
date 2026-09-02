@@ -56,10 +56,21 @@ impl Tmp117 {
     }
 
     pub fn read_reg(&self, reg: Register) -> Result<u16, Error> {
-        match self.device.read_reg::<u8, [u8; 2]>(reg as u8) {
-            Ok(buf) => Ok(u16::from_be_bytes(buf)),
-            Err(code) => Err(Error::BadRegisterRead { reg, code }),
-        }
+        self.read_reg_bytes(reg).map(u16::from_be_bytes)
+    }
+
+    fn read_reg_bytes(&self, reg: Register) -> Result<[u8; 2], Error> {
+        self.device
+            .read_reg::<u8, [u8; 2]>(reg as u8)
+            .map_err(|code| Error::BadRegisterRead { reg, code })
+    }
+
+    pub fn read_eeprom(&self) -> Result<[u8; 6], Error> {
+        let [ee1_0, ee1_1] = self.read_reg_bytes(Register::EEPROM1)?;
+        let [ee2_0, ee2_1] = self.read_reg_bytes(Register::EEPROM2)?;
+        let [ee3_0, ee3_1] = self.read_reg_bytes(Register::EEPROM3)?;
+
+        Ok([ee1_0, ee1_1, ee2_0, ee2_1, ee3_0, ee3_1])
     }
 }
 
