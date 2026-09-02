@@ -144,7 +144,7 @@ notifications = ["hash-irq"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 9
+priority = 10
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -175,7 +175,7 @@ interrupts = {"spi4.irq" = "spi-irq"}
 [tasks.grapefruit_seq]
 name = "drv-grapefruit-seq-server"
 features = ["h753"]
-priority = 5
+priority = 7
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
@@ -221,7 +221,7 @@ start = true
 name = "task-host-sp-comms"
 features = ["stm32h753", "baud_rate_3M", "vlan", "grapefruit"]
 uses = ["dbgmcu"]
-priority = 8
+priority = 9
 max-sizes = {flash = 65536, ram = 65536}
 stacksize = 5080
 start = true
@@ -230,7 +230,7 @@ notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 7
+priority = 8
 stacksize = 7000
 start = true
 uses = ["usart1"]
