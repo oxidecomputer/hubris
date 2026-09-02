@@ -81,6 +81,19 @@ enum Trace {
     DisableFailed(usize, LogicalPortMask),
     ClearDisabledPorts(LogicalPortMask),
     SeqError(SeqError),
+    TemperatureGlitch(usize, MilliCelsiusFixed),
+}
+
+/// Trace requires that types are Eq, and floats are not Eq. Make a little
+/// helper type that stores milli-celcius as a fixed point number
+#[derive(Copy, Clone, PartialEq, Eq)]
+struct MilliCelsiusFixed(u32);
+
+impl From<f32> for MilliCelsiusFixed {
+    fn from(value: f32) -> Self {
+        let value = value * 1000.0;
+        Self(value as u32)
+    }
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
@@ -437,58 +450,42 @@ impl ServerImpl {
                 }
             }
 
-            let temperature = match m.interface {
-                ManagementInterface::Cmis => self.read_cmis_temperature(port),
-                ManagementInterface::Sff8636 => {
-                    self.read_sff8636_temperature(port)
-                }
-                ManagementInterface::Unknown(..) => {
-                    // We should never get here, because we only assign
-                    // `self.thermal_models[i]` if the management interface is
-                    // known.
-                    continue;
-                }
-            };
-            let mut got_error = false;
-            match temperature {
+            let res = self.get_temperature_resample(port, i, m);
+            match res {
                 Ok(t) => {
-                    // We got a temperature! Send it over to the thermal task
                     self.sensor_api
                         .post_now(TRANSCEIVER_TEMPERATURE_SENSORS[i], t.0);
-                }
-                // We failed to read a temperature :(
-                //
-                // This could be because someone unplugged the transceiver
-                // at exactly the right time, in which case, the error will
-                // be transient (and we'll remove the transceiver on the
-                // next pass through this function).
-                Err(FpgaError::ImplError(e)) => {
-                    use Reg::QSFP::PORT0_STATUS::ErrorEncoded;
-                    match ErrorEncoded::try_from(e) {
-                        Ok(val) => {
-                            got_error |= matches!(
-                                val,
-                                ErrorEncoded::I2CAddressNack
-                                    | ErrorEncoded::I2CSclStretchTimeout
-                            );
-                            ringbuf_entry!(Trace::TemperatureReadError(i, val))
-                        }
-                        Err(_) => {
-                            // Error code cannot be decoded
-                            ringbuf_entry!(Trace::InvalidPortStatusError(i, e))
-                        }
-                    }
+                    self.consecutive_errors[i] = 0;
                 }
                 Err(e) => {
-                    ringbuf_entry!(Trace::TemperatureReadUnexpectedError(i, e));
+                    // Log error to ringbuf
+                    e.ringbuf();
+
+                    // TODO(AJM): Old behavior here is a bit funky, we should
+                    // review this.
+                    match e.kind {
+                        // Previously, this did a "continue", and didn't affect
+                        // consecutive errors at all.
+                        TempReadErrorKind::UnknownInterface => {}
+                        // This would *increment* consecutive errors
+                        TempReadErrorKind::ReallyBadTempRead(_) => {
+                            self.consecutive_errors[i] =
+                                self.consecutive_errors[i].saturating_add(1);
+                        }
+                        // All of these *actually reset* the error count. Do
+                        // we want this?
+                        TempReadErrorKind::BadTempRead(_)
+                        | TempReadErrorKind::BadPortStatus(_)
+                        | TempReadErrorKind::UnexpectedFpgaErr(_) => {
+                            self.consecutive_errors[i] = 0;
+                        }
+                        // We probably don't want to count this against the
+                        // device, since it could have been a momentary I2C
+                        // glitch.
+                        TempReadErrorKind::UnexpectedVariance(_) => {}
+                    }
                 }
             }
-
-            self.consecutive_errors[i] = if got_error {
-                self.consecutive_errors[i].saturating_add(1)
-            } else {
-                0
-            };
 
             if self.consecutive_errors[i] >= MAX_CONSECUTIVE_ERRORS {
                 to_disable.set(port);
@@ -563,6 +560,146 @@ impl ServerImpl {
 
         self.update_thermal_loop(status);
     }
+
+    fn get_temperature_resample(
+        &self,
+        port: LogicalPort,
+        idx: usize,
+        m: &ThermalModel,
+    ) -> Result<Celsius, TempReadError> {
+        // Attempt to get the temperature twice to determine if we get a stable
+        // temperature. If either attempt fails, just return the error.
+        let a = self.get_temperature_once(port, idx, m)?;
+        let b = self.get_temperature_once(port, idx, m)?;
+        let diff = (a.0 - b.0).abs();
+
+        // It has probably been milliseconds, we don't expect the temperature
+        // to change significantly in this time.
+        if diff >= 5.0f32 {
+            Err(TempReadError {
+                idx,
+                kind: TempReadErrorKind::UnexpectedVariance(
+                    MilliCelsiusFixed::from(diff),
+                ),
+            })
+        } else {
+            Ok(a)
+        }
+    }
+
+    fn get_temperature_once(
+        &self,
+        port: LogicalPort,
+        idx: usize,
+        m: &ThermalModel,
+    ) -> Result<Celsius, TempReadError> {
+        let res = match m.interface {
+            ManagementInterface::Cmis => self.read_cmis_temperature(port),
+            ManagementInterface::Sff8636 => self.read_sff8636_temperature(port),
+            ManagementInterface::Unknown(..) => {
+                // We should never get here, because we only assign
+                // `self.thermal_models[i]` if the management interface is
+                // known.
+                return Err(TempReadError {
+                    idx,
+                    kind: TempReadErrorKind::UnknownInterface,
+                });
+            }
+        };
+
+        res.map_err(|e| TempReadError::from_idx_err(idx, e))
+    }
+}
+
+struct TempReadError {
+    idx: usize,
+    kind: TempReadErrorKind,
+}
+
+impl TempReadError {
+    fn from_idx_err(idx: usize, err: FpgaError) -> Self {
+        // We only expect an ImplError here
+        let FpgaError::ImplError(code) = err else {
+            return Self {
+                idx,
+                kind: TempReadErrorKind::UnexpectedFpgaErr(err),
+            };
+        };
+
+        // We failed to read a temperature :(
+        //
+        // This could be because someone unplugged the transceiver
+        // at exactly the right time, in which case, the error will
+        // be transient (and we'll remove the transceiver on the
+        // next pass through `update_thermal_loop()`).
+
+        use Reg::QSFP::PORT0_STATUS::ErrorEncoded;
+        let res = ErrorEncoded::try_from(code);
+        let Ok(decoded) = res else {
+            // Error code cannot be decoded
+            return Self {
+                idx,
+                kind: TempReadErrorKind::BadPortStatus(code),
+            };
+        };
+
+        let is_read_err = match decoded {
+            // We consider these errors as potentially worth invalidating the
+            // QSFP over.
+            ErrorEncoded::I2CAddressNack => true,
+            ErrorEncoded::I2CSclStretchTimeout => true,
+
+            // TODO(AJM): why *don't* we consider these errors as worth
+            // potentially invalidating the QSFP?
+            ErrorEncoded::NoError => false,
+            ErrorEncoded::NoModule => false,
+            ErrorEncoded::NoPower => false,
+            ErrorEncoded::PowerFault => false,
+            ErrorEncoded::NotInitialized => false,
+            ErrorEncoded::I2CByteNack => false,
+            ErrorEncoded::I2CTransactionTimeout => false,
+        };
+
+        Self {
+            idx,
+            kind: if is_read_err {
+                TempReadErrorKind::ReallyBadTempRead(decoded)
+            } else {
+                TempReadErrorKind::BadTempRead(decoded)
+            },
+        }
+    }
+
+    fn ringbuf(&self) {
+        let trace = match self.kind {
+            // We don't ringbuf for this, should never happen
+            TempReadErrorKind::UnknownInterface => return,
+
+            TempReadErrorKind::ReallyBadTempRead(e)
+            | TempReadErrorKind::BadTempRead(e) => {
+                Trace::TemperatureReadError(self.idx, e)
+            }
+            TempReadErrorKind::BadPortStatus(r) => {
+                Trace::InvalidPortStatusError(self.idx, r)
+            }
+            TempReadErrorKind::UnexpectedFpgaErr(e) => {
+                Trace::TemperatureReadUnexpectedError(self.idx, e)
+            }
+            TempReadErrorKind::UnexpectedVariance(diff) => {
+                Trace::TemperatureGlitch(self.idx, diff)
+            }
+        };
+        ringbuf_entry!(trace);
+    }
+}
+
+enum TempReadErrorKind {
+    UnknownInterface,
+    ReallyBadTempRead(Reg::QSFP::PORT0_STATUS::ErrorEncoded),
+    BadTempRead(Reg::QSFP::PORT0_STATUS::ErrorEncoded),
+    BadPortStatus(u8),
+    UnexpectedFpgaErr(FpgaError),
+    UnexpectedVariance(MilliCelsiusFixed),
 }
 
 ////////////////////////////////////////////////////////////////////////////////
