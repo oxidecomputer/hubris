@@ -12,10 +12,13 @@ use gateway_messages::measurement::{
 use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
 #[cfg(feature = "compute-sled")]
 use gateway_messages::vpd::FanAssemblyVpd;
+use gateway_messages::vpd::{
+    Barcode, BarcodeReadError, PmbusVpd, SmbusBlock, SmbusReadIntoError,
+    Tmp117Identity, VpdRef,
+};
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
     VpdError,
-    vpd::{Barcode, BarcodeReadError, PmbusVpd, Tmp117Identity, VpdRef},
 };
 use static_cell::ClaimOnceCell;
 use task_sensor_api::Sensor as SensorTask;
@@ -211,6 +214,28 @@ impl Inventory {
 
         let vpd = match vpd_kind {
             VpdKind::Pmbus => {
+                // Don't line-wrap as much...
+                use PmbusVpdCmd as Cmd;
+
+                fn read_one(
+                    block: &mut SmbusBlock,
+                    reader: &PmbusVpdReader<'_>,
+                    cmd: Cmd,
+                ) -> Result<Option<usize>, SpError> {
+                    block.read_into(|buf| reader.try_read(cmd, buf)).map_err(
+                        |e| match e {
+                            SmbusReadIntoError::ReadError(code) => {
+                                SpError::Vpd(i2c_error_to_vpd_error(code))
+                            }
+                            SmbusReadIntoError::ReadTooLong => {
+                                // `PmbusVpdReader::try_read` should never
+                                // return a length > 32 bytes.
+                                unreachable!()
+                            }
+                        },
+                    )
+                }
+
                 // Either of these not being set would indicate that code
                 // generation did an oopsie, so we *could* consider this
                 // unreachable here, but I think it's nicer to not panic.
@@ -221,37 +246,18 @@ impl Inventory {
                     return Err(SpError::RequestUnsupportedForComponent);
                 }
 
-                fn read_one(
-                    reader: &PmbusVpdReader<'_>,
-                    cmd: PmbusVpdCmd,
-                ) -> impl FnOnce(&mut [u8; 32]) -> Result<Option<usize>, SpError>
-                {
-                    move |buf| {
-                        reader.try_read(cmd, buf).map_err(|code| {
-                            SpError::Vpd(i2c_error_to_vpd_error(code))
-                        })
-                    }
-                }
-
                 let reader = PmbusVpdReader::new(&dev, caps);
                 let out = &mut self.vpd_scratch.pmbus;
 
-                out.mfr_id
-                    .read_into(read_one(&reader, PmbusVpdCmd::MfrId))?;
-                out.mfr_model
-                    .read_into(read_one(&reader, PmbusVpdCmd::MfrModel))?;
-                out.mfr_revision
-                    .read_into(read_one(&reader, PmbusVpdCmd::MfrRevision))?;
-                out.mfr_location
-                    .read_into(read_one(&reader, PmbusVpdCmd::MfrLocation))?;
-                out.mfr_date
-                    .read_into(read_one(&reader, PmbusVpdCmd::MfrDate))?;
-                out.mfr_serial
-                    .read_into(read_one(&reader, PmbusVpdCmd::MfrSerial))?;
-                out.ic_device_id
-                    .read_into(read_one(&reader, PmbusVpdCmd::IcDeviceId))?;
-                out.ic_device_rev
-                    .read_into(read_one(&reader, PmbusVpdCmd::IcDeviceRev))?;
+                read_one(&mut out.mfr_id, &reader, Cmd::MfrId)?;
+                read_one(&mut out.mfr_model, &reader, Cmd::MfrModel)?;
+                read_one(&mut out.mfr_revision, &reader, Cmd::MfrRevision)?;
+                read_one(&mut out.mfr_location, &reader, Cmd::MfrLocation)?;
+                read_one(&mut out.mfr_date, &reader, Cmd::MfrDate)?;
+                read_one(&mut out.mfr_serial, &reader, Cmd::MfrSerial)?;
+                read_one(&mut out.ic_device_id, &reader, Cmd::IcDeviceId)?;
+                read_one(&mut out.ic_device_rev, &reader, Cmd::IcDeviceRev)?;
+
                 VpdRef::Pmbus(&*out)
             }
             VpdKind::SingleBarcode => {
@@ -301,22 +307,23 @@ impl Inventory {
 }
 
 fn read_tmp117_vpd(dev: &I2cDevice, buf: &mut [u8]) -> Result<usize, SpError> {
-    use drv_i2c_devices::tmp117::{Error, Register, Tmp117};
-
-    fn to_sp_error(e: Error) -> SpError {
-        match e {
-            Error::BadRegisterRead { code, .. } => {
-                SpError::Vpd(i2c_error_to_vpd_error(code))
-            }
-        }
-    }
-
-    let dev = Tmp117::new(dev);
     let vpd = Tmp117Identity {
-        id: dev.read_reg(Register::DeviceID).map_err(to_sp_error)?,
-        eeprom1: dev.read_reg(Register::EEPROM1).map_err(to_sp_error)?,
-        eeprom2: dev.read_reg(Register::EEPROM2).map_err(to_sp_error)?,
-        eeprom3: dev.read_reg(Register::EEPROM3).map_err(to_sp_error)?,
+        id: dev
+            .read_reg(0x0Fu8)
+            .map_err(i2c_error_to_vpd_error)
+            .map_err(SpError::Vpd)?,
+        eeprom1: dev
+            .read_reg(0x05u8)
+            .map_err(i2c_error_to_vpd_error)
+            .map_err(SpError::Vpd)?,
+        eeprom2: dev
+            .read_reg(0x06u8)
+            .map_err(i2c_error_to_vpd_error)
+            .map_err(SpError::Vpd)?,
+        eeprom3: dev
+            .read_reg(0x07u8)
+            .map_err(i2c_error_to_vpd_error)
+            .map_err(SpError::Vpd)?,
     };
     hubpack::serialize(buf, &VpdRef::Tmp117(&vpd))
         .map_err(|_| SpError::Vpd(VpdError::BadBuffer))
