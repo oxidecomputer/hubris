@@ -85,7 +85,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             Some("Pmbus")
         } else if build_i2c::VPD_EEPROM_DEVICES.contains(&dev.device.as_str()) {
             let vpd_mode = match dev.eeprom_vpd.unwrap_or_default() {
-                build_i2c::EepromVpd::SingleBarcode => "Barcode",
+                build_i2c::EepromVpd::SingleBarcode => "SingleBarcode",
                 build_i2c::EepromVpd::FanAssembly => "FanAssembly",
             };
             Some(vpd_mode)
