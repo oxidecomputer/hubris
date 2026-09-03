@@ -5,10 +5,7 @@
 #![no_std]
 #![no_main]
 
-use core::{
-    mem::MaybeUninit,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use core::mem::MaybeUninit;
 
 use counters::Count;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -81,36 +78,45 @@ enum Trace {
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule {
+        #[count(children)]
         port: LogicalPort,
     },
     RemovedDisabledModuleThermalModel {
+        #[count(children)]
         port: LogicalPort,
     },
     TemperatureReadError {
+        #[count(children)]
         port: LogicalPort,
         err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
     },
     PotentialRemovalError {
+        #[count(children)]
         port: LogicalPort,
         err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
     },
     TemperatureReadUnexpectedError {
+        #[count(children)]
         port: LogicalPort,
         err: FpgaError,
     },
     ThermalError {
+        #[count(children)]
         port: LogicalPort,
         err: ThermalError,
     },
     GetInterfaceError {
+        #[count(children)]
         port: LogicalPort,
         err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
     },
     GetInterfaceUnexpectedError {
+        #[count(children)]
         port: LogicalPort,
         err: FpgaError,
     },
     InvalidPortStatusError {
+        #[count(children)]
         port: LogicalPort,
         raw_err: u8,
     },
@@ -122,6 +128,7 @@ enum Trace {
     ClearDisabledPorts(LogicalPortMask),
     SeqError(SeqError),
     TemperatureGlitch {
+        #[count(children)]
         port: LogicalPort,
         variance: Celsius,
     },
@@ -131,7 +138,7 @@ counted_ringbuf!(Trace, 16, Trace::None);
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 struct TempGlitch {
-    index: u8,
+    index: LogicalPort,
     first: Celsius,
     second: Celsius,
 }
@@ -145,7 +152,7 @@ impl TempGlitch {
     /// didn't feel like making this an Option, or using u8::MAX as the index,
     /// or even adding 1 to the port and then using NonZero or something.
     const RINGBUF_INIT: Self = Self {
-        index: 0,
+        index: LogicalPort(0),
         first: Celsius(0.0),
         second: Celsius(0.0),
     };
@@ -154,20 +161,16 @@ impl TempGlitch {
 /// Keep counters for how often each port has experienced temperature glitches.
 ///
 /// This *does not* reset when ports are disabled or qsfp xcvrs are removed or
-/// re-added.
+/// re-added. We just pass-through to the existing LogicalPort impl of Count.
 impl Count for TempGlitch {
-    type Counters = [AtomicU32; NUM_PORTS as usize];
+    type Counters = <LogicalPort as Count>::Counters;
 
     #[allow(clippy::declare_interior_mutable_const)]
-    const NEW_COUNTERS: Self::Counters =
-        [const { AtomicU32::new(0) }; NUM_PORTS as usize];
+    const NEW_COUNTERS: Self::Counters = <LogicalPort as Count>::NEW_COUNTERS;
 
+    #[inline]
     fn count(&self, counters: &Self::Counters) {
-        // This should never happen, but just in case.
-        let Some(ctr) = counters.get(self.index as usize) else {
-            return;
-        };
-        ctr.fetch_add(1, Ordering::Relaxed);
+        self.index.count(counters);
     }
 }
 
@@ -234,6 +237,9 @@ struct PortData {
     peak_diff: f32,
     /// Number of times the temperature has been discarded, saturates
     discarded_temps: u32,
+    /// Number of times the temperature has been samples. This counts resample
+    /// times, not individul i2c queries
+    total_temp_samples: u32,
     /// Thermal models are populated by the host
     // TODO(AJM): Is the above comment true? We actually fill this in with a
     // basic model for each, and I don't *think* there's a UDP api to set this?
@@ -247,6 +253,7 @@ impl PortData {
             consecutive_errors: 0,
             peak_diff: 0.0,
             discarded_temps: 0,
+            total_temp_samples: 0,
             model: None,
         }
     }
@@ -526,7 +533,7 @@ impl XcvrApi {
             ringbuf_entry!(
                 TEMP_GLITCH_RINGBUF,
                 TempGlitch {
-                    index: port.0,
+                    index: port,
                     first: a,
                     second: b,
                 }
@@ -666,6 +673,7 @@ impl ServerImpl {
             // Sample the transceiver temperature multiple times, seeing if
             // we are successful and the samples are steady enough to report.
             let res = xcvr_api.get_temperature_resample(port, m);
+            meta.total_temp_samples = meta.total_temp_samples.saturating_add(1);
             match res {
                 Ok((reading, diff)) => {
                     sensor_api.post_now(
