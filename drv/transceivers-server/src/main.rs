@@ -536,7 +536,7 @@ impl XcvrApi {
             ringbuf_entry!(
                 TEMP_GLITCH_RINGBUF,
                 TempGlitch {
-                    port: port,
+                    port,
                     first: a,
                     second: b,
                 }
