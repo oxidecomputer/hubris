@@ -67,7 +67,7 @@ pub enum Sensor {
 #[repr(u8)]
 pub enum VpdKind {
     Pmbus = 1,
-    Barcode,
+    SingleBarcode,
     FanAssembly,
     Tmp117,
 }

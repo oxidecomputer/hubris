@@ -109,9 +109,11 @@ struct I2cDevice {
     /// description of device
     description: String,
 
-    /// Overrides the default VPD representation for this device.
-    #[serde(default)]
-    vpd: EepromVpd,
+    /// if this is an EEPROM, configures the format for VPD read from this
+    /// EEPROM.
+    ///
+    /// providing a value for this is valid only if `device = "at24csw080"`.
+    eeprom_vpd: Option<EepromVpd>,
 
     /// reference designator, if any
     refdes: Option<Refdes>,
@@ -676,6 +678,8 @@ fn calculate_validate_drivers() -> Result<HashSet<String>> {
     Ok(drivers)
 }
 
+pub const VPD_EEPROM_DEVICES: &[&str] = &["at24csw080"];
+
 impl ConfigGenerator {
     pub fn new_with_config(settings: CodegenSettings, i2c: I2cConfig) -> Self {
         let mut controllers = vec![];
@@ -738,14 +742,13 @@ impl ConfigGenerator {
                     }
                     (_, _) => {}
                 }
-                if d.vpd == EepromVpd::FanAssembly {
-                    let refdes = d.refdes.as_ref().map(Refdes::to_component_id);
-                    let refdes = refdes.as_deref().unwrap_or("no refdes");
+                if d.eeprom_vpd.is_some() {
                     assert!(
-                        d.device == "at24csw080",
-                        "device {} at address {:#x} ({refdes}) is configured \
-                         with the 'fan-assembly' EEPROM VPD mode, but is not \
-                         an AT24CSW080",
+                        VPD_EEPROM_DEVICES.contains(&d.device.as_str()),
+                        "device {} at address {:#x} is configured with an \
+                         EEPROM VPD format, but it is not a supported EEPROM \
+                         device (currently, we know about the following \
+                         EEPROMs: {VPD_EEPROM_DEVICES:?})",
                         d.device,
                         d.address,
                     );
@@ -2082,7 +2085,7 @@ pub struct I2cDeviceDescription {
     pub device_id: Option<String>,
     pub name: Option<String>,
     pub validate_with_raw_read: bool,
-    pub vpd: EepromVpd,
+    pub eeprom_vpd: Option<EepromVpd>,
     /// If this is a PMBus device, this field contains additional data about the
     /// PMBus device to be used for generating PMBus-y code.
     pub pmbus: Option<PmbusDeviceDescription>,
@@ -2176,7 +2179,7 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
                 device_id,
                 name: device.name,
                 validate_with_raw_read: device.validate_with_raw_read,
-                vpd: device.vpd,
+                eeprom_vpd: device.eeprom_vpd,
                 pmbus,
             }
         },

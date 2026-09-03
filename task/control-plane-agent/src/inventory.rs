@@ -254,7 +254,7 @@ impl Inventory {
                     .read_into(read_one(&reader, PmbusVpdCmd::IcDeviceRev))?;
                 VpdRef::Pmbus(&*out)
             }
-            VpdKind::Barcode => {
+            VpdKind::SingleBarcode => {
                 let out = &mut self.vpd_scratch.barcode;
                 read_one_barcode(out, &dev, &[(*b"BARC", 0)])?;
                 VpdRef::Barcode(&*out)

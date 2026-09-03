@@ -83,11 +83,12 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             caps.supports_any(&PmbusCapabilities::ANY_VPD_REGS)
         }) {
             Some("Pmbus")
-        } else if dev.device == "at24csw080" {
-            Some(match dev.vpd {
+        } else if build_i2c::VPD_EEPROM_DEVICES.contains(&dev.device.as_str()) {
+            let vpd_mode = match dev.eeprom_vpd.unwrap_or_default() {
                 build_i2c::EepromVpd::SingleBarcode => "Barcode",
                 build_i2c::EepromVpd::FanAssembly => "FanAssembly",
-            })
+            };
+            Some(vpd_mode)
         } else if dev.device == "tmp117" {
             Some("Tmp117")
         } else {
