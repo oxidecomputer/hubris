@@ -69,7 +69,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             else {
                 println!(
                     "cargo::error=unknown pmbus device: {device_name}, add an \
-                     entry to  PMBUS_GENERATOR in {} for PMBus status register \
+                     entry to PMBUS_GENERATOR in {} for PMBus status register \
                      and VPD support.",
                     file!(),
                 );
