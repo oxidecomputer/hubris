@@ -5,7 +5,10 @@
 #![no_std]
 #![no_main]
 
-use core::mem::MaybeUninit;
+use core::{
+    mem::MaybeUninit,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use counters::Count;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -125,6 +128,65 @@ enum Trace {
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+struct TempGlitch {
+    index: u8,
+    first: Celsius,
+    second: Celsius,
+}
+
+impl TempGlitch {
+    /// Okay so ringbuf requires an initializer, and this value is actually
+    /// somewhat obnoxious because it *is* a plausible value to observe.
+    /// However, "all zeroes" lets us put the initializer in .bss and not .data,
+    /// and since this is just for debugging, we hope that a reasonable person
+    /// would realize that the delta between the two entries is zero. I really
+    /// didn't feel like making this an Option, or using u8::MAX as the index,
+    /// or even adding 1 to the port and then using NonZero or something.
+    const RINGBUF_INIT: Self = Self {
+        index: 0,
+        first: Celsius(0.0),
+        second: Celsius(0.0),
+    };
+}
+
+/// Keep counters for how often each port has experienced temperature glitches.
+///
+/// This *does not* reset when ports are disabled or qsfp xcvrs are removed or
+/// re-added.
+impl Count for TempGlitch {
+    type Counters = [AtomicU32; NUM_PORTS as usize];
+
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters =
+        [const { AtomicU32::new(0) }; NUM_PORTS as usize];
+
+    fn count(&self, counters: &Self::Counters) {
+        // This should never happen, but just in case.
+        let Some(ctr) = counters.get(self.index as usize) else {
+            return;
+        };
+        ctr.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+// Keep counters each time the delta between two samples exceeds the value
+// of `MAX_RESAMPLE_VARIANCE_CELSIUS`. This also counts how often it happens
+// on a per-port basis, as well as the last 32 instances it has been observed.
+//
+// This augments the per-port info kept in [`PortData`].
+//
+// We hope to observe the reported values differing in a way that can be
+// explained by data bits being flipped or shifted, which would be consistent
+// with "I2C weather" as opposed to a complete hiccup of the transceiver
+// itself.
+counted_ringbuf!(
+    TEMP_GLITCH_RINGBUF,
+    TempGlitch,
+    32,
+    TempGlitch::RINGBUF_INIT
+);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -460,6 +522,15 @@ impl XcvrApi {
         // It has probably been milliseconds, we don't expect the temperature
         // to change significantly in this time.
         if diff >= MAX_RESAMPLE_VARIANCE_CELSIUS {
+            // Record glitches specifically in the ringbuf
+            ringbuf_entry!(
+                TEMP_GLITCH_RINGBUF,
+                TempGlitch {
+                    index: port.0,
+                    first: a,
+                    second: b,
+                }
+            );
             Err(TempReadError::UnexpectedVariance(diff))
         } else {
             Ok((a, diff))
