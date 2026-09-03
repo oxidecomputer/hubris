@@ -282,24 +282,24 @@ impl I2cSensors {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
-struct DeviceKey {
-    device: String,
-    kind: Sensor,
+#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Clone)]
+pub struct DeviceKey {
+    pub device: String,
+    pub kind: Sensor,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
-struct DeviceNameKey {
-    device: String,
-    name: String,
-    kind: Sensor,
+#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Clone)]
+pub struct DeviceNameKey {
+    pub device: String,
+    pub name: String,
+    pub kind: Sensor,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
-struct DeviceRefdesKey {
-    device: String,
-    refdes: Refdes,
-    kind: Sensor,
+#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Clone)]
+pub struct DeviceRefdesKey {
+    pub device: String,
+    pub refdes: Refdes,
+    pub kind: Sensor,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -323,30 +323,80 @@ impl iddqd::IdOrdItem for DeviceSensor {
 
 #[derive(Debug)]
 pub struct I2cSensorsDescription {
-    // In all multimaps below, the value is the sensor ID. The same sensor ID
+    // In all maps below, the value is the sensor ID. The same sensor ID
     // can show up in multiple (including all!) of these maps.
     //
     // All sensors are guaranteed to be present in `by_device`, but
     // may not be present in the other maps (devices may or may not have a
     // name/bus in app.toml).
-    by_device: MultiMap<DeviceKey, usize>,
-    by_name: MultiMap<DeviceNameKey, usize>,
-    by_refdes: MultiMap<DeviceRefdesKey, usize>,
+    /// `by_device` tracks items by what the sensor is (e.g. "Temperature"),
+    /// and by what kind of device the sensor exists within, e.g. "TMP117".
+    /// A `(Temperature, TMP117)` may have multiple sensor IDs that match the
+    /// same tuple of options.
+    by_device: BTreeMap<DeviceKey, Vec<usize>>,
+    /// `by_refdes` tracks items on the two items above, PLUS what "refdes"
+    /// is available, for example "U32". A `(Speed, Max31790, U32)` may
+    /// have multiple sensor IDs, for example if there are 6 separate speed
+    /// sensors hosted on the same physical I2C device.
+    by_refdes: BTreeMap<DeviceRefdesKey, Vec<usize>>,
+    /// `by_name` tracks items on the triple of device/name/kind, for example
+    /// `(TMP117, "North", Temperature)`. This actually should probably not
+    /// ever match multiple items, and will be fixed in the future. See
+    /// https://github.com/oxidecomputer/hubris/issues/2637 for details.
+    by_name: BTreeMap<DeviceNameKey, Vec<usize>>,
+    /// All sensors by their ID
     pub by_id: IdOrdMap<Arc<DeviceSensor>>,
 
-    // list of all devices and a list of their sensors, with an optional sensor
-    // name (if present)
+    /// list of all devices and a list of their sensors, with an optional sensor
+    /// name (if present)
     device_sensors: Vec<Vec<Arc<DeviceSensor>>>,
 
     pub total_sensors: usize,
 }
 
+impl std::fmt::Display for I2cSensorsDescription {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let I2cSensorsDescription {
+            by_device,
+            by_name,
+            by_refdes,
+            by_id,
+            device_sensors,
+            total_sensors,
+        } = self;
+        writeln!(f, "by_device:")?;
+        for (k, vs) in by_device {
+            writeln!(f, "  - {k:?} :: {vs:?}")?;
+        }
+        writeln!(f, "by_name:")?;
+        for (k, vs) in by_name {
+            writeln!(f, "  - {k:?} :: {vs:?}")?;
+        }
+        writeln!(f, "by_refdes:")?;
+        for (k, vs) in by_refdes {
+            writeln!(f, "  - {k:?} :: {vs:?}")?;
+        }
+        writeln!(f, "by_id:")?;
+        for s in by_id {
+            writeln!(f, "  - {s:?}")?;
+        }
+        writeln!(f, "device_sensors:")?;
+        for (i, d) in device_sensors.iter().enumerate() {
+            writeln!(f, "  - I2cDevice({i})")?;
+            for (j, s) in d.iter().enumerate() {
+                writeln!(f, "    - {i}.{j}: {s:?}")?;
+            }
+        }
+        writeln!(f, "total_sensors: {total_sensors}")
+    }
+}
+
 impl I2cSensorsDescription {
     fn new(devices: &[I2cDevice]) -> Self {
         let mut desc = Self {
-            by_device: MultiMap::with_capacity(devices.len()),
-            by_name: MultiMap::new(),
-            by_refdes: MultiMap::new(),
+            by_device: BTreeMap::new(),
+            by_name: BTreeMap::new(),
+            by_refdes: BTreeMap::new(),
             by_id: IdOrdMap::new(),
             device_sensors: vec![Vec::new(); devices.len()],
             total_sensors: 0,
@@ -429,14 +479,14 @@ impl I2cSensorsDescription {
         };
 
         if let Some(name) = name.clone() {
-            self.by_name.insert(
-                DeviceNameKey {
+            self.by_name
+                .entry(DeviceNameKey {
                     device: d.device.clone(),
                     name,
                     kind,
-                },
-                id,
-            );
+                })
+                .or_default()
+                .push(id);
         }
 
         let sensor = Arc::new(DeviceSensor {
@@ -447,23 +497,23 @@ impl I2cSensorsDescription {
         });
 
         if let Some(ref refdes) = sensor.refdes {
-            self.by_refdes.insert(
-                DeviceRefdesKey {
+            self.by_refdes
+                .entry(DeviceRefdesKey {
                     device: d.device.clone(),
                     refdes: refdes.clone(),
                     kind,
-                },
-                id,
-            );
+                })
+                .or_default()
+                .push(id);
         }
 
-        self.by_device.insert(
-            DeviceKey {
+        self.by_device
+            .entry(DeviceKey {
                 device: d.device.clone(),
                 kind,
-            },
-            id,
-        );
+            })
+            .or_default()
+            .push(id);
 
         if let Err(prev) = self.by_id.insert_unique(sensor.clone()) {
             panic!("weird: colliding sensor ID {id}: {prev:?} and {sensor:?}",);
@@ -1745,25 +1795,16 @@ impl ConfigGenerator {
             }
         }
 
-        let mut by_device_sorted: Vec<_> = s.by_device.iter_all().collect();
-        by_device_sorted.sort();
-
-        for (k, ids) in &by_device_sorted {
+        for (k, ids) in s.by_device.iter() {
             self.emit_sensor(&k.device, &format!("{}", k.kind), ids, output)?;
         }
 
-        let mut by_name_sorted: Vec<_> = s.by_name.iter_all().collect();
-        by_name_sorted.sort();
-
-        for (k, ids) in &by_name_sorted {
+        for (k, ids) in s.by_name.iter() {
             let label = format!("{}_{}", k.name.to_uppercase(), k.kind);
             self.emit_sensor(&k.device, &label, ids, output)?;
         }
 
-        let mut by_refdes_sorted: Vec<_> = s.by_refdes.iter_all().collect();
-        by_refdes_sorted.sort();
-
-        for (k, ids) in &by_refdes_sorted {
+        for (k, ids) in s.by_refdes.iter() {
             let refdes = k.refdes.to_upper_ident();
             let label = format!("{refdes}_{}", k.kind);
             self.emit_sensor(&k.device, &label, ids, output)?;

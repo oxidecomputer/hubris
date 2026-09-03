@@ -55,7 +55,7 @@ enum Trace {
     Debug(bool),
     Error(SprotError),
     FailedRetries {
-        retries: u16,
+        attempts: u16,
         last_errcode: SprotError,
     },
     PulseFailed,
@@ -473,9 +473,9 @@ impl<S: SpiServer> ServerImpl<S> {
         &mut self,
         mut tx_size: usize,
         timeout: u32,
-        retries: u16,
+        attempts: u16,
     ) -> Result<Response<'_>, SprotError> {
-        let mut attempts_left = retries;
+        let mut attempts_left = attempts;
 
         // We must always send an even number of bytes since
         // the RoT waits for 2 bytes in each fifo entry before making data
@@ -538,7 +538,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
             if attempts_left == 0 {
                 ringbuf_entry!(Trace::FailedRetries {
-                    retries,
+                    attempts,
                     last_errcode: err
                 });
                 return Err(err);
@@ -810,7 +810,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Update(UpdateReq::Reset);
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         if let RspBody::Ok = rsp.body? {
             Ok(())
         } else {
@@ -826,7 +830,9 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<DumpOrSprotError>> {
         let body = ReqBody::Dump(DumpReq::V1 { addr });
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)?;
+        let rsp =
+            // Dumping is not completely idempotent so only try once
+            self.do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)?;
         if let RspBody::Dump(DumpRsp::V1 { err }) = rsp.body? {
             err.map_or(Ok(()), |e| DumpOrSprotError::Dump(e).into())
         } else {
@@ -842,7 +848,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let body = ReqBody::Caboose(CabooseReq::Size { slot });
         let tx_size = Request::pack(&body, self.tx_buf);
         let rsp = self
-            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, DEFAULT_ATTEMPTS)
             .map_err(RawCabooseOrSprotError::Sprot)?;
         match rsp.body {
             Ok(RspBody::Caboose(Ok(CabooseRsp::Size(size)))) => Ok(size),
@@ -955,7 +961,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
         let body = ReqBody::Attest(AttestReq::CertChainLen);
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::CertChainLen(s)))) => Ok(s),
             Ok(RspBody::Attest(Err(e))) => {
@@ -976,7 +986,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
         let body = ReqBody::Attest(AttestReq::CertLen(index));
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::CertLen(s)))) => Ok(s),
             Ok(RspBody::Attest(Err(e))) => {
@@ -1001,7 +1015,12 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<AttestOrSprotError>> {
         let body = ReqBody::Attest(AttestReq::Record { algorithm });
         let tx_size = Request::pack_with_blob(&body, self.tx_buf, data)?;
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            // This is not idempotent so only try once
+            1,
+        )?;
 
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::Record))) => Ok(()),
@@ -1098,7 +1117,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
         let body = ReqBody::Attest(AttestReq::LogLen);
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::LogLen(s)))) => Ok(s),
             Ok(RspBody::Attest(Err(e))) => {
@@ -1146,7 +1169,8 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             )
         })?;
 
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_LONG, 1)?;
+        let rsp =
+            self.do_send_recv_retries(tx_size, TIMEOUT_LONG, DEFAULT_ATTEMPTS)?;
 
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::Attest))) => {
@@ -1181,7 +1205,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
         let body = ReqBody::Attest(AttestReq::AttestLen);
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::AttestLen(s)))) => Ok(s),
             Ok(RspBody::Attest(Err(e))) => {
@@ -1202,7 +1230,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Swd(SwdReq::EnableSpSlotWatchdog { time_ms });
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         rsp.body?;
         Ok(())
     }
@@ -1213,7 +1245,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Swd(SwdReq::DisableSpSlotWatchdog);
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         rsp.body?;
         Ok(())
     }
@@ -1224,7 +1260,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Swd(SwdReq::SpSlotWatchdogSupported);
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         rsp.body?;
         Ok(())
     }
@@ -1239,7 +1279,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             ReqBody::Caboose(CabooseReq::ComponentSize { component, slot });
         let tx_size = Request::pack(&body, self.tx_buf);
         let rsp = self
-            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, DEFAULT_ATTEMPTS)
             .map_err(RawCabooseOrSprotError::Sprot)?;
         match rsp.body {
             Ok(RspBody::Caboose(Ok(CabooseRsp::ComponentSize(size)))) => {
@@ -1424,7 +1464,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
         let body = ReqBody::Attest(AttestReq::TqCertChainLen);
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::TqCertChainLen(s)))) => Ok(s),
             Ok(RspBody::Attest(Err(e))) => {
@@ -1445,7 +1489,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
         let body = ReqBody::Attest(AttestReq::TqCertLen(index));
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::TqCertLen(s)))) => Ok(s),
             Ok(RspBody::Attest(Err(e))) => {
@@ -1488,7 +1536,8 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             )
         })?;
 
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_LONG, 1)?;
+        let rsp =
+            self.do_send_recv_retries(tx_size, TIMEOUT_LONG, DEFAULT_ATTEMPTS)?;
 
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::TqSign))) => {
@@ -1523,7 +1572,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
         let body = ReqBody::Attest(AttestReq::TqSignLen);
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::TqSignLen(s)))) => Ok(s),
             Ok(RspBody::Attest(Err(e))) => {
