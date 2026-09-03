@@ -265,8 +265,8 @@ impl Inventory {
                 read_one_barcode(out, &dev, &[(*b"BARC", 0)])?;
                 VpdRef::Barcode(&*out)
             }
-            VpdKind::FanAssembly => self.read_fan_tray_vpd(&dev)?,
-            VpdKind::Tmp117 => return read_tmp117_vpd(&dev, buf),
+            VpdKind::SledFanTray => self.read_fan_tray_vpd(&dev)?,
+            VpdKind::Tmp11x => return read_tmp117_vpd(&dev, buf),
         };
 
         hubpack::serialize(buf, &vpd)

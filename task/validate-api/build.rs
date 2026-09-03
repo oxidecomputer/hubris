@@ -60,8 +60,8 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     let mut id2idx = std::collections::BTreeMap::new();
 
     for (idx, dev) in devices.into_iter().enumerate() {
+        let device_name = dev.device.as_str();
         let pmbus_capabilities = if dev.pmbus.is_some() {
-            let device_name = &dev.device;
             let Some(caps) =
                 PMBUS_GENERATOR.iter().find_map(|&(name, generate)| {
                     (name == device_name).then(generate)
@@ -83,14 +83,14 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             caps.supports_any(&PmbusCapabilities::ANY_VPD_REGS)
         }) {
             Some("Pmbus")
-        } else if build_i2c::VPD_EEPROM_DEVICES.contains(&dev.device.as_str()) {
+        } else if build_i2c::VPD_EEPROM_DEVICES.contains(&device_name) {
             let vpd_mode = match dev.eeprom_vpd.unwrap_or_default() {
                 build_i2c::EepromVpd::SingleBarcode => "SingleBarcode",
-                build_i2c::EepromVpd::FanAssembly => "FanAssembly",
+                build_i2c::EepromVpd::SledFanTray => "SledFanTray",
             };
             Some(vpd_mode)
-        } else if dev.device == "tmp117" {
-            Some("Tmp117")
+        } else if build_i2c::VPD_TMP11X_DEVICES.contains(&device_name) {
+            Some("Tmp11x")
         } else {
             None
         };

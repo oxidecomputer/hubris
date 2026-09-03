@@ -600,7 +600,7 @@ impl std::fmt::Display for Sensor {
 pub enum EepromVpd {
     #[default]
     SingleBarcode,
-    FanAssembly,
+    SledFanTray,
 }
 
 #[derive(PartialEq)]
@@ -679,6 +679,7 @@ fn calculate_validate_drivers() -> Result<HashSet<String>> {
 }
 
 pub const VPD_EEPROM_DEVICES: &[&str] = &["at24csw080"];
+pub const VPD_TMP11X_DEVICES: &[&str] = &["tmp116", "tmp117"];
 
 impl ConfigGenerator {
     pub fn new_with_config(settings: CodegenSettings, i2c: I2cConfig) -> Self {

@@ -68,8 +68,8 @@ pub enum Sensor {
 pub enum VpdKind {
     Pmbus = 1,
     SingleBarcode,
-    FanAssembly,
-    Tmp117,
+    SledFanTray,
+    Tmp11x,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
