@@ -243,12 +243,14 @@ pub struct Fan<D> {
     pub state_acked: bool,
     /// The current state of the fan
     pub cur_state: FanState,
+    /// The system index of the fan
+    pub system_index: u8,
     /// A BSP-specific ID used to identify the fan
     pub bsp_data: D,
     /// Parameter model for this fan
     pub model: FanProperties,
-    pub component_id: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
-    pub name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
+    pub refdes: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
+    pub sensor: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
@@ -258,6 +260,7 @@ impl<D> Fan<D> {
         rpm_sensor_id: SensorId,
         model: FanProperties,
         bsp_data: D,
+        system_index: u8,
     ) -> Self {
         Self {
             rpm_sensor_id,
@@ -266,8 +269,9 @@ impl<D> Fan<D> {
             cur_state: FanState::NotPresent,
             bsp_data,
             model,
-            name: rpm_sensor_id.name(),
-            component_id: rpm_sensor_id.component_id(),
+            sensor: rpm_sensor_id.name(),
+            refdes: rpm_sensor_id.component_id(),
+            system_index,
         }
     }
 
@@ -1567,20 +1571,31 @@ fn report_fan_state<D>(
 
     // Step one: report presence, if necessary
     let id = fan.rpm_sensor_id;
+
+    // Helpers for building repetitive ereport information
+    let basic_info = || BasicFanInfo {
+        sensor: fan.sensor,
+        refdes: fan.refdes,
+        slot: fan.system_index,
+    };
+    let fan_info = || FanInfo {
+        basic_info: basic_info(),
+        lo_rpm_lim: fan.model.underspeed_rpm.0,
+        hi_rpm_lim: fan.model.overspeed_rpm.0,
+    };
+
     if !fan.presence_acked {
         match fan.cur_state {
             Fs::NotPresent => {
                 ringbuf_entry!(Trace::FanRemoved(id));
                 _ = ereporter.deliver_ereport(&FanRemoved {
-                    name: fan.name,
-                    component_id: fan.component_id,
+                    basic_info: basic_info(),
                 });
             }
             Fs::Present(_) => {
                 ringbuf_entry!(Trace::FanAdded(id));
                 _ = ereporter.deliver_ereport(&FanInserted {
-                    name: fan.name,
-                    component_id: fan.component_id,
+                    basic_info: basic_info(),
                 })
             }
         };
@@ -1611,17 +1626,10 @@ fn report_fan_state<D>(
 
     // Step three: handle state reporting, if unreported
     if !fan.state_acked {
-        let fan_info = || FanInfo {
-            name: fan.name,
-            component_id: fan.component_id,
-            lo_rpm_lim: fan.model.underspeed_rpm.0,
-            hi_rpm_lim: fan.model.overspeed_rpm.0,
-        };
         match pres {
             Fps::I2cReadError(e) => {
                 _ = ereporter.deliver_ereport(&FanRpmReadFailed {
-                    name: fan.name,
-                    component_id: fan.component_id,
+                    basic_info: basic_info(),
                     raw_response_code: e as u8,
                 });
                 ringbuf_entry!(Trace::FanReadFailed(
@@ -1671,9 +1679,16 @@ ereports::declare_ereporter! {
 }
 
 #[derive(microcbor::EncodeFields)]
+struct BasicFanInfo {
+    sensor: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
+    refdes: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
+    slot: u8,
+}
+
+#[derive(microcbor::EncodeFields)]
 struct FanInfo {
-    name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
-    component_id: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
+    #[cbor(flatten)]
+    basic_info: BasicFanInfo,
     lo_rpm_lim: u16,
     hi_rpm_lim: u16,
 }
@@ -1682,16 +1697,16 @@ struct FanInfo {
 #[derive(Encode)]
 #[ereport(class = "hw.remove.fan", version = 0)]
 struct FanRemoved {
-    name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
-    component_id: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
+    #[cbor(flatten)]
+    basic_info: BasicFanInfo,
 }
 
 /// An ereport representing a fan being inserted
 #[derive(Encode)]
 #[ereport(class = "hw.insert.fan", version = 0)]
 struct FanInserted {
-    name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
-    component_id: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
+    #[cbor(flatten)]
+    basic_info: BasicFanInfo,
 }
 
 /// An ereport representing a fan entering a nominal state
@@ -1724,8 +1739,8 @@ struct FanUnderspeed {
 #[derive(Encode)]
 #[ereport(class = "hw.fan.rpm.err", version = 0)]
 struct FanRpmReadFailed {
-    name: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
-    component_id: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
+    #[cbor(flatten)]
+    basic_info: BasicFanInfo,
     /// The raw I2C driver code reported when this query failed. This value
     /// is not stable across versions of the SP firmware, and should only
     /// be logged or used for interactive or post-mortem debugging.

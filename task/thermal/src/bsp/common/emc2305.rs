@@ -104,6 +104,7 @@ pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
         SensorId::new(0),
         SANYO_DENKI_FAN_PROPERTIES,
         EmcFan::new_const(0),
+        0,
     );
 
     let mut out = [ONE; N];
@@ -113,6 +114,7 @@ pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
         out[idx].bsp_data = EmcFan::new_const(idx as u8);
         out[idx].cur_state = FanState::Present(FanPresentState::Unpolled);
         out[idx].presence_acked = true;
+        out[idx].system_index = idx as u8;
         idx += 1;
     }
 

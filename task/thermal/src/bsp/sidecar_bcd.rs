@@ -523,12 +523,14 @@ const fn make_fans() -> [Fan; NUM_FANS] {
         SensorId::new(0),
         SANYO_DENKI_FAN_PROPERTIES,
         MaxFan::new_const(0),
+        0,
     );
     let mut fans = [ONE_FAN; NUM_FANS];
     let mut idx = 0;
     while idx < NUM_FANS {
         fans[idx].rpm_sensor_id = sensors::MAX31790_SPEED_SENSORS[idx];
         fans[idx].bsp_data = MaxFan::new_const(FAN_ORDER[idx]);
+        fans[idx].system_index = idx as u8;
         idx += 1;
     }
 
