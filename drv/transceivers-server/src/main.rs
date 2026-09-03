@@ -138,7 +138,7 @@ counted_ringbuf!(Trace, 16, Trace::None);
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 struct TempGlitch {
-    index: LogicalPort,
+    port: LogicalPort,
     first: Celsius,
     second: Celsius,
 }
@@ -152,7 +152,7 @@ impl TempGlitch {
     /// didn't feel like making this an Option, or using u8::MAX as the index,
     /// or even adding 1 to the port and then using NonZero or something.
     const RINGBUF_INIT: Self = Self {
-        index: LogicalPort(0),
+        port: LogicalPort(0),
         first: Celsius(0.0),
         second: Celsius(0.0),
     };
@@ -170,7 +170,7 @@ impl Count for TempGlitch {
 
     #[inline]
     fn count(&self, counters: &Self::Counters) {
-        self.index.count(counters);
+        self.port.count(counters);
     }
 }
 
@@ -240,9 +240,10 @@ struct PortData {
     /// Number of times the temperature has been samples. This counts resample
     /// times, not individul i2c queries
     total_temp_samples: u32,
-    /// Thermal models are populated by the host
-    // TODO(AJM): Is the above comment true? We actually fill this in with a
-    // basic model for each, and I don't *think* there's a UDP api to set this?
+    /// Thermal models for the given transceiver. Currently this is fixed to
+    /// a single basic model.
+    ///
+    /// See https://github.com/oxidecomputer/hubris/issues/2670.
     model: Option<ThermalModel>,
 }
 
@@ -496,6 +497,8 @@ impl XcvrApi {
             ManagementInterface::Sff8636 | ManagementInterface::Cmis => {
                 ringbuf_entry!(Trace::GotInterface(p.0, interface));
                 // TODO: this is made up
+                //
+                // See: https://github.com/oxidecomputer/hubris/issues/2670
                 Some(ThermalModel {
                     interface,
                     model: ThermalProperties {
@@ -533,7 +536,7 @@ impl XcvrApi {
             ringbuf_entry!(
                 TEMP_GLITCH_RINGBUF,
                 TempGlitch {
-                    index: port,
+                    port: port,
                     first: a,
                     second: b,
                 }
@@ -687,24 +690,17 @@ impl ServerImpl {
                     // Log error to ringbuf
                     e.ringbuf(port);
 
-                    // TODO(AJM): Old behavior here is a bit funky, we should
-                    // review this.
                     match e {
-                        // Previously, this did a "continue", and didn't affect
-                        // consecutive errors at all. This should never happen
-                        // because we only add models to known interface types
-                        TempReadError::UnknownInterface => {}
+                        // Failure to read neither increments nor resets the
+                        // counter of errors
+                        TempReadError::UnknownInterface
+                        | TempReadError::BadTempRead(_)
+                        | TempReadError::BadPortStatus(_)
+                        | TempReadError::UnexpectedFpgaErr(_) => {}
                         // This would *increment* consecutive errors
                         TempReadError::PotentialRemoval(_) => {
                             meta.consecutive_errors =
                                 meta.consecutive_errors.saturating_add(1);
-                        }
-                        // All of these *actually reset* the error count. Do
-                        // we want this?
-                        TempReadError::BadTempRead(_)
-                        | TempReadError::BadPortStatus(_)
-                        | TempReadError::UnexpectedFpgaErr(_) => {
-                            meta.consecutive_errors = 0;
                         }
                         // We probably don't want to count this against the
                         // device, since it could have been a momentary I2C
@@ -847,8 +843,9 @@ impl From<FpgaError> for TempReadError {
             ErrorEncoded::I2CAddressNack => true,
             ErrorEncoded::I2CSclStretchTimeout => true,
 
-            // TODO(AJM): why *don't* we consider these errors as worth
-            // potentially invalidating the QSFP?
+            // We expect these are transient errors, and will likely be resolved
+            // in short order, either by waiting to detect the QSFP device has
+            // been removed, or obtaining some other kind of error.
             ErrorEncoded::NoError => false,
             ErrorEncoded::NoModule => false,
             ErrorEncoded::NoPower => false,
