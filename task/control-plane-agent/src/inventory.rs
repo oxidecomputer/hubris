@@ -2,9 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use drv_i2c_api::I2cDevice;
 use drv_i2c_api::PmbusCapabilities;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
+use drv_i2c_devices::tmp117;
 use drv_i2c_devices::{PmbusVpdCmd, PmbusVpdReader};
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
@@ -20,6 +21,7 @@ use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
     VpdError,
 };
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
@@ -43,6 +45,35 @@ struct VpdScratch {
     #[cfg(feature = "compute-sled")]
     fan_assembly: SledFanTrayVpd,
 }
+
+#[derive(Copy, Clone, PartialEq, counters::Count)]
+enum VpdTrace {
+    #[count(skip)]
+    None,
+    NoVpdForDevice {
+        index: usize,
+    },
+    ComponentGetVpd {
+        index: usize,
+        #[count(children)]
+        kind: VpdKind,
+    },
+    Tmp11xVpdError {
+        reg: tmp117::Register,
+        #[count(children)]
+        code: ResponseCode,
+    },
+    PmbusVpdError {
+        cmd: PmbusVpdCmd,
+        #[count(children)]
+        code: ResponseCode,
+    },
+    At24Csw080VpdError {
+        err: drv_oxide_vpd::VpdError,
+    },
+}
+
+counted_ringbuf!(VpdTrace, 8, VpdTrace::None);
 
 impl Inventory {
     pub(crate) fn new() -> Self {
@@ -203,8 +234,14 @@ impl Inventory {
         let device = VALIDATE_DEVICES[index];
 
         let Some(vpd_kind) = device.vpd else {
+            ringbuf_entry!(VpdTrace::NoVpdForDevice { index });
             return Err(SpError::RequestUnsupportedForComponent);
         };
+
+        ringbuf_entry!(VpdTrace::ComponentGetVpd {
+            index,
+            kind: vpd_kind
+        });
         let dev = crate::i2c_config::devices::device_by_index(
             crate::I2C.get_task_id(),
             index,
@@ -225,6 +262,10 @@ impl Inventory {
                     block.read_into(|buf| reader.try_read(cmd, buf)).map_err(
                         |e| match e {
                             SmbusReadIntoError::ReadError(code) => {
+                                ringbuf_entry!(VpdTrace::PmbusVpdError {
+                                    cmd,
+                                    code
+                                });
                                 SpError::Vpd(i2c_error_to_vpd_error(code))
                             }
                             SmbusReadIntoError::ReadTooLong => {
@@ -302,16 +343,17 @@ impl Inventory {
         _: &I2cDevice,
     ) -> Result<VpdRef<'a>, SpError> {
         // Only compute sleds should have EEPROMs configured as fan tray VPD.
-        Err(SpError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForComponent)
     }
 }
 
 fn read_tmp11x_vpd(dev: &I2cDevice, buf: &mut [u8]) -> Result<usize, SpError> {
-    use drv_i2c_devices::tmp117::{Error, Register, Tmp117};
+    use tmp117::{Error, Register, Tmp117};
 
     fn to_sp_error(err: Error) -> SpError {
         match err {
             Error::BadRegisterRead { reg, code } => {
+                ringbuf_entry!(VpdTrace::Tmp11xVpdError { reg, code });
                 SpError::Vpd(i2c_error_to_vpd_error(code))
             }
         }
@@ -340,7 +382,10 @@ fn read_one_barcode(
     })
     .map_err(|err| {
         SpError::Vpd(match err {
-            BarcodeReadError::ReadError(e) => convert_vpd_error(e),
+            BarcodeReadError::ReadError(err) => {
+                ringbuf_entry!(VpdTrace::At24Csw080VpdError { err });
+                convert_vpd_error(err)
+            }
             BarcodeReadError::NotUtf8 => VpdError::BadRead,
             BarcodeReadError::ReadTooLong => VpdError::BadBuffer, // shouldn't happen!
         })

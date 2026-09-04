@@ -63,7 +63,7 @@ pub enum Sensor {
 }
 
 /// How to read VPD from a device.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, counters::Count)]
 #[repr(u8)]
 pub enum VpdKind {
     Pmbus = 1,
