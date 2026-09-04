@@ -11,10 +11,10 @@ use gateway_messages::measurement::{
 };
 use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
 #[cfg(feature = "compute-sled")]
-use gateway_messages::vpd::FanAssemblyVpd;
+use gateway_messages::vpd::SledFanTrayVpd;
 use gateway_messages::vpd::{
     Barcode, BarcodeReadError, PmbusVpd, SmbusBlock, SmbusReadIntoError,
-    Tmp117Identity, VpdRef,
+    Tmp11xVpd, VpdRef,
 };
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
@@ -41,7 +41,7 @@ struct VpdScratch {
     barcode: Barcode,
     // Only compute sleds have nested fan tray VPD.
     #[cfg(feature = "compute-sled")]
-    fan_assembly: FanAssemblyVpd,
+    fan_assembly: SledFanTrayVpd,
 }
 
 impl Inventory {
@@ -57,7 +57,7 @@ impl Inventory {
                 pmbus: PmbusVpd::EMPTY,
                 barcode: Barcode::EMPTY,
                 #[cfg(feature = "compute-sled")]
-                fan_assembly: FanAssemblyVpd {
+                fan_assembly: SledFanTrayVpd {
                     identity: Barcode::EMPTY,
                     vpd_board_identity: Barcode::EMPTY,
                     fans: [Barcode::EMPTY; 3],
@@ -307,7 +307,7 @@ impl Inventory {
 }
 
 fn read_tmp117_vpd(dev: &I2cDevice, buf: &mut [u8]) -> Result<usize, SpError> {
-    let vpd = Tmp117Identity {
+    let vpd = Tmp11xVpd {
         id: dev
             .read_reg(0x0Fu8)
             .map_err(i2c_error_to_vpd_error)
