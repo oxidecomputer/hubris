@@ -3320,7 +3320,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-ereport-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#e32d5cf9f86a4d6ae7dd2107b2c592c75fc74479"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#438cd185666d5f164548885873f0f5df9a38eed1"
 dependencies = [
  "hubpack",
  "serde",
@@ -3330,7 +3330,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#e32d5cf9f86a4d6ae7dd2107b2c592c75fc74479"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#438cd185666d5f164548885873f0f5df9a38eed1"
 dependencies = [
  "bitflags 2.9.4",
  "gateway-ereport-messages",
