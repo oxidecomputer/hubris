@@ -271,7 +271,7 @@ impl Inventory {
                             ) => {
                                 ringbuf_entry!(VpdTrace::PmbusVpdError {
                                     cmd,
-                                    code: ResponseCode::Noregister
+                                    code: ResponseCode::NoRegister
                                 });
                                 Ok(None)
                             }
