@@ -266,7 +266,7 @@ impl Inventory {
                 VpdRef::Barcode(&*out)
             }
             VpdKind::SledFanTray => self.read_fan_tray_vpd(&dev)?,
-            VpdKind::Tmp11x => return read_tmp117_vpd(&dev, buf),
+            VpdKind::Tmp11x => return read_tmp11x_vpd(&dev, buf),
         };
 
         hubpack::serialize(buf, &vpd)
@@ -306,25 +306,25 @@ impl Inventory {
     }
 }
 
-fn read_tmp117_vpd(dev: &I2cDevice, buf: &mut [u8]) -> Result<usize, SpError> {
+fn read_tmp11x_vpd(dev: &I2cDevice, buf: &mut [u8]) -> Result<usize, SpError> {
+    use drv_i2c_devices::tmp117::{Error, Register, Tmp117};
+
+    fn to_sp_error(err: Error) -> SpError {
+        match err {
+            Error::BadRegisterRead { reg, code } => {
+                SpError::Vpd(i2c_error_to_vpd_error(code))
+            }
+        }
+    }
+
+    let tmp11x = Tmp117::new(dev);
     let vpd = Tmp11xVpd {
-        id: dev
-            .read_reg(0x0Fu8)
-            .map_err(i2c_error_to_vpd_error)
-            .map_err(SpError::Vpd)?,
-        eeprom1: dev
-            .read_reg(0x05u8)
-            .map_err(i2c_error_to_vpd_error)
-            .map_err(SpError::Vpd)?,
-        eeprom2: dev
-            .read_reg(0x06u8)
-            .map_err(i2c_error_to_vpd_error)
-            .map_err(SpError::Vpd)?,
-        eeprom3: dev
-            .read_reg(0x07u8)
-            .map_err(i2c_error_to_vpd_error)
-            .map_err(SpError::Vpd)?,
+        id: tmp11x.read_reg(Register::DeviceID).map_err(to_sp_error)?,
+        eeprom1: tmp11x.read_reg(Register::EEPROM1).map_err(to_sp_error)?,
+        eeprom2: tmp11x.read_reg(Register::EEPROM2).map_err(to_sp_error)?,
+        eeprom3: tmp11x.read_reg(Register::EEPROM3).map_err(to_sp_error)?,
     };
+
     hubpack::serialize(buf, &VpdRef::Tmp117(&vpd))
         .map_err(|_| SpError::Vpd(VpdError::BadBuffer))
 }
