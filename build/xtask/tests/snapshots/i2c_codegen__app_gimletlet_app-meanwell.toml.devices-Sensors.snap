@@ -1,0 +1,35 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+
+pub mod devices {
+    #[allow(unused_imports)]
+    use drv_i2c_api::{Controller, I2cDevice, PortIndex};
+    #[allow(unused_imports)]
+    use userlib::TaskId;
+
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
+    pub fn device_by_index(_task: TaskId, index: usize) -> Option<I2cDevice> {
+        match index {
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
+    pub fn lookup_controller(index: usize) -> Option<Controller> {
+        match index {
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
+    pub fn lookup_port(index: usize) -> Option<PortIndex> {
+        match index {
+            _ => None,
+        }
+    }
+}

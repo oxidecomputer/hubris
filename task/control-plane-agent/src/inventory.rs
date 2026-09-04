@@ -2,17 +2,31 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_i2c_api::PmbusCapabilities;
+use drv_i2c_api::{I2cDevice, ResponseCode};
+use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
+use drv_i2c_devices::tmp117;
+use drv_i2c_devices::{PmbusVpdCmd, PmbusVpdReader};
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
 use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
+#[cfg(feature = "compute-sled")]
+use gateway_messages::vpd::SledFanTrayVpd;
+use gateway_messages::vpd::{
+    Barcode, BarcodeReadError, PmbusVpd, SmbusBlock, SmbusReadIntoError,
+    Tmp11xVpd, VpdRef,
+};
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
+    VpdError,
 };
+use ringbuf::{counted_ringbuf, ringbuf_entry};
+use static_cell::ClaimOnceCell;
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
 use task_validate_api::{DEVICES as VALIDATE_DEVICES, Sensor};
-use task_validate_api::{Validate, ValidateError, ValidateOk};
+use task_validate_api::{Validate, ValidateError, ValidateOk, VpdKind};
 use userlib::UnwrapLite;
 
 userlib::task_slot!(VALIDATE, validate);
@@ -21,15 +35,70 @@ userlib::task_slot!(SENSOR, sensor);
 pub(crate) struct Inventory {
     validate_task: Validate,
     sensor_task: SensorTask,
+    vpd_scratch: &'static mut VpdScratch,
 }
+
+struct VpdScratch {
+    pmbus: PmbusVpd,
+    barcode: Barcode,
+    // Only compute sleds have nested fan tray VPD.
+    #[cfg(feature = "compute-sled")]
+    fan_assembly: SledFanTrayVpd,
+}
+
+#[derive(Copy, Clone, PartialEq, counters::Count)]
+enum VpdTrace {
+    #[count(skip)]
+    None,
+    NoVpdForDevice {
+        index: usize,
+    },
+    ComponentGetVpd {
+        index: usize,
+        #[count(children)]
+        kind: VpdKind,
+    },
+    Tmp11xVpdError {
+        reg: tmp117::Register,
+        #[count(children)]
+        code: ResponseCode,
+    },
+    PmbusVpdError {
+        cmd: PmbusVpdCmd,
+        #[count(children)]
+        code: ResponseCode,
+    },
+    At24Csw080VpdError {
+        err: drv_oxide_vpd::VpdError,
+    },
+}
+
+counted_ringbuf!(VpdTrace, 8, VpdTrace::None);
 
 impl Inventory {
     pub(crate) fn new() -> Self {
         let () = devices_with_static_validation::ASSERT_EACH_DEVICE_FITS_IN_ONE_PACKET;
 
+        // Scratch space to read VPD into and serialize it out of by-reference.
+        // These are potentially quite large (a fan tray with 5 * 128B barcodes
+        // is ~640B long), so stuff them in a static so that we need not push
+        // really deep stacks for them.
+        static VPD_SCRATCH: ClaimOnceCell<VpdScratch> =
+            ClaimOnceCell::new(VpdScratch {
+                pmbus: PmbusVpd::EMPTY,
+                barcode: Barcode::EMPTY,
+                #[cfg(feature = "compute-sled")]
+                fan_assembly: SledFanTrayVpd {
+                    identity: Barcode::EMPTY,
+                    vpd_board_identity: Barcode::EMPTY,
+                    fans: [Barcode::EMPTY; 3],
+                },
+            });
+
         Self {
             validate_task: Validate::from(VALIDATE.get_task_id()),
             sensor_task: SensorTask::from(SENSOR.get_task_id()),
+            vpd_scratch: VPD_SCRATCH.claim(),
         }
     }
 
@@ -123,8 +192,11 @@ impl Inventory {
         };
 
         let mut capabilities = DeviceCapabilities::empty();
-        if device.is_pmbus {
+        if device.pmbus_capabilities.is_some() {
             capabilities |= DeviceCapabilities::IS_PMBUS;
+        }
+        if device.vpd.is_some() {
+            capabilities |= DeviceCapabilities::HAS_VPD;
         }
         if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
@@ -150,6 +222,190 @@ impl Inventory {
             presence,
         }
     }
+
+    pub(crate) fn component_vpd(
+        &mut self,
+        component: &SpComponent,
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
+        let Index::ValidateDevice(index) = Index::try_from(component)? else {
+            return Err(SpError::RequestUnsupportedForComponent);
+        };
+        let device = VALIDATE_DEVICES[index];
+
+        let Some(vpd_kind) = device.vpd else {
+            ringbuf_entry!(VpdTrace::NoVpdForDevice { index });
+            return Err(SpError::RequestUnsupportedForComponent);
+        };
+
+        ringbuf_entry!(VpdTrace::ComponentGetVpd {
+            index,
+            kind: vpd_kind
+        });
+        let dev = crate::i2c_config::devices::device_by_index(
+            crate::I2C.get_task_id(),
+            index,
+        )
+        // Inventory and generated I2C accessors share device indices.
+        .unwrap_lite();
+
+        let vpd = match vpd_kind {
+            VpdKind::Pmbus => {
+                // Don't line-wrap as much...
+                use PmbusVpdCmd as Cmd;
+
+                fn read_one(
+                    block: &mut SmbusBlock,
+                    reader: &PmbusVpdReader<'_>,
+                    cmd: Cmd,
+                ) -> Result<Option<usize>, SpError> {
+                    block.read_into(|buf| reader.try_read(cmd, buf)).or_else(
+                        |e| match e {
+                            // Because we only read registers that the `pmbus`
+                            // crate marks as supported, we *should* never see a
+                            // register-level NACK, but...let's turn that into a
+                            // "register unsupported" instead of erroring out
+                            // the entire thing, anyway.
+                            SmbusReadIntoError::ReadError(
+                                ResponseCode::NoRegister,
+                            ) => {
+                                ringbuf_entry!(VpdTrace::PmbusVpdError {
+                                    cmd,
+                                    code: ResponseCode::NoRegister
+                                });
+                                Ok(None)
+                            }
+                            SmbusReadIntoError::ReadError(code) => {
+                                ringbuf_entry!(VpdTrace::PmbusVpdError {
+                                    cmd,
+                                    code
+                                });
+                                Err(SpError::Vpd(i2c_error_to_vpd_error(code)))
+                            }
+                            SmbusReadIntoError::ReadTooLong => {
+                                // `PmbusVpdReader::try_read` should never
+                                // return a length > 32 bytes.
+                                unreachable!()
+                            }
+                        },
+                    )
+                }
+
+                // Either of these not being set would indicate that code
+                // generation did an oopsie, so we *could* consider this
+                // unreachable here, but I think it's nicer to not panic.
+                let Some(caps) = device.pmbus_capabilities else {
+                    return Err(SpError::RequestUnsupportedForComponent);
+                };
+                if !caps.supports_any(&PmbusCapabilities::ANY_VPD_REGS) {
+                    return Err(SpError::RequestUnsupportedForComponent);
+                }
+
+                let reader = PmbusVpdReader::new(&dev, caps);
+                let out = &mut self.vpd_scratch.pmbus;
+
+                read_one(&mut out.mfr_id, &reader, Cmd::MfrId)?;
+                read_one(&mut out.mfr_model, &reader, Cmd::MfrModel)?;
+                read_one(&mut out.mfr_revision, &reader, Cmd::MfrRevision)?;
+                read_one(&mut out.mfr_location, &reader, Cmd::MfrLocation)?;
+                read_one(&mut out.mfr_date, &reader, Cmd::MfrDate)?;
+                read_one(&mut out.mfr_serial, &reader, Cmd::MfrSerial)?;
+                read_one(&mut out.ic_device_id, &reader, Cmd::IcDeviceId)?;
+                read_one(&mut out.ic_device_rev, &reader, Cmd::IcDeviceRev)?;
+
+                VpdRef::Pmbus(&*out)
+            }
+            VpdKind::SingleBarcode => {
+                let out = &mut self.vpd_scratch.barcode;
+                read_one_barcode(out, &dev, &[(*b"BARC", 0)])?;
+                VpdRef::Barcode(&*out)
+            }
+            VpdKind::SledFanTray => self.read_fan_tray_vpd(&dev)?,
+            VpdKind::Tmp11x => return read_tmp11x_vpd(&dev, buf),
+        };
+
+        hubpack::serialize(buf, &vpd)
+            .map_err(|_| SpError::Vpd(VpdError::BadBuffer))
+    }
+
+    #[cfg(feature = "compute-sled")]
+    fn read_fan_tray_vpd<'a>(
+        &'a mut self,
+        dev: &I2cDevice,
+    ) -> Result<VpdRef<'a>, SpError> {
+        let out = &mut self.vpd_scratch.fan_assembly;
+        read_one_barcode(&mut out.identity, dev, &[(*b"BARC", 0)])?;
+        read_one_barcode(
+            &mut out.vpd_board_identity,
+            dev,
+            &[(*b"SASY", 0), (*b"BARC", 0)],
+        )?;
+        for (i, out) in out.fans.iter_mut().enumerate() {
+            let which_fan = i + 1;
+            read_one_barcode(
+                out,
+                dev,
+                &[(*b"SASY", 0), (*b"BARC", which_fan)],
+            )?;
+        }
+        Ok(VpdRef::FanAssembly(&*out))
+    }
+
+    #[cfg(not(feature = "compute-sled"))]
+    fn read_fan_tray_vpd<'a>(
+        &'a mut self,
+        _: &I2cDevice,
+    ) -> Result<VpdRef<'a>, SpError> {
+        // Only compute sleds should have EEPROMs configured as fan tray VPD.
+        Err(SpError::RequestUnsupportedForComponent)
+    }
+}
+
+fn read_tmp11x_vpd(dev: &I2cDevice, buf: &mut [u8]) -> Result<usize, SpError> {
+    use tmp117::{Error, Register, Tmp117};
+
+    fn to_sp_error(err: Error) -> SpError {
+        match err {
+            Error::BadRegisterRead { reg, code } => {
+                ringbuf_entry!(VpdTrace::Tmp11xVpdError { reg, code });
+                SpError::Vpd(i2c_error_to_vpd_error(code))
+            }
+        }
+    }
+
+    let tmp11x = Tmp117::new(dev);
+    let vpd = Tmp11xVpd {
+        id: tmp11x.read_reg(Register::DeviceID).map_err(to_sp_error)?,
+        eeprom1: tmp11x.read_reg(Register::EEPROM1).map_err(to_sp_error)?,
+        eeprom2: tmp11x.read_reg(Register::EEPROM2).map_err(to_sp_error)?,
+        eeprom3: tmp11x.read_reg(Register::EEPROM3).map_err(to_sp_error)?,
+    };
+
+    hubpack::serialize(buf, &VpdRef::Tmp117(&vpd))
+        .map_err(|_| SpError::Vpd(VpdError::BadBuffer))
+}
+
+fn read_one_barcode(
+    out: &mut Barcode,
+    dev: &I2cDevice,
+    path: &[([u8; 4], usize)],
+) -> Result<(), SpError> {
+    let eeprom = At24Csw080::new(*dev);
+    out.read_into(|buf| {
+        drv_oxide_vpd::read_config_nested_from_into(eeprom, path, buf)
+    })
+    .map_err(|err| {
+        SpError::Vpd(match err {
+            BarcodeReadError::ReadError(err) => {
+                ringbuf_entry!(VpdTrace::At24Csw080VpdError { err });
+                convert_vpd_error(err)
+            }
+            BarcodeReadError::NotUtf8 => VpdError::BadRead,
+            BarcodeReadError::ReadTooLong => VpdError::BadBuffer, // shouldn't happen!
+        })
+    })?;
+
+    Ok(())
 }
 
 // Our parent deals primarily in overall device indices (`0..num_devices()`),
@@ -210,6 +466,39 @@ impl TryFrom<&'_ SpComponent> for Index {
             }
         }
         Err(SpError::RequestUnsupportedForComponent)
+    }
+}
+
+fn convert_vpd_error(err: drv_oxide_vpd::VpdError) -> VpdError {
+    use tlvc::TlvcReadError;
+
+    match err {
+        drv_oxide_vpd::VpdError::ErrorOnBegin(err)
+        | drv_oxide_vpd::VpdError::ErrorOnRead(err)
+        | drv_oxide_vpd::VpdError::ErrorOnNext(err)
+        | drv_oxide_vpd::VpdError::InvalidChecksum(err) => match err {
+            TlvcReadError::User(EepromError::I2cError(err)) => {
+                i2c_error_to_vpd_error(err)
+            }
+            tlvc::TlvcReadError::Truncated => VpdError::BadBuffer,
+            _ => VpdError::BadRead,
+        },
+        drv_oxide_vpd::VpdError::NoSuchChunk(_)
+        | drv_oxide_vpd::VpdError::InvalidChunkSize
+        | drv_oxide_vpd::VpdError::NoRootChunk => VpdError::BadRead,
+    }
+}
+
+fn i2c_error_to_vpd_error(
+    err: drv_i2c_api::ResponseCode,
+) -> gateway_messages::VpdError {
+    match err {
+        drv_i2c_api::ResponseCode::NoDevice => VpdError::NotPresent,
+        drv_i2c_api::ResponseCode::NoRegister => VpdError::Unavailable,
+        drv_i2c_api::ResponseCode::BusLocked
+        | drv_i2c_api::ResponseCode::BusLockedMux
+        | drv_i2c_api::ResponseCode::ControllerBusy => VpdError::DeviceTimeout,
+        _ => VpdError::DeviceError,
     }
 }
 

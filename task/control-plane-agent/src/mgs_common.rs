@@ -36,7 +36,7 @@ use task_control_plane_agent_api::OxideIdentity;
 use task_net_api::MacAddress;
 use task_packrat_api::Packrat;
 use task_sensor_api::{Sensor, SensorId};
-use userlib::{kipc, sys_get_timer, task_slot};
+use userlib::{UnwrapLite, kipc, sys_get_timer, task_slot};
 
 task_slot!(SENSOR, sensor);
 task_slot!(pub PACKRAT, packrat);
@@ -235,6 +235,18 @@ impl MgsCommon {
             }
             _ => Err(GwSpError::RequestUnsupportedForComponent),
         }
+    }
+
+    pub(crate) fn component_get_vpd(
+        &mut self,
+        component: SpComponent,
+        buf: &mut [u8],
+    ) -> Result<usize, GwSpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentGetVpd {
+            component
+        }));
+
+        self.inventory.component_vpd(&component, buf)
     }
 
     /// If the targeted component is the SP_ITSELF, then having reset itself,
@@ -757,7 +769,21 @@ impl MgsCommon {
         // Yep! Call the i2c-generated function to get back an I2cDevice
         // and the rail index necessary to call the status function
         let info = &crate::pmbus::PMBUS_RAIL_TO_I2C_DEVICE_MAP[idx];
-        let (device, rail_idx) = (info.summon_fn)(crate::I2C.get_task_id());
+        let device = crate::i2c_config::devices::device_by_index(
+            crate::I2C.get_task_id(),
+            info.device_index,
+        )
+        // This should only fail if the lookup table doesn't contain an entry
+        // for this device index, which is a codegen bug.
+        .unwrap_lite();
+        let device_caps = task_validate_api::DEVICES
+            // Use `get()` here so we can have one unique panic site rather than
+            // two :)
+            .get(info.device_index)
+            .and_then(|d| d.pmbus_capabilities)
+            // Similarly, not having an entry in `task_validate_api::DEVICES`,
+            // or that device not being PMBus, would also be a codegen bug.
+            .unwrap_lite();
 
         // Local version of:
         // `impl From<i2c::PmbusStatusError> for mgs::PmbusStatusReadError`
@@ -781,8 +807,8 @@ impl MgsCommon {
         // isn't successful. Plumb the errors as necessary if that happens.
         let status = drv_i2c_devices::PmbusStatus::try_read_from(
             &device,
-            rail_idx,
-            info.status_bits,
+            info.rail_index,
+            device_caps,
         )
         .map_err(err_fixer)
         .map_err(PmbusStatusError::FailedStatusWord)

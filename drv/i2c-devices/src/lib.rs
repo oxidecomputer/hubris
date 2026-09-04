@@ -45,7 +45,7 @@
 
 #![no_std]
 
-use drv_i2c_api::{I2cDevice, ResponseCode, pmbus_status::Capabilities};
+use drv_i2c_api::{I2cDevice, PmbusCapabilities, ResponseCode};
 use pmbus::commands::CommandCode;
 
 macro_rules! pmbus_read {
@@ -337,11 +337,11 @@ impl PmbusStatus {
     pub fn try_read_from(
         dev: &I2cDevice,
         rail_idx: Option<u8>,
-        device_caps: Capabilities,
+        device_caps: PmbusCapabilities,
     ) -> Result<Self, PmbusStatusError> {
-        use drv_i2c_types::pmbus_status::Capabilities;
         // Keep the lines short
         use CommandCode as Cc;
+        use PmbusCapabilities as Cap;
         // These need to be like this to humor the macro invocations
         use PmbusStatusError as Error;
         use pmbus::commands::PAGE;
@@ -379,35 +379,102 @@ impl PmbusStatus {
             // Status word *must* succeed, otherwise we don't have reasonable
             // data to return. We may want to consider making some/all of these
             // retryable, but for now you either get them or you don't.
-            status_word: read_u16(Cc::STATUS_WORD, Capabilities::STATUS_WORD)?,
-            status_vout: read_byte(Cc::STATUS_VOUT, Capabilities::STATUS_VOUT),
-            status_iout: read_byte(Cc::STATUS_IOUT, Capabilities::STATUS_IOUT),
+            status_word: read_u16(Cc::STATUS_WORD, Cap::STATUS_WORD)?,
+            status_vout: read_byte(Cc::STATUS_VOUT, Cap::STATUS_VOUT),
+            status_iout: read_byte(Cc::STATUS_IOUT, Cap::STATUS_IOUT),
             status_temperature: read_byte(
                 Cc::STATUS_TEMPERATURE,
-                Capabilities::STATUS_TEMPERATURE,
+                Cap::STATUS_TEMPERATURE,
             ),
-            status_cml: read_byte(Cc::STATUS_CML, Capabilities::STATUS_CML),
-            status_other: read_byte(
-                Cc::STATUS_OTHER,
-                Capabilities::STATUS_OTHER,
-            ),
-            status_input: read_byte(
-                Cc::STATUS_INPUT,
-                Capabilities::STATUS_INPUT,
-            ),
+            status_cml: read_byte(Cc::STATUS_CML, Cap::STATUS_CML),
+            status_other: read_byte(Cc::STATUS_OTHER, Cap::STATUS_OTHER),
+            status_input: read_byte(Cc::STATUS_INPUT, Cap::STATUS_INPUT),
             status_fans_1_2: read_byte(
                 Cc::STATUS_FANS_1_2,
-                Capabilities::STATUS_FANS_1_2,
+                Cap::STATUS_FANS_1_2,
             ),
             status_fans_3_4: read_byte(
                 Cc::STATUS_FANS_3_4,
-                Capabilities::STATUS_FANS_3_4,
+                Cap::STATUS_FANS_3_4,
             ),
             status_mfr_specific: read_byte(
                 Cc::STATUS_MFR_SPECIFIC,
-                Capabilities::STATUS_MFR_SPECIFIC,
+                Cap::STATUS_MFR_SPECIFIC,
             ),
         })
+    }
+}
+
+pub struct PmbusVpdReader<'dev> {
+    dev: &'dev I2cDevice,
+    caps: PmbusCapabilities,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    zerocopy_derive::IntoBytes,
+    zerocopy_derive::Immutable,
+)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[repr(u8)]
+pub enum PmbusVpdCmd {
+    MfrId = pmbus::CommandCode::MFR_ID as u8,
+    MfrModel = pmbus::CommandCode::MFR_MODEL as u8,
+    MfrRevision = pmbus::CommandCode::MFR_REVISION as u8,
+    MfrSerial = pmbus::CommandCode::MFR_SERIAL as u8,
+    MfrLocation = pmbus::CommandCode::MFR_LOCATION as u8,
+    MfrDate = pmbus::CommandCode::MFR_DATE as u8,
+    IcDeviceId = pmbus::CommandCode::IC_DEVICE_ID as u8,
+    IcDeviceRev = pmbus::CommandCode::IC_DEVICE_REV as u8,
+}
+
+impl PmbusVpdCmd {
+    fn capability(&self) -> PmbusCapabilities {
+        match self {
+            Self::MfrId => PmbusCapabilities::MFR_ID,
+            Self::MfrModel => PmbusCapabilities::MFR_MODEL,
+            Self::MfrRevision => PmbusCapabilities::MFR_REVISION,
+            Self::MfrSerial => PmbusCapabilities::MFR_SERIAL,
+            Self::MfrLocation => PmbusCapabilities::MFR_LOCATION,
+            Self::MfrDate => PmbusCapabilities::MFR_DATE,
+            Self::IcDeviceId => PmbusCapabilities::IC_DEVICE_ID,
+            Self::IcDeviceRev => PmbusCapabilities::IC_DEVICE_REV,
+        }
+    }
+}
+
+impl<'dev> PmbusVpdReader<'dev> {
+    /// SMBus block reads may not be longer than 32 bytes.
+    pub const BLOCK_LEN: usize = 32;
+
+    pub fn new(
+        device: &'dev I2cDevice,
+        device_capabilities: PmbusCapabilities,
+    ) -> Self {
+        Self {
+            dev: device,
+            caps: device_capabilities,
+        }
+    }
+
+    /// Attempt to read a PMBus VPD block register from the given device into
+    /// the provided buffer, returning the number of bytes read (or `None`,
+    /// indicating that the device does not support that register).
+    ///
+    /// This does not first zero the buffer. If you want it to be zeroed, you
+    /// must first do that.
+    pub fn try_read(
+        &self,
+        cmd: PmbusVpdCmd,
+        buf: &mut [u8; PmbusVpdReader::BLOCK_LEN],
+    ) -> Result<Option<usize>, drv_i2c_api::ResponseCode> {
+        if !self.caps.supports(&cmd.capability()) {
+            return Ok(None);
+        }
+        self.dev.read_block(cmd, buf).map(Some)
     }
 }
 

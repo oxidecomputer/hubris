@@ -7,7 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use drv_i2c_api::ResponseCode;
+use drv_i2c_api::{PmbusCapabilities, ResponseCode};
 use userlib::{FromPrimitive, sys_send};
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
@@ -62,6 +62,16 @@ pub enum Sensor {
     Speed,
 }
 
+/// How to read VPD from a device.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, counters::Count)]
+#[repr(u8)]
+pub enum VpdKind {
+    Pmbus = 1,
+    SingleBarcode,
+    SledFanTray,
+    Tmp11x,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SensorDescription {
     pub name: Option<&'static str>,
@@ -75,7 +85,8 @@ pub struct DeviceDescription {
     pub description: &'static str,
     pub sensors: &'static [SensorDescription],
     pub id: &'static str,
-    pub is_pmbus: bool,
+    pub pmbus_capabilities: Option<PmbusCapabilities>,
+    pub vpd: Option<VpdKind>,
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));
