@@ -40,8 +40,8 @@ pub struct Tmp117 {
     device: I2cDevice,
 }
 
-fn convert(raw: (u8, u8)) -> Celsius {
-    Celsius(f32::from(i16::from(raw.0) << 8 | i16::from(raw.1)) / 128.0)
+fn convert(raw: u16) -> Celsius {
+    Celsius(f32::from(raw as i16) / 128.0)
 }
 
 impl core::fmt::Display for Tmp117 {
@@ -55,19 +55,28 @@ impl Tmp117 {
         Self { device: *device }
     }
 
-    fn read_reg(&self, reg: Register) -> Result<(u8, u8), Error> {
-        match self.device.read_reg::<u8, [u8; 2]>(reg as u8) {
-            Ok(buf) => Ok((buf[0], buf[1])),
-            Err(code) => Err(Error::BadRegisterRead { reg, code }),
-        }
+    /// Read a 16-bit TMP117 register value as a `u16`.
+    pub fn read_reg(&self, reg: Register) -> Result<u16, Error> {
+        self.read_reg_bytes(reg).map(u16::from_be_bytes)
+    }
+
+    /// Read a raw 16-bit register as a raw array of two bytes.
+    ///
+    /// The TMP117 transmits a register's value over I2C in big-endian order, so
+    /// the first byte in the array is the most-significant byte and the second
+    /// is the least-significant byte.
+    pub fn read_reg_bytes(&self, reg: Register) -> Result<[u8; 2], Error> {
+        self.device
+            .read_reg::<u8, [u8; 2]>(reg as u8)
+            .map_err(|code| Error::BadRegisterRead { reg, code })
     }
 
     pub fn read_eeprom(&self) -> Result<[u8; 6], Error> {
-        let ee1 = self.read_reg(Register::EEPROM1)?;
-        let ee2 = self.read_reg(Register::EEPROM2)?;
-        let ee3 = self.read_reg(Register::EEPROM3)?;
+        let [ee1_0, ee1_1] = self.read_reg_bytes(Register::EEPROM1)?;
+        let [ee2_0, ee2_1] = self.read_reg_bytes(Register::EEPROM2)?;
+        let [ee3_0, ee3_1] = self.read_reg_bytes(Register::EEPROM3)?;
 
-        Ok([ee1.0, ee1.1, ee2.0, ee2.1, ee3.0, ee3.1])
+        Ok([ee1_0, ee1_1, ee2_0, ee2_1, ee3_0, ee3_1])
     }
 }
 
@@ -75,7 +84,7 @@ impl Validate<Error> for Tmp117 {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
         let id = Tmp117::new(device).read_reg(Register::DeviceID)?;
 
-        Ok(id.0 == 0x1 && id.1 == 0x17)
+        Ok(id == 0x0117)
     }
 }
 

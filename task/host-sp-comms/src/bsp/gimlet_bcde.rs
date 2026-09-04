@@ -402,31 +402,7 @@ impl ServerImpl {
                     5 => by_refdes!(J199_U1, tmp117),
                     _ => unreachable!(),
                 };
-                let name = dev.component_id().as_bytes();
-                *self.scratch = InventoryData::Tmp117 {
-                    id: 0,
-                    eeprom1: 0,
-                    eeprom2: 0,
-                    eeprom3: 0,
-                    temp_sensor: sensors.temperature.into(),
-                };
-                self.tx_buf.try_encode_inventory(sequence, name, || {
-                    let InventoryData::Tmp117 {
-                        id,
-                        eeprom1,
-                        eeprom2,
-                        eeprom3,
-                        temp_sensor: _,
-                    } = self.scratch
-                    else {
-                        unreachable!();
-                    };
-                    *id = dev.read_reg(0x0Fu8)?;
-                    *eeprom1 = dev.read_reg(0x05u8)?;
-                    *eeprom2 = dev.read_reg(0x06u8)?;
-                    *eeprom3 = dev.read_reg(0x08u8)?;
-                    Ok(self.scratch)
-                })
+                self.read_tmp117(sequence, dev, sensors.temperature)
             }
 
             58 => {
