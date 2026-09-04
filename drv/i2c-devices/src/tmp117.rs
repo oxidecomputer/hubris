@@ -55,11 +55,17 @@ impl Tmp117 {
         Self { device: *device }
     }
 
+    /// Read a 16-bit TMP117 register value as a `u16`.
     pub fn read_reg(&self, reg: Register) -> Result<u16, Error> {
-        self.read_reg_bytes(reg).map(u16::from_le_bytes)
+        self.read_reg_bytes(reg).map(u16::from_be_bytes)
     }
 
-    fn read_reg_bytes(&self, reg: Register) -> Result<[u8; 2], Error> {
+    /// Read a raw 16-bit register as a raw array of two bytes.
+    ///
+    /// The TMP117 transmits a register's value over I2C in big-endian order, so
+    /// the first byte in the array is the most-significant byte and the second
+    /// is the least-significant byte.
+    pub fn read_reg_bytes(&self, reg: Register) -> Result<[u8; 2], Error> {
         self.device
             .read_reg::<u8, [u8; 2]>(reg as u8)
             .map_err(|code| Error::BadRegisterRead { reg, code })

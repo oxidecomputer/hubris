@@ -189,12 +189,6 @@ impl crate::ServerImpl {
     ) {
         use drv_i2c_devices::tmp117::{Error, Register, Tmp117};
 
-        fn map_err(err: Error) -> drv_i2c_api::ResponseCode {
-            match err {
-                Error::BadRegisterRead { code, .. } => code,
-            }
-        }
-
         let name = dev.component_id().as_bytes();
         *self.scratch = InventoryData::Tmp117 {
             id: 0,
@@ -214,11 +208,41 @@ impl crate::ServerImpl {
             else {
                 unreachable!();
             };
+
             let dev = Tmp117::new(&dev);
-            *id = dev.read_reg(Register::DeviceID).map_err(map_err)?;
-            *eeprom1 = dev.read_reg(Register::EEPROM1).map_err(map_err)?;
-            *eeprom2 = dev.read_reg(Register::EEPROM2).map_err(map_err)?;
-            *eeprom3 = dev.read_reg(Register::EEPROM3).map_err(map_err)?;
+            let read_reg =
+                |reg: Register| -> Result<u16, drv_i2c_api::ResponseCode> {
+                    dev.read_reg_bytes(reg)
+                        // Okay, this is a little bit wacky: the TMP117 returns
+                        // register values over I2C in big-endian order. The
+                        // `tmp117` driver's `Tmp117::read_reg` will convert
+                        // these to a u16 in a way that's aware of their wire
+                        // endianness. However, this message was added to the
+                        // IPCC inventory prior to that function being added to
+                        // the driver, and instead, it previously serialized a
+                        // little-endian u16 that was constructed from the
+                        // two-byte register values in the order that they were
+                        // read on the wire...so rather than `0x0117`, we would
+                        // send `0x1701`, and so forth. On the host side, we
+                        // expect them to be sent like this, and libtopo will
+                        // then unscramble the bytes so they are a
+                        // properly-ordered `u64` from the host's side. So, we
+                        // preserve this historical format by reading the raw
+                        // bytes and converting them to a u16 as though they
+                        // were sent little-endian, even though they were
+                        // actually sent on the wire big-endian.
+                        //
+                        // Sigh.
+                        .map(u16::from_le_bytes)
+                        .map_err(|err| match err {
+                            Error::BadRegisterRead { code, .. } => code,
+                        })
+                };
+
+            *id = read_reg(Register::DeviceID)?;
+            *eeprom1 = read_reg(Register::EEPROM1)?;
+            *eeprom2 = read_reg(Register::EEPROM2)?;
+            *eeprom3 = read_reg(Register::EEPROM3)?;
             Ok(self.scratch)
         })
     }
