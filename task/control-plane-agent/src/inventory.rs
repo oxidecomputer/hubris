@@ -259,14 +259,28 @@ impl Inventory {
                     reader: &PmbusVpdReader<'_>,
                     cmd: Cmd,
                 ) -> Result<Option<usize>, SpError> {
-                    block.read_into(|buf| reader.try_read(cmd, buf)).map_err(
+                    block.read_into(|buf| reader.try_read(cmd, buf)).or_else(
                         |e| match e {
+                            // Because we only read registers that the `pmbus`
+                            // crate marks as supported, we *should* never see a
+                            // register-level NACK, but...let's turn that into a
+                            // "register unsupported" instead of erroring out
+                            // the entire thing, anyway.
+                            SmbusReadIntoError::ReadError(
+                                ResponseCode::NoRegister,
+                            ) => {
+                                ringbuf_entry!(VpdTrace::PmbusVpdError {
+                                    cmd,
+                                    code: ResponseCode::Noregister
+                                });
+                                Ok(None)
+                            }
                             SmbusReadIntoError::ReadError(code) => {
                                 ringbuf_entry!(VpdTrace::PmbusVpdError {
                                     cmd,
                                     code
                                 });
-                                SpError::Vpd(i2c_error_to_vpd_error(code))
+                                Err(SpError::Vpd(i2c_error_to_vpd_error(code)))
                             }
                             SmbusReadIntoError::ReadTooLong => {
                                 // `PmbusVpdReader::try_read` should never
