@@ -31,6 +31,9 @@ notifications = ["fault", "timer"]
 features = ["dump"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
+[tasks.jefe.config.on-state-change]
+host_sp_comms = "jefe-state-change"
+
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
 set_state = ["grapefruit_seq"]
@@ -179,7 +182,7 @@ priority = 7
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
-task-slots = ["sys", "jefe", "packrat", "spartan7_loader"]
+task-slots = ["sys", "jefe", "packrat", "spartan7_loader", "hf"]
 uses = ["mmio_sgpio", "mmio_espi"]
 
 [tasks.spartan7_loader]
@@ -326,14 +329,14 @@ features = ["h753"]
 priority = 4
 start = true
 task-slots = ["sys", "net"]
-uses = ["mmio_base", "mmio_spi_nor", "mmio_espi", "mmio_sgpio"]
+uses = ["mmio_base", "mmio_spi_nor", "mmio_espi", "mmio_sgpio", "mmio_hash"]
 notifications = ["socket"]
 
 [tasks.hf]
 name = "drv-cosmo-hf"
 priority = 5
 start = true
-uses = ["mmio_base", "mmio_spi_nor"]
+uses = ["mmio_base", "mmio_spi_nor", "mmio_hash"]
 task-slots = ["hash_driver", "spartan7_loader"]
 stacksize = 4000
 notifications = ["timer"]

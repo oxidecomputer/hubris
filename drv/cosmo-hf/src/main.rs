@@ -15,6 +15,7 @@
 
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use userlib::{UnwrapLite, hl::sleep_for, task_slot};
+use zerocopy::IntoBytes;
 
 mod apob; // Details for APOB structs
 mod hf; // Implementation of `HostFlash` API
@@ -44,6 +45,8 @@ enum Trace {
     PrevAbl0VersionNotUsed(u32),
     Abl0VersionFound(u32),
     Abl0VersionError(apob::ApobError),
+    FpgaHashCfgErr,
+    FpgaHashAborted,
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);
@@ -63,7 +66,8 @@ fn main() -> ! {
         drv_spartan7_loader_api::Spartan7Loader::from(LOADER.get_task_id());
 
     let mut drv = FlashDriver {
-        drv: fmc_periph::SpiNor::new(seq.get_token()),
+        drv: fmc_periph::spi_nor::SpiNor::new(seq.get_token()),
+        hash: fmc_periph::hash::Hash::new(seq.get_token()),
     };
     drv.flash_set_quad_enable();
 
@@ -104,7 +108,8 @@ impl FlashAddr {
 
 /// Driver for a QSPI NOR flash controlled by an FPGA over FMC
 struct FlashDriver {
-    drv: fmc_periph::SpiNor,
+    drv: fmc_periph::spi_nor::SpiNor,
+    hash: fmc_periph::hash::Hash,
 }
 
 #[allow(unused)]
@@ -474,6 +479,54 @@ impl FlashDriver {
     pub(crate) fn clear_apob_pos(&self) {
         self.drv.apob_flash_addr.set_offset(0);
         self.drv.apob_flash_len.set_offset(0);
+    }
+
+    pub(crate) fn sha3(
+        &self,
+        start_addr: FlashAddr,
+        prepend_cnt: u32,
+        total_length: u32,
+    ) -> Result<[u8; 32], drv_hf_api::HfError> {
+        let mut sha256_sum = [0; 32];
+
+        self.hash
+            .config
+            .set_source(fmc_periph::hash::config::Source::HostQspi);
+        self.hash.prepend.set_count(prepend_cnt);
+        self.hash.flash_addr.set_addr(start_addr.0);
+        self.hash.length.set_count(total_length);
+        // let it rip
+        self.hash.control.modify(|m| {
+            m.set_start(true);
+        });
+        loop {
+            let status = self.hash.status.view();
+            if status.done {
+                break;
+            }
+            if status.cfg_err {
+                ringbuf_entry!(Trace::FpgaHashCfgErr);
+                return Err(drv_hf_api::HfError::HashError);
+            }
+            if status.aborted {
+                ringbuf_entry!(Trace::FpgaHashAborted);
+                return Err(drv_hf_api::HfError::HashError);
+            }
+        }
+
+        let result = [
+            u32::from_le(self.hash.digest0.view().data),
+            u32::from_le(self.hash.digest1.view().data),
+            u32::from_le(self.hash.digest2.view().data),
+            u32::from_le(self.hash.digest3.view().data),
+            u32::from_le(self.hash.digest4.view().data),
+            u32::from_le(self.hash.digest5.view().data),
+            u32::from_le(self.hash.digest6.view().data),
+            u32::from_le(self.hash.digest7.view().data),
+        ];
+
+        sha256_sum.copy_from_slice(result.as_bytes());
+        Ok(sha256_sum)
     }
 }
 
