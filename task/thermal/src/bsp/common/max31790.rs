@@ -5,10 +5,13 @@
 //! Common types and helpers for Max31790 Fan Controller
 
 use drv_i2c_api::{I2cDevice, ResponseCode};
+use drv_i2c_devices::max31790::Fan as MaxFan;
 use drv_i2c_devices::max31790::Max31790;
 use ringbuf::ringbuf_entry_root;
 use task_sensor_api::SensorId;
-use task_thermal_api::{SensorReadError, ThermalError};
+use task_thermal_api::{
+    SANYO_DENKI_FAN_PROPERTIES, SensorReadError, ThermalError,
+};
 
 use crate::{
     Trace,
@@ -103,24 +106,22 @@ impl From<ControllerInitError> for SensorReadError {
 #[allow(dead_code)]
 pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
     sensors: &'static [SensorId; N],
-) -> [crate::control::Fan<drv_i2c_devices::max31790::Fan>; N] {
-    const ONE: crate::control::Fan<drv_i2c_devices::max31790::Fan> =
-        crate::control::Fan::new(
-            SensorId::new(0),
-            drv_i2c_devices::max31790::Fan::new_const(0),
-        );
+) -> [crate::control::Fan<MaxFan>; N] {
+    const ONE: crate::control::Fan<MaxFan> = crate::control::Fan::new(
+        SensorId::new(0),
+        SANYO_DENKI_FAN_PROPERTIES,
+        MaxFan::new_const(0),
+        0,
+    );
 
     let mut out = [ONE; N];
     let mut idx = 0;
     while idx < N {
-        out[idx] = crate::control::Fan::new(
-            sensors[idx],
-            drv_i2c_devices::max31790::Fan::new_const(idx as u8),
-        );
-        out[idx].cur_state = FanState::Present(FanPresentState::Unresponsive(
-            SensorReadError::NoData,
-        ));
+        out[idx].rpm_sensor_id = sensors[idx];
+        out[idx].bsp_data = MaxFan::new_const(idx as u8);
+        out[idx].cur_state = FanState::Present(FanPresentState::Unpolled);
         out[idx].presence_acked = true;
+        out[idx].system_index = idx as u8;
         idx += 1;
     }
 

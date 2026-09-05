@@ -72,8 +72,13 @@
 use crate::{ThermalError, Trace, bsp::PowerBitmask};
 use drv_i2c_devices::max31790::I2cWatchdog;
 
+use microcbor::Encode;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_sensor_api::{NoData, Sensor as SensorApi, SensorId};
+use task_packrat_api::Packrat;
+use task_sensor_api::{
+    NoData, Sensor as SensorApi, SensorId,
+    config::{MAX_COMPONENT_ID_LEN, MAX_SENSOR_NAME_LEN},
+};
 use task_thermal_api::{
     FanProperties, SensorReadError, ThermalAutoState, ThermalProperties,
 };
@@ -208,8 +213,10 @@ pub enum FanState {
 #[allow(dead_code)] // Not all bsps have fans!
 #[derive(Copy, Clone, PartialEq)]
 pub enum FanPresentState {
-    /// The fan is physically present, but is unresponsive to RPM queries
-    Unresponsive(SensorReadError),
+    /// The fan is present but has not yet been polled
+    Unpolled,
+    /// The fan is present, but is unresponsive to RPM queries
+    I2cReadError(drv_i2c_api::ResponseCode),
     /// The fan is present and at a reasonable speed
     Nominal(Rpm),
     /// The fan is present, but is overspeed
@@ -236,20 +243,35 @@ pub struct Fan<D> {
     pub state_acked: bool,
     /// The current state of the fan
     pub cur_state: FanState,
+    /// The system index of the fan
+    pub system_index: u8,
     /// A BSP-specific ID used to identify the fan
     pub bsp_data: D,
+    /// Parameter model for this fan
+    pub model: FanProperties,
+    pub refdes: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
+    pub sensor: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
 }
 
 #[allow(dead_code)] // Not all bsps have fans!
 impl<D> Fan<D> {
     /// Create a new fan
-    pub const fn new(rpm_sensor_id: SensorId, bsp_data: D) -> Self {
+    pub const fn new(
+        rpm_sensor_id: SensorId,
+        model: FanProperties,
+        bsp_data: D,
+        system_index: u8,
+    ) -> Self {
         Self {
             rpm_sensor_id,
             presence_acked: false,
             state_acked: false,
             cur_state: FanState::NotPresent,
             bsp_data,
+            model,
+            sensor: rpm_sensor_id.name(),
+            refdes: rpm_sensor_id.component_id(),
+            system_index,
         }
     }
 
@@ -273,9 +295,7 @@ impl<D> Fan<D> {
     pub(crate) fn update_presence(&mut self, is_present: bool) {
         match (is_present, self.cur_state) {
             (true, FanState::NotPresent) => {
-                self.update_state(FanState::Present(
-                    FanPresentState::Unresponsive(SensorReadError::NoData),
-                ))
+                self.update_state(FanState::Present(FanPresentState::Unpolled))
             }
             (true, _) => {}
             (false, _) => {
@@ -308,31 +328,27 @@ impl<D> Fan<D> {
             }
             // Present -> Present
             (Fs::Present(cur), Fs::Present(newp)) => match (cur, newp) {
-                // Same -> Same, just take state
                 (Fps::Nominal(_), Fps::Nominal(_))
                 | (Fps::TooFast(_), Fps::TooFast(_))
                 | (Fps::TooSlow(_), Fps::TooSlow(_))
-                | (Fps::Unresponsive(_), Fps::Unresponsive(_)) => {
+                | (Fps::I2cReadError(_), Fps::I2cReadError(_))
+                | (Fps::Unpolled, Fps::Unpolled) => {
                     self.cur_state = new;
                 }
-                // Any of the following:
-                //
-                // - Nominal -> Deviant
-                // - Deviant -> Nominal
-                // - Deviant -> Deviant
-                //
-                // Take:
-                //
-                // - New state
-                // - Status ack state
                 (Fps::Nominal(_), _)
                 | (_, Fps::Nominal(_))
-                | (Fps::TooFast(_), Fps::Unresponsive(_))
+                | (Fps::TooFast(_), Fps::Unpolled)
                 | (Fps::TooFast(_), Fps::TooSlow(_))
-                | (Fps::TooSlow(_), Fps::Unresponsive(_))
+                | (Fps::TooFast(_), Fps::I2cReadError(_))
+                | (Fps::TooSlow(_), Fps::Unpolled)
                 | (Fps::TooSlow(_), Fps::TooFast(_))
-                | (Fps::Unresponsive(_), Fps::TooFast(_))
-                | (Fps::Unresponsive(_), Fps::TooSlow(_)) => {
+                | (Fps::TooSlow(_), Fps::I2cReadError(_))
+                | (Fps::Unpolled, Fps::TooFast(_))
+                | (Fps::Unpolled, Fps::TooSlow(_))
+                | (Fps::Unpolled, Fps::I2cReadError(_))
+                | (Fps::I2cReadError(_), Fps::Unpolled)
+                | (Fps::I2cReadError(_), Fps::TooFast(_))
+                | (Fps::I2cReadError(_), Fps::TooSlow(_)) => {
                     self.cur_state = new;
                     self.state_acked = false;
                 }
@@ -342,10 +358,9 @@ impl<D> Fan<D> {
 
     /// Update the RPM of a present fan with the given closure, which should
     /// retrieve the RPM. Used to share logic across different fan controllers
-    pub(crate) fn poll_rpm_with<E: Into<SensorReadError>>(
+    pub(crate) fn poll_rpm_with(
         &mut self,
-        model: &FanProperties,
-        poll_rpm: impl FnOnce() -> Result<Rpm, E>,
+        poll_rpm: impl FnOnce() -> Result<Rpm, drv_i2c_api::ResponseCode>,
     ) {
         // If this fan is not present, then do not attempt to poll it. Presence
         // is only restored via presence polling.
@@ -359,9 +374,9 @@ impl<D> Fan<D> {
             Ok(rpm) => {
                 // The poll went well! Use the model to determine if this
                 // reading is nominal or not, and report that as the state.
-                let state = if rpm < model.underspeed_rpm {
+                let state = if rpm < self.model.underspeed_rpm {
                     FanPresentState::TooSlow(rpm)
-                } else if rpm > model.overspeed_rpm {
+                } else if rpm > self.model.overspeed_rpm {
                     FanPresentState::TooFast(rpm)
                 } else {
                     FanPresentState::Nominal(rpm)
@@ -371,7 +386,7 @@ impl<D> Fan<D> {
             Err(e) => {
                 // No good, mark as unresponsive
                 self.update_state(FanState::Present(
-                    FanPresentState::Unresponsive(e.into()),
+                    FanPresentState::I2cReadError(e),
                 ));
             }
         }
@@ -575,6 +590,9 @@ pub(crate) struct ThermalControl<'a, B: BspInterface> {
 
     /// Task to which we should post sensor data updates
     sensor_api: SensorApi,
+
+    /// Task to which we should post ereports
+    ereporter: Ereporter,
 
     /// Target temperature margin. This must be >= 0; as it increases, parts
     /// are kept cooler than their target temperature value.
@@ -909,7 +927,11 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
     /// # Panics
     /// This function can only be called once, because it claims mutable static
     /// buffers.
-    pub fn new(bsp: &'a mut B, sensor_api: SensorApi) -> Self {
+    pub fn new(
+        bsp: &'a mut B,
+        sensor_api: SensorApi,
+        packrat_api: Packrat,
+    ) -> Self {
         use static_cell::ClaimOnceCell;
 
         let [err_blackbox, prev_err_blackbox] = {
@@ -933,6 +955,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
             prev_err_blackbox,
             fan_watchdog_configured: false,
             overheat_timer: None,
+            ereporter: Ereporter::claim_static_resources(packrat_api),
         }
     }
 
@@ -1028,7 +1051,7 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
         // Read fan data and log it to the sensors task
         let now = sys_get_timer().now;
         for fan in self.bsp.poll_fan_rpms() {
-            report_fan_state(fan, &self.sensor_api, now);
+            report_fan_state(fan, &self.sensor_api, now, &mut self.ereporter);
         }
 
         // Read miscellaneous temperature data and log it to the sensors task
@@ -1536,19 +1559,46 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
 /// - Sensor API data
 /// - Ringbuf logging on state changes
 /// - ereport logging on state changes
-fn report_fan_state<D>(fan: &mut Fan<D>, sensor_api: &SensorApi, now_ms: u64) {
+fn report_fan_state<D>(
+    fan: &mut Fan<D>,
+    sensor_api: &SensorApi,
+    now_ms: u64,
+    ereporter: &mut Ereporter,
+) {
     // Make state matches a little less verbose
     use FanPresentState as Fps;
     use FanState as Fs;
 
     // Step one: report presence, if necessary
     let id = fan.rpm_sensor_id;
+
+    // Helpers for building repetitive ereport information
+    let basic_info = || BasicFanInfo {
+        sensor: fan.sensor,
+        refdes: fan.refdes,
+        slot: fan.system_index,
+    };
+    let fan_info = || FanInfo {
+        basic_info: basic_info(),
+        lo_rpm_lim: fan.model.underspeed_rpm.0,
+        hi_rpm_lim: fan.model.overspeed_rpm.0,
+    };
+
     if !fan.presence_acked {
-        let trace = match fan.cur_state {
-            Fs::NotPresent => Trace::FanRemoved(id),
-            Fs::Present(_) => Trace::FanAdded(id),
+        match fan.cur_state {
+            Fs::NotPresent => {
+                ringbuf_entry!(Trace::FanRemoved(id));
+                _ = ereporter.deliver_ereport(&FanRemoved {
+                    basic_info: basic_info(),
+                });
+            }
+            Fs::Present(_) => {
+                ringbuf_entry!(Trace::FanAdded(id));
+                _ = ereporter.deliver_ereport(&FanInserted {
+                    basic_info: basic_info(),
+                })
+            }
         };
-        ringbuf_entry!(trace);
         fan.presence_acked = true;
     }
 
@@ -1565,7 +1615,7 @@ fn report_fan_state<D>(fan: &mut Fan<D>, sensor_api: &SensorApi, now_ms: u64) {
     };
     match pres {
         // If the fan is unresponsive, clear the data from the sensor API
-        Fps::Unresponsive(_) => {
+        Fps::Unpolled | Fps::I2cReadError(_) => {
             sensor_api.nodata(id, NoData::DeviceUnavailable, now_ms);
         }
         // If we have valid RPM data, report it immediately.
@@ -1576,13 +1626,125 @@ fn report_fan_state<D>(fan: &mut Fan<D>, sensor_api: &SensorApi, now_ms: u64) {
 
     // Step three: handle state reporting, if unreported
     if !fan.state_acked {
-        let trace = match pres {
-            Fps::Unresponsive(e) => Trace::FanReadFailed(id, e),
-            Fps::Nominal(_) => Trace::FanNominal(id),
-            Fps::TooFast(rpm) => Trace::FanOverspeed(id, rpm),
-            Fps::TooSlow(rpm) => Trace::FanUnderspeed(id, rpm),
+        match pres {
+            Fps::I2cReadError(e) => {
+                _ = ereporter.deliver_ereport(&FanRpmReadFailed {
+                    basic_info: basic_info(),
+                    raw_response_code: e as u8,
+                });
+                ringbuf_entry!(Trace::FanReadFailed(
+                    id,
+                    SensorReadError::I2cError(e)
+                ));
+            }
+            Fps::Nominal(_) => {
+                _ = ereporter.deliver_ereport(&FanNominal { info: fan_info() });
+                ringbuf_entry!(Trace::FanNominal(id));
+            }
+            Fps::TooFast(rpm) => {
+                _ = ereporter.deliver_ereport(&FanOverspeed {
+                    info: fan_info(),
+                    rpm: rpm.0,
+                });
+                ringbuf_entry!(Trace::FanOverspeed(id, rpm));
+            }
+            Fps::TooSlow(rpm) => {
+                _ = ereporter.deliver_ereport(&FanUnderspeed {
+                    info: fan_info(),
+                    rpm: rpm.0,
+                });
+                ringbuf_entry!(Trace::FanUnderspeed(id, rpm));
+            }
+            Fps::Unpolled => {
+                // This is likely a bug, this means that a BSP failed to call
+                // `poll_rpm_with`. Don't panic, because that's worse than just
+                // not monitoring the fan at all, but ringbuf so we can catch
+                // it while developing.
+                ringbuf_entry!(Trace::FanUnpolled(id));
+            }
         };
-        ringbuf_entry!(trace);
         fan.state_acked = true;
     }
+}
+
+ereports::declare_ereporter! {
+    struct Ereporter<Ereport> {
+        FanRemoved(FanRemoved),
+        FanInserted(FanInserted),
+        FanNominal(FanNominal),
+        FanOverspeed(FanOverspeed),
+        FanUnderspeed(FanUnderspeed),
+        FanRpmReadFailed(FanRpmReadFailed),
+    }
+}
+
+#[derive(microcbor::EncodeFields)]
+struct BasicFanInfo {
+    sensor: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
+    refdes: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
+    slot: u8,
+}
+
+#[derive(microcbor::EncodeFields)]
+struct FanInfo {
+    #[cbor(flatten)]
+    basic_info: BasicFanInfo,
+    lo_rpm_lim: u16,
+    hi_rpm_lim: u16,
+}
+
+/// An ereport representing a fan being removed
+#[derive(Encode)]
+#[ereport(class = "hw.remove.fan", version = 0)]
+struct FanRemoved {
+    #[cbor(flatten)]
+    basic_info: BasicFanInfo,
+}
+
+/// An ereport representing a fan being inserted
+#[derive(Encode)]
+#[ereport(class = "hw.insert.fan", version = 0)]
+struct FanInserted {
+    #[cbor(flatten)]
+    basic_info: BasicFanInfo,
+}
+
+/// An ereport representing a fan entering a nominal state
+#[derive(Encode)]
+#[ereport(class = "hw.fan.ok", version = 0)]
+struct FanNominal {
+    #[cbor(flatten)]
+    info: FanInfo,
+}
+
+/// An ereport representing a fan becoming overspeed
+#[derive(Encode)]
+#[ereport(class = "hw.fan.rpm.hi", version = 0)]
+struct FanOverspeed {
+    #[cbor(flatten)]
+    info: FanInfo,
+    rpm: u16,
+}
+
+/// An ereport representing a fan becoming underspeed
+#[derive(Encode)]
+#[ereport(class = "hw.fan.rpm.lo", version = 0)]
+struct FanUnderspeed {
+    #[cbor(flatten)]
+    info: FanInfo,
+    rpm: u16,
+}
+
+/// An ereport representing a failure to read from a fan
+#[derive(Encode)]
+#[ereport(class = "hw.fan.rpm.err", version = 0)]
+struct FanRpmReadFailed {
+    #[cbor(flatten)]
+    basic_info: BasicFanInfo,
+    /// The raw I2C driver code reported when this query failed. This value
+    /// is not stable across versions of the SP firmware, and should only
+    /// be logged or used for interactive or post-mortem debugging.
+    /// Requires knowledge of the exact firmware revision to meaningfully
+    /// decode.
+    raw_response_code: u8,
 }

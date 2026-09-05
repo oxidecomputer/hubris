@@ -27,6 +27,12 @@ static-cell.path = "../../lib/static-cell"
 task-sensor-api = { path = "../sensor-api", features = ["sensor-name-lookup", "component-id-lookup"] }
 task-thermal-api.path = "../thermal-api"
 
+# ereports deps
+task-packrat-api.path= "../packrat-api"
+ereports = { path = "../../lib/ereports", features = ["ereporter-macro"] }
+microcbor = { path = "../../lib/microcbor" }
+fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
+
 [build-dependencies]
 anyhow = { workspace = true }
 idol = { workspace = true }
