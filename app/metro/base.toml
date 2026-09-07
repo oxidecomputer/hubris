@@ -4,14 +4,14 @@ default-ram = "axi_sram"
 stacksize = 896
 
 [kernel]
-name = "cosmo"
+name = "metro"
 requires = {flash = 32768, ram = 8192}
 features = ["dump", "measurement-handoff"]
 extern-regions = [{ region = "dtcm", shared = true }]
 
 [mmio]
 peripheral-region = "fmc_nor_psram_bank_1"
-register-map = "../../drv/spartan7-loader/cosmo-seq/cosmo_seq_top.json"
+register-map = "../../drv/spartan7-loader/metro-seq/metro_seq_top.json"
 
 [caboose]
 tasks = ["control_plane_agent", "packrat"]
@@ -37,7 +37,7 @@ spd = "jefe-state-change"
 packrat = "task-faulted"
 
 [tasks.jefe.config.allowed-callers]
-set_state = ["cosmo_seq"]
+set_state = ["metro_seq"]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy", "control_plane_agent"]
 
@@ -45,7 +45,7 @@ request_reset = ["hiffy", "control_plane_agent"]
 name = "task-net"
 stacksize = 8000
 priority = 5
-features = ["mgmt", "h753", "cosmo", "vlan", "vpd-mac"]
+features = ["mgmt", "h753", "metro", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
 default-ram = "dtcm"
 sections = {eth_bulk = "sram1_mac"}
@@ -82,7 +82,7 @@ owner = {name = "sprot", notification = "rot_irq"}
 # FPGA1_TO_SP_IRQ1_L
 port = "F"
 pin = 5
-owner = {name = "cosmo_seq", notification = "seq_irq"}
+owner = {name = "metro_seq", notification = "seq_irq"}
 
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
@@ -96,7 +96,7 @@ stacksize = 872
 task-slots = ["sys"]
 notifications = ["spi-irq"]
 
-# XXX this is only used by cosmo_seq; could we merge it?
+# XXX this is only used by metro_seq; could we merge it?
 [tasks.spi3_driver]
 name = "drv-stm32h7-spi-server"
 priority = 3
@@ -135,7 +135,7 @@ priority = 1
 stacksize = 1712
 start = true
 task-slots = ["jefe"]
-features = ["cosmo", "ereport"]
+features = ["metro", "ereport"]
 notifications = ["task-faulted"]
 
 [tasks.rng_driver]
@@ -149,22 +149,22 @@ task-slots = ["sys", "packrat"]
 
 [tasks.thermal]
 name = "task-thermal"
-features = ["cosmo"]
+features = ["metro"]
 priority = 8
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 3000
 start = true
-task-slots = ["i2c_driver", "sensor", "cosmo_seq", "jefe"]
+task-slots = ["i2c_driver", "sensor", "metro_seq", "jefe"]
 notifications = ["timer"]
 
 [tasks.power]
 name = "task-power"
-features = ["cosmo"]
+features = ["metro"]
 priority = 8
 max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 3800
 start = true
-task-slots = ["i2c_driver", "sensor", "cosmo_seq"]
+task-slots = ["i2c_driver", "sensor", "metro_seq"]
 notifications = ["timer"]
 
 [tasks.hiffy]
@@ -177,8 +177,8 @@ start = true
 task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot", "net"]
 notifications = ["timer"]
 
-[tasks.cosmo_seq]
-name = "drv-cosmo-seq-server"
+[tasks.metro_seq]
+name = "drv-metro-seq-server"
 features = ["h753"]
 priority = 7
 max-sizes = {flash = 131072, ram = 32768 }
@@ -211,7 +211,7 @@ program_l = "sys_api::Port::B.pin(1)"
 init_l = "sys_api::Port::B.pin(6)"
 config_done = "sys_api::Port::B.pin(4)"
 user_reset_l = "sys_api::Port::A.pin(6)"
-register_defs = "cosmo-seq/*.json"
+register_defs = "metro-seq/*.json"
 
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"
@@ -226,7 +226,7 @@ task-slots = ["sys"]
 notifications = ["hash-irq"]
 
 [tasks.hf]
-name = "drv-cosmo-hf"
+name = "drv-metro-hf"
 priority = 6
 start = true
 uses = ["mmio_spi_nor"]
@@ -254,14 +254,14 @@ start = true
 
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
-features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vlan", "cosmo"]
+features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vlan", "metro"]
 uses = ["usart6", "dbgmcu"]
 interrupts = {"usart6.irq" = "usart-irq"}
 priority = 9
 max-sizes = {flash = 78000, ram = 65536}
 stacksize = 7664
 start = true
-task-slots = ["sys", { cpu_seq = "cosmo_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot", "auxflash"]
+task-slots = ["sys", { cpu_seq = "metro_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot", "auxflash"]
 notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
 
 [tasks.udpecho]
@@ -298,7 +298,7 @@ task-slots = [
     "update_server",
     "sys",
     "hf",
-    { cpu_seq = "cosmo_seq" },
+    { cpu_seq = "metro_seq" },
     "validate",
     "sensor",
     "sprot",
@@ -308,7 +308,7 @@ task-slots = [
     "vpd",
 ]
 features = [
-    "cosmo",
+    "metro",
     "usart1",
     "vlan",
     "baud_rate_3M",
@@ -378,7 +378,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.spd]
-name = "task-cosmo-spd"
+name = "task-metro-spd"
 priority = 7
 max-sizes = {flash = 8192, ram = 4096 }
 start = true
@@ -1196,7 +1196,7 @@ bus = "rear"
 address = 0b1010_000
 device = "at24csw080"
 name = "local_vpd"
-description = "Cosmo VPD"
+description = "Metro VPD"
 refdes = "U32"
 
 # The `rear` bus also spans the isolation barrier to the 54V zone.  On the other
@@ -1556,13 +1556,13 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/spartan7-loader/cosmo-seq/cosmo_seq.bz2"
+file = "drv/spartan7-loader/metro-seq/metro_seq.bz2"
 unzip = "bz2"
 compress = true
 tag = "SPA7"
 
 [[auxflash.blobs]]
-file = "drv/cosmo-seq-server/cosmo-hp/cosmo_hp.bz2"
+file = "drv/metro-seq-server/metro-hp/metro_hp.bz2"
 unzip = "bz2"
 compress = true
 tag = "ICE4"

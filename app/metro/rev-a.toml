@@ -1,6 +1,6 @@
 # This is the production image. We expect `name` to match `board`
-name = "cosmo-a"
-board = "cosmo-a"
+name = "metro-a"
+board = "metro-a"
 inherit = "base.toml"
 
 # We have to include the whole I2C1 configuration fragment, because the

@@ -34,7 +34,7 @@ fn system_init() {
     let cp = cortex_m::Peripherals::take().unwrap();
     let p = device::Peripherals::take().unwrap();
 
-    // Check the package we've been flashed on (Cosmo boards use BGA240)
+    // Check the package we've been flashed on (Metro boards use BGA240)
     //
     // We need to turn the SYSCFG block on to do this.
     p.RCC.apb4enr.modify(|_, w| w.syscfgen().enabled());
@@ -51,7 +51,7 @@ fn system_init() {
         }
     }
 
-    // Cosmo has resistors strapping three pins to indicate the board revision.
+    // Metro has resistors strapping three pins to indicate the board revision.
     //
     // We read the board version very early in boot to try and detect the
     // firmware being flashed on the wrong board. In particular, we read the
@@ -81,14 +81,11 @@ fn system_init() {
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
     cfg_if::cfg_if! {
-        if #[cfg(target_board = "cosmo-a")] {
+        if #[cfg(target_board = "metro-a")] {
             let expected_rev = 0b000;
         }
-        else if #[cfg(target_board = "cosmo-b")] {
-            let expected_rev = 0b001;
-        }
         else {
-            compile_error!("not a recognized cosmo board")
+            compile_error!("not a recognized metro board")
         }
     }
 
