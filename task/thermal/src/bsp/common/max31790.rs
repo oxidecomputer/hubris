@@ -116,8 +116,11 @@ pub(crate) const fn make_consecutive_nonremovable_fans<const N: usize>(
     let mut out = [ONE; N];
     let mut idx = 0;
     while idx < N {
-        out[idx].rpm_sensor_id = sensors[idx];
-        out[idx].bsp_data = MaxFan::new_const(idx as u8);
+        out[idx] = crate::control::Fan::new(
+            sensors[idx],
+            SANYO_DENKI_FAN_PROPERTIES,
+            MaxFan::new_const(idx as u8),
+        );
         out[idx].cur_state = FanState::Present(FanPresentState::Unpolled);
         out[idx].presence_acked = true;
         idx += 1;
