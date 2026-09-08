@@ -5,7 +5,6 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::pmbus_status::Capabilities;
 use drv_sprot_api::SprotError;
 use gateway_messages::{
     IgnitionCommand, MgsError, PowerState, SpComponent, UpdateId,
@@ -144,6 +143,7 @@ enum MgsMessage {
         component: SpComponent,
     },
     GetPowerState,
+    GetPowerStateWithReason,
     SetPowerState(PowerState),
     Inventory,
     HostPhase2Data {
@@ -158,6 +158,9 @@ enum MgsMessage {
     GetStartupOptions,
     SetStartupOptions(gateway_messages::StartupOptions),
     ComponentDetails {
+        component: SpComponent,
+    },
+    ComponentGetVpd {
         component: SpComponent,
     },
     ComponentClearStatus {
@@ -638,16 +641,10 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 pub(crate) mod pmbus {
-    use super::*;
-
-    /// Type returned by generated pmbus rail functions
-    pub type SummonFn =
-        fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, Option<u8>);
-
     pub struct PmbusRailBinding {
         pub name: &'static str,
-        pub summon_fn: SummonFn,
-        pub status_bits: Capabilities,
+        pub device_index: usize,
+        pub rail_index: Option<u8>,
     }
 
     include!(concat!(env!("OUT_DIR"), "/pmbus_mapping.rs"));

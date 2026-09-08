@@ -11,6 +11,645 @@ pub mod devices {
 
     #[allow(dead_code)]
     #[allow(clippy::match_single_binding)]
+    pub fn device_by_index(task: TaskId, index: usize) -> Option<I2cDevice> {
+        match index {
+            0 => Some(
+                // Front FPGA virtual mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x70,
+                ),
+            ),
+            1 => Some(
+                // U.2 Sharkfin A VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+            ),
+            2 => Some(
+                // U.2 Sharkfin A hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x38,
+                ),
+            ),
+            3 => Some(
+                // U.2 A NVMe Basic Management Command
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x6a,
+                ),
+            ),
+            4 => Some(
+                // U.2 Sharkfin B VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+            ),
+            5 => Some(
+                // U.2 Sharkfin B hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x38,
+                ),
+            ),
+            6 => Some(
+                // U.2 B NVMe Basic Management Control
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x6a,
+                ),
+            ),
+            7 => Some(
+                // U.2 Sharkfin C VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                    0x50,
+                ),
+            ),
+            8 => Some(
+                // U.2 Sharkfin C hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                    0x38,
+                ),
+            ),
+            9 => Some(
+                // U.2 C NVMe Basic Management Control
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                    0x6a,
+                ),
+            ),
+            10 => Some(
+                // U.2 Sharkfin D VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                    0x50,
+                ),
+            ),
+            11 => Some(
+                // U.2 Sharkfin D hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                    0x38,
+                ),
+            ),
+            12 => Some(
+                // U.2 D NVMe Basic Management Control
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                    0x6a,
+                ),
+            ),
+            13 => Some(
+                // U.2 Sharkfin E VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S5)),
+                    0x50,
+                ),
+            ),
+            14 => Some(
+                // U.2 Sharkfin E hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S5)),
+                    0x38,
+                ),
+            ),
+            15 => Some(
+                // U.2 E NVMe Basic Management Control
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S5)),
+                    0x6a,
+                ),
+            ),
+            16 => Some(
+                // U.2 Sharkfin F VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S6)),
+                    0x50,
+                ),
+            ),
+            17 => Some(
+                // U.2 Sharkfin F hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S6)),
+                    0x38,
+                ),
+            ),
+            18 => Some(
+                // U.2 F NVMe Basic Management Control
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S6)),
+                    0x6a,
+                ),
+            ),
+            19 => Some(
+                // U.2 Sharkfin G VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S9)),
+                    0x50,
+                ),
+            ),
+            20 => Some(
+                // U.2 Sharkfin G hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S9)),
+                    0x38,
+                ),
+            ),
+            21 => Some(
+                // U.2 G NVMe Basic Management Control
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S9)),
+                    0x6a,
+                ),
+            ),
+            22 => Some(
+                // U.2 Sharkfin H VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S10)),
+                    0x50,
+                ),
+            ),
+            23 => Some(
+                // U.2 Sharkfin H hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S10)),
+                    0x38,
+                ),
+            ),
+            24 => Some(
+                // U.2 H NVMe Basic Management Control
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S10)),
+                    0x6a,
+                ),
+            ),
+            25 => Some(
+                // U.2 Sharkfin I VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S11)),
+                    0x50,
+                ),
+            ),
+            26 => Some(
+                // U.2 Sharkfin I hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S11)),
+                    0x38,
+                ),
+            ),
+            27 => Some(
+                // U.2 I NVMe Basic Management Control
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S11)),
+                    0x6a,
+                ),
+            ),
+            28 => Some(
+                // U.2 Sharkfin J VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S12)),
+                    0x50,
+                ),
+            ),
+            29 => Some(
+                // U.2 Sharkfin J hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S12)),
+                    0x38,
+                ),
+            ),
+            30 => Some(
+                // U.2 J NVMe Basic Management Control
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S12)),
+                    0x6a,
+                ),
+            ),
+            31 => Some(
+                // Southwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S13)),
+                    0x48,
+                ),
+            ),
+            32 => Some(
+                // South temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S13)),
+                    0x49,
+                ),
+            ),
+            33 => Some(
+                // Southeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S13)),
+                    0x4a,
+                ),
+            ),
+            34 => Some(
+                // Main FPGA virtual mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x70,
+                ),
+            ),
+            35 => Some(
+                // M.2 A NVMe Basic Management Command
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x6a,
+                ),
+            ),
+            36 => Some(
+                // M.2 B NVMe Basic Management Command
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x6a,
+                ),
+            ),
+            37 => Some(
+                // CPU via SB-RMI
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                    0x3c,
+                ),
+            ),
+            38 => Some(
+                // CPU temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                    0x4c,
+                ),
+            ),
+            39 => Some(
+                // Fan VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S7)),
+                    0x50,
+                ),
+            ),
+            40 => Some(
+                // T6 temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S8)),
+                    0x4c,
+                ),
+            ),
+            41 => Some(
+                // A2 3.3V rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x24,
+                ),
+            ),
+            42 => Some(
+                // A2 5V rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x27,
+                ),
+            ),
+            43 => Some(
+                // A2 1.8V rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x29,
+                ),
+            ),
+            44 => Some(
+                // M.2 hot plug controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x3a,
+                ),
+            ),
+            45 => Some(
+                // 12V MCIO hot plug controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x54,
+                ),
+            ),
+            46 => Some(
+                // DIMM GHIJKL hot plug controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x56,
+                ),
+            ),
+            47 => Some(
+                // DIMM ABCDEF hot plug controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x55,
+                ),
+            ),
+            48 => Some(
+                // South power controller (Core 0, SOC)
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x75,
+                ),
+            ),
+            49 => Some(
+                // North power controller (Core 1, VDDIO)
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x76,
+                ),
+            ),
+            50 => Some(
+                // SP5 power controller (V1P1, V1P8, V3P3)
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x5c,
+                ),
+            ),
+            51 => Some(
+                // NIC hot swap
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x39,
+                ),
+            ),
+            52 => Some(
+                // T6 power controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x25,
+                ),
+            ),
+            53 => Some(
+                // Northwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ),
+            ),
+            54 => Some(
+                // North temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x49,
+                ),
+            ),
+            55 => Some(
+                // Northeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x4a,
+                ),
+            ),
+            56 => Some(
+                // Fan controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x20,
+                ),
+            ),
+            57 => Some(
+                // Intermediate bus converter
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                ),
+            ),
+            58 => Some(
+                // Cosmo VPD
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ),
+            59 => Some(
+                // Fan hot swap controller (east)
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x11,
+                ),
+            ),
+            60 => Some(
+                // Fan hot swap controller (central)
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x12,
+                ),
+            ),
+            61 => Some(
+                // Fan hot swap controller (west)
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x13,
+                ),
+            ),
+            62 => Some(
+                // Sled hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x14,
+                ),
+            ),
+
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
     pub fn lookup_controller(index: usize) -> Option<Controller> {
         match index {
             0..=33 => Some(Controller::I2C1),

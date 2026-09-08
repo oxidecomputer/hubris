@@ -8,6 +8,7 @@ cfg-if.workspace = true
 enum-map.workspace = true
 gateway-messages.workspace = true
 heapless.workspace = true
+hubpack.workspace = true
 humpty.workspace = true
 idol-runtime.workspace = true
 num-traits.workspace = true
@@ -30,6 +31,7 @@ drv-i2c-devices = { path = "../../drv/i2c-devices" }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
+drv-oxide-vpd = { path = "../../drv/oxide-vpd" }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
 drv-stm32h7-update-api = { path = "../../drv/stm32h7-update-api" }
@@ -50,6 +52,7 @@ task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
 task-packrat-api = { path = "../packrat-api" }
 task-sensor-api = { path = "../sensor-api" }
 task-validate-api = { path = "../validate-api" }
+tlvc = { workspace = true }
 update-buffer = { path = "../../lib/update-buffer" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static-cell = { path = "../../lib/static-cell" }
@@ -58,9 +61,7 @@ static-cell = { path = "../../lib/static-cell" }
 anyhow = { workspace = true }
 build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
-drv-i2c-types = { path = "../../drv/i2c-types" }
 idol = { workspace = true }
-pmbus = { workspace = true }
 serde = { workspace = true }
 ssh-key = { workspace = true }
 
