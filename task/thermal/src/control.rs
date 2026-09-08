@@ -243,8 +243,6 @@ pub struct Fan<D> {
     pub state_acked: bool,
     /// The current state of the fan
     pub cur_state: FanState,
-    /// The system index of the fan
-    pub system_index: u8,
     /// A BSP-specific ID used to identify the fan
     pub bsp_data: D,
     /// Parameter model for this fan
@@ -260,7 +258,6 @@ impl<D> Fan<D> {
         rpm_sensor_id: SensorId,
         model: FanProperties,
         bsp_data: D,
-        system_index: u8,
     ) -> Self {
         Self {
             rpm_sensor_id,
@@ -271,7 +268,6 @@ impl<D> Fan<D> {
             model,
             sensor: rpm_sensor_id.name(),
             refdes: rpm_sensor_id.component_id(),
-            system_index,
         }
     }
 
@@ -1576,7 +1572,6 @@ fn report_fan_state<D>(
     let basic_info = || BasicFanInfo {
         sensor: fan.sensor,
         refdes: fan.refdes,
-        slot: fan.system_index,
     };
     let fan_info = || FanInfo {
         basic_info: basic_info(),
@@ -1682,7 +1677,6 @@ ereports::declare_ereporter! {
 struct BasicFanInfo {
     sensor: fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>,
     refdes: fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>,
-    slot: u8,
 }
 
 #[derive(microcbor::EncodeFields)]
