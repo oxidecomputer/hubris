@@ -1,0 +1,20 @@
+name = "nprpc-demo"
+board = "grapefruit-a"
+inherit = "rev-a.toml"
+
+[tasks.nprpc]
+name = "task-nprpc-demo"
+priority = 9
+max-sizes = {flash = 16384, ram = 2048}
+stacksize = 1024
+start = true
+task-slots = ["net"]
+notifications = ["socket"]
+features = ["vlan"]
+
+[config.net.sockets.nprpc]
+kind = "udp"
+owner = {name = "nprpc", notification = "socket"}
+port = 5501
+tx = { packets = 3, bytes = 4096 }
+rx = { packets = 3, bytes = 4096 }

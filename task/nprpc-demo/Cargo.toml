@@ -1,0 +1,46 @@
+[package]
+name = "task-nprpc-demo"
+version = "0.1.0"
+authors = ["James Munns <james.munns@oxide.computer>"]
+edition = "2024"
+
+[dependencies]
+heapless.workspace = true
+static-cell = { path = "../../lib/static-cell" }
+task-net-api = { path = "../../task/net-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[features]
+vlan = ["task-net-api/vlan"]
+
+[dependencies.nprpc]
+# branch: james/udp-server-demo
+git = "https://github.com/jamesmunns/nprpc/"
+rev = "3dc24e949bf83bf2220e9920380bbede6cca2e01"
+default-features = false
+
+[dependencies.udp-api]
+# branch: james/udp-server-demo
+git = "https://github.com/jamesmunns/nprpc/"
+rev = "3dc24e949bf83bf2220e9920380bbede6cca2e01"
+default-features = false
+
+[dependencies.postcard-schema-ng]
+git = "https://github.com/jamesmunns/postcard"
+rev = "ed97b79"
+features = ["derive", "heapless_v0_7"]
+
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-nprpc-demo"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
