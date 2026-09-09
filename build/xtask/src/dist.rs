@@ -965,8 +965,9 @@ pub fn package(
         )
         .context("constructing image from segments with hubtools")?;
 
-        write_gdb_script(&cfg, image_name)?;
-        let archive_name = build_archive(&cfg, image_name, raw_image)?;
+        write_gdb_script(&cfg, image_name).context("writing gdb script")?;
+        let archive_name = build_archive(&cfg, image_name, raw_image)
+            .context("building archive")?;
 
         // Post-build modifications: populate the caboose if requested
         if cfg.toml.caboose.is_some() {
@@ -1136,7 +1137,9 @@ fn build_archive(
     archive
         .text("image-name", image_name)
         .context("failed writing `image-name`")?;
-    archive.text("app.toml", &cfg.toml.app_config)?;
+    archive
+        .text("app.toml", &cfg.toml.app_config)
+        .context("could not write app.toml")?;
 
     let chip_dir = cfg.app_src_dir.join(cfg.toml.chip.clone());
 
@@ -1161,9 +1164,13 @@ fn build_archive(
     let elf_dir = PathBuf::from("elf");
     let tasks_dir = elf_dir.join("task");
     for name in cfg.toml.tasks.keys() {
-        archive.copy(cfg.img_file(name, image_name), tasks_dir.join(name))?;
+        archive
+            .copy(cfg.img_file(name, image_name), tasks_dir.join(name))
+            .context(format!("copying {name} task"))?;
     }
-    archive.copy(cfg.img_file("kernel", image_name), elf_dir.join("kernel"))?;
+    archive
+        .copy(cfg.img_file("kernel", image_name), elf_dir.join("kernel"))
+        .context("copying kernel")?;
 
     let img_dir = PathBuf::from("img");
     archive.binary(img_dir.join("final.elf"), raw_image.to_elf()?)?;
@@ -1202,7 +1209,8 @@ fn build_archive(
         archive.copy(openocd_cfg, debug_dir.join("openocd.cfg"))?;
     }
     archive
-        .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
+        .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))
+        .context("copying openocd.gdb")?;
 
     //
     // Iterate over tasks looking for elements that should be copied into
@@ -3075,7 +3083,8 @@ impl Archive {
         let mut tmp_path = final_path.clone();
         tmp_path.set_extension("zip.partial");
 
-        let archive = File::create(&tmp_path)?;
+        let archive = File::create(&tmp_path)
+            .context(format!("creating file '{}'", tmp_path.display()))?;
         let mut inner = zip::ZipWriter::new(archive);
         inner.set_comment(format!(
             "hubris build archive v{HUBRIS_ARCHIVE_VERSION}"
