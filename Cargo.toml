@@ -105,7 +105,8 @@ rangemap = { version = "1.3", default-features = false }
 rats-corim =  { git  = "https://github.com/oxidecomputer/rats-corim", rev = "f0d5d5168d3d31487a56df32c676b0c6240bcc6b" }
 regex = { version = "1", default-features = false, features = ["std", "perf", "unicode-perl"] }
 ron = { version = "0.8", default-features = false }
-rp2040 = { version = "0.1.0", default-features = false }
+rp2040-boot2 = { version = "0.3.0", default-features = false }
+rp2040-pac = { version = "0.6.0", features = ["rt"] }
 rustc-demangle = { version = "0.1.24", default-features = false }
 scroll = { version = "0.10", default-features = false }
 serde = { version = "1.0.114", default-features = false, features = ["derive"] }

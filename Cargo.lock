@@ -947,6 +947,9 @@ name = "crc-any"
 version = "2.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "774646b687f63643eb0f4bf13dc263cb581c8c9e57973b6ddf78bda3994d88df"
+dependencies = [
+ "debug-helper",
+]
 
 [[package]]
 name = "crc-catalog"
@@ -1060,6 +1063,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "debug-helper"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80a4af69c60438a1a82af89d362f4729fd38db7b73f305a237636fad31ceb2bf"
+
+[[package]]
 name = "debug-ignore"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1069,9 +1078,12 @@ checksum = "ffe7ed1d93f4553003e20b629abe9085e1e81b1429520f897f8f8860bc6dfc21"
 name = "demo-pi-pico-1"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
  "cortex-m-rt",
- "rp2040",
+ "kern",
+ "rp2040-boot2",
+ "rp2040-pac",
 ]
 
 [[package]]
@@ -5376,13 +5388,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "rp2040"
-version = "0.1.0"
+name = "rp2040-boot2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ed6f0ca1c2a3e4e602719212574a8692e52c51fd26e8c5a582424ae20fcd784"
+checksum = "7c92f344f63f950ee36cf4080050e4dce850839b9175da38f9d2ffb69b4dbb21"
 dependencies = [
- "bare-metal 0.2.5",
+ "crc-any",
+]
+
+[[package]]
+name = "rp2040-pac"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83cbcd3f7a0ca7bbe61dc4eb7e202842bee4e27b769a7bf3a4a72fa399d6e404"
+dependencies = [
  "cortex-m",
+ "cortex-m-rt",
  "vcell",
 ]
 
