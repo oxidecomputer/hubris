@@ -154,6 +154,7 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         _msg: &RecvMessage,
         addr: u32,
     ) -> Result<u16, RequestError<Infallible>> {
+        let addr = translate_addr(addr as usize);
         let ptr = addr as *const u16;
         let val = unsafe { ptr.read_volatile() };
         Ok(val)
@@ -175,6 +176,7 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         _msg: &RecvMessage,
         addr: u32,
     ) -> Result<u64, RequestError<Infallible>> {
+        let addr = translate_addr(addr as usize);
         let ptr = addr as *const u64;
         let val = unsafe { ptr.read_volatile() };
         Ok(val)
@@ -186,6 +188,7 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         addr: u32,
         value: u16,
     ) -> Result<(), RequestError<Infallible>> {
+        let addr = translate_addr(addr as usize);
         let ptr = addr as *mut u16;
         unsafe { ptr.write_volatile(value) }
         Ok(())
@@ -209,6 +212,7 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         addr: u32,
         value: u64,
     ) -> Result<(), RequestError<Infallible>> {
+        let addr = translate_addr(addr as usize);
         let ptr = addr as *mut u64;
         unsafe { ptr.write_volatile(value) }
         Ok(())
