@@ -408,6 +408,48 @@ fn process_network_packet(
                     address += 8;
                 }
             }
+            17 | 18 => {
+                // PeekBlockChecksum / PeekBlockChecksumFixed: read `count`
+                // 32-bit words and reply with only a wrapping-sum checksum.
+                // The constant-size reply means the request's duration is
+                // dominated by the FMC accesses, which makes bus line rate
+                // measurable from the host; per-word peek ops can't do that
+                // because their network cost swamps the bus time. Op 17
+                // advances through memory, op 18 re-reads one address.
+                let count = u16::from_le_bytes(read_chunk(&mut packet)?);
+                let mut sum: u32 = 0;
+                if byte == 17 {
+                    for _ in 0..count {
+                        let b = unsafe {
+                            core::ptr::read_volatile(address as *const u32)
+                        };
+                        sum = sum.wrapping_add(b);
+                        address += 4;
+                    }
+                } else {
+                    for _ in 0..count {
+                        let b = unsafe {
+                            core::ptr::read_volatile(address as *const u32)
+                        };
+                        sum = sum.wrapping_add(b);
+                    }
+                }
+                write_chunk(sum.to_le_bytes(), &mut response)?;
+            }
+            19 => {
+                // PokeBlockFill: write `value` to the current address
+                // `count` times without advancing -- the write-side twin of
+                // op 18. Repeating one address exercises the write path the
+                // same as distinct addresses would, and a single scratch
+                // register is the only bulk-writable FMC target anyway.
+                let count = u16::from_le_bytes(read_chunk(&mut packet)?);
+                let x = u32::from_le_bytes(read_chunk(&mut packet)?);
+                for _ in 0..count {
+                    unsafe {
+                        core::ptr::write_volatile(address as *mut u32, x);
+                    }
+                }
+            }
             _ => return Err(NetworkError::NotUnderstood),
         }
     }
