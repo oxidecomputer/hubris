@@ -218,6 +218,20 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         Ok(())
     }
 
+    fn get_bcr1(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<u32, RequestError<Infallible>> {
+        Ok(self.fmc.bcr1.read().bits())
+    }
+
+    fn get_btr1(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<u32, RequestError<Infallible>> {
+        Ok(self.fmc.btr1.read().bits())
+    }
+
     fn set_burst_enable(
         &mut self,
         _msg: &RecvMessage,
@@ -270,7 +284,9 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         n: u8,
     ) -> Result<(), RequestError<Infallible>> {
         let value = n.saturating_sub(2).min(15);
-        self.fmc.btr1.write(|w| {
+        // modify, not write: these fields share BTR1, and write() would
+        // reset the others (notably CLKDIV) as a side effect.
+        self.fmc.btr1.modify(|_, w| {
             unsafe {
                 w.datlat().bits(value);
             }
@@ -284,12 +300,22 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         n: u8,
     ) -> Result<(), RequestError<Infallible>> {
         let value = n.saturating_sub(1).clamp(1, 15);
-        self.fmc.btr1.write(|w| {
+        // The continuous-clock divider is only sampled when the clock
+        // generator starts, so a live CLKDIV write leaves FMC_CLK at its
+        // boot frequency; drop FMCEN and CCLKEN across the change to make
+        // it take. (Boot-time setup is unaffected: the kernel programs BTR1
+        // before setting FMCEN.) FMC_CLK stops briefly here, and any
+        // concurrent FMC user racing this window is on its own.
+        self.fmc.bcr1.modify(|_, w| w.fmcen().clear_bit());
+        self.fmc.bcr1.modify(|_, w| w.cclken().clear_bit());
+        self.fmc.btr1.modify(|_, w| {
             unsafe {
                 w.clkdiv().bits(value);
             }
             w
         });
+        self.fmc.bcr1.modify(|_, w| w.cclken().set_bit());
+        self.fmc.bcr1.modify(|_, w| w.fmcen().set_bit());
         Ok(())
     }
     fn set_bus_turnaround_cycles(
@@ -297,8 +323,8 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         _msg: &RecvMessage,
         n: u8,
     ) -> Result<(), RequestError<Infallible>> {
-        let value = n.max(15);
-        self.fmc.btr1.write(|w| {
+        let value = n.min(15);
+        self.fmc.btr1.modify(|_, w| {
             unsafe {
                 w.busturn().bits(value);
             }

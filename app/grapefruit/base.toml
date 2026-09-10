@@ -326,7 +326,9 @@ features = ["h753"]
 priority = 4
 start = true
 task-slots = ["sys", "net"]
-uses = ["mmio_base", "mmio_spi_nor", "mmio_espi", "mmio_sgpio"]
+# "fmc" is the FMC controller's own register block; the timing setter and
+# readback ops fault without it.
+uses = ["fmc", "mmio_base", "mmio_spi_nor", "mmio_espi", "mmio_sgpio"]
 notifications = ["socket"]
 
 [tasks.hf]
