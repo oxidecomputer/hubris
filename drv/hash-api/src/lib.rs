@@ -6,26 +6,14 @@
 
 #![no_std]
 
-use derive_idol_err::IdolError;
-use userlib::{FromPrimitive, sys_send};
+use userlib::FromPrimitive;
 
 pub const SHA256_SZ: usize = 32;
 
 /// Errors that can be produced from the hash server API.
-///
-/// This enumeration doesn't include errors that result from configuration
-/// issues, like sending host flash messages to some other task.
-#[derive(
-    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
-)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 pub enum HashError {
     NotInitialized = 1,
     InvalidState,
-    Busy, // Some other owner is using the Hash block
-    NoData,
-
-    #[idol(server_death)]
-    ServerRestarted,
+    InvalidInputLen,
 }
-
-include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
