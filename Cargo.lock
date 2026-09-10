@@ -1661,6 +1661,7 @@ name = "drv-i2c-devices"
 version = "0.1.0"
 dependencies = [
  "bitfield 0.13.2",
+ "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "drv-i2c-types",
@@ -1669,6 +1670,7 @@ dependencies = [
  "num-traits",
  "pmbus",
  "ringbuf",
+ "serde",
  "smbus-pec",
  "task-power-api",
  "userlib",
@@ -3318,7 +3320,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-ereport-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#1e6041896c216c617c612a08c32586b2d8f06399"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#438cd185666d5f164548885873f0f5df9a38eed1"
 dependencies = [
  "hubpack",
  "serde",
@@ -3328,7 +3330,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#1e6041896c216c617c612a08c32586b2d8f06399"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#438cd185666d5f164548885873f0f5df9a38eed1"
 dependencies = [
  "bitflags 2.9.4",
  "gateway-ereport-messages",
@@ -4919,7 +4921,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.7"
-source = "git+https://github.com/oxidecomputer/pmbus#3833d72be1e1e0682082eb76f52eec0c25b91512"
+source = "git+https://github.com/oxidecomputer/pmbus#944715988b5be0173bd357e67d749cdd71dc5d2c"
 dependencies = [
  "anyhow",
  "convert_case 0.11.0",
@@ -6178,10 +6180,10 @@ dependencies = [
  "drv-hf-api",
  "drv-i2c-api",
  "drv-i2c-devices",
- "drv-i2c-types",
  "drv-ignition-api",
  "drv-lpc55-update-api",
  "drv-monorail-api",
+ "drv-oxide-vpd",
  "drv-rng-api",
  "drv-sidecar-seq-api",
  "drv-sprot-api",
@@ -6195,13 +6197,13 @@ dependencies = [
  "gateway-messages",
  "heapless",
  "host-sp-messages",
+ "hubpack",
  "humpty",
  "idol",
  "idol-runtime",
  "lpc55-rom-data",
  "num-traits",
  "p256",
- "pmbus",
  "ringbuf",
  "serde",
  "sha2 0.11.0",
@@ -6216,6 +6218,7 @@ dependencies = [
  "task-sensor-api",
  "task-validate-api",
  "task-vpd-api",
+ "tlvc",
  "update-buffer",
  "userlib",
  "zerocopy 0.8.27",
@@ -7019,11 +7022,13 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-i2c-api",
+ "drv-i2c-types",
  "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "pmbus",
  "serde",
  "task-sensor-api",
  "userlib",

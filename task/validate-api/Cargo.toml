@@ -29,8 +29,10 @@ bench = false
 
 [build-dependencies]
 build-i2c = { path = "../../build/i2c" }
+drv-i2c-types = { path = "../../drv/i2c-types" }
 gateway-messages.workspace = true
 idol.workspace = true
+pmbus.workspace = true
 anyhow.workspace = true
 
 [lints]
