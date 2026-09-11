@@ -139,18 +139,18 @@ jobs:
           # job's GitHub token to download, granting us higher rate limits.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Workaround for https://github.com/actions/runner-images/issues/14594
-      # From: https://github.com/cilium/tetragon/pull/4894/changes
-      - name: Remove slow Azure apt mirrors
-        if: runner.os == 'Linux'
-        run: |
-          # The default 'azure.archive.ubuntu.com' mirrors can be really slow.
-          # Removing azure.archive will pioritize the official Ubuntu mirrors.
-          if [ -f /etc/apt/apt-mirrors.txt ]; then
-            sudo sed -i '/azure.archive.ubuntu.com/d' /etc/apt/apt-mirrors.txt
-            echo "Using mirrors:"
-            cat /etc/apt/apt-mirrors.txt
-          fi
+      # # Workaround for https://github.com/actions/runner-images/issues/14594
+      # # From: https://github.com/cilium/tetragon/pull/4894/changes
+      # - name: Remove slow Azure apt mirrors
+      #   if: runner.os == 'Linux'
+      #   run: |
+      #     # The default 'azure.archive.ubuntu.com' mirrors can be really slow.
+      #     # Removing azure.archive will pioritize the official Ubuntu mirrors.
+      #     if [ -f /etc/apt/apt-mirrors.txt ]; then
+      #       sudo sed -i '/azure.archive.ubuntu.com/d' /etc/apt/apt-mirrors.txt
+      #       echo "Using mirrors:"
+      #       cat /etc/apt/apt-mirrors.txt
+      #     fi
 
       - name: Test Humility manifest
         if: runner.os == 'Linux'
@@ -160,8 +160,6 @@ jobs:
         # is really really more than we need, but also much less than 6 hours.
         timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           for image in ${images}; do
               target/release/humility -a "target/${name}/dist/${image}/build-${name}-image-${image}.zip" manifest;
           done
