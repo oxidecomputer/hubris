@@ -169,12 +169,12 @@ notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "sprot", "turbo"]
 priority = 7
 max-sizes = {flash = 32768, ram = 65536 }
 stacksize = 1328
 start = true
-task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot", "net"]
+task-slots = ["sys", "hf", "i2c_driver", "update_server", "sprot", "net"]
 notifications = ["timer"]
 
 [tasks.cosmo_seq]
@@ -213,26 +213,15 @@ config_done = "sys_api::Port::B.pin(4)"
 user_reset_l = "sys_api::Port::A.pin(6)"
 register_defs = "cosmo-seq/*.json"
 
-[tasks.hash_driver]
-name = "drv-stm32h7-hash-server"
-features = ["h753"]
-priority = 2
-max-sizes = {flash = 16384, ram=4096 }
-stacksize = 2048
-start = true
-uses = ["hash"]
-interrupts = {"hash.irq" = "hash-irq"}
-task-slots = ["sys"]
-notifications = ["hash-irq"]
-
 [tasks.hf]
 name = "drv-cosmo-hf"
 priority = 6
 start = true
-uses = ["mmio_spi_nor"]
-task-slots = ["hash_driver", "spartan7_loader"]
+uses = ["mmio_spi_nor", "hash"]
+interrupts = {"hash.irq" = "hash-irq"}
+task-slots = ["spartan7_loader", "sys"]
 stacksize = 4000
-notifications = ["timer"]
+notifications = ["timer", "hash-irq"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"

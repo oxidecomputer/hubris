@@ -20,8 +20,10 @@ use crate::{
     FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, Trace, apob,
     apob::APOB_PERSISTENT_DATA_STRIDE,
 };
+use drv_stm32xx_sys_api as sys_api;
+task_slot!(SYS, sys);
 
-task_slot!(HASH, hash_driver);
+use stm32h7::stm32h753 as device;
 
 /// We break the 128 MiB flash chip into 2x 32 MiB slots, to match Gimlet
 ///
@@ -38,6 +40,7 @@ pub struct ServerImpl {
 
     /// Most recent ABL0 version that has booted
     abl0_version: Option<u32>,
+    measurement: [u8; 32],
 }
 
 pub(crate) struct HfBufs {
@@ -82,16 +85,28 @@ impl ServerImpl {
     /// Persistent data is loaded from the flash chip and used to select `dev`;
     /// in addition, it is made redundant (written to both virtual devices).
     pub fn new(mut drv: FlashDriver) -> Self {
+        let sys = sys_api::Sys::from(SYS.get_task_id());
+
         let mut buf = HfBufs::claim_statics();
         let apob_state = apob::ApobState::init(&mut drv, &mut buf);
+
+        sys.enter_reset(sys_api::Peripheral::Hash);
+        sys.disable_clock(sys_api::Peripheral::Hash);
+        sys.enable_clock(sys_api::Peripheral::Hash);
+        sys.leave_reset(sys_api::Peripheral::Hash);
+
+        let reg = unsafe { &*device::HASH::ptr() };
+        let hash =
+            drv_stm32h7_hash::Hash::new(reg, notifications::HASH_IRQ_MASK);
 
         let mut out = Self {
             dev: drv_hf_api::HfDevSelect::Flash0,
             drv,
-            hash: HashData::new(HASH.get_task_id()),
+            hash: HashData::new(hash),
             apob_state,
             abl0_version: None,
             buf,
+            measurement: [0; 32],
         };
         out.drv.set_flash_mux_state(HfMuxState::SP);
         out.ensure_persistent_data_is_redundant();
@@ -289,7 +304,7 @@ impl ServerImpl {
                 Self::flash_addr_for(addr as u32, dev).unwrap_lite(),
                 &mut buf[..size],
             );
-            if let Err(e) = self.hash.task.update(size as u32, &buf[..size]) {
+            if let Err(e) = self.hash.task.update(&buf[..size]) {
                 ringbuf_entry!(Trace::HashUpdateError(e));
                 return Err(HfError::HashError);
             }
@@ -314,13 +329,16 @@ impl ServerImpl {
 
                 if addr + step_size >= end {
                     self.hash.state = HashState::Done;
-                    match self.hash.task.finalize_sha256() {
-                        Ok(v) => match dev {
+                    let mut hash: [u8; drv_hash_api::SHA256_SZ] =
+                        [0; drv_hash_api::SHA256_SZ];
+
+                    match self.hash.task.finalize_sha256(&mut hash) {
+                        Ok(()) => match dev {
                             HfDevSelect::Flash0 => {
-                                self.hash.cached_hash0 = SlotHash::Hash(v);
+                                self.hash.cached_hash0 = SlotHash::Hash(hash);
                             }
                             HfDevSelect::Flash1 => {
-                                self.hash.cached_hash1 = SlotHash::Hash(v);
+                                self.hash.cached_hash1 = SlotHash::Hash(hash);
                             }
                         },
                         Err(e) => {
@@ -721,8 +739,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             addr as usize + len as usize,
         )?;
 
-        match self.hash.task.finalize_sha256() {
-            Ok(sum) => Ok(sum),
+        let mut hash: [u8; drv_hash_api::SHA256_SZ] =
+            [0; drv_hash_api::SHA256_SZ];
+        match self.hash.task.finalize_sha256(&mut hash) {
+            Ok(()) => Ok(hash),
             Err(e) => {
                 ringbuf_entry!(Trace::HashFinalizeError(e));
                 Err(HfError::HashError.into())
@@ -777,7 +797,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         for _ in (0..SECTOR_SIZE_BYTES).step_by(buf.len()) {
             self.hash
                 .task
-                .update(buf.len() as u32, &buf)
+                .update(&buf)
                 .map_err(|_| RequestError::Runtime(HfError::HashError))?;
         }
 
@@ -851,6 +871,25 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         );
 
         Ok(())
+    }
+
+    fn measure(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<HfError>> {
+        let base =
+            Self::flash_addr_for(SECTOR_SIZE_BYTES, self.dev).unwrap_lite();
+        let hash = self.drv.sha3(base, SECTOR_SIZE_BYTES, SLOT_SIZE_BYTES)?;
+
+        self.measurement.copy_from_slice(&hash);
+        Ok(())
+    }
+
+    fn get_measurement(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 32], RequestError<HfError>> {
+        Ok(self.measurement)
     }
 }
 
@@ -1092,6 +1131,20 @@ impl idl::InOrderHostFlashImpl for FailServer {
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
         Err(drv_hf_api::ApobClearError::InvalidState.into())
+    }
+
+    fn measure(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.0.into())
+    }
+
+    fn get_measurement(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 32], RequestError<HfError>> {
+        Err(self.0.into())
     }
 }
 
