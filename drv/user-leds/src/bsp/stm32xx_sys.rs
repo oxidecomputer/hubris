@@ -65,7 +65,7 @@ impl Bsp for BspImpl {
     }
 }
 
-mod board {
+pub mod board {
     use super::PinInfo;
     use drv_stm32xx_sys_api::{PinSet, Port};
 

@@ -46,9 +46,9 @@ use userlib::{FromPrimitive, RecvMessage, set_timer_relative};
 pub mod bsp;
 use bsp::{Bsp, BspImpl};
 
+pub type Led = <BspImpl as Bsp>::Led;
 task_config::optional_task_config! {
-    // todo: ugh
-    blink_at_start: &'static [<BspImpl as Bsp>::Led],
+    blink_at_start: &'static [Led],
 }
 
 const BLINK_INTERVAL: u32 = 500;
