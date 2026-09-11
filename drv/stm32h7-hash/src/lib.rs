@@ -187,7 +187,7 @@ impl Hash {
         self.count += valid_bytes;
     }
 
-    /// Update hash with a full block of data. Requring exactly one block avoids
+    /// Update hash with a full block of data. Requiring exactly one block avoids
     /// the need to do an extra copy internally and improves performance
     pub fn update_exact(&mut self, data: &[u8]) -> Result<(), HashError> {
         match self.state {
