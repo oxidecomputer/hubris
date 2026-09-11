@@ -128,7 +128,6 @@ jobs:
       - name: Test Humility manifest
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           for image in ${images}; do
               target/release/humility -a "target/${name}/dist/${image}/build-${name}-image-${image}.zip" manifest;
           done
