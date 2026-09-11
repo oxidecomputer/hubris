@@ -64,23 +64,40 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 # task-slots = ["sys", "packrat", { spi_driver = "spi2_driver" }, "jefe"]
 # notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
 
-# [tasks.sys]
-# name = "drv-stm32xx-sys"
-# features = ["h753", "exti", "no-panic"]
-# priority = 1
-# uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
-# start = true
-# task-slots = ["jefe"]
-# notifications = ["exti-wildcard-irq"]
+[tasks.sys]
+name = "drv-stm32xx-sys"
+features = ["h753", "exti", "no-panic"]
+priority = 1
+uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
+start = true
+task-slots = ["jefe"]
+notifications = ["exti-wildcard-irq"]
 
-# [tasks.sys.interrupts]
-# "exti.exti0" = "exti-wildcard-irq"
-# "exti.exti1" = "exti-wildcard-irq"
-# "exti.exti2" = "exti-wildcard-irq"
-# "exti.exti3" = "exti-wildcard-irq"
-# "exti.exti4" = "exti-wildcard-irq"
-# "exti.exti9_5" = "exti-wildcard-irq"
-# "exti.exti15_10" = "exti-wildcard-irq"
+[tasks.sys.interrupts]
+# | EXTI   | Net Name                           | STM Pin   |
+# | :---   | :-------                           | :------   |
+# | EXTI00 | MGMT_TO_SP_IRQ_L                   | PB0       |
+# | EXTI01 | Unused                             | Unused    |
+# | EXTI02 | ROT_TO_SP_IRQ_L                    | PF2       |
+# | EXTI03 | FPGA_TO_SP_IRQ4_L                  | PG3       |
+# | EXTI04 | FPGA_TO_SP_IRQ5_L                  | PG4       |
+# | EXTI05 | FPGA_TO_SP_IRQ1_L                  | PF5       |
+# | EXTI06 | SP5_TO_SP_INT_L                    | PI6       |
+# | EXTI07 | MIIM_VSC8562_TO_SP_MDINT_L_V3P3    | PC7       |
+# | EXTI08 | Unused                             | Unused    |
+# | EXTI09 | FPGA2_TO_SP_INT1_L                 | PI9       |
+# | EXTI10 | SEQ_TO_SP_INT_L                    | PG10      |
+# | EXTI11 | FPGA_TO_SP_IRQ5_L                  | PF11      |
+# | EXTI12 | FPGA_TO_SP_IRQ2_L                  | PF12      |
+# | EXTI13 | FPGA_TO_SP_IRQ3_L                  | PF13      |
+# | EXTI14 | FPGA2_TO_SP_INT2_L                 | PI14      |
+# | EXTI15 | FPGA2_TO_SP_INT3_L                 | PI15      |
+"exti.exti0" = "exti-wildcard-irq"
+"exti.exti2" = "exti-wildcard-irq"
+"exti.exti3" = "exti-wildcard-irq"
+"exti.exti4" = "exti-wildcard-irq"
+"exti.exti9_5" = "exti-wildcard-irq"
+"exti.exti15_10" = "exti-wildcard-irq"
 
 # [tasks.sys.config.gpio-irqs.rot_irq]
 # port = "F"
