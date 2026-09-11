@@ -134,16 +134,16 @@ pub mod board {
 
     // G0 Zone
 
-    #[cfg(any(target_board = "stm32g031-nucleo"))]
+    #[cfg(target_board = "stm32g031-nucleo")]
     pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::C.pin(6))];
 
     #[cfg(any(target_board = "donglet-g030", target_board = "donglet-g031"))]
     pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::A.pin(12))];
 
-    #[cfg(any(target_board = "oxcon2023g0"))]
+    #[cfg(target_board = "oxcon2023g0")]
     pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::B.pin(7))];
 
-    #[cfg(any(target_board = "stm32g070-nucleo"))]
+    #[cfg(target_board = "stm32g070-nucleo")]
     pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::A.pin(5))];
 
     // H7 Zone
