@@ -74,7 +74,6 @@ jobs:
     # files. Rather than duplicating the list of them here (inevitably forgetting to add some), we
     # use a script in the `scheduler` job to dynamically calculate the matrix, and inject it here.
     strategy:
-      fail-fast: false # AJM: hack
       matrix:
         include: ${{ fromJSON(needs.scheduler.outputs.matrix) }}
 
