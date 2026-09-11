@@ -1,0 +1,207 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use crate::bsp::Bsp;
+use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
+use userlib::{UnwrapLite, task_slot};
+
+task_slot!(SYS, sys);
+
+#[derive(Clone, Copy)]
+pub struct PinInfo<T: Copy> {
+    pub info: T,
+    pub active_low: bool,
+}
+
+pub struct BspImpl;
+
+impl Bsp for BspImpl {
+    type Led = board::Led;
+
+    fn enable_led_pins() {
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
+
+        for PinInfo { info, active_low } in board::LEDS {
+            // Make sure LEDs are initially off.
+            sys.gpio_set_to(*info, *active_low);
+            // Make them outputs.
+            sys.gpio_configure_output(
+                *info,
+                OutputType::PushPull,
+                Speed::High,
+                Pull::None,
+            );
+        }
+    }
+
+    fn led_on(led: Self::Led) {
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
+
+        let PinInfo { info, active_low } = board::led_info(led);
+        sys.gpio_set_to(info, !active_low);
+    }
+
+    fn led_off(led: Self::Led) {
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
+
+        let PinInfo { info, active_low } = board::led_info(led);
+
+        sys.gpio_set_to(info, active_low);
+    }
+
+    fn led_toggle(led: Self::Led) {
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
+
+        let PinInfo {
+            info,
+            active_low: _,
+        } = board::led_info(led);
+        sys.gpio_toggle(info.port, info.pin_mask).unwrap_lite();
+    }
+}
+
+mod board {
+    use super::PinInfo;
+    use drv_stm32xx_sys_api::{PinSet, Port};
+
+    #[allow(dead_code)]
+    const fn act_low(pinset: PinSet) -> PinInfo<PinSet> {
+        PinInfo {
+            info: pinset,
+            active_low: true,
+        }
+    }
+
+    #[allow(dead_code)]
+    const fn act_hi(pinset: PinSet) -> PinInfo<PinSet> {
+        PinInfo {
+            info: pinset,
+            active_low: true,
+        }
+    }
+
+    pub(super) fn led_info(led: Led) -> PinInfo<PinSet> {
+        LEDS[led as usize]
+    }
+
+    #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))]
+    pub type Led = crate::bsp::Led4Color;
+
+    // Target boards with 4 leds
+    #[cfg(any(
+        target_board = "gemini-bu-1",
+        target_board = "gimletlet-1",
+        target_board = "gimletlet-2"
+    ))]
+    pub type Led = crate::bsp::Led4;
+
+    // Target boards with 3 leds
+    #[cfg(any(
+        target_board = "nucleo-h753zi",
+        target_board = "nucleo-h743zi2"
+    ))]
+    pub type Led = crate::bsp::Led3;
+
+    // Target boards with 1 led
+    #[cfg(any(
+        target_board = "stm32g031-nucleo",
+        target_board = "stm32g070-nucleo",
+        target_board = "stm32g0b1-nucleo",
+        target_board = "donglet-g030",
+        target_board = "donglet-g031",
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d",
+        target_board = "gimlet-e",
+        target_board = "gimlet-f",
+        target_board = "psc-b",
+        target_board = "psc-c",
+        target_board = "observer-a",
+        target_board = "oxcon2023g0",
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
+    ))]
+    pub type Led = crate::bsp::Led1;
+
+    // Target boards with 2 leds -> the rest
+    // TODO: Who is this for?
+    // pub type Led = crate::bsp::Led2;
+
+    // G0 Zone
+
+    #[cfg(any(target_board = "stm32g031-nucleo"))]
+    pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::C.pin(6))];
+
+    #[cfg(any(target_board = "donglet-g030", target_board = "donglet-g031"))]
+    pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::A.pin(12))];
+
+    #[cfg(any(target_board = "oxcon2023g0"))]
+    pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::B.pin(7))];
+
+    // TODO: which g0 is this?
+    // pub const LEDS: &[PinInfo<PinSet>] = &[ info(Port::A.pin(5)) ];
+
+    // H7 Zone
+
+    #[cfg(any(
+        target_board = "nucleo-h743zi2",
+        target_board = "nucleo-h753zi"
+    ))]
+    pub const LEDS: &[PinInfo<PinSet>] = &[
+        act_hi(Port::B.pin(0)),
+        act_hi(Port::B.pin(14)),
+        act_hi(Port::E.pin(1)),
+    ];
+
+    #[cfg(target_board = "gemini-bu-1")]
+    pub const LEDS: &[PinInfo<PinSet>] = &[
+        act_hi(Port::I.pin(8)),
+        act_hi(Port::I.pin(9)),
+        act_hi(Port::I.pin(10)),
+        act_hi(Port::I.pin(11)),
+    ];
+
+    #[cfg(target_board = "gimletlet-1")]
+    pub const LEDS: &[PinInfo<PinSet>] = &[
+        act_hi(Port::I.pin(8)),
+        act_hi(Port::I.pin(9)),
+        act_hi(Port::I.pin(10)),
+        act_hi(Port::I.pin(11)),
+    ];
+
+    #[cfg(target_board = "gimletlet-2")]
+    pub const LEDS: &[PinInfo<PinSet>] = &[
+        act_hi(Port::G.pin(2)),
+        act_hi(Port::G.pin(3)),
+        act_hi(Port::G.pin(4)),
+        act_hi(Port::G.pin(5)),
+    ];
+
+    #[cfg(any(
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d",
+        target_board = "gimlet-e",
+        target_board = "gimlet-f",
+        target_board = "psc-b",
+        target_board = "psc-c",
+        target_board = "observer-a",
+    ))]
+    pub const LEDS: &[PinInfo<PinSet>] = &[act_hi(Port::A.pin(3))];
+
+    #[cfg(any(target_board = "grapefruit-a", target_board = "grapefruit-b"))]
+    pub const LEDS: &[PinInfo<PinSet>] = &[act_hi(Port::C.pin(6))];
+
+    #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))]
+    pub const LEDS: &[PinInfo<PinSet>] = &[
+        act_low(Port::H.pin(6)),  // debug W
+        act_low(Port::H.pin(10)), // debug R
+        act_low(Port::H.pin(11)), // debug G
+        act_low(Port::H.pin(12)), // debug B
+    ];
+}
