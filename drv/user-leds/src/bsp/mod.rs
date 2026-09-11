@@ -15,6 +15,11 @@ mod stm32xx_sys;
 #[cfg(any(feature = "stm32g0", feature = "stm32h7"))]
 pub use stm32xx_sys::BspImpl;
 
+#[cfg(feature = "lpc55")]
+mod lpc55;
+#[cfg(feature = "lpc55")]
+pub use lpc55::BspImpl;
+
 pub trait Bsp {
     type Led: Copy + FromPrimitive + EnumArray<bool>;
     fn enable_led_pins();
