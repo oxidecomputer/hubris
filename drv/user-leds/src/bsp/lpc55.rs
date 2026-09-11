@@ -92,9 +92,9 @@ mod board {
 
     #[cfg(any(target_board = "rot-carrier-1", target_board = "rot-carrier-2"))]
     mod levels {
-        const LED_OFF_VAL: drv_lpc55_gpio_api::Value =
+        pub const LED_OFF_VAL: drv_lpc55_gpio_api::Value =
             drv_lpc55_gpio_api::Value::Zero;
-        const LED_ON_VAL: drv_lpc55_gpio_api::Value =
+        pub const LED_ON_VAL: drv_lpc55_gpio_api::Value =
             drv_lpc55_gpio_api::Value::One;
     }
 }
