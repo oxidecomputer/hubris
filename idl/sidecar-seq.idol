@@ -31,33 +31,27 @@ Interface(
             doc: "Return the Tofino sequencer state",
             args: {},
             reply: Result(
-                ok: (
-                    type: "TofinoSeqState",
-                    recv: FromPrimitive("u8"),
-                ),
+                ok: "drv_sidecar_mainboard_controller::reg_map::Reg::TOFINO_SEQ_STATE::ValueEncoded",
                 err: CLike("SeqError"),
             ),
+            encoding: Hubpack
         ),
         "tofino_seq_error": (
             doc: "Return the Tofino sequencer error, if any",
             args: {},
             reply: Result(
-                ok: (
-                    type: "TofinoSeqError",
-                    recv: FromPrimitive("u8"),
-                ),
+                ok: "drv_sidecar_mainboard_controller::reg_map::Reg::TOFINO_SEQ_ERROR::ValueEncoded",
                 err: CLike("SeqError"),
             ),
+            encoding: Hubpack
         ),
         "tofino_seq_error_step": (
-            doc: "Return the step when a Tofino sequencer error occured, if any",
+            doc: "Return the step when a Tofino sequencer error occurred, if any",
             reply: Result(
-                ok: (
-                    type: "TofinoSeqStep",
-                    recv: FromPrimitive("u8"),
-                ),
+                ok: "drv_sidecar_mainboard_controller::reg_map::Reg::TOFINO_SEQ_STEP::ValueEncoded",
                 err: CLike("SeqError"),
             ),
+            encoding: Hubpack
         ),
         "clear_tofino_seq_error": (
             doc: "Clear the Tofino sequencer error state",
@@ -65,7 +59,7 @@ Interface(
             reply: Result(
                 ok: "()",
                 err: CLike("SeqError"),
-            ),
+            )
         ),
         "tofino_power_rails": (
             doc: "Return the Tofino sequencer power rail registers",
