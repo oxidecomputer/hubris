@@ -372,14 +372,14 @@ notifications = ["exti-wildcard-irq"]
 # task-slots = ["sys", "i2c_driver"]
 # stacksize = 800
 
-# [tasks.user_leds]
-# name = "drv-user-leds"
-# features = ["stm32h7"]
-# priority = 2
-# max-sizes = {flash = 2048, ram = 1024}
-# start = true
-# task-slots = ["sys"]
-# notifications = ["timer"]
+[tasks.user_leds]
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 2
+max-sizes = {flash = 2048, ram = 1024}
+start = true
+task-slots = ["sys"]
+notifications = ["timer"]
 
 # [tasks.dump_agent]
 # name = "task-dump-agent"

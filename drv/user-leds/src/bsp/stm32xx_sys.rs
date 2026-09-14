@@ -127,6 +127,7 @@ mod board {
         target_board = "grapefruit-b",
         target_board = "cosmo-a",
         target_board = "cosmo-b",
+        target_board = "metro-a",
     ))]
     pub type Led = crate::bsp::Led1;
 
@@ -191,6 +192,10 @@ mod board {
     #[cfg(any(target_board = "grapefruit-a", target_board = "grapefruit-b"))]
     pub const LEDS: &[PinInfo] = &[act_hi(Port::C.pin(6))];
 
-    #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))]
+    #[cfg(any(
+        target_board = "cosmo-a",
+        target_board = "cosmo-b",
+        target_board = "metro-a",
+    ))]
     pub const LEDS: &[PinInfo] = &[act_hi(Port::H.pin(6))];
 }
