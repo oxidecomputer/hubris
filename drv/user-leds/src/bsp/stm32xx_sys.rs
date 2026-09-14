@@ -92,9 +92,6 @@ mod board {
         LEDS[led as usize]
     }
 
-    #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))]
-    pub type Led = crate::bsp::Led4Color;
-
     // Target boards with 4 leds
     #[cfg(any(
         target_board = "gemini-bu-1",
@@ -128,12 +125,10 @@ mod board {
         target_board = "oxcon2023g0",
         target_board = "grapefruit-a",
         target_board = "grapefruit-b",
+        target_board = "cosmo-a",
+        target_board = "cosmo-b",
     ))]
     pub type Led = crate::bsp::Led1;
-
-    // Target boards with 2 leds -> the rest
-    // TODO: Who is this for?
-    // pub type Led = crate::bsp::Led2;
 
     // G0 Zone
 
@@ -197,10 +192,5 @@ mod board {
     pub const LEDS: &[PinInfo] = &[act_hi(Port::C.pin(6))];
 
     #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))]
-    pub const LEDS: &[PinInfo] = &[
-        act_low(Port::H.pin(6)),  // debug W
-        act_low(Port::H.pin(10)), // debug R
-        act_low(Port::H.pin(11)), // debug G
-        act_low(Port::H.pin(12)), // debug B
-    ];
+    pub const LEDS: &[PinInfo] = &[act_hi(Port::H.pin(6))];
 }

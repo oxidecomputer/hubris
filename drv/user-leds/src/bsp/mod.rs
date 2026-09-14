@@ -48,16 +48,6 @@ pub trait Bsp {
 // The level of variance here is somewhat unfortunate, but seems to
 // work in practice.
 
-#[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
-#[allow(clippy::enum_variant_names)]
-pub enum Led4Color {
-    // chassis LED is controlled by cosmo-seq
-    DebugWhite = 0,
-    DebugRed = 1,
-    DebugGreen = 2,
-    DebugBlue = 3,
-}
-
 /// Target boards with 4 leds
 #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
 pub enum Led4 {
