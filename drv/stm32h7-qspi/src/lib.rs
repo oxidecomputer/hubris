@@ -17,7 +17,9 @@ use userlib::{UnwrapLite, sys_irq_control, sys_recv_notification};
 use zerocopy::IntoBytes;
 
 const FIFO_SIZE: usize = 32;
-const FIFO_THRESH: usize = 16;
+// This is tuned very low to avoid interrupting too soon because
+// context switching away is expensive.
+const FIFO_THRESH: usize = 1;
 
 // In a perfect world we would use quad read everywhere because it is fast.
 // We've seen some inconsistency with the quad read command on some targets
