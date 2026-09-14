@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! STM32 devices that have a `sys` task that manages GPIOs. This includes
+//! the STM32G0 and STM32H7 families.
+
 use crate::bsp::Bsp;
 use drv_stm32xx_sys_api::{OutputType, PinSet, Pull, Speed, Sys};
 use userlib::{UnwrapLite, task_slot};
@@ -14,20 +17,25 @@ pub struct PinInfo {
     pub active_low: bool,
 }
 
-pub struct BspImpl;
+pub struct BspImpl {
+    sys: Sys,
+}
 
 impl Bsp for BspImpl {
     type Led = board::Led;
 
-    fn enable_led_pins() {
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
+    fn new() -> Self {
+        Self {
+            sys: Sys::from(SYS.get_task_id()),
+        }
+    }
 
+    fn enable_led_pins(&self) {
         for PinInfo { info, active_low } in board::LEDS {
             // Make sure LEDs are initially off.
-            sys.gpio_set_to(*info, *active_low);
+            self.sys.gpio_set_to(*info, *active_low);
             // Make them outputs.
-            sys.gpio_configure_output(
+            self.sys.gpio_configure_output(
                 *info,
                 OutputType::PushPull,
                 Speed::High,
@@ -36,32 +44,23 @@ impl Bsp for BspImpl {
         }
     }
 
-    fn led_on(led: Self::Led) {
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
-
+    fn led_on(&self, led: Self::Led) {
         let PinInfo { info, active_low } = board::led_info(led);
-        sys.gpio_set_to(info, !active_low);
+        self.sys.gpio_set_to(info, !active_low);
     }
 
-    fn led_off(led: Self::Led) {
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
-
+    fn led_off(&self, led: Self::Led) {
         let PinInfo { info, active_low } = board::led_info(led);
 
-        sys.gpio_set_to(info, active_low);
+        self.sys.gpio_set_to(info, active_low);
     }
 
-    fn led_toggle(led: Self::Led) {
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
-
+    fn led_toggle(&self, led: Self::Led) {
         let PinInfo {
             info,
             active_low: _,
         } = board::led_info(led);
-        sys.gpio_toggle(info.port, info.pin_mask).unwrap_lite();
+        self.sys.gpio_toggle(info.port, info.pin_mask).unwrap_lite();
     }
 }
 
@@ -156,21 +155,16 @@ mod board {
         target_board = "nucleo-h743zi2",
         target_board = "nucleo-h753zi"
     ))]
+    /// Nucleo boards: LEDs are on PB0, PB14 and PE1.
     pub const LEDS: &[PinInfo] = &[
         act_hi(Port::B.pin(0)),
         act_hi(Port::B.pin(14)),
         act_hi(Port::E.pin(1)),
     ];
 
-    #[cfg(target_board = "gemini-bu-1")]
-    pub const LEDS: &[PinInfo] = &[
-        act_hi(Port::I.pin(8)),
-        act_hi(Port::I.pin(9)),
-        act_hi(Port::I.pin(10)),
-        act_hi(Port::I.pin(11)),
-    ];
-
-    #[cfg(target_board = "gimletlet-1")]
+    #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-1"))]
+    /// Gemini bringup SP: LEDs are on PI8, PI9, PI10 and PI11.
+    /// Original Gimletlet: LEDs are on PI8-11
     pub const LEDS: &[PinInfo] = &[
         act_hi(Port::I.pin(8)),
         act_hi(Port::I.pin(9)),
@@ -179,6 +173,7 @@ mod board {
     ];
 
     #[cfg(target_board = "gimletlet-2")]
+    /// Glorified gimletlet SP: LEDs are on PG2-5
     pub const LEDS: &[PinInfo] = &[
         act_hi(Port::G.pin(2)),
         act_hi(Port::G.pin(3)),

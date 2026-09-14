@@ -4,8 +4,8 @@
 
 //! A driver for some basic dev board User LEDs.
 //!
-//! We assume that there are two user LEDs available, numbered 0 and 1. The
-//! precise assignment of these to a particular dev board varies.
+//! We assume that there are some board-specific number of user LEDs available.
+//! The precise assignment of these to a particular dev board varies.
 //!
 //! # IPC protocol
 //!
@@ -52,6 +52,7 @@ task_config::optional_task_config! {
 const BLINK_INTERVAL: u32 = 500;
 
 struct ServerImpl<B: Bsp> {
+    bsp: B,
     blinking: EnumMap<B::Led, bool>,
 }
 
@@ -63,7 +64,7 @@ impl<B: Bsp> idl::InOrderUserLedsImpl for ServerImpl<B> {
     ) -> Result<(), RequestError<LedError>> {
         let led = B::Led::from_usize(index).ok_or(LedError::NotPresent)?;
         self.blinking[led] = false;
-        B::led_on(led);
+        self.bsp.led_on(led);
         Ok(())
     }
 
@@ -74,7 +75,7 @@ impl<B: Bsp> idl::InOrderUserLedsImpl for ServerImpl<B> {
     ) -> Result<(), RequestError<LedError>> {
         let led = B::Led::from_usize(index).ok_or(LedError::NotPresent)?;
         self.blinking[led] = false;
-        B::led_off(led);
+        self.bsp.led_off(led);
         Ok(())
     }
 
@@ -85,7 +86,7 @@ impl<B: Bsp> idl::InOrderUserLedsImpl for ServerImpl<B> {
     ) -> Result<(), RequestError<LedError>> {
         let led = B::Led::from_usize(index).ok_or(LedError::NotPresent)?;
         self.blinking[led] = false;
-        B::led_toggle(led);
+        self.bsp.led_toggle(led);
         Ok(())
     }
 
@@ -116,7 +117,7 @@ impl<B: Bsp> idol_runtime::NotificationHandler for ServerImpl<B> {
             for (led, blinking) in &self.blinking {
                 if *blinking {
                     any_blinking = true;
-                    B::led_toggle(led);
+                    self.bsp.led_toggle(led);
                 }
             }
             if any_blinking {
@@ -128,7 +129,8 @@ impl<B: Bsp> idol_runtime::NotificationHandler for ServerImpl<B> {
 
 #[unsafe(export_name = "main")]
 fn main() -> ! {
-    BspImpl::enable_led_pins();
+    let bsp = BspImpl::new();
+    bsp.enable_led_pins();
 
     // Handle messages.
     let mut incoming = [0u8; idl::INCOMING_SIZE];
@@ -141,7 +143,7 @@ fn main() -> ! {
             set_timer_relative(BLINK_INTERVAL, notifications::TIMER_MASK);
         }
     }
-    let mut server: ServerImpl<BspImpl> = ServerImpl { blinking };
+    let mut server: ServerImpl<BspImpl> = ServerImpl { blinking, bsp };
     loop {
         idol_runtime::dispatch(&mut incoming, &mut server);
     }

@@ -2,14 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! The STM32F3/4 specific bits.
+//!
+//! STM32F3/4 platforms still poke the GPIOs directly, without the `sys` task.
+
 use crate::bsp::{Bsp, Led2};
 use userlib::task_slot;
-
-///////////////////////////////////////////////////////////////////////////////
-// The STM32F3/4 specific bits.
-//
-// STM32F3/4 are the only platforms that still pokes the GPIOs directly, without an
-// intermediary.
 
 task_slot!(RCC, rcc_driver);
 
@@ -19,7 +17,11 @@ pub struct BspImpl;
 impl Bsp for BspImpl {
     type Led = Led2;
 
-    fn enable_led_pins() {
+    fn new() -> Self {
+        Self
+    }
+
+    fn enable_led_pins(&self) {
         use zerocopy::IntoBytes;
 
         // This assumes an STM32F4DISCOVERY board, where the LEDs are on D12 and
@@ -46,7 +48,7 @@ impl Bsp for BspImpl {
         gpio_moder.modify(|_, w| w.moder8().output().moder9().output());
     }
 
-    fn led_on(led: Self::Led) {
+    fn led_on(&self, led: Self::Led) {
         let gpio = unsafe { &*stm32f3::stm32f303::GPIOE::ptr() };
 
         match led {
@@ -55,7 +57,7 @@ impl Bsp for BspImpl {
         }
     }
 
-    fn led_off(led: Self::Led) {
+    fn led_off(&self, led: Self::Led) {
         let gpio = unsafe { &*stm32f3::stm32f303::GPIOE::ptr() };
 
         match led {
@@ -64,7 +66,7 @@ impl Bsp for BspImpl {
         }
     }
 
-    fn led_toggle(led: Self::Led) {
+    fn led_toggle(&self, led: Self::Led) {
         let gpio = unsafe { &*stm32f3::stm32f303::GPIOE::ptr() };
 
         match led {
@@ -90,7 +92,11 @@ impl Bsp for BspImpl {
 impl Bsp for BspImpl {
     type Led = Led2;
 
-    fn enable_led_pins() {
+    fn new() -> Self {
+        Self
+    }
+
+    fn enable_led_pins(&self) {
         use zerocopy::IntoBytes;
 
         // This assumes an STM32F4DISCOVERY board, where the LEDs are on D12 and
@@ -117,7 +123,7 @@ impl Bsp for BspImpl {
         gpio_moder.modify(|_, w| w.moder12().output().moder13().output());
     }
 
-    fn led_on(led: Self::Led) {
+    fn led_on(&self, led: Self::Led) {
         let gpio = unsafe { &*stm32f4::stm32f407::GPIOD::ptr() };
 
         match led {
@@ -126,7 +132,7 @@ impl Bsp for BspImpl {
         }
     }
 
-    fn led_off(led: Self::Led) {
+    fn led_off(&self, led: Self::Led) {
         let gpio = unsafe { &*stm32f4::stm32f407::GPIOD::ptr() };
 
         match led {
@@ -135,7 +141,7 @@ impl Bsp for BspImpl {
         }
     }
 
-    fn led_toggle(led: Self::Led) {
+    fn led_toggle(&self, led: Self::Led) {
         let gpio = unsafe { &*stm32f4::stm32f407::GPIOD::ptr() };
 
         match led {
