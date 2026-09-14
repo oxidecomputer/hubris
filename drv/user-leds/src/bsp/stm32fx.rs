@@ -13,6 +13,9 @@ task_slot!(RCC, rcc_driver);
 
 pub struct BspImpl;
 
+/// `Op::EnableClock` in `drv/stm32fx-rcc`
+const RCC_ENABLE_CLOCK: u16 = 1;
+
 #[cfg(feature = "stm32f3")]
 impl Bsp for BspImpl {
     type Led = Led2;
@@ -24,25 +27,33 @@ impl Bsp for BspImpl {
     fn enable_led_pins(&self) {
         use zerocopy::IntoBytes;
 
-        // This assumes an STM32F4DISCOVERY board, where the LEDs are on D12 and
-        // D13 OR an STM32F3DISCOVERY board, where the LEDs are on E8 and E9.
+        // This assumes an STM32F3DISCOVERY board where the LEDs are on E8+E9.
 
         // Contact the RCC driver to get power turned on for GPIOD/E.
         let rcc_driver = RCC.get_task_id();
-        const ENABLE_CLOCK: u16 = 1;
 
-        let gpio_pnum: u32 = 21; // see bits in AHBENR
+        // The format for this u32 is:
+        //
+        // - bits 0..6  => The bit offset to write to the AHBxENR field (0-31)
+        // - bits 6..32 => The `x` for which AHBxENR field to use, (but 0
+        //   means AHB1, 1 means AHB2, etc.)
+        //
+        // This means we are enabling bit 21, of AHB(1)ENR which on STM32F3
+        // means "GPIOE EN" (STM32F3 only has one AHB, so it's called AHBENR not
+        // AHB1ENR).
+        let gpio_pnum: u32 = 21;
 
+        // The signature of this IPC call is `u32 -> ()`.
         let (code, _) = userlib::sys_send(
             rcc_driver,
-            ENABLE_CLOCK,
+            RCC_ENABLE_CLOCK,
             gpio_pnum.as_bytes(),
             &mut [],
             &[],
         );
         assert_eq!(code, 0);
 
-        // Now, directly manipulate GPIOD/E.
+        // Now, directly manipulate GPIOE.
         // TODO: this should go through a gpio driver probably.
         let gpio_moder = &unsafe { &*stm32f3::stm32f303::GPIOE::ptr() }.moder;
         gpio_moder.modify(|_, w| w.moder8().output().moder9().output());
@@ -104,20 +115,28 @@ impl Bsp for BspImpl {
 
         // Contact the RCC driver to get power turned on for GPIOD/E.
         let rcc_driver = RCC.get_task_id();
-        const ENABLE_CLOCK: u16 = 1;
 
-        let gpio_pnum: u32 = 3; // see bits in AHB1ENR
+        // The format for this u32 is:
+        //
+        // - bits 0..6  => The bit offset to write to the AHBxENR field (0-31)
+        // - bits 6..32 => The `x` for which AHBxENR field to use, (but 0
+        //   means AHB1, 1 means AHB2, etc.)
+        //
+        // This means we are enabling bit 3, of AHB1ENR which on STM32F4
+        // means "GPIOD EN".
+        let gpio_pnum: u32 = 3;
 
+        // The signature of this IPC call is `u32 -> ()`.
         let (code, _) = userlib::sys_send(
             rcc_driver,
-            ENABLE_CLOCK,
+            RCC_ENABLE_CLOCK,
             gpio_pnum.as_bytes(),
             &mut [],
             &[],
         );
         assert_eq!(code, 0);
 
-        // Now, directly manipulate GPIOD/E.
+        // Now, directly manipulate GPIOD.
         // TODO: this should go through a gpio driver probably.
         let gpio_moder = &unsafe { &*stm32f4::stm32f407::GPIOD::ptr() }.moder;
         gpio_moder.modify(|_, w| w.moder12().output().moder13().output());
