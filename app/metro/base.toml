@@ -7,7 +7,7 @@ stacksize = 896
 name = "metro"
 requires = {flash = 32768, ram = 8192}
 features = [
-    # "dump",
+    "dump",
     # "measurement-handoff",
 ]
 extern-regions = [{ region = "dtcm", shared = true }]
@@ -30,8 +30,8 @@ priority = 0
 max-sizes = {flash = 16384, ram = 4096}
 start = true
 features = [
-    # "dump",
-    # "fault-notification",
+    "dump",
+    "fault-notification",
 ]
 stacksize = 2424
 notifications = ["fault", "timer"]
@@ -193,15 +193,36 @@ notifications = ["exti-wildcard-irq"]
 # task-slots = ["i2c_driver", "sensor", "metro_seq"]
 # notifications = ["timer"]
 
-# [tasks.hiffy]
-# name = "task-hiffy"
-# features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
-# priority = 7
-# max-sizes = {flash = 32768, ram = 65536 }
-# stacksize = 1328
-# start = true
-# task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot", "net"]
-# notifications = ["timer"]
+[tasks.hiffy]
+name = "task-hiffy"
+features = [
+    "h753",
+    "stm32h7",
+    "gpio",
+    "spi",
+    "turbo",
+
+    # TODO: Re-enable these once the tasks are available!
+    # "i2c",
+    # "qspi",
+    # "hash",
+    # "sprot",
+]
+priority = 7
+max-sizes = {flash = 32768, ram = 65536 }
+stacksize = 1328
+start = true
+task-slots = [
+    "sys",
+    "update_server",
+    # TODO: Re-enable these once the tasks are available!
+    # "hf",
+    # "i2c_driver",
+    # "hash_driver",
+    # "sprot",
+    # "net",
+]
+notifications = ["timer"]
 
 # [tasks.metro_seq]
 # name = "drv-metro-seq-server"
@@ -260,16 +281,16 @@ notifications = ["exti-wildcard-irq"]
 # stacksize = 4000
 # notifications = ["timer"]
 
-# [tasks.update_server]
-# name = "stm32h7-update-server"
-# priority = 3
-# max-sizes = {flash = 16384, ram = 4096}
-# stacksize = 2048
-# start = true
-# uses = ["flash_controller"]
-# extern-regions = ["bank2"]
-# interrupts = {"flash_controller.irq" = "flash-irq"}
-# notifications = ["flash-irq"]
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller"]
+extern-regions = ["bank2"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
+notifications = ["flash-irq"]
 
 # [tasks.sensor]
 # name = "task-sensor"
@@ -381,14 +402,22 @@ notifications = ["exti-wildcard-irq"]
 # task-slots = ["sys"]
 # notifications = ["timer"]
 
-# [tasks.dump_agent]
-# name = "task-dump-agent"
-# priority = 6
-# max-sizes = {flash = 32768, ram = 16384 }
-# start = true
-# task-slots = ["sprot", "jefe", "net"]
-# stacksize = 2400
-# extern-regions = ["sram1", "sram2", "sram3", "sram4"]
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 6
+max-sizes = {flash = 32768, ram = 16384 }
+start = true
+task-slots = [
+    "jefe",
+    # TODO: remove no-rot features, re-enable the following slots when possible
+    # "sprot",
+    # "net",
+]
+features = [
+    "no-rot",
+]
+stacksize = 2400
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 # notifications = ["socket"]
 # features = ["net", "vlan"]
 
