@@ -36,8 +36,6 @@
 #![no_std]
 #![no_main]
 
-use core::marker::PhantomData;
-
 use drv_user_leds_api::LedError;
 use enum_map::EnumMap;
 use idol_runtime::RequestError;
@@ -55,7 +53,6 @@ const BLINK_INTERVAL: u32 = 500;
 
 struct ServerImpl<B: Bsp> {
     blinking: EnumMap<B::Led, bool>,
-    _bsp: PhantomData<B>,
 }
 
 impl<B: Bsp> idl::InOrderUserLedsImpl for ServerImpl<B> {
@@ -144,10 +141,7 @@ fn main() -> ! {
             set_timer_relative(BLINK_INTERVAL, notifications::TIMER_MASK);
         }
     }
-    let mut server = ServerImpl {
-        blinking,
-        _bsp: PhantomData::<BspImpl>,
-    };
+    let mut server: ServerImpl<BspImpl> = ServerImpl { blinking };
     loop {
         idol_runtime::dispatch(&mut incoming, &mut server);
     }

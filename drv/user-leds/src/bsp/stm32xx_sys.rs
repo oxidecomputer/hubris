@@ -3,14 +3,14 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::bsp::Bsp;
-use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
+use drv_stm32xx_sys_api::{OutputType, PinSet, Pull, Speed, Sys};
 use userlib::{UnwrapLite, task_slot};
 
 task_slot!(SYS, sys);
 
 #[derive(Clone, Copy)]
-pub struct PinInfo<T: Copy> {
-    pub info: T,
+pub struct PinInfo {
+    pub info: PinSet,
     pub active_low: bool,
 }
 
@@ -65,12 +65,12 @@ impl Bsp for BspImpl {
     }
 }
 
-pub mod board {
+mod board {
     use super::PinInfo;
     use drv_stm32xx_sys_api::{PinSet, Port};
 
     #[allow(dead_code)]
-    const fn act_low(pinset: PinSet) -> PinInfo<PinSet> {
+    const fn act_low(pinset: PinSet) -> PinInfo {
         PinInfo {
             info: pinset,
             active_low: true,
@@ -78,14 +78,18 @@ pub mod board {
     }
 
     #[allow(dead_code)]
-    const fn act_hi(pinset: PinSet) -> PinInfo<PinSet> {
+    const fn act_hi(pinset: PinSet) -> PinInfo {
         PinInfo {
             info: pinset,
-            active_low: true,
+            active_low: false,
         }
     }
 
-    pub(super) fn led_info(led: Led) -> PinInfo<PinSet> {
+    pub(super) fn led_info(led: Led) -> PinInfo {
+        const _: () = assert!(
+            LEDS.len() == <Led as enum_map::Enum>::LENGTH,
+            "LED count mismatch length vs enum"
+        );
         LEDS[led as usize]
     }
 
@@ -135,16 +139,16 @@ pub mod board {
     // G0 Zone
 
     #[cfg(target_board = "stm32g031-nucleo")]
-    pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::C.pin(6))];
+    pub const LEDS: &[PinInfo] = &[act_low(Port::C.pin(6))];
 
     #[cfg(any(target_board = "donglet-g030", target_board = "donglet-g031"))]
-    pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::A.pin(12))];
+    pub const LEDS: &[PinInfo] = &[act_low(Port::A.pin(12))];
 
     #[cfg(target_board = "oxcon2023g0")]
-    pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::B.pin(7))];
+    pub const LEDS: &[PinInfo] = &[act_low(Port::B.pin(7))];
 
     #[cfg(target_board = "stm32g070-nucleo")]
-    pub const LEDS: &[PinInfo<PinSet>] = &[act_low(Port::A.pin(5))];
+    pub const LEDS: &[PinInfo] = &[act_low(Port::A.pin(5))];
 
     // H7 Zone
 
@@ -152,14 +156,14 @@ pub mod board {
         target_board = "nucleo-h743zi2",
         target_board = "nucleo-h753zi"
     ))]
-    pub const LEDS: &[PinInfo<PinSet>] = &[
+    pub const LEDS: &[PinInfo] = &[
         act_hi(Port::B.pin(0)),
         act_hi(Port::B.pin(14)),
         act_hi(Port::E.pin(1)),
     ];
 
     #[cfg(target_board = "gemini-bu-1")]
-    pub const LEDS: &[PinInfo<PinSet>] = &[
+    pub const LEDS: &[PinInfo] = &[
         act_hi(Port::I.pin(8)),
         act_hi(Port::I.pin(9)),
         act_hi(Port::I.pin(10)),
@@ -167,7 +171,7 @@ pub mod board {
     ];
 
     #[cfg(target_board = "gimletlet-1")]
-    pub const LEDS: &[PinInfo<PinSet>] = &[
+    pub const LEDS: &[PinInfo] = &[
         act_hi(Port::I.pin(8)),
         act_hi(Port::I.pin(9)),
         act_hi(Port::I.pin(10)),
@@ -175,7 +179,7 @@ pub mod board {
     ];
 
     #[cfg(target_board = "gimletlet-2")]
-    pub const LEDS: &[PinInfo<PinSet>] = &[
+    pub const LEDS: &[PinInfo] = &[
         act_hi(Port::G.pin(2)),
         act_hi(Port::G.pin(3)),
         act_hi(Port::G.pin(4)),
@@ -192,13 +196,13 @@ pub mod board {
         target_board = "psc-c",
         target_board = "observer-a",
     ))]
-    pub const LEDS: &[PinInfo<PinSet>] = &[act_hi(Port::A.pin(3))];
+    pub const LEDS: &[PinInfo] = &[act_hi(Port::A.pin(3))];
 
     #[cfg(any(target_board = "grapefruit-a", target_board = "grapefruit-b"))]
-    pub const LEDS: &[PinInfo<PinSet>] = &[act_hi(Port::C.pin(6))];
+    pub const LEDS: &[PinInfo] = &[act_hi(Port::C.pin(6))];
 
     #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))]
-    pub const LEDS: &[PinInfo<PinSet>] = &[
+    pub const LEDS: &[PinInfo] = &[
         act_low(Port::H.pin(6)),  // debug W
         act_low(Port::H.pin(10)), // debug R
         act_low(Port::H.pin(11)), // debug G
