@@ -24,7 +24,6 @@ idol.workspace = true
 # for real -> mock in app.toml without having to muck with features).
 [features]
 host_access = []
-hash = []
 h743 = []
 h753 = []
 

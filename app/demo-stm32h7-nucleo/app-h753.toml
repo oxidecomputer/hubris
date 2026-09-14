@@ -155,33 +155,22 @@ notifications = ["socket"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "turbo"]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "turbo"]
 priority = 5
 stacksize = 2048
 start = true
-task-slots = ["sys", "i2c_driver", "hf", "hash_driver"]
+task-slots = ["sys", "i2c_driver", "hf"]
 notifications = ["timer"]
 
 [tasks.hf]
 name = "drv-mock-gimlet-hf-server"
-features = ["h753", "hash"]
+features = ["h753"]
 priority = 4
 stacksize = 2048
 start = true
 uses = ["quadspi"]
 notifications = ["qspi-irq"]
 interrupts = {"quadspi.irq" = "qspi-irq"}
-task-slots = ["sys", "hash_driver"]
-
-[tasks.hash_driver]
-name = "drv-stm32h7-hash-server"
-features = ["h753"]
-priority = 3
-stacksize = 2048
-start = true
-uses = ["hash"]
-notifications = ["hash-irq"]
-interrupts = {"hash.irq" = "hash-irq"}
 task-slots = ["sys"]
 
 [tasks.gimlet_seq]

@@ -55,6 +55,7 @@ pub struct Hash {
 
 const SIZEOF_U32: usize = size_of::<u32>();
 const BITS_PER_BYTE: usize = 8;
+const BLOCK_LEN_BYTES: usize = 16 * SIZEOF_U32;
 
 impl Hash {
     pub fn new(
@@ -186,6 +187,47 @@ impl Hash {
         self.count += valid_bytes;
     }
 
+    /// Update hash with a full block of data. Requiring exactly one block avoids
+    /// the need to do an extra copy internally and improves performance
+    pub fn update_exact(&mut self, data: &[u8]) -> Result<(), HashError> {
+        match self.state {
+            State::Uninitialized => {
+                return Err(HashError::NotInitialized);
+            }
+            State::Initialized => {
+                self.state = State::Processing;
+            }
+            State::Processing => {}
+            _ => {
+                return Err(HashError::InvalidState);
+            }
+        };
+
+        if self.nvalid > 0 {
+            return Err(HashError::InvalidState);
+        }
+
+        if !data.len().is_multiple_of(BLOCK_LEN_BYTES) {
+            return Err(HashError::InvalidState);
+        }
+
+        for block in data.chunks(BLOCK_LEN_BYTES) {
+            while self.is_busy() {
+                // If the block is busy a write to `DATAIN` will stall the
+                // AHB bus. Past experience has shown that context switching
+                // away is too costly so just busy wait.
+            }
+            for w in block.chunks(SIZEOF_U32) {
+                let data = u32::from_le_bytes(w.try_into().unwrap());
+                unsafe {
+                    self.reg.din.write(|w| w.datain().bits(data));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Update hash with additional bytes of data.
     // Little-endian data is fed to the hasher.
     // e.g. "abc" is represented as 0x00636261
@@ -239,15 +281,6 @@ impl Hash {
                     | ((data[offset + 1] as u32) << 8)
                     | ((data[offset + 2] as u32) << 16)
                     | ((data[offset + 3] as u32) << 24),
-                SIZEOF_U32,
-            );
-            offset += SIZEOF_U32;
-        }
-        while offset + SIZEOF_U32 <= data.len() {
-            self.write_word(
-                u32::from_le_bytes(
-                    (&data[offset..offset + SIZEOF_U32]).try_into().unwrap(),
-                ),
                 SIZEOF_U32,
             );
             offset += SIZEOF_U32;
