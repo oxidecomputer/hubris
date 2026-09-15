@@ -5,6 +5,8 @@
 #![no_std]
 #![no_main]
 
+use core::mem::MaybeUninit;
+
 use counters::Count;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -48,10 +50,16 @@ task_slot!(SEQ, seq);
 #[cfg(feature = "thermal-control")]
 task_slot!(THERMAL, thermal);
 
+/// We store the ServerImpl as a static so we can pull information about it
+/// in a dump.
+#[unsafe(no_mangle)]
+static XCVR_SERVER_IMPL: ClaimOnceCell<MaybeUninit<ServerImpl>> =
+    ClaimOnceCell::new(MaybeUninit::uninit());
+
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq, Count)]
+#[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     #[count(skip)]
     None,
@@ -69,21 +77,119 @@ enum Trace {
     TransceiversError(#[count(children)] TransceiversError),
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
-    UnpluggedModule(usize),
-    RemovedDisabledModuleThermalModel(usize),
-    TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::ErrorEncoded),
-    TemperatureReadUnexpectedError(usize, FpgaError),
-    ThermalError(usize, ThermalError),
-    GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::ErrorEncoded),
-    GetInterfaceUnexpectedError(usize, FpgaError),
-    InvalidPortStatusError(usize, u8),
+    UnpluggedModule {
+        #[count(children)]
+        port: LogicalPort,
+    },
+    RemovedDisabledModuleThermalModel {
+        #[count(children)]
+        port: LogicalPort,
+    },
+    TemperatureReadError {
+        #[count(children)]
+        port: LogicalPort,
+        err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
+    },
+    PotentialRemovalError {
+        #[count(children)]
+        port: LogicalPort,
+        err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
+    },
+    TemperatureReadUnexpectedError {
+        #[count(children)]
+        port: LogicalPort,
+        err: FpgaError,
+    },
+    ThermalError {
+        #[count(children)]
+        port: LogicalPort,
+        err: ThermalError,
+    },
+    GetInterfaceError {
+        #[count(children)]
+        port: LogicalPort,
+        err: Reg::QSFP::PORT0_STATUS::ErrorEncoded,
+    },
+    GetInterfaceUnexpectedError {
+        #[count(children)]
+        port: LogicalPort,
+        err: FpgaError,
+    },
+    InvalidPortStatusError {
+        #[count(children)]
+        port: LogicalPort,
+        raw_err: u8,
+    },
     DisablingPorts(LogicalPortMask),
-    DisableFailed(usize, LogicalPortMask),
+    DisableFailed {
+        step: usize,
+        mask: LogicalPortMask,
+    },
     ClearDisabledPorts(LogicalPortMask),
     SeqError(SeqError),
+    TemperatureGlitch {
+        #[count(children)]
+        port: LogicalPort,
+        variance: Celsius,
+    },
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+struct TempGlitch {
+    port: LogicalPort,
+    first: Celsius,
+    second: Celsius,
+}
+
+impl TempGlitch {
+    /// Okay so ringbuf requires an initializer, and this value is actually
+    /// somewhat obnoxious because it *is* a plausible value to observe.
+    /// However, "all zeroes" lets us put the initializer in .bss and not .data,
+    /// and since this is just for debugging, we hope that a reasonable person
+    /// would realize that the delta between the two entries is zero. I really
+    /// didn't feel like making this an Option, or using u8::MAX as the index,
+    /// or even adding 1 to the port and then using NonZero or something.
+    const RINGBUF_INIT: Self = Self {
+        port: LogicalPort(0),
+        first: Celsius(0.0),
+        second: Celsius(0.0),
+    };
+}
+
+/// Keep counters for how often each port has experienced temperature glitches.
+///
+/// This *does not* reset when ports are disabled or qsfp xcvrs are removed or
+/// re-added. We just pass-through to the existing LogicalPort impl of Count.
+impl Count for TempGlitch {
+    type Counters = <LogicalPort as Count>::Counters;
+
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters = <LogicalPort as Count>::NEW_COUNTERS;
+
+    #[inline]
+    fn count(&self, counters: &Self::Counters) {
+        self.port.count(counters);
+    }
+}
+
+// Keep counters each time the delta between two samples exceeds the value
+// of `MAX_RESAMPLE_VARIANCE_CELSIUS`. This also counts how often it happens
+// on a per-port basis, as well as the last 32 instances it has been observed.
+//
+// This augments the per-port info kept in [`PortData`].
+//
+// We hope to observe the reported values differing in a way that can be
+// explained by data bits being flipped or shifted, which would be consistent
+// with "I2C weather" as opposed to a complete hiccup of the transceiver
+// itself.
+counted_ringbuf!(
+    TEMP_GLITCH_RINGBUF,
+    TempGlitch,
+    32,
+    TempGlitch::RINGBUF_INIT
+);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -99,6 +205,19 @@ counted_ringbuf!(Trace, 16, Trace::None);
 /// whole system (because the transceiver stops reporting its temperature).
 const MAX_CONSECUTIVE_ERRORS: u8 = 3;
 
+/// We have potentially observed transceivers reporting temperature values that
+/// do not make sense, and in some cases reporting an unbelievably high value
+/// that causes the sidecar's thermal protection loop to shut down immediately.
+///
+/// For this reason, we double-sample each transceiver, and if the two readings
+/// taken in short succession vary by more than this amount, we discard the
+/// reading entirely, trying again on the next tick.
+///
+/// This number is a "wild guess", but across two readings a few milliseconds
+/// apart, we expect very little difference (probably <1.0C), even factoring in
+/// potential sample noise and precision limitations.
+const MAX_RESAMPLE_VARIANCE_CELSIUS: f32 = 5.0f32;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Copy, Clone)]
@@ -111,11 +230,46 @@ enum FrontIOStatus {
     Ready,
 }
 
+struct PortData {
+    /// Number of consecutive NACKS seen on a given port
+    consecutive_errors: u8,
+    /// Largest observed temperature drift between two samples
+    peak_diff: f32,
+    /// Number of times the temperature has been discarded, saturates
+    discarded_temps: u32,
+    /// Number of times the temperature has been samples. This counts resample
+    /// times, not individul i2c queries
+    total_temp_samples: u32,
+    /// Thermal models for the given transceiver. Currently this is fixed to
+    /// a single basic model.
+    ///
+    /// See https://github.com/oxidecomputer/hubris/issues/2670.
+    model: Option<ThermalModel>,
+}
+
+impl PortData {
+    /// New metadata with no model and zeroed counters/stats
+    const fn new() -> Self {
+        Self {
+            consecutive_errors: 0,
+            peak_diff: 0.0,
+            discarded_temps: 0,
+            total_temp_samples: 0,
+            model: None,
+        }
+    }
+
+    /// Like [`Self::new()`] but with the given model.
+    fn init(&mut self, model: Option<ThermalModel>) {
+        *self = Self::new();
+        self.model = model;
+    }
+}
+
 struct ServerImpl {
-    transceivers: Transceivers,
+    xcvr_api: XcvrApi,
     leds: Leds,
     net: task_net_api::Net,
-    modules_present: LogicalPortMask,
 
     /// The Front IO board is not guaranteed to be present and ready
     front_io_board_present: FrontIOStatus,
@@ -127,11 +281,17 @@ struct ServerImpl {
     blink_on: bool,
     system_led_state: LedState,
 
+    // TODO(AJM): move these two into port metadata? It's less efficient than
+    // a pair of bitmasks, but might be easier to keep all the per-port state
+    // in a single place, maybe with a more explicit state machine. It would
+    // require some rework, as the logic is currently very bitmask-set oriented
+    //
+    /// Modules that are physically present
+    modules_present: LogicalPortMask,
     /// Modules that are physically present but disabled by Hubris
     disabled: LogicalPortMask,
 
-    /// Number of consecutive NACKS seen on a given port
-    consecutive_errors: [u8; NUM_PORTS as usize],
+    ports: [PortData; NUM_PORTS as usize],
 
     /// Handle to write thermal models and presence to the `thermal` task
     #[cfg(feature = "thermal-control")]
@@ -139,10 +299,8 @@ struct ServerImpl {
 
     /// Handle to write temperatures to the `sensors` task
     sensor_api: Sensor,
-
-    /// Thermal models are populated by the host
-    thermal_models: [Option<ThermalModel>; NUM_PORTS as usize],
 }
+
 #[derive(Copy, Clone)]
 struct ThermalModel {
     /// What kind of transceiver is this?
@@ -231,7 +389,14 @@ impl ServerImpl {
     }
 }
 
-impl ServerImpl {
+/// Wrapper struct that encapsulates logic that only uses Transceivers
+///
+/// This exists to make it easier to split the borrows of the ServerImpl.
+struct XcvrApi {
+    transceivers: Transceivers,
+}
+
+impl XcvrApi {
     /// Returns the temperature from a CMIS transceiver.
     ///
     /// `port` is a logical port index, i.e. 0-31.
@@ -332,6 +497,8 @@ impl ServerImpl {
             ManagementInterface::Sff8636 | ManagementInterface::Cmis => {
                 ringbuf_entry!(Trace::GotInterface(p.0, interface));
                 // TODO: this is made up
+                //
+                // See: https://github.com/oxidecomputer/hubris/issues/2670
                 Some(ThermalModel {
                     interface,
                     model: ThermalProperties {
@@ -351,77 +518,144 @@ impl ServerImpl {
         }
     }
 
+    fn get_temperature_resample(
+        &self,
+        port: LogicalPort,
+        m: &ThermalModel,
+    ) -> Result<(Celsius, f32), TempReadError> {
+        // Attempt to get the temperature twice to determine if we get a stable
+        // temperature. If either attempt fails, just return the error.
+        let a = self.get_temperature_once(port, m)?;
+        let b = self.get_temperature_once(port, m)?;
+        let diff = (a.0 - b.0).abs();
+
+        // It has probably been milliseconds, we don't expect the temperature
+        // to change significantly in this time.
+        if diff >= MAX_RESAMPLE_VARIANCE_CELSIUS {
+            // Record glitches specifically in the ringbuf
+            ringbuf_entry!(
+                TEMP_GLITCH_RINGBUF,
+                TempGlitch {
+                    port,
+                    first: a,
+                    second: b,
+                }
+            );
+            Err(TempReadError::UnexpectedVariance(diff))
+        } else {
+            Ok((a, diff))
+        }
+    }
+
+    fn get_temperature_once(
+        &self,
+        port: LogicalPort,
+        m: &ThermalModel,
+    ) -> Result<Celsius, TempReadError> {
+        let res = match m.interface {
+            ManagementInterface::Cmis => self.read_cmis_temperature(port),
+            ManagementInterface::Sff8636 => self.read_sff8636_temperature(port),
+            ManagementInterface::Unknown(..) => {
+                // We should never get here, because we only assign
+                // `self.thermal_models[i]` if the management interface is
+                // known.
+                return Err(TempReadError::UnknownInterface);
+            }
+        }?;
+
+        Ok(res)
+    }
+}
+
+impl ServerImpl {
     fn update_thermal_loop(&mut self, status: ModuleStatus) {
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..self.thermal_models.len() {
-            let port = LogicalPort(i as u8);
+        // Break up the borrows so we can hold multiple items mutably at the
+        // same time.
+        let ServerImpl {
+            xcvr_api,
+            ports,
+            sensor_api,
+            #[cfg(feature = "thermal-control")]
+            thermal_api,
+            disabled,
+            ..
+        } = self;
+
+        for (i, meta) in ports.iter_mut().enumerate() {
+            let port_idx = i as u8;
+            let port = LogicalPort(port_idx);
             let mask = 1 << i;
             let operational = (!status.modprsl & mask) != 0
                 && (status.power_good & mask) != 0
                 && (status.resetl & mask) != 0
-                && (self.disabled & port).is_empty();
+                && (*disabled & port).is_empty();
 
             // A wild transceiver just appeared!  Read it to decide whether it's
             // using SFF-8636 or CMIS.
-            if operational && self.thermal_models[i].is_none() {
-                match self.get_transceiver_interface(port) {
+            if operational && meta.model.is_none() {
+                match xcvr_api.get_transceiver_interface(port) {
                     Ok(interface) => {
-                        self.thermal_models[i] =
-                            self.decode_interface(port, interface)
+                        meta.init(xcvr_api.decode_interface(port, interface));
                     }
                     Err(FpgaError::ImplError(e)) => {
                         match Reg::QSFP::PORT0_STATUS::ErrorEncoded::try_from(e)
                         {
-                            Ok(val) => {
-                                ringbuf_entry!(Trace::GetInterfaceError(i, val))
+                            Ok(err) => {
+                                ringbuf_entry!(Trace::GetInterfaceError {
+                                    port,
+                                    err
+                                })
                             }
                             Err(_) => {
                                 // Error code cannot be decoded
-                                ringbuf_entry!(Trace::InvalidPortStatusError(
-                                    i, e
-                                ))
+                                ringbuf_entry!(Trace::InvalidPortStatusError {
+                                    port,
+                                    raw_err: e
+                                })
                             }
                         }
                     }
-                    Err(e) => {
+                    Err(err) => {
                         // Not much we can do here if reading failed
-                        ringbuf_entry!(Trace::GetInterfaceUnexpectedError(
-                            i, e
-                        ));
+                        ringbuf_entry!(Trace::GetInterfaceUnexpectedError {
+                            port,
+                            err
+                        });
                     }
                 }
-            } else if !operational && self.thermal_models[i].is_some() {
+            } else if !operational && meta.model.is_some() {
                 #[cfg(feature = "thermal-control")]
                 {
                     // This transceiver went away; remove it from the thermal loop
-                    if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
-                        ringbuf_entry!(Trace::ThermalError(i, e));
+                    if let Err(err) = thermal_api.remove_dynamic_input(i) {
+                        ringbuf_entry!(Trace::ThermalError { port, err });
                     }
                 }
 
                 // Tell the `sensor` task that this device is no longer present
-                self.sensor_api.nodata_now(
+                sensor_api.nodata_now(
                     TRANSCEIVER_TEMPERATURE_SENSORS[i],
                     NoData::DeviceNotPresent,
                 );
 
-                if (self.disabled & port).is_empty() {
-                    ringbuf_entry!(Trace::UnpluggedModule(i));
+                if (*disabled & port).is_empty() {
+                    ringbuf_entry!(Trace::UnpluggedModule { port });
                 } else {
-                    ringbuf_entry!(Trace::RemovedDisabledModuleThermalModel(i));
+                    ringbuf_entry!(Trace::RemovedDisabledModuleThermalModel {
+                        port
+                    });
                 }
-                self.thermal_models[i] = None;
+                meta.model = None;
             }
         }
 
         // Accumulate ports to disable (but don't disable them in the loop), to
         // avoid issues with the borrow checker.
         let mut to_disable = LogicalPortMask(0);
-        for (i, m) in self.thermal_models.iter().enumerate() {
+        for (i, meta) in ports.iter_mut().enumerate() {
             let port = LogicalPort(i as u8);
-            let m = match m {
-                Some(m) => m,
-                None => continue,
+            let Some(m) = meta.model.as_ref() else {
+                continue;
             };
 
             #[cfg(feature = "thermal-control")]
@@ -431,66 +665,56 @@ impl ServerImpl {
                 // will return a `NotInAutoMode` error if the thermal loop is in
                 // manual mode; this is harmless and will be ignored (instead of
                 // cluttering up the logs).
-                match self.thermal_api.update_dynamic_input(i, m.model) {
+                match thermal_api.update_dynamic_input(i, m.model) {
                     Ok(()) | Err(ThermalError::NotInAutoMode) => (),
-                    Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
+                    Err(err) => {
+                        ringbuf_entry!(Trace::ThermalError { port, err })
+                    }
                 }
             }
 
-            let temperature = match m.interface {
-                ManagementInterface::Cmis => self.read_cmis_temperature(port),
-                ManagementInterface::Sff8636 => {
-                    self.read_sff8636_temperature(port)
+            // Sample the transceiver temperature multiple times, seeing if
+            // we are successful and the samples are steady enough to report.
+            let res = xcvr_api.get_temperature_resample(port, m);
+            meta.total_temp_samples = meta.total_temp_samples.saturating_add(1);
+            match res {
+                Ok((reading, diff)) => {
+                    sensor_api.post_now(
+                        TRANSCEIVER_TEMPERATURE_SENSORS[i],
+                        reading.0,
+                    );
+                    meta.peak_diff = meta.peak_diff.max(diff);
+                    meta.consecutive_errors = 0;
                 }
-                ManagementInterface::Unknown(..) => {
-                    // We should never get here, because we only assign
-                    // `self.thermal_models[i]` if the management interface is
-                    // known.
-                    continue;
-                }
-            };
-            let mut got_error = false;
-            match temperature {
-                Ok(t) => {
-                    // We got a temperature! Send it over to the thermal task
-                    self.sensor_api
-                        .post_now(TRANSCEIVER_TEMPERATURE_SENSORS[i], t.0);
-                }
-                // We failed to read a temperature :(
-                //
-                // This could be because someone unplugged the transceiver
-                // at exactly the right time, in which case, the error will
-                // be transient (and we'll remove the transceiver on the
-                // next pass through this function).
-                Err(FpgaError::ImplError(e)) => {
-                    use Reg::QSFP::PORT0_STATUS::ErrorEncoded;
-                    match ErrorEncoded::try_from(e) {
-                        Ok(val) => {
-                            got_error |= matches!(
-                                val,
-                                ErrorEncoded::I2CAddressNack
-                                    | ErrorEncoded::I2CSclStretchTimeout
-                            );
-                            ringbuf_entry!(Trace::TemperatureReadError(i, val))
+                Err(e) => {
+                    // Log error to ringbuf
+                    e.ringbuf(port);
+
+                    match e {
+                        // Failure to read neither increments nor resets the
+                        // counter of errors
+                        TempReadError::UnknownInterface
+                        | TempReadError::BadTempRead(_)
+                        | TempReadError::BadPortStatus(_)
+                        | TempReadError::UnexpectedFpgaErr(_) => {}
+                        // This would *increment* consecutive errors
+                        TempReadError::PotentialRemoval(_) => {
+                            meta.consecutive_errors =
+                                meta.consecutive_errors.saturating_add(1);
                         }
-                        Err(_) => {
-                            // Error code cannot be decoded
-                            ringbuf_entry!(Trace::InvalidPortStatusError(i, e))
+                        // We probably don't want to count this against the
+                        // device, since it could have been a momentary I2C
+                        // glitch.
+                        TempReadError::UnexpectedVariance(diff) => {
+                            meta.peak_diff = meta.peak_diff.max(diff);
+                            meta.discarded_temps =
+                                meta.discarded_temps.saturating_add(1);
                         }
                     }
                 }
-                Err(e) => {
-                    ringbuf_entry!(Trace::TemperatureReadUnexpectedError(i, e));
-                }
             }
 
-            self.consecutive_errors[i] = if got_error {
-                self.consecutive_errors[i].saturating_add(1)
-            } else {
-                0
-            };
-
-            if self.consecutive_errors[i] >= MAX_CONSECUTIVE_ERRORS {
+            if meta.consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
                 to_disable.set(port);
             }
         }
@@ -509,9 +733,9 @@ impl ServerImpl {
         .iter()
         .enumerate()
         {
-            let err = f(&mut self.transceivers, mask).error();
+            let err = f(self.transceivers(), mask).error();
             if !err.is_empty() {
-                ringbuf_entry!(Trace::DisableFailed(step, err));
+                ringbuf_entry!(Trace::DisableFailed { step, mask: err });
             }
         }
         self.disabled |= mask;
@@ -541,7 +765,7 @@ impl ServerImpl {
 
     fn handle_spi_loop(&mut self) {
         // Query module presence as this drives other state
-        let (status, _) = self.transceivers.get_module_status();
+        let (status, _) = self.transceivers().get_module_status();
 
         let modules_present = LogicalPortMask(!status.modprsl);
         if modules_present != self.modules_present {
@@ -551,7 +775,7 @@ impl ServerImpl {
                 self.modules_present & !modules_present & self.disabled;
             if !disabled_ports_removed.is_empty() {
                 self.disabled &= !disabled_ports_removed;
-                self.transceivers.enable_power(disabled_ports_removed);
+                self.transceivers().enable_power(disabled_ports_removed);
                 ringbuf_entry!(Trace::ClearDisabledPorts(
                     disabled_ports_removed
                 ));
@@ -563,6 +787,106 @@ impl ServerImpl {
 
         self.update_thermal_loop(status);
     }
+
+    pub(crate) fn transceivers(&mut self) -> &mut Transceivers {
+        &mut self.xcvr_api.transceivers
+    }
+}
+
+/// Error while reading temperature from QSFP transceiver
+enum TempReadError {
+    /// Tried to read a transceiver that had no assigned thermal model
+    /// This is a programming error.
+    UnknownInterface,
+    /// We failed to read, and the FPGA reported an error code that makes us
+    /// suspicious that the xcvr is not present or operating correctly in a
+    /// way that might lead us to disable it.
+    PotentialRemoval(Reg::QSFP::PORT0_STATUS::ErrorEncoded),
+    /// We failed to read, but in some kind of forgivable way that *doesn't*
+    /// make us suspect that the xcvr should be disabled.
+    BadTempRead(Reg::QSFP::PORT0_STATUS::ErrorEncoded),
+    /// The FPGA gave us back a status code that we were unable to decode. This
+    /// is probably a pretty serious mismatch in FPGA and SP versioning.
+    BadPortStatus(u8),
+    /// The FPGA gave us back an FpgaError that we didn't expect at all when
+    /// reading I2C.
+    UnexpectedFpgaErr(FpgaError),
+    /// We read the sensor multiple times, and the difference between samples
+    /// exceeded a reasonable threshold.
+    UnexpectedVariance(f32),
+}
+
+impl From<FpgaError> for TempReadError {
+    fn from(err: FpgaError) -> Self {
+        // We only expect an ImplError here
+        let FpgaError::ImplError(code) = err else {
+            return Self::UnexpectedFpgaErr(err);
+        };
+
+        // We failed to read a temperature :(
+        //
+        // This could be because someone unplugged the transceiver
+        // at exactly the right time, in which case, the error will
+        // be transient (and we'll remove the transceiver on the
+        // next pass through `update_thermal_loop()`).
+
+        use Reg::QSFP::PORT0_STATUS::ErrorEncoded;
+        let res = ErrorEncoded::try_from(code);
+        let Ok(decoded) = res else {
+            // Error code cannot be decoded
+            return Self::BadPortStatus(code);
+        };
+
+        let is_removal = match decoded {
+            // We consider these errors as potentially worth invalidating the
+            // QSFP over.
+            ErrorEncoded::I2CAddressNack => true,
+            ErrorEncoded::I2CSclStretchTimeout => true,
+
+            // We expect these are transient errors, and will likely be resolved
+            // in short order, either by waiting to detect the QSFP device has
+            // been removed, or obtaining some other kind of error.
+            ErrorEncoded::NoError => false,
+            ErrorEncoded::NoModule => false,
+            ErrorEncoded::NoPower => false,
+            ErrorEncoded::PowerFault => false,
+            ErrorEncoded::NotInitialized => false,
+            ErrorEncoded::I2CByteNack => false,
+            ErrorEncoded::I2CTransactionTimeout => false,
+        };
+
+        if is_removal {
+            Self::PotentialRemoval(decoded)
+        } else {
+            Self::BadTempRead(decoded)
+        }
+    }
+}
+
+impl TempReadError {
+    fn ringbuf(&self, port: LogicalPort) {
+        let trace = match self {
+            // We don't ringbuf for this, should never happen
+            Self::UnknownInterface => return,
+            Self::PotentialRemoval(e) => {
+                Trace::PotentialRemovalError { port, err: *e }
+            }
+            Self::BadTempRead(e) => {
+                Trace::TemperatureReadError { port, err: *e }
+            }
+            Self::BadPortStatus(r) => {
+                Trace::InvalidPortStatusError { port, raw_err: *r }
+            }
+            Self::UnexpectedFpgaErr(e) => {
+                Trace::TemperatureReadUnexpectedError { port, err: *e }
+            }
+            Self::UnexpectedVariance(diff) => Trace::TemperatureGlitch {
+                port,
+                variance: Celsius(*diff),
+            },
+        };
+        ringbuf_entry!(trace);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -573,7 +897,7 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
     ) -> Result<ModuleStatus, idol_runtime::RequestError<TransceiversError>>
     {
-        let (mod_status, result) = self.transceivers.get_module_status();
+        let (mod_status, result) = self.transceivers().get_module_status();
         if result.error().is_empty() {
             Ok(mod_status)
         } else {
@@ -645,8 +969,9 @@ fn main() -> ! {
     #[cfg(feature = "thermal-control")]
     let thermal_api = Thermal::from(THERMAL.get_task_id());
 
-    let mut server = ServerImpl {
-        transceivers,
+    let server = XCVR_SERVER_IMPL.claim();
+    let server = server.write(ServerImpl {
+        xcvr_api: XcvrApi { transceivers },
         leds,
         net,
         modules_present: LogicalPortMask(0),
@@ -657,12 +982,11 @@ fn main() -> ! {
         blink_on: false,
         system_led_state: LedState::Off,
         disabled: LogicalPortMask(0),
-        consecutive_errors: [0; NUM_PORTS as usize],
         #[cfg(feature = "thermal-control")]
         thermal_api,
         sensor_api,
-        thermal_models: [None; NUM_PORTS as usize],
-    };
+        ports: [const { PortData::new() }; NUM_PORTS as usize],
+    });
 
     // There are two timers, one for each communication bus:
     #[derive(Copy, Clone, Enum)]
@@ -713,7 +1037,7 @@ fn main() -> ! {
             // LED drivers
             if server.front_io_board_present == FrontIOStatus::Ready {
                 ringbuf_entry!(Trace::LEDInit);
-                match server.transceivers.enable_led_controllers() {
+                match server.transceivers().enable_led_controllers() {
                     Ok(_) => server.led_init(),
                     Err(e) => {
                         ringbuf_entry!(Trace::LEDEnableError(e))
@@ -757,7 +1081,7 @@ fn main() -> ! {
 
         server
             .check_net(tx_data_buf.as_mut_slice(), rx_data_buf.as_mut_slice());
-        idol_runtime::dispatch(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, server);
     }
 }
 

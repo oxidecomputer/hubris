@@ -2,9 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use core::sync::atomic::{AtomicU32, Ordering};
+
 use crate::{Addr, FrontIOError, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
 use drv_transceivers_api::{ModuleStatus, NUM_PORTS};
+use ringbuf::Count;
 use transceiver_messages::ModuleId;
 use userlib::UnwrapLite;
 use zerocopy::{
@@ -134,6 +137,24 @@ impl LogicalPort {
         PortLocation::from(*self)
     }
 }
+
+/// Implement the ringbuf trait on LogicalPort to allow for per-port metrics
+impl Count for LogicalPort {
+    type Counters = [AtomicU32; NUM_PORTS as usize];
+
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters =
+        [const { AtomicU32::new(0) }; NUM_PORTS as usize];
+
+    fn count(&self, counters: &Self::Counters) {
+        // This should never happen, but just in case.
+        let Some(ctr) = counters.get(self.0 as usize) else {
+            return;
+        };
+        ctr.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
 /// Represents a set of selected logical ports, i.e. a 32-bit bitmask
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct LogicalPortMask(pub u32);
