@@ -337,6 +337,7 @@ impl MgsHandler {
             addr: Address::Ipv6(sender.addr.ip.into()),
             port: sender.addr.port,
             size: n as u32,
+            #[cfg(feature = "vlan")]
             vid: sender.vid,
         })
     }
