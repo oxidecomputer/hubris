@@ -1625,7 +1625,7 @@ fn report_fan_state<D>(
             Fps::I2cReadError(e) => {
                 _ = ereporter.deliver_ereport(&FanRpmReadFailed {
                     basic_info: basic_info(),
-                    raw_response_code: e as u8,
+                    raw_resp_code: e as u8,
                 });
                 ringbuf_entry!(Trace::FanReadFailed(
                     id,
@@ -1661,6 +1661,16 @@ fn report_fan_state<D>(
         fan.state_acked = true;
     }
 }
+
+// The ereport cool zone
+//
+// TODO: Some day, we would like to include the FRU ID relevant for the
+// ereports that we send, for example the fan tray (on compute sleds), or the
+// fan modules (on switches).
+//
+// Once https://github.com/oxidecomputer/hubris/issues/2673 is resolved, we'll
+// likely rev all the ereports defined below to contain this information, but
+// until then we'll just include the sensor name and refdes where relevant.
 
 ereports::declare_ereporter! {
     struct Ereporter<Ereport> {
@@ -1740,5 +1750,5 @@ struct FanRpmReadFailed {
     /// be logged or used for interactive or post-mortem debugging.
     /// Requires knowledge of the exact firmware revision to meaningfully
     /// decode.
-    raw_response_code: u8,
+    raw_resp_code: u8,
 }
