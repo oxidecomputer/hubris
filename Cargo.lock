@@ -6411,7 +6411,6 @@ dependencies = [
  "drv-lpc55-gpio-api",
  "drv-sp-ctrl-api",
  "drv-spi-api",
- "drv-sprot-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
  "hif",

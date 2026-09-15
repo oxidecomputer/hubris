@@ -202,12 +202,12 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "turbo"]
+features = ["h753", "stm32h7", "i2c", "gpio", "turbo"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
 start = true
-task-slots = ["sys", "i2c_driver", "sprot"]
+task-slots = ["sys", "i2c_driver"]
 notifications = ["timer"]
 
 [tasks.sensor]
