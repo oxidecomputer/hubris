@@ -6,7 +6,7 @@ board = "oxcon2023g0"
 
 [kernel]
 name = "oxcon2023g0"
-requires = {flash = 11776, ram = 1304}
+requires = {flash = 11776, ram = 1368}
 stacksize = 640
 
 [tasks.jefe]
