@@ -9,14 +9,34 @@ features = ["usart6", "hardware_flow_control"]
 uses = ["usart6"]
 interrupts = {"usart6.irq" = "usart-irq"}
 
+# needed for thermal ereports
+[tasks.packrat]
+features = ["ereport"]
+stacksize = 1280
+
+# We don't actually tell jefe to notify us on faults,
+# but this is still required
+notifications = ["task-faulted"]
+task-slots = ["jefe"]
+
+# needed for thermal ereports
+[tasks.rng_driver]
+features = ["h753", "packrat"]
+name = "drv-stm32h7-rng"
+priority = 6
+uses = ["rng"]
+start = true
+stacksize = 512
+task-slots = ["sys", "packrat"]
+
 [tasks.thermal]
 name = "task-thermal"
 features = ["grapefruit"]
 priority = 5
-max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 6000
+max-sizes = {flash = 32768, ram = 5120 }
+stacksize = 1536
 start = true
-task-slots = ["i2c_driver", "sensor", "jefe"]
+task-slots = ["i2c_driver", "sensor", "packrat"]
 notifications = ["timer"]
 
 [config]

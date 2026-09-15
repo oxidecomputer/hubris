@@ -51,6 +51,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
+use task_packrat_api::Packrat;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
 use task_thermal_api::{
     SensorReadError, ThermalAutoState, ThermalError, ThermalMode,
@@ -62,6 +63,7 @@ use userlib::{
 };
 
 task_slot!(I2C, i2c_driver);
+task_slot!(PACKRAT, packrat);
 task_slot!(SENSOR, sensor);
 
 #[derive(Copy, Clone, PartialEq, counters::Count)]
@@ -125,6 +127,7 @@ enum Trace {
     /// because an entry with two u64s doubles the size of the ringbuf.
     #[count(skip)]
     CriticalFor(u64),
+    /// Fan is present and read failed
     FanReadFailed(SensorId, SensorReadError),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
@@ -158,6 +161,8 @@ enum Trace {
     FanOverspeed(SensorId, Rpm),
     /// Fan is present and underspeed
     FanUnderspeed(SensorId, Rpm),
+    /// Fan is present but BSP didn't poll it
+    FanUnpolled(SensorId),
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 
@@ -394,11 +399,12 @@ impl<'a, B: control::BspInterface> NotificationHandler for ServerImpl<'a, B> {
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
     let sensor_api = SensorApi::from(SENSOR.get_task_id());
+    let packrat = Packrat::from(PACKRAT.get_task_id());
 
     ringbuf_entry!(Trace::Start);
 
     let mut bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&mut bsp, sensor_api);
+    let control = ThermalControl::new(&mut bsp, sensor_api, packrat);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
