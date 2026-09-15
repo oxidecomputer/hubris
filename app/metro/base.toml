@@ -421,13 +421,15 @@ task-slots = [
     # TODO: remove no-rot features, re-enable the following slots when possible
     # "sprot",
 ]
-features = [
-    "no-rot",
-]
 stacksize = 2400
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 notifications = ["socket"]
-features = ["net", "vlan"]
+features = [
+    "net",
+    "vlan",
+    # TODO: Remove me
+    "no-rot"
+]
 
 [tasks.snitch]
 name = "task-snitch"
