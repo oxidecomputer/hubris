@@ -40,32 +40,32 @@ stacksize = 2424
 notifications = ["fault", "timer"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
-# [tasks.jefe.config.on-state-change]
-# net = "jefe-state-change"
+[tasks.jefe.config.on-state-change]
+net = "jefe-state-change"
 # host_sp_comms = "jefe-state-change"
 # spd = "jefe-state-change"
 
 [tasks.jefe.config.on-task-fault]
 packrat = "task-faulted"
 
-# [tasks.jefe.config.allowed-callers]
+[tasks.jefe.config.allowed-callers]
 # set_state = ["metro_seq"]
-# set_reset_reason = ["sys"]
+set_reset_reason = ["sys"]
 # request_reset = ["hiffy", "control_plane_agent"]
 
-# [tasks.net]
-# name = "task-net"
-# stacksize = 8000
-# priority = 5
-# features = ["mgmt", "h753", "metro", "vlan", "vpd-mac"]
-# max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
-# default-ram = "dtcm"
-# sections = {eth_bulk = "sram1_mac"}
-# uses = ["eth", "tim16"]
-# start = true
-# interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq"}
-# task-slots = ["sys", "packrat", { spi_driver = "spi2_driver" }, "jefe"]
-# notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
+[tasks.net]
+name = "task-net"
+stacksize = 8000
+priority = 5
+features = ["mgmt", "h753", "metro", "vlan", "vpd-mac"]
+max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
+default-ram = "dtcm"
+sections = {eth_bulk = "sram1_mac"}
+uses = ["eth", "tim16"]
+start = true
+interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq"}
+task-slots = ["sys", "packrat", { spi_driver = "spi2_driver" }, "jefe"]
+notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -113,17 +113,17 @@ notifications = ["exti-wildcard-irq"]
 # pin = 5
 # owner = {name = "metro_seq", notification = "seq_irq"}
 
-# [tasks.spi2_driver]
-# name = "drv-stm32h7-spi-server"
-# priority = 3
-# max-sizes = {flash = 16384, ram = 4096}
-# features = ["spi2", "h753"]
-# uses = ["spi2"]
-# start = true
-# interrupts = {"spi2.irq" = "spi-irq"}
-# stacksize = 872
-# task-slots = ["sys"]
-# notifications = ["spi-irq"]
+[tasks.spi2_driver]
+name = "drv-stm32h7-spi-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+features = ["spi2", "h753"]
+uses = ["spi2"]
+start = true
+interrupts = {"spi2.irq" = "spi-irq"}
+stacksize = 872
+task-slots = ["sys"]
+notifications = ["spi-irq"]
 
 # # XXX this is only used by metro_seq; could we merge it?
 # [tasks.spi3_driver]
@@ -223,12 +223,12 @@ start = true
 task-slots = [
     "sys",
     "update_server",
+    "net",
     # TODO: Re-enable these once the tasks are available!
     # "hf",
     # "i2c_driver",
     # "hash_driver",
     # "sprot",
-    # "net",
 ]
 notifications = ["timer"]
 
@@ -319,25 +319,25 @@ notifications = ["flash-irq"]
 # task-slots = ["sys", { cpu_seq = "metro_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot", "auxflash"]
 # notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
 
-# [tasks.udpecho]
-# name = "task-udpecho"
-# priority = 6
-# max-sizes = {flash = 16384, ram = 8192}
-# stacksize = 4096
-# start = true
-# task-slots = ["net"]
-# features = ["vlan"]
-# notifications = ["socket"]
+[tasks.udpecho]
+name = "task-udpecho"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+notifications = ["socket"]
 
-# [tasks.udpbroadcast]
-# name = "task-udpbroadcast"
-# priority = 6
-# max-sizes = {flash = 16384, ram = 8192}
-# stacksize = 2048
-# start = true
-# task-slots = ["net", "packrat"]
-# features = ["vlan"]
-# notifications = ["socket"]
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 2048
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
 
 # [tasks.control_plane_agent]
 # name = "task-control-plane-agent"
@@ -417,28 +417,30 @@ max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = [
     "jefe",
+    "net",
     # TODO: remove no-rot features, re-enable the following slots when possible
     # "sprot",
-    # "net",
-]
-features = [
-    "no-rot",
 ]
 stacksize = 2400
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
-# notifications = ["socket"]
-# features = ["net", "vlan"]
+notifications = ["socket"]
+features = [
+    "net",
+    "vlan",
+    # TODO: Remove me
+    "no-rot"
+]
 
-# [tasks.snitch]
-# name = "task-snitch"
-# # The snitch should have a priority immediately below that of the net task,
-# # to minimize the number of components that can starve it from resources.
-# priority = 6
-# stacksize = 1200
-# start = true
-# task-slots = ["net", "packrat"]
-# features = ["vlan"]
-# notifications = ["socket"]
+[tasks.snitch]
+name = "task-snitch"
+# The snitch should have a priority immediately below that of the net task,
+# to minimize the number of components that can starve it from resources.
+priority = 6
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
 
 # [tasks.spd]
 # name = "task-metro-spd"
@@ -1491,35 +1493,35 @@ start = true
 # refdes = "fan_ctrl"
 
 # ################################################################################
-# [config.spi.spi2]
-# controller = 2
+[config.spi.spi2]
+controller = 2
 
-# # SP_TO_FPGA1_CFG
-# # SP_TO_FPGA1_DAT
-# [config.spi.spi2.mux_options.port_b]
-# outputs = [
-#     {port = "B", pins = [13, 15], af = 5},
-# ]
-# input = {port = "B", pin = 14, af = 5}
+# SP_TO_FPGA1_CFG
+# SP_TO_FPGA1_DAT
+[config.spi.spi2.mux_options.port_b]
+outputs = [
+    {port = "B", pins = [13, 15], af = 5},
+]
+input = {port = "B", pin = 14, af = 5}
 
-# [config.spi.spi2.devices.spartan7_fpga]
-# mux = "port_b"
-# cs = []
-# clock_divider = "DIV8" # 12.5 MHz
-# # no CS pin; we're using the SPI peripheral to send synchronized CLK + DATA
+[config.spi.spi2.devices.spartan7_fpga]
+mux = "port_b"
+cs = []
+clock_divider = "DIV8" # 12.5 MHz
+# no CS pin; we're using the SPI peripheral to send synchronized CLK + DATA
 
-# # SPI_SP_TO_KSZ8463_SCK
-# # SPI_SP_TO_KSZ8463_DAT
-# # SPI_KSZ8463_TO_SP_DAT
-# [config.spi.spi2.mux_options.port_i]
-# outputs = [
-#     {port = "I", pins = [1, 3], af = 5},
-# ]
-# input = {port = "I", pin = 2, af = 5}
+# SPI_SP_TO_KSZ8463_SCK
+# SPI_SP_TO_KSZ8463_DAT
+# SPI_KSZ8463_TO_SP_DAT
+[config.spi.spi2.mux_options.port_i]
+outputs = [
+    {port = "I", pins = [1, 3], af = 5},
+]
+input = {port = "I", pin = 2, af = 5}
 
-# [config.spi.spi2.devices.ksz8463]
-# mux = "port_i"
-# cs = [{port = "I", pin = 0}] # SPI_SP_TO_KSZ8463_CS_L
+[config.spi.spi2.devices.ksz8463]
+mux = "port_i"
+cs = [{port = "I", pin = 0}] # SPI_SP_TO_KSZ8463_CS_L
 
 # ################################################################################
 # # SPI3 goes through a mux controlled by the main FPGA (FPGA1), and can talk to
@@ -1564,32 +1566,32 @@ start = true
 
 # ################################################################################
 
-# # VLAN configuration
-# [config.net.vlans.sidecar1]
-# vid = 0x301
-# trusted = true
-# port = 1
+# VLAN configuration
+[config.net.vlans.sidecar1]
+vid = 0x301
+trusted = true
+port = 1
 
-# [config.net.vlans.sidecar2]
-# vid = 0x302
-# trusted = true
-# port = 2
+[config.net.vlans.sidecar2]
+vid = 0x302
+trusted = true
+port = 2
 
-# # UDP ports in sockets below are assigned in oxidecomputer/oana
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
-# [config.net.sockets.echo]
-# kind = "udp"
-# owner = {name = "udpecho", notification = "socket"}
-# port = 7
-# tx = { packets = 3, bytes = 1024 }
-# rx = { packets = 3, bytes = 1024 }
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = "socket"}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
 
-# [config.net.sockets.broadcast]
-# kind = "udp"
-# owner = {name = "udpbroadcast", notification = "socket"}
-# port = 997
-# tx = { packets = 3, bytes = 1024 }
-# rx = { packets = 3, bytes = 1024 }
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = "socket"}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
 
 # [config.net.sockets.control_plane_agent]
 # kind = "udp"
@@ -1598,21 +1600,21 @@ start = true
 # tx = { packets = 3, bytes = 2048 }
 # rx = { packets = 3, bytes = 2048 }
 
-# [config.net.sockets.dump_agent]
-# kind = "udp"
-# owner = {name = "dump_agent", notification = "socket"}
-# port = 11113
-# tx = { packets = 3, bytes = 1024 }
-# rx = { packets = 3, bytes = 1024 }
+[config.net.sockets.dump_agent]
+kind = "udp"
+owner = {name = "dump_agent", notification = "socket"}
+port = 11113
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
 
-# [config.net.sockets.ereport]
-# kind = "udp"
-# owner = {name = "snitch", notification = "socket"}
-# port = 57005
-# tx = { packets = 3, bytes = 1024 }
-# # v0 ereport requests are always 35B, so just make the buffer exactly
-# # that size...
-# rx = { packets = 3, bytes = 35 }
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }
 
 # [config.auxflash]
 # memory-size = 33_554_432 # 256 Mib / 32 MiB

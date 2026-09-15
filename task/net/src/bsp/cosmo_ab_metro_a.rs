@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! BSP for the Cosmo rev A hardware
+//! BSP for the Cosmo rev (A|B) hardware or Metro rev A hardware
+//!
+//! Metro and Cosmo share identical pin mappings and functionality from
+//! a `net` perspective.
 
 #[cfg(not(all(feature = "ksz8463", feature = "mgmt", feature = "vlan")))]
 compile_error!("this BSP requires the ksz8463, mgmt, and vlan features");
