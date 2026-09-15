@@ -19,10 +19,13 @@ extern-regions = [{ region = "dtcm", shared = true }]
 # peripheral-region = "fmc_nor_psram_bank_1"
 # register-map = "../../drv/spartan7-loader/metro-seq/metro_seq_top.json"
 
-# [caboose]
-# tasks = ["control_plane_agent", "packrat"]
-# region = "flash"
-# size = 256
+[caboose]
+tasks = [
+    # "control_plane_agent",
+    "packrat",
+]
+region = "flash"
+size = 256
 
 [tasks.jefe]
 name = "task-jefe"
@@ -42,8 +45,8 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 # host_sp_comms = "jefe-state-change"
 # spd = "jefe-state-change"
 
-# [tasks.jefe.config.on-task-fault]
-# packrat = "task-faulted"
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
 
 # [tasks.jefe.config.allowed-callers]
 # set_state = ["metro_seq"]
@@ -155,23 +158,28 @@ notifications = ["exti-wildcard-irq"]
 # "i2c4.event" = "i2c4-irq"
 # "i2c4.error" = "i2c4-irq"
 
-# [tasks.packrat]
-# name = "task-packrat"
-# priority = 1
-# stacksize = 1712
-# start = true
-# task-slots = ["jefe"]
-# features = ["metro", "ereport"]
-# notifications = ["task-faulted"]
+[tasks.packrat]
+name = "task-packrat"
+priority = 1
+stacksize = 1712
+start = true
+task-slots = ["jefe"]
+features = [
+    # TODO: Requires defining a `metro` feature
+    # TODO: Requires `metro_seq` task
+    # "metro",
+    "ereport",
+]
+notifications = ["task-faulted"]
 
-# [tasks.rng_driver]
-# features = ["h753", "packrat"]
-# name = "drv-stm32h7-rng"
-# priority = 6
-# uses = ["rng"]
-# start = true
-# stacksize = 512
-# task-slots = ["sys", "packrat"]
+[tasks.rng_driver]
+features = ["h753", "packrat"]
+name = "drv-stm32h7-rng"
+priority = 6
+uses = ["rng"]
+start = true
+stacksize = 512
+task-slots = ["sys", "packrat"]
 
 # [tasks.thermal]
 # name = "task-thermal"
