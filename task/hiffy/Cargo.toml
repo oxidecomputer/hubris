@@ -10,7 +10,6 @@ drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-lpc55-gpio-api = { path = "../../drv/lpc55-gpio-api", optional = true }
 drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api" }
-drv-sprot-api = { path = "../../drv/sprot-api", optional = true }
 drv-stm32xx-i2c = { path = "../../drv/stm32xx-i2c", optional = true  }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", optional = true }
 task-net-api = { path = "../../task/net-api", optional = true }
@@ -45,7 +44,6 @@ gpio = []
 spi = []
 send = []
 send-rw = []
-sprot = ["drv-sprot-api"]
 stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7", "userlib/panic-messages", "send", "send-rw"]
 lpc55 = ["drv-lpc55-gpio-api", "userlib/panic-messages", "send", "send-rw"]
 stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
