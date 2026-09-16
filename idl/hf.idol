@@ -313,5 +313,19 @@ Interface(
             ),
             idempotent: true,
         ),
+        "measure": (
+            description: "collect a measurement from the active boot slot",
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "get_measurement": (
+            description: "retrieve the last measurement",
+            reply: Result(
+                ok: "[u8; 32]",
+                err: CLike("HfError"),
+            ),
+        ),
     },
 )

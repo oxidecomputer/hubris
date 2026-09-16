@@ -9,7 +9,7 @@
 extern crate memoffset;
 
 mod error;
-use attest_api::{AttestError, HashAlgorithm};
+pub use attest_api::{AttestError, HashAlgorithm};
 use drv_caboose::CabooseError;
 use dumper_api::DumperError;
 pub use error::{
