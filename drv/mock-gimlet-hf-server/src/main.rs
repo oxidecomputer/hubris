@@ -286,6 +286,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
         Err(drv_hf_api::ApobClearError::NotImplemented.into())
     }
+
+    fn measure(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<HfError>> {
+        Ok(())
+    }
+
+    fn get_measurement(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 32], RequestError<HfError>> {
+        Ok(*b"mockmockmockmockmockmockmockmock")
+    }
 }
 
 impl NotificationHandler for ServerImpl {
