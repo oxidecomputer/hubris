@@ -770,7 +770,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         buf.fill(0xff);
         for _ in (0..SECTOR_SIZE_BYTES).step_by(buf.len()) {
-            hasher.update(&buf);
+            hasher.update(buf);
         }
 
         self.hash.state = HashState::Hashing {
