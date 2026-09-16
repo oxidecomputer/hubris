@@ -10,9 +10,9 @@ extern crate rp2040_pac;
 
 use cortex_m_rt::entry;
 
-#[unsafe(link_section = ".boot_loader")]
+#[unsafe(link_section = ".boot2")]
 #[used]
-pub static BOOT_LOADER: [u8; 256] = rp2040_boot2::BOOT_LOADER_W25Q080;
+pub static BOOT_LOADER: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
 
 const LED_GPIO_ID: usize = 25;
 
