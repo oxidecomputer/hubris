@@ -9,7 +9,7 @@ tasks = ["packrat"]
 
 [tasks.hiffy]
 features = ["h753", "stm32h7", "i2c", "gpio", "qspi"]
-task-slots = ["hash_driver", "hf", "i2c_driver", "sys", "update_server", "user_leds"]
+task-slots = ["hf", "i2c_driver", "sys", "update_server", "user_leds"]
 
 [tasks.jefe]
 stacksize = 2296
