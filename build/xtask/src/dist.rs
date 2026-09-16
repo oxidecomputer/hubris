@@ -1052,7 +1052,8 @@ pub fn package(
             std::fs::write(cfg.img_file(&name, image_name), file_data)?;
         }
 
-        let fwid = hubtools::FwidGen::<sha3::Sha3_256>::fwid(&archive)?;
+        let fwid = hubtools::FwidGen::<sha3::Sha3_256>::fwid(&archive)
+            .context("creating fwid")?;
         corim_builder.add_hash(
             format!("image-{image_name}"),
             10,
