@@ -835,7 +835,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // Treat sector 0 as all `0xff`
         block.fill(0xff);
         for _ in (0..SECTOR_SIZE_BYTES).step_by(block.len()) {
-            hasher.update(&block);
+            hasher.update(block);
         }
 
         self.hash.state = HashState::Hashing {
