@@ -411,7 +411,14 @@ impl From<WatchdogError> for GwWatchdogError {
 
 // Added in protocol v6
 #[derive(
-    Copy, Clone, Debug, Serialize, Deserialize, SerializedSize, counters::Count,
+    Copy,
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+    counters::Count,
+    PartialEq,
 )]
 pub enum StateError {
     ReadCmpa(UpdateError),
@@ -427,6 +434,7 @@ pub enum StateError {
     Deserialize,
     Serialize,
     SerializedSize,
+    PartialEq,
     counters::Count,
 )]
 pub enum StateOrSprotError {

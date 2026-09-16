@@ -97,6 +97,7 @@ enum Trace {
     WrongKey,
     UntrustedResponse(GwMonorailError),
     RngFillFailed(drv_rng_api::RngError),
+    RotLifecycleReadFailed(#[count(children)] drv_sprot_api::StateOrSprotError),
 }
 counted_ringbuf!(Trace, 16, Trace::None);
 
@@ -665,24 +666,39 @@ impl SpHandler for MgsHandler {
                                 LifecycleState::Development
                                 | LifecycleState::Unprogrammed
                                 | LifecycleState::EndOfLife,
-                            )
-                            | Err(_) => {
-                                // Right now, we fail open if we can't talk to
-                                // the RoT.  This is intentional: the RoT
-                                // protocol has checksum / retries, so we
-                                // shouldn't see spurious failures.  If
-                                // something has gone sufficiently wrong that we
-                                // can't talk to the RoT, then we probably want
-                                // to fail into a state where we can debug the
-                                // system over the tech port.
-                                //
-                                // XXX we may want to reevaluate this in the
-                                // future!
+                            ) => {
                                 let timestamp = sys_get_timer().now;
                                 UnlockChallenge::Trivial { timestamp }
                             }
 
                             Ok(LifecycleState::Release) => {
+                                UnlockChallenge::EcdsaSha2Nistp256(
+                                    get_ecdsa_challenge()?,
+                                )
+                            }
+
+                            // If we cannot get the RoT's lifecycle state, it
+                            // may be transiently in reset, such as in order to
+                            // perform a RoT firmware update. Therefore, we fall
+                            // back to the ECDSA challenge, as though we were a
+                            // release system. While this means a Development or
+                            // Unprogrammed system may transiently perform a
+                            // real challenge rather than the trivial challenge,
+                            // this is better than failing open in a Release
+                            // system
+                            //
+                            // Performing the Release ECDSA challenge does not
+                            // actually require talking to the RoT beyond this
+                            // code for determining the lifecycle state, so the
+                            // Release challenge we perform in this case will
+                            // still allow the techport to be unlocked. This
+                            // means that if the RoT failure is persistent, the
+                            // system can still be debugged, if a valid
+                            // credential is provided.
+                            Err(error) => {
+                                ringbuf_entry!(Trace::RotLifecycleReadFailed(
+                                    error
+                                ));
                                 UnlockChallenge::EcdsaSha2Nistp256(
                                     get_ecdsa_challenge()?,
                                 )
