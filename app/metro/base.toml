@@ -1174,16 +1174,6 @@ power = { rails = [ "V12P0_NIC_A0HP", "V5P0_NIC_A0HP" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 refdes = "U54"
 
-# TODO: Removed? # [[config.i2c.devices]]
-# TODO: Removed? # bus = "rear"
-# TODO: Removed? # address = 0x25
-# TODO: Removed? # device = "tps546b24a"
-# TODO: Removed? # description = "T6 power controller"
-# TODO: Removed? # power = { rails = [ "V0P96_NIC_VDD_A0HP" ] }
-# TODO: Removed? # sensors = { temperature = 1, voltage = 1, current = 1 }
-# TODO: Removed? # refdes = "U123"
-# TODO: Removed? # name = "v0p96_nic"
-
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x5C
