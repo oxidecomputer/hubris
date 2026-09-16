@@ -1269,7 +1269,7 @@ dependencies = [
  "num-traits",
  "serde",
  "sha3 0.11.0",
- "tlvc",
+ "tlvc 0.4.0",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -1288,7 +1288,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "stm32h7",
- "tlvc",
+ "tlvc 0.4.0",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -1302,7 +1302,7 @@ dependencies = [
  "derive-idol-err",
  "hubpack",
  "num-traits",
- "tlvc",
+ "tlvc 0.4.0",
  "userlib",
 ]
 
@@ -1434,7 +1434,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "sha3 0.11.0",
- "tlvc",
+ "tlvc 0.4.0",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -2238,7 +2238,7 @@ dependencies = [
  "drv-i2c-devices",
  "idol",
  "ringbuf",
- "tlvc",
+ "tlvc 0.4.0",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
 ]
@@ -2548,7 +2548,7 @@ dependencies = [
  "serde",
  "sprockets-common",
  "static_assertions",
- "tlvc",
+ "tlvc 0.4.0",
  "unwrap-lite",
  "userlib",
  "zerocopy 0.8.27",
@@ -3712,19 +3712,18 @@ dependencies = [
 
 [[package]]
 name = "hubtools"
-version = "0.4.8"
-source = "git+https://github.com/oxidecomputer/hubtools#5e41fbe7560b27eaa25bce3b322f7a612fac8f41"
+version = "0.4.9"
 dependencies = [
  "digest 0.11.3",
  "hex",
- "lpc55_areas",
- "lpc55_sign",
+ "lpc55_areas 0.2.5 (git+https://github.com/oxidecomputer/lpc55_support?rev=fc64732faf5511850b35f1734d572b9953d73374)",
+ "lpc55_sign 0.3.5 (git+https://github.com/oxidecomputer/lpc55_support?rev=fc64732faf5511850b35f1734d572b9953d73374)",
  "object",
  "path-slash 0.2.1",
  "rsa",
  "thiserror",
- "tlvc",
- "tlvc-text",
+ "tlvc 0.4.1",
+ "tlvc-text 0.4.0 (git+https://github.com/oxidecomputer/tlvc?rev=7a96eab94c8aec9120412d8601ffd68853957da3)",
  "toml 1.1.2+spec-1.1.0",
  "x509-cert",
  "zerocopy 0.8.27",
@@ -4276,10 +4275,21 @@ dependencies = [
  "stage0-handoff",
  "static_assertions",
  "task-jefe-api",
- "tlvc",
+ "tlvc 0.4.0",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "lpc55_areas"
+version = "0.2.5"
+source = "git+https://github.com/oxidecomputer/lpc55_support?rev=fc64732faf5511850b35f1734d572b9953d73374#fc64732faf5511850b35f1734d572b9953d73374"
+dependencies = [
+ "bitfield 0.19.4",
+ "clap 4.4.3",
+ "packed_struct",
+ "serde",
 ]
 
 [[package]]
@@ -4307,6 +4317,31 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.3.5"
+source = "git+https://github.com/oxidecomputer/lpc55_support?rev=fc64732faf5511850b35f1734d572b9953d73374#fc64732faf5511850b35f1734d572b9953d73374"
+dependencies = [
+ "byteorder",
+ "const-oid",
+ "crc-any",
+ "der",
+ "env_logger",
+ "hex",
+ "log",
+ "lpc55_areas 0.2.5 (git+https://github.com/oxidecomputer/lpc55_support?rev=fc64732faf5511850b35f1734d572b9953d73374)",
+ "num-traits",
+ "packed_struct",
+ "pem-rfc7468",
+ "rsa",
+ "serde",
+ "serde-hex",
+ "sha2 0.10.8",
+ "thiserror",
+ "x509-cert",
+ "zerocopy 0.8.27",
+]
+
+[[package]]
+name = "lpc55_sign"
+version = "0.3.5"
 source = "git+https://github.com/oxidecomputer/lpc55_support#fc64732faf5511850b35f1734d572b9953d73374"
 dependencies = [
  "byteorder",
@@ -4316,7 +4351,7 @@ dependencies = [
  "env_logger",
  "hex",
  "log",
- "lpc55_areas",
+ "lpc55_areas 0.2.5 (git+https://github.com/oxidecomputer/lpc55_support)",
  "num-traits",
  "packed_struct",
  "pem-rfc7468",
@@ -6493,7 +6528,7 @@ dependencies = [
  "task-net-api",
  "task-packrat-api",
  "task-sensor-api",
- "tlvc",
+ "tlvc 0.4.0",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -7438,13 +7473,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "tlvc"
+version = "0.4.1"
+source = "git+https://github.com/oxidecomputer/tlvc?rev=7a96eab94c8aec9120412d8601ffd68853957da3#7a96eab94c8aec9120412d8601ffd68853957da3"
+dependencies = [
+ "crc",
+ "thiserror",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "tlvc-text"
+version = "0.4.0"
+source = "git+https://github.com/oxidecomputer/tlvc?rev=7a96eab94c8aec9120412d8601ffd68853957da3#7a96eab94c8aec9120412d8601ffd68853957da3"
+dependencies = [
+ "ron 0.8.0",
+ "serde",
+ "tlvc 0.4.1",
+ "zerocopy 0.8.27",
+]
+
+[[package]]
 name = "tlvc-text"
 version = "0.4.0"
 source = "git+https://github.com/oxidecomputer/tlvc#2f69360ddcb07ad6072cb720bb1fac9f58a2ddec"
 dependencies = [
  "ron 0.8.0",
  "serde",
- "tlvc",
+ "tlvc 0.4.0",
  "zerocopy 0.8.27",
 ]
 
@@ -8204,7 +8261,7 @@ dependencies = [
  "indexmap 1.9.1",
  "insta",
  "lpc55-rom-data",
- "lpc55_sign",
+ "lpc55_sign 0.3.5 (git+https://github.com/oxidecomputer/lpc55_support)",
  "memchr",
  "multimap",
  "ordered-toml",
@@ -8220,8 +8277,8 @@ dependencies = [
  "sha3 0.11.0",
  "strsim 0.10.0",
  "tempfile",
- "tlvc",
- "tlvc-text",
+ "tlvc 0.4.0",
+ "tlvc-text 0.4.0 (git+https://github.com/oxidecomputer/tlvc)",
  "toml 1.1.2+spec-1.1.0",
  "toml-patch",
  "toml-task",
