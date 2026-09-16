@@ -777,6 +777,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
         match (self.state, state) {
             (PowerState::A2, PowerState::A0) => {
+                let _ = self.hf.measure();
                 //
                 // First, set our mux state to be the HostCPU
                 //
