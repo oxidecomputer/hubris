@@ -118,8 +118,8 @@ priority = 7
 max-sizes = {flash = 32768, ram = 65536}
 stacksize = 2048
 start = true
-features = ["h753", "stm32h7", "i2c", "gpio", "qspi", "hash", "turbo", "net", "vlan"]
-task-slots = ["i2c_driver", "sys", "user_leds", "hf", "hash_driver", "net"]
+features = ["h753", "stm32h7", "i2c", "gpio", "qspi", "turbo", "net", "vlan"]
+task-slots = ["i2c_driver", "sys", "user_leds", "hf", "net"]
 notifications = ["timer", "socket"]
 
 [tasks.validate]
@@ -129,18 +129,6 @@ max-sizes = {flash = 32768, ram = 4096}
 stacksize = 1024
 start = true
 task-slots = ["i2c_driver"]
-
-[tasks.hash_driver]
-name = "drv-stm32h7-hash-server"
-features = ["h753"]
-priority = 2
-max-sizes = {flash = 16384, ram=4096 }
-stacksize = 2048
-start = true
-uses = ["hash"]
-interrupts = {"hash.irq" = "hash-irq"}
-task-slots = ["sys"]
-notifications = ["hash-irq"]
 
 [tasks.idle]
 name = "task-idle"
@@ -334,7 +322,7 @@ name = "drv-cosmo-hf"
 priority = 5
 start = true
 uses = ["mmio_base", "mmio_spi_nor"]
-task-slots = ["hash_driver", "spartan7_loader"]
+task-slots = ["spartan7_loader"]
 stacksize = 4000
 notifications = ["timer"]
 

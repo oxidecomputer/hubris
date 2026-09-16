@@ -41,6 +41,8 @@ use stm32h7::stm32h743 as device;
 use stm32h7::stm32h753 as device;
 
 use drv_hash_api::SHA256_SZ;
+use sha2::Digest;
+use sha2::digest::common::hazmat::SerializableState;
 
 use drv_hf_api::{
     HF_PERSISTENT_DATA_STRIDE, HfDevSelect, HfError, HfMuxState,
@@ -48,7 +50,15 @@ use drv_hf_api::{
 };
 
 task_slot!(SYS, sys);
-task_slot!(HASH, hash_driver);
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Trace {
+    None,
+
+    AsyncTime(u64),
+}
+
+ringbuf::ringbuf!(Trace, 8, Trace::None);
 
 struct Config {
     pub sp_host_mux_select: sys_api::PinSet,
@@ -162,7 +172,7 @@ fn main() -> ! {
         dev_state: HfDevSelect::Flash0,
         mux_select_pin: cfg.sp_host_mux_select,
         dev_select_pin: cfg.flash_dev_select,
-        hash: HashData::new(HASH.get_task_id()),
+        hash: HashData::new(),
     };
 
     server.ensure_persistent_data_is_redundant().unwrap(); // TODO: log this?
@@ -451,6 +461,7 @@ impl ServerImpl {
         &mut self,
         begin: usize,
         end: usize,
+        hasher: &mut sha2::Sha256,
     ) -> Result<(), HfError> {
         flash_block!(block);
         for addr in (begin..end).step_by(block.len()) {
@@ -458,19 +469,23 @@ impl ServerImpl {
             self.qspi
                 .read_memory(addr as u32, &mut block[..size])
                 .map_err(qspi_to_hf)?;
-            self.hash
-                .task
-                .update(size as u32, &block[..size])
-                .map_err(|_| HfError::HashError)?;
+            hasher.update(&block[..size]);
         }
         Ok(())
     }
 
     fn step_hash(&mut self) {
         match self.hash.state {
-            HashState::Hashing { dev, addr, end } => {
+            HashState::Hashing {
+                dev,
+                addr,
+                end,
+                start_time,
+                hasher,
+            } => {
                 let step_size = BLOCK_STEP_SIZE;
 
+                let mut ctx = sha2::Sha256::deserialize(&hasher).unwrap();
                 // the `set_dev` should only fail if we're not muxed to the
                 // SP. We check that we're muxed to the SP when kicking off
                 // the hash and then stop hashing in `set_mux` so there should
@@ -480,27 +495,31 @@ impl ServerImpl {
                 // The only way we should get an error from this is if
                 // we somehow call update before we've initialized or
                 // after we've finished the hash.
-                self.hash_range_update(addr, addr + step_size).unwrap_lite();
+                self.hash_range_update(addr, addr + step_size, &mut ctx)
+                    .unwrap_lite();
                 self.set_dev(prev).unwrap_lite(); // infallible if the earlier set_dev worked
 
                 if addr + step_size >= end {
                     self.hash.state = HashState::Done;
-                    match self.hash.task.finalize_sha256() {
-                        Ok(v) => match dev {
-                            HfDevSelect::Flash0 => {
-                                self.hash.cached_hash0 = SlotHash::Hash(v);
-                            }
-                            HfDevSelect::Flash1 => {
-                                self.hash.cached_hash1 = SlotHash::Hash(v);
-                            }
-                        },
-                        Err(_) => (),
+                    let now = userlib::sys_get_timer().now;
+                    ringbuf::ringbuf_entry!(Trace::AsyncTime(now - start_time));
+
+                    let v = ctx.finalize();
+                    match dev {
+                        HfDevSelect::Flash0 => {
+                            self.hash.cached_hash0 = SlotHash::Hash(v.into());
+                        }
+                        HfDevSelect::Flash1 => {
+                            self.hash.cached_hash1 = SlotHash::Hash(v.into());
+                        }
                     };
                 } else {
                     self.hash.state = HashState::Hashing {
                         dev,
                         addr: addr + step_size,
                         end,
+                        hasher: ctx.serialize(),
+                        start_time,
                     };
                     set_timer_relative(1, notifications::TIMER_MASK);
                 };
@@ -748,9 +767,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             }
             _ => (),
         }
-        if self.hash.task.init_sha256().is_err() {
-            return Err(HfError::HashError.into());
-        }
+
         let begin = addr as usize;
         let end = match begin.checked_add(len as usize) {
             Some(end) => {
@@ -771,11 +788,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         if begin > self.capacity || end > self.capacity {
             return Err(HfError::HashBadRange.into());
         }
-        self.hash_range_update(begin, end)?;
-        self.hash
-            .task
-            .finalize_sha256()
-            .map_err(|_| HfError::HashError.into())
+        let mut hasher = sha2::Sha256::new();
+        self.hash_range_update(begin, end, &mut hasher)?;
+        Ok(hasher.finalize().into())
     }
 
     // This does a sha256 on the entire range _except_ sector0
@@ -798,10 +813,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             _ => (),
         }
 
-        if self.hash.task.init_sha256().is_err() {
-            return Err(HfError::HashError.into());
-        }
-
         // If we already have a valid hash for the slot don't bother
         // starting again
         match dev {
@@ -819,20 +830,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             },
         }
 
+        let mut hasher = sha2::Sha256::new();
         flash_block!(block);
         // Treat sector 0 as all `0xff`
         block.fill(0xff);
         for _ in (0..SECTOR_SIZE_BYTES).step_by(block.len()) {
-            self.hash
-                .task
-                .update(block.len() as u32, &block)
-                .map_err(|_| RequestError::Runtime(HfError::HashError))?;
+            hasher.update(block);
         }
 
         self.hash.state = HashState::Hashing {
             dev,
             addr: SECTOR_SIZE_BYTES,
             end: self.capacity,
+            hasher: hasher.serialize(),
+            start_time: userlib::sys_get_timer().now,
         };
         set_timer_relative(1, notifications::TIMER_MASK);
         Ok(())
