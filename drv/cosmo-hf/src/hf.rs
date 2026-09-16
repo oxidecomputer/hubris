@@ -13,7 +13,7 @@ use idol_runtime::{
     RequestError, W,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use userlib::{RecvMessage, UnwrapLite, set_timer_relative, task_slot};
+use userlib::{RecvMessage, UnwrapLite, set_timer_relative};
 use zerocopy::{FromZeros, IntoBytes};
 
 use crate::{

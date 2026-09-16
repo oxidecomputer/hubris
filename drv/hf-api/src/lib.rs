@@ -226,6 +226,12 @@ impl HashData {
     }
 }
 
+impl Default for HashData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// The state of our async hash
 pub enum HashState {
     Done,
