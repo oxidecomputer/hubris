@@ -174,7 +174,7 @@ priority = 7
 max-sizes = {flash = 32768, ram = 65536 }
 stacksize = 1328
 start = true
-task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot", "net"]
+task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "net"]
 notifications = ["timer"]
 
 [tasks.cosmo_seq]
