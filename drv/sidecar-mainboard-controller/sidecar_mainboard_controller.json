@@ -1,5 +1,6 @@
 {
     "type": "addrmap",
+    "addr_span_bytes": 777,
     "inst_name": "sidecar_mainboard_controller",
     "addr_offset": 0,
     "children": [
@@ -758,14 +759,36 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "STATE",
+                    "inst_name": "VALUE",
                     "lsb": 0,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Tofino Sequencer State"
+                    "desc": "Tofino Sequencer State",
+                    "encode": [
+                        {
+                            "name": "Init",
+                            "value": 0
+                        },
+                        {
+                            "name": "A2",
+                            "value": 1
+                        },
+                        {
+                            "name": "A0",
+                            "value": 2
+                        },
+                        {
+                            "name": "InPowerUp",
+                            "value": 3
+                        },
+                        {
+                            "name": "InPowerDown",
+                            "value": 4
+                        }
+                    ]
                 }
             ]
         },
@@ -778,14 +801,72 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "STEP",
+                    "inst_name": "VALUE",
                     "lsb": 0,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Sequencing Step"
+                    "desc": "Sequencing Step",
+                    "encode": [
+                        {
+                            "name": "Init",
+                            "value": 0
+                        },
+                        {
+                            "name": "AwaitPowerUp",
+                            "value": 1
+                        },
+                        {
+                            "name": "AwaitVdd18PowerGood",
+                            "value": 2
+                        },
+                        {
+                            "name": "AwaitVddCorePowerGood",
+                            "value": 3
+                        },
+                        {
+                            "name": "AwaitVddPCIePowerGood",
+                            "value": 4
+                        },
+                        {
+                            "name": "AwaitVddtPowerGood",
+                            "value": 5
+                        },
+                        {
+                            "name": "AwaitVdda15PowerGood",
+                            "value": 6
+                        },
+                        {
+                            "name": "AwaitVdda18PowerGood",
+                            "value": 7
+                        },
+                        {
+                            "name": "AwaitPoR",
+                            "value": 8
+                        },
+                        {
+                            "name": "AwaitVidValid",
+                            "value": 9
+                        },
+                        {
+                            "name": "AwaitVidAck",
+                            "value": 10
+                        },
+                        {
+                            "name": "AwaitPowerUpComplete",
+                            "value": 11
+                        },
+                        {
+                            "name": "AwaitPowerDown",
+                            "value": 12
+                        },
+                        {
+                            "name": "AwaitPowerDownComplete",
+                            "value": 13
+                        }
+                    ]
                 }
             ]
         },
@@ -798,14 +879,48 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "ERROR",
+                    "inst_name": "VALUE",
                     "lsb": 0,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Sequencing Error"
+                    "desc": "Sequencing Error",
+                    "encode": [
+                        {
+                            "name": "None",
+                            "value": 0
+                        },
+                        {
+                            "name": "PowerGoodTimeout",
+                            "value": 1
+                        },
+                        {
+                            "name": "PowerFault",
+                            "value": 2
+                        },
+                        {
+                            "name": "PowerVrHot",
+                            "value": 3
+                        },
+                        {
+                            "name": "PowerAbort",
+                            "value": 4
+                        },
+                        {
+                            "name": "SoftwareAbort",
+                            "value": 5
+                        },
+                        {
+                            "name": "VidAckTimeout",
+                            "value": 6
+                        },
+                        {
+                            "name": "ThermalAlert",
+                            "value": 7
+                        }
+                    ]
                 }
             ]
         },
@@ -818,14 +933,36 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "STATE",
+                    "inst_name": "VALUE",
                     "lsb": 0,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Sequencer state when error occured"
+                    "desc": "Tofino Sequencer State",
+                    "encode": [
+                        {
+                            "name": "Init",
+                            "value": 0
+                        },
+                        {
+                            "name": "A2",
+                            "value": 1
+                        },
+                        {
+                            "name": "A0",
+                            "value": 2
+                        },
+                        {
+                            "name": "InPowerUp",
+                            "value": 3
+                        },
+                        {
+                            "name": "InPowerDown",
+                            "value": 4
+                        }
+                    ]
                 }
             ]
         },
@@ -838,14 +975,72 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "STEP",
+                    "inst_name": "VALUE",
                     "lsb": 0,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Sequencing step when error occured"
+                    "desc": "Sequencing Step",
+                    "encode": [
+                        {
+                            "name": "Init",
+                            "value": 0
+                        },
+                        {
+                            "name": "AwaitPowerUp",
+                            "value": 1
+                        },
+                        {
+                            "name": "AwaitVdd18PowerGood",
+                            "value": 2
+                        },
+                        {
+                            "name": "AwaitVddCorePowerGood",
+                            "value": 3
+                        },
+                        {
+                            "name": "AwaitVddPCIePowerGood",
+                            "value": 4
+                        },
+                        {
+                            "name": "AwaitVddtPowerGood",
+                            "value": 5
+                        },
+                        {
+                            "name": "AwaitVdda15PowerGood",
+                            "value": 6
+                        },
+                        {
+                            "name": "AwaitVdda18PowerGood",
+                            "value": 7
+                        },
+                        {
+                            "name": "AwaitPoR",
+                            "value": 8
+                        },
+                        {
+                            "name": "AwaitVidValid",
+                            "value": 9
+                        },
+                        {
+                            "name": "AwaitVidAck",
+                            "value": 10
+                        },
+                        {
+                            "name": "AwaitPowerUpComplete",
+                            "value": 11
+                        },
+                        {
+                            "name": "AwaitPowerDown",
+                            "value": 12
+                        },
+                        {
+                            "name": "AwaitPowerDownComplete",
+                            "value": 13
+                        }
+                    ]
                 }
             ]
         },
