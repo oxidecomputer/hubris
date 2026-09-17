@@ -1294,7 +1294,7 @@ mod idl {
 }
 
 mod generated {
-    include!(concat!(env!("OUT_DIR"), "/cosmo_fpga.rs"));
+    include!(concat!(env!("OUT_DIR"), "/cosmo_metro_fpga.rs"));
 }
 
 mod fmc_periph {

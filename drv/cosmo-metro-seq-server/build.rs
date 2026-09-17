@@ -10,12 +10,13 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_stm32xx_sys::build_gpio_irq_pins()?;
 
     let out_dir = build_util::out_dir();
-    let out_file = out_dir.join("cosmo_fpga.rs");
+    let out_file = out_dir.join("cosmo_metro_fpga.rs");
     let mut file = fs::File::create(out_file)?;
 
     // Check that a valid bitstream is available for this board.
     let board = build_util::env_var("HUBRIS_BOARD")?;
-    if board != "cosmo-a" && board != "cosmo-b" {
+    let supported_boards = ["cosmo-a", "cosmo-b", "metro-a"];
+    if !supported_boards.contains(&board.as_str()) {
         panic!("unknown target board");
     }
 

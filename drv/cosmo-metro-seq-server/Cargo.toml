@@ -1,5 +1,5 @@
 [package]
-name = "drv-cosmo-seq-server"
+name = "drv-cosmo-metro-seq-server"
 version = "0.1.0"
 edition = "2024"
 
@@ -46,7 +46,7 @@ stay-in-a2 = []
 enable-backplane-pcie-clk = []
 
 [[bin]]
-name = "drv-cosmo-seq-server"
+name = "drv-cosmo-metro-seq-server"
 test = false
 doctest = false
 bench = false
