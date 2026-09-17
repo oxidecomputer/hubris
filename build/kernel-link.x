@@ -42,8 +42,14 @@ SECTIONS
   PROVIDE(_stack_start = ORIGIN(RAM) + LENGTH(RAM));
 
   /* ## Sections in FLASH */
+  /* ### RP2040 boot stage */
+  .boot2 ORIGIN(FLASH) :
+  {
+    KEEP(*(.boot2));
+  } > FLASH
+
   /* ### Vector table */
-  .vector_table ORIGIN(FLASH) :
+  .vector_table ORIGIN(FLASH) + SIZEOF(.boot2) :
   {
     __start_vector = .;
     /* Initial Stack Pointer (SP) value */
