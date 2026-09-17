@@ -1200,11 +1200,16 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
-        // The required length for an NMI pulse is apparently not documented.
+        // The AMD PPRs and SP3 motherboard design guide do not specify a
+        // minimum duration for an NMI pulse. On the CPU side, we know the pin
+        // enters the FCH GPIO block and from there feeds the IOHC which turns
+        // it into an NMI (or SYNCFLOOD depending on configuration).
         //
-        // Let's try 25 ms!
+        // The IOHC re-arms the NMI whenever the host acknowledges it while the
+        // pin is still low, so a pulse which outlasts the host's NMI handler
+        // would lead to a burst of NMIs being delivered. Empirically, with
+        // just the delay from the IPC calls here an NMI is reliably detected.
         self.sys.gpio_reset(SP_TO_SP3_NMI_SYNC_FLOOD_L);
-        hl::sleep_for(25);
         self.sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
         Ok(())
     }
