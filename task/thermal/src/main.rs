@@ -76,22 +76,14 @@ enum Trace {
     Start,
     ThermalMode(#[count(children)] ThermalMode),
     AutoState(#[count(children)] ThermalAutoState),
-    PowerDownDueTo(ShutdownReason),
-    CriticalDueTo {
-        sensor_id: SensorId,
-        /// The thermal model's worst-case temperature projection for this
-        /// sensor.
-        ///
-        /// Note that this may not be an *actual temperature measurement*
-        /// from this sensor. Instead, it is projected from the last successful
-        /// temperature reading, the lag since that measurement was received,
-        /// and the thermal model's slew rate for the component.
-        ///
-        /// This ringbuf entry is always followed by a [`LastActualTemperature`]
-        /// entry, which records the last actual temperature measurement
-        /// reported by the sensor.
-        worst_case_temp: Celsius,
-    },
+    /// This ringbuf entry is always followed by a [`LastActualTemperature`]
+    /// entry, which records the last actual temperature measurement
+    /// reported by the sensor.
+    PowerDownDueTo(OffendingSensorInfo),
+    /// This ringbuf entry is always followed by a [`LastActualTemperature`]
+    /// entry, which records the last actual temperature measurement
+    /// reported by the sensor.
+    CriticalDueTo(OffendingSensorInfo),
     /// The last actual temperature measurement reported by a sensor.
     ///
     /// This is recorded after every [`CriticalDueTo`] or [`PowerDownDueTo`]
@@ -158,7 +150,7 @@ counted_ringbuf!(Trace, 32, Trace::None);
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-struct ShutdownReason {
+struct OffendingSensorInfo {
     sensor_id: SensorId,
     /// The thermal model's worst-case temperature projection for this
     /// sensor.
@@ -167,10 +159,6 @@ struct ShutdownReason {
     /// from this sensor. Instead, it is projected from the last successful
     /// temperature reading, the lag since that measurement was received,
     /// and the thermal model's slew rate for the component.
-    ///
-    /// This ringbuf entry is always followed by a [`LastActualTemperature`]
-    /// entry, which records the last actual temperature measurement
-    /// reported by the sensor.
     worst_case_temp: Celsius,
 }
 

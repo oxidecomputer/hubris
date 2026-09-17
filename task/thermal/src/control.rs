@@ -69,7 +69,7 @@
 //!   move the fans to their highest commanded speed when not communicated with
 //!   for a configured time duration.
 
-use crate::{ShutdownReason, ThermalError, Trace, bsp::PowerBitmask};
+use crate::{OffendingSensorInfo, ThermalError, Trace, bsp::PowerBitmask};
 use drv_i2c_devices::max31790::I2cWatchdog;
 
 use microcbor::Encode;
@@ -625,7 +625,7 @@ pub(crate) struct ThermalControl<B: BspInterface> {
 
     // We never read this back, but humility does
     #[allow(dead_code)]
-    last_shutdown_reason: Option<ShutdownReason>,
+    last_shutdown_reason: Option<OffendingSensorInfo>,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
@@ -1325,10 +1325,10 @@ impl<B: BspInterface> ThermalControl<B> {
             last_reading,
             age_s,
         } = worst_case;
-        ringbuf_entry!(Trace::CriticalDueTo {
+        ringbuf_entry!(Trace::CriticalDueTo(OffendingSensorInfo {
             sensor_id,
             worst_case_temp
-        });
+        }));
         ringbuf_entry!(Trace::LastRealTemperature {
             sensor_id,
             temperature: last_reading,
@@ -1376,7 +1376,7 @@ impl<B: BspInterface> ThermalControl<B> {
             last_reading,
             age_s,
         } = worst_case;
-        let reason = ShutdownReason {
+        let reason = OffendingSensorInfo {
             sensor_id,
             worst_case_temp,
         };
