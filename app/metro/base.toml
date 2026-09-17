@@ -102,10 +102,10 @@ notifications = ["exti-wildcard-irq"]
 "exti.exti9_5" = "exti-wildcard-irq"
 "exti.exti15_10" = "exti-wildcard-irq"
 
-# [tasks.sys.config.gpio-irqs.rot_irq]
-# port = "F"
-# pin = 2
-# owner = {name = "sprot", notification = "rot_irq"}
+[tasks.sys.config.gpio-irqs.rot_irq]
+port = "F"
+pin = 2
+owner = {name = "sprot", notification = "rot_irq"}
 
 # [tasks.sys.config.gpio-irqs.seq_irq]
 # # FPGA1_TO_SP_IRQ1_L
@@ -125,18 +125,18 @@ stacksize = 872
 task-slots = ["sys"]
 notifications = ["spi-irq"]
 
-# # XXX this is only used by metro_seq; could we merge it?
-# [tasks.spi3_driver]
-# name = "drv-stm32h7-spi-server"
-# priority = 3
-# max-sizes = {flash = 16384, ram = 4096}
-# features = ["spi3", "h753"]
-# uses = ["spi3"]
-# start = true
-# interrupts = {"spi3.irq" = "spi-irq"}
-# stacksize = 872
-# task-slots = ["sys"]
-# notifications = ["spi-irq"]
+# XXX this is only used by metro_seq; could we merge it?
+[tasks.spi3_driver]
+name = "drv-stm32h7-spi-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+features = ["spi3", "h753"]
+uses = ["spi3"]
+start = true
+interrupts = {"spi3.irq" = "spi-irq"}
+stacksize = 872
+task-slots = ["sys"]
+notifications = ["spi-irq"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
@@ -212,9 +212,11 @@ features = [
     "turbo",
 
     # TODO: Re-enable these once the tasks are available!
-    # "qspi",
     # "hash",
-    # "sprot",
+    #
+    # NOTE: We have qspi, but not `hf`, and this feature gates the task slot for
+    # the `hf` task.
+    # "qspi",
 ]
 priority = 7
 max-sizes = {flash = 32768, ram = 65536 }
@@ -228,7 +230,6 @@ task-slots = [
     # TODO: Re-enable these once the tasks are available!
     # "hf",
     # "hash_driver",
-    # "sprot",
 ]
 notifications = ["timer"]
 
@@ -300,12 +301,12 @@ extern-regions = ["bank2"]
 interrupts = {"flash_controller.irq" = "flash-irq"}
 notifications = ["flash-irq"]
 
-# [tasks.sensor]
-# name = "task-sensor"
-# priority = 4
-# max-sizes = {flash = 16384, ram = 16384 }
-# stacksize = 1024
-# start = true
+[tasks.sensor]
+name = "task-sensor"
+priority = 4
+max-sizes = {flash = 16384, ram = 16384 }
+stacksize = 1024
+start = true
 
 # [tasks.host_sp_comms]
 # name = "task-host-sp-comms"
@@ -373,17 +374,17 @@ notifications = ["socket"]
 # notifications = ["usart-irq", "socket", "timer"]
 # interrupts = {"usart1.irq" = "usart-irq"}
 
-# [tasks.sprot]
-# name = "drv-stm32h7-sprot-server"
-# priority = 4
-# max-sizes = {flash = 65536, ram = 32768}
-# stacksize = 16384
-# start = true
-# task-slots = ["sys"]
-# features = ["sink_test", "use-spi-core", "h753", "spi5"]
-# uses = ["spi5"]
-# notifications = ["spi-irq", "rot-irq", "timer"]
-# interrupts = {"spi5.irq" = "spi-irq"}
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 4
+max-sizes = {flash = 65536, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys"]
+features = ["sink_test", "use-spi-core", "h753", "spi5"]
+uses = ["spi5"]
+notifications = ["spi-irq", "rot-irq", "timer"]
+interrupts = {"spi5.irq" = "spi-irq"}
 
 [tasks.validate]
 name = "task-validate"
@@ -393,13 +394,13 @@ stacksize = 1000
 start = true
 task-slots = ["i2c_driver"]
 
-# [tasks.vpd]
-# name = "task-vpd"
-# priority = 4
-# max-sizes = {flash = 8192, ram = 1024}
-# start = true
-# task-slots = ["sys", "i2c_driver"]
-# stacksize = 800
+[tasks.vpd]
+name = "task-vpd"
+priority = 4
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
 
 [tasks.user_leds]
 name = "drv-user-leds"
@@ -418,8 +419,7 @@ start = true
 task-slots = [
     "jefe",
     "net",
-    # TODO: remove no-rot features, re-enable the following slots when possible
-    # "sprot",
+    "sprot",
 ]
 stacksize = 2400
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
@@ -427,8 +427,6 @@ notifications = ["socket"]
 features = [
     "net",
     "vlan",
-    # TODO: Remove me
-    "no-rot"
 ]
 
 [tasks.snitch]
@@ -452,17 +450,17 @@ notifications = ["socket"]
 # uses = ["mmio_dimms"]
 # stacksize = 976
 
-# [tasks.auxflash]
-# name = "drv-auxflash-server"
-# priority = 3
-# max-sizes = {flash = 32768, ram = 4096}
-# features = ["h753", "fast-qspi"]
-# uses = ["quadspi"]
-# start = true
-# notifications = ["qspi-irq"]
-# interrupts = {"quadspi.irq" = "qspi-irq"}
-# stacksize = 3504
-# task-slots = ["sys"]
+[tasks.auxflash]
+name = "drv-auxflash-server"
+priority = 3
+max-sizes = {flash = 32768, ram = 4096}
+features = ["h753", "fast-qspi"]
+uses = ["quadspi"]
+start = true
+notifications = ["qspi-irq"]
+interrupts = {"quadspi.irq" = "qspi-irq"}
+stacksize = 3504
+task-slots = ["sys"]
 
 [tasks.idle]
 name = "task-idle"
@@ -1496,48 +1494,48 @@ input = {port = "I", pin = 2, af = 5}
 mux = "port_i"
 cs = [{port = "I", pin = 0}] # SPI_SP_TO_KSZ8463_CS_L
 
-# ################################################################################
-# # SPI3 goes through a mux controlled by the main FPGA (FPGA1), and can talk to
-# # either the front FPGA (FPGA2) or the Ignition flash chip
-# [config.spi.spi3]
-# controller = 3
+################################################################################
+# SPI3 goes through a mux controlled by the main FPGA (FPGA1), and can talk to
+# either the front FPGA (FPGA2) or the Ignition flash chip
+[config.spi.spi3]
+controller = 3
 
-# # SPI_SP_TO_SP_MUX_SCK (PC10)
-# # SPI_SP_TO_SP_MUX_DAT (PB5)
-# # SPI_SP_MUX_TO_SP_DAT (PC11)
-# [config.spi.spi3.mux_options.port_c]
-# outputs = [
-#     { port = "C", pins = [10], af = 6},
-#     { port = "B", pins = [5], af = 7},
-# ]
-# input = {port = "C", pin = 11, af = 6}
+# SPI_SP_TO_SP_MUX_SCK (PC10)
+# SPI_SP_TO_SP_MUX_DAT (PB5)
+# SPI_SP_MUX_TO_SP_DAT (PC11)
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    { port = "C", pins = [10], af = 6},
+    { port = "B", pins = [5], af = 7},
+]
+input = {port = "C", pin = 11, af = 6}
 
-# [config.spi.spi3.devices.mux]
-# mux = "port_c"
-# cs = [{port = "A", pin = 15}] # SPI_SP_TO_SP_MUX_CS_L
+[config.spi.spi3.devices.mux]
+mux = "port_c"
+cs = [{port = "A", pin = 15}] # SPI_SP_TO_SP_MUX_CS_L
 
-# ################################################################################
+################################################################################
 
-# [config.spi.spi5]
-# controller = 5
+[config.spi.spi5]
+controller = 5
 
-# # SPI_SP_TO_ROT_DAT (PJ10)
-# # SPI_ROT_TO_SP_DAT (PJ11)
-# # SPI_SP_TO_ROT_SCK (PK0)
-# [config.spi.spi5.mux_options.port_j]
-# outputs = [
-#     {port = "J", pins = [10], af = 5},
-#     {port = "K", pins = [0], af = 5},
-# ]
-# input = {port = "J", pin = 11, af = 5}
+# SPI_SP_TO_ROT_DAT (PJ10)
+# SPI_ROT_TO_SP_DAT (PJ11)
+# SPI_SP_TO_ROT_SCK (PK0)
+[config.spi.spi5.mux_options.port_j]
+outputs = [
+    {port = "J", pins = [10], af = 5},
+    {port = "K", pins = [0], af = 5},
+]
+input = {port = "J", pin = 11, af = 5}
 
-# # SPI_SP_TO_ROT_CL_L (PK1)
-# [config.spi.spi5.devices.rot]
-# mux = "port_j"
-# cs = [{port = "K", pin = 1}]
-# clock_divider = "DIV256"
+# SPI_SP_TO_ROT_CL_L (PK1)
+[config.spi.spi5.devices.rot]
+mux = "port_j"
+cs = [{port = "K", pin = 1}]
+clock_divider = "DIV256"
 
-# ################################################################################
+################################################################################
 
 # VLAN configuration
 [config.net.vlans.sidecar1]
@@ -1589,18 +1587,22 @@ tx = { packets = 3, bytes = 1024 }
 # that size...
 rx = { packets = 3, bytes = 35 }
 
-# [config.auxflash]
-# memory-size = 33_554_432 # 256 Mib / 32 MiB
-# slot-count = 16 # 2 MiB slots
+[config.auxflash]
+memory-size = 33_554_432 # 256 Mib / 32 MiB
+slot-count = 16 # 2 MiB slots
 
-# [[auxflash.blobs]]
-# file = "drv/spartan7-loader/metro-seq/metro_seq.bz2"
-# unzip = "bz2"
-# compress = true
-# tag = "SPA7"
+# TODO! These are cosmo blobs for now, as we can't uncomment the auxflash-server
+# if there are no blobs defined. This *must* be changed before we run this
+# firmware on real hardware!
 
-# [[auxflash.blobs]]
-# file = "drv/metro-seq-server/metro-hp/metro_hp.bz2"
-# unzip = "bz2"
-# compress = true
-# tag = "ICE4"
+[[auxflash.blobs]]
+file = "drv/spartan7-loader/cosmo-seq/cosmo_seq.bz2"
+unzip = "bz2"
+compress = true
+tag = "SPA7"
+
+[[auxflash.blobs]]
+file = "drv/cosmo-seq-server/cosmo-hp/cosmo_hp.bz2"
+unzip = "bz2"
+compress = true
+tag = "ICE4"
