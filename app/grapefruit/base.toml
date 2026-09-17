@@ -330,7 +330,7 @@ uses = ["mmio_base", "mmio_spi_nor", "mmio_espi", "mmio_sgpio"]
 notifications = ["socket"]
 
 [tasks.hf]
-name = "drv-cosmo-hf"
+name = "drv-cosmo-metro-hf"
 priority = 5
 start = true
 uses = ["mmio_base", "mmio_spi_nor"]

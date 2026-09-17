@@ -1294,7 +1294,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-cosmo-hf"
+name = "drv-cosmo-metro-hf"
 version = "0.1.0"
 dependencies = [
  "apob",
@@ -1322,7 +1322,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-cosmo-seq-server"
+name = "drv-cosmo-metro-seq-server"
 version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",

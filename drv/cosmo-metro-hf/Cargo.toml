@@ -1,5 +1,5 @@
 [package]
-name = "drv-cosmo-hf"
+name = "drv-cosmo-metro-hf"
 version = "0.1.0"
 edition = "2024"
 
@@ -31,7 +31,7 @@ build-fpga-regmap = { path = "../../build/fpga-regmap" }
 idol = { workspace = true }
 
 [[bin]]
-name = "drv-cosmo-hf"
+name = "drv-cosmo-metro-hf"
 test = false
 doctest = false
 bench = false

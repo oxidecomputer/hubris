@@ -12,12 +12,9 @@ features = [
 ]
 extern-regions = [{ region = "dtcm", shared = true }]
 
-# AJM 2026-09-07: All of these sections are compiled out! We need to review
-# and port them for the new hardware.
-
-# [mmio]
-# peripheral-region = "fmc_nor_psram_bank_1"
-# register-map = "../../drv/spartan7-loader/metro-seq/metro_seq_top.json"
+[mmio]
+peripheral-region = "fmc_nor_psram_bank_1"
+register-map = "../../drv/spartan7-loader/metro-seq/metro_seq_top.json"
 
 [caboose]
 tasks = [
@@ -107,11 +104,11 @@ port = "F"
 pin = 2
 owner = {name = "sprot", notification = "rot_irq"}
 
-# [tasks.sys.config.gpio-irqs.seq_irq]
-# # FPGA1_TO_SP_IRQ1_L
-# port = "F"
-# pin = 5
-# owner = {name = "metro_seq", notification = "seq_irq"}
+[tasks.sys.config.gpio-irqs.seq_irq]
+# FPGA1_TO_SP_IRQ1_L
+port = "F"
+pin = 5
+owner = {name = "metro_seq", notification = "seq_irq"}
 
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
@@ -233,16 +230,16 @@ task-slots = [
 ]
 notifications = ["timer"]
 
-# [tasks.metro_seq]
-# name = "drv-metro-seq-server"
-# features = ["h753"]
-# priority = 7
-# max-sizes = {flash = 131072, ram = 32768 }
-# stacksize = 3200
-# start = true
-# task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader", "hf"]
-# uses = ["mmio_sequencer", "mmio_info", "mmio_espi", "mmio_debug_ctrl"]
-# notifications = ["timer", "vcore", "seq-irq"]
+[tasks.metro_seq]
+name = "drv-cosmo-metro-seq-server"
+features = ["h753"]
+priority = 7
+max-sizes = {flash = 131072, ram = 32768 }
+stacksize = 3200
+start = true
+task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader", "hf"]
+uses = ["mmio_sequencer", "mmio_info", "mmio_espi", "mmio_debug_ctrl"]
+notifications = ["timer", "vcore", "seq-irq"]
 
 # [tasks.ignition_flash]
 # name = "drv-ignition-flash"
@@ -252,43 +249,43 @@ notifications = ["timer"]
 # task-slots = ["sys", {spi_front = "spi3_driver"}, "spartan7_loader"]
 # uses = ["mmio_sequencer"] # TODO make the mux a separate peripheral
 
-# [tasks.spartan7_loader]
-# name = "drv-spartan7-loader"
-# features = ["h753"]
-# priority = 4
-# max-sizes = {flash = 131072, ram = 16384 }
-# stacksize = 2600
-# start = true
-# task-slots = ["sys", {spi = "spi2_driver"}, "auxflash"]
-# copy-to-archive = ["register_defs"]
+[tasks.spartan7_loader]
+name = "drv-spartan7-loader"
+features = ["h753"]
+priority = 4
+max-sizes = {flash = 131072, ram = 16384 }
+stacksize = 2600
+start = true
+task-slots = ["sys", {spi = "spi2_driver"}, "auxflash"]
+copy-to-archive = ["register_defs"]
 
-# [tasks.spartan7_loader.config]
-# program_l = "sys_api::Port::B.pin(1)"
-# init_l = "sys_api::Port::B.pin(6)"
-# config_done = "sys_api::Port::B.pin(4)"
-# user_reset_l = "sys_api::Port::A.pin(6)"
-# register_defs = "metro-seq/*.json"
+[tasks.spartan7_loader.config]
+program_l = "sys_api::Port::B.pin(1)"
+init_l = "sys_api::Port::B.pin(6)"
+config_done = "sys_api::Port::B.pin(4)"
+user_reset_l = "sys_api::Port::A.pin(6)"
+register_defs = "metro-seq/*.json"
 
-# [tasks.hash_driver]
-# name = "drv-stm32h7-hash-server"
-# features = ["h753"]
-# priority = 2
-# max-sizes = {flash = 16384, ram=4096 }
-# stacksize = 2048
-# start = true
-# uses = ["hash"]
-# interrupts = {"hash.irq" = "hash-irq"}
-# task-slots = ["sys"]
-# notifications = ["hash-irq"]
+[tasks.hash_driver]
+name = "drv-stm32h7-hash-server"
+features = ["h753"]
+priority = 2
+max-sizes = {flash = 16384, ram=4096 }
+stacksize = 2048
+start = true
+uses = ["hash"]
+interrupts = {"hash.irq" = "hash-irq"}
+task-slots = ["sys"]
+notifications = ["hash-irq"]
 
-# [tasks.hf]
-# name = "drv-metro-hf"
-# priority = 6
-# start = true
-# uses = ["mmio_spi_nor"]
-# task-slots = ["hash_driver", "spartan7_loader"]
-# stacksize = 4000
-# notifications = ["timer"]
+[tasks.hf]
+name = "drv-cosmo-metro-hf"
+priority = 6
+start = true
+uses = ["mmio_spi_nor"]
+task-slots = ["hash_driver", "spartan7_loader"]
+stacksize = 4000
+notifications = ["timer"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -1591,18 +1588,14 @@ rx = { packets = 3, bytes = 35 }
 memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
-# TODO! These are cosmo blobs for now, as we can't uncomment the auxflash-server
-# if there are no blobs defined. This *must* be changed before we run this
-# firmware on real hardware!
-
 [[auxflash.blobs]]
-file = "drv/spartan7-loader/cosmo-seq/cosmo_seq.bz2"
+file = "drv/spartan7-loader/metro-seq/metro_seq.bz2"
 unzip = "bz2"
 compress = true
 tag = "SPA7"
 
 [[auxflash.blobs]]
-file = "drv/cosmo-seq-server/cosmo-hp/cosmo_hp.bz2"
+file = "drv/cosmo-metro-seq-server/cosmo-metro-hp/cosmo_hp.bz2"
 unzip = "bz2"
 compress = true
 tag = "ICE4"
