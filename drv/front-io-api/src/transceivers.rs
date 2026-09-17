@@ -138,7 +138,7 @@ impl LogicalPort {
     }
 }
 
-/// Implement the ringbuf trait on LogicalPort to allow for per-port metrics
+/// Implement the `Count` trait on `LogicalPort` to allow for per-port metrics
 impl Count for LogicalPort {
     type Counters = [AtomicU32; NUM_PORTS as usize];
 

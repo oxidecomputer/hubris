@@ -136,11 +136,19 @@ enum Trace {
 
 counted_ringbuf!(Trace, 16, Trace::None);
 
+/// A record of a "temperature glitch" event where two subsequent samples
+/// disagreed by more than `MAX_RESAMPLE_VARIANCE_CELSIUS`.
 #[derive(PartialEq, Debug, Clone, Copy)]
 struct TempGlitch {
+    /// The port this was observed on
     port: LogicalPort,
+    /// The first temperature reading
     first: Celsius,
+    /// The second temperature reading
     second: Celsius,
+    /// The system time in millis that this glitch was observed (sampled after
+    /// detection occurred)
+    timestamp_ms: u64,
 }
 
 impl TempGlitch {
@@ -155,6 +163,7 @@ impl TempGlitch {
         port: LogicalPort(0),
         first: Celsius(0.0),
         second: Celsius(0.0),
+        timestamp_ms: 0,
     };
 }
 
@@ -216,6 +225,10 @@ const MAX_CONSECUTIVE_ERRORS: u8 = 3;
 /// This number is a "wild guess", but across two readings a few milliseconds
 /// apart, we expect very little difference (probably <1.0C), even factoring in
 /// potential sample noise and precision limitations.
+///
+/// In initial testing, we've not observed > 0.5C variance between subsequent
+/// samples, still, we'll use a very conservative "glitch" threshold here before
+/// discarding temperature samples.
 const MAX_RESAMPLE_VARIANCE_CELSIUS: f32 = 5.0f32;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -248,7 +261,7 @@ struct PortData {
 }
 
 impl PortData {
-    /// New metadata with no model and zeroed counters/stats
+    /// New port data with no model and zeroed counters/stats
     const fn new() -> Self {
         Self {
             consecutive_errors: 0,
@@ -281,7 +294,7 @@ struct ServerImpl {
     blink_on: bool,
     system_led_state: LedState,
 
-    // TODO(AJM): move these two into port metadata? It's less efficient than
+    // TODO(AJM): move these two into port data? It's less efficient than
     // a pair of bitmasks, but might be easier to keep all the per-port state
     // in a single place, maybe with a more explicit state machine. It would
     // require some rework, as the logic is currently very bitmask-set oriented
@@ -523,10 +536,23 @@ impl XcvrApi {
         port: LogicalPort,
         m: &ThermalModel,
     ) -> Result<(Celsius, f32), TempReadError> {
+        // Decide which function we will use for reading temperature
+        let func = match m.interface {
+            ManagementInterface::Cmis => Self::read_cmis_temperature,
+            ManagementInterface::Sff8636 => Self::read_sff8636_temperature,
+            ManagementInterface::Unknown(..) => {
+                // We should never get here, because we only assign
+                // `self.thermal_models[i]` if the management interface is
+                // known.
+                return Err(TempReadError::UnknownInterface);
+            }
+        };
+
         // Attempt to get the temperature twice to determine if we get a stable
         // temperature. If either attempt fails, just return the error.
-        let a = self.get_temperature_once(port, m)?;
-        let b = self.get_temperature_once(port, m)?;
+        let a = func(self, port)?;
+        let b = func(self, port)?;
+
         let diff = (a.0 - b.0).abs();
 
         // It has probably been milliseconds, we don't expect the temperature
@@ -539,31 +565,13 @@ impl XcvrApi {
                     port,
                     first: a,
                     second: b,
+                    timestamp_ms: sys_get_timer().now,
                 }
             );
             Err(TempReadError::UnexpectedVariance(diff))
         } else {
             Ok((a, diff))
         }
-    }
-
-    fn get_temperature_once(
-        &self,
-        port: LogicalPort,
-        m: &ThermalModel,
-    ) -> Result<Celsius, TempReadError> {
-        let res = match m.interface {
-            ManagementInterface::Cmis => self.read_cmis_temperature(port),
-            ManagementInterface::Sff8636 => self.read_sff8636_temperature(port),
-            ManagementInterface::Unknown(..) => {
-                // We should never get here, because we only assign
-                // `self.thermal_models[i]` if the management interface is
-                // known.
-                return Err(TempReadError::UnknownInterface);
-            }
-        }?;
-
-        Ok(res)
     }
 }
 
@@ -581,7 +589,7 @@ impl ServerImpl {
             ..
         } = self;
 
-        for (i, meta) in ports.iter_mut().enumerate() {
+        for (i, data) in ports.iter_mut().enumerate() {
             let port_idx = i as u8;
             let port = LogicalPort(port_idx);
             let mask = 1 << i;
@@ -592,10 +600,10 @@ impl ServerImpl {
 
             // A wild transceiver just appeared!  Read it to decide whether it's
             // using SFF-8636 or CMIS.
-            if operational && meta.model.is_none() {
+            if operational && data.model.is_none() {
                 match xcvr_api.get_transceiver_interface(port) {
                     Ok(interface) => {
-                        meta.init(xcvr_api.decode_interface(port, interface));
+                        data.init(xcvr_api.decode_interface(port, interface));
                     }
                     Err(FpgaError::ImplError(e)) => {
                         match Reg::QSFP::PORT0_STATUS::ErrorEncoded::try_from(e)
@@ -623,7 +631,7 @@ impl ServerImpl {
                         });
                     }
                 }
-            } else if !operational && meta.model.is_some() {
+            } else if !operational && data.model.is_some() {
                 #[cfg(feature = "thermal-control")]
                 {
                     // This transceiver went away; remove it from the thermal loop
@@ -645,16 +653,16 @@ impl ServerImpl {
                         port
                     });
                 }
-                meta.model = None;
+                data.model = None;
             }
         }
 
         // Accumulate ports to disable (but don't disable them in the loop), to
         // avoid issues with the borrow checker.
         let mut to_disable = LogicalPortMask(0);
-        for (i, meta) in ports.iter_mut().enumerate() {
+        for (i, data) in ports.iter_mut().enumerate() {
             let port = LogicalPort(i as u8);
-            let Some(m) = meta.model.as_ref() else {
+            let Some(m) = data.model.as_ref() else {
                 continue;
             };
 
@@ -676,15 +684,15 @@ impl ServerImpl {
             // Sample the transceiver temperature multiple times, seeing if
             // we are successful and the samples are steady enough to report.
             let res = xcvr_api.get_temperature_resample(port, m);
-            meta.total_temp_samples = meta.total_temp_samples.saturating_add(1);
+            data.total_temp_samples = data.total_temp_samples.saturating_add(1);
             match res {
                 Ok((reading, diff)) => {
                     sensor_api.post_now(
                         TRANSCEIVER_TEMPERATURE_SENSORS[i],
                         reading.0,
                     );
-                    meta.peak_diff = meta.peak_diff.max(diff);
-                    meta.consecutive_errors = 0;
+                    data.peak_diff = data.peak_diff.max(diff);
+                    data.consecutive_errors = 0;
                 }
                 Err(e) => {
                     // Log error to ringbuf
@@ -699,22 +707,22 @@ impl ServerImpl {
                         | TempReadError::UnexpectedFpgaErr(_) => {}
                         // This would *increment* consecutive errors
                         TempReadError::PotentialRemoval(_) => {
-                            meta.consecutive_errors =
-                                meta.consecutive_errors.saturating_add(1);
+                            data.consecutive_errors =
+                                data.consecutive_errors.saturating_add(1);
                         }
                         // We probably don't want to count this against the
                         // device, since it could have been a momentary I2C
                         // glitch.
                         TempReadError::UnexpectedVariance(diff) => {
-                            meta.peak_diff = meta.peak_diff.max(diff);
-                            meta.discarded_temps =
-                                meta.discarded_temps.saturating_add(1);
+                            data.peak_diff = data.peak_diff.max(diff);
+                            data.discarded_temps =
+                                data.discarded_temps.saturating_add(1);
                         }
                     }
                 }
             }
 
-            if meta.consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
+            if data.consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
                 to_disable.set(port);
             }
         }
