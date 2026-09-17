@@ -32,6 +32,17 @@ of the following is acceptable:
   address register. Nothing is appended to the response.
 - `poke_advance` (13/14/15/16) operate like the corresponding `poke` operations,
   but also advance the address register by the size of data being operated on.
+- `peek_block_checksum` (17), followed by a 16-bit count, reads that many
+  32-bit words starting at the address register (advancing it past the block)
+  and appends a single 32-bit wrapping-sum checksum to the response. Because
+  the response size does not scale with the count, the request's duration is
+  dominated by the bus accesses themselves; this is the op to use for
+  measuring FMC line rate.
+- `peek_block_checksum_fixed` (18) is the same but re-reads the address
+  register's location `count` times without advancing.
+- `poke_block_fill` (19), followed by a 16-bit count and a 32-bit value,
+  writes the value to the address register's location `count` times without
+  advancing.
 
 The response starts with a single byte, which is zero for success and non-zero
 for failure. On success, the results of all peek operations are concatenated
