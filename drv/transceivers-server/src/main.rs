@@ -226,7 +226,7 @@ const MAX_CONSECUTIVE_ERRORS: u8 = 3;
 /// apart, we expect very little difference (probably <1.0C), even factoring in
 /// potential sample noise and precision limitations.
 ///
-/// In initial testing, we've not observed > 0.5C variance between subsequent
+/// In initial testing, we observed up to ~1.0C variance between subsequent
 /// samples, still, we'll use a very conservative "glitch" threshold here before
 /// discarding temperature samples.
 const MAX_RESAMPLE_VARIANCE_CELSIUS: f32 = 5.0f32;
