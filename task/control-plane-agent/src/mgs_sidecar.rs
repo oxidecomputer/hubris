@@ -661,7 +661,20 @@ impl SpHandler for MgsHandler {
                         use drv_sprot_api::{LifecycleState, SpRot};
                         let sprot =
                             SpRot::from(crate::mgs_common::SPROT.get_task_id());
+                        // First, consult the root of trust to determine which
+                        // kind of challenge to perform. We don't actually need
+                        // the RoT's assistance to verify the challenge, but we
+                        // decide whether to perform the "real" challenge or not
+                        // based on whether the RoT is release-signed (which
+                        // would indicate we are a production system).
                         let challenge = match sprot.lifecycle_state() {
+                            // If the RoT provides a positive indication that we
+                            // are *not* a production-signed system (i.e. we are
+                            // an internal dev system, we have not yet been
+                            // programmed at the factory, or we have been
+                            // decommissioned), Oxide support keys are not
+                            // required to unlock the technician port. In this
+                            // case, we perform a "trivial" challenge.
                             Ok(
                                 LifecycleState::Development
                                 | LifecycleState::Unprogrammed
@@ -671,6 +684,10 @@ impl SpHandler for MgsHandler {
                                 UnlockChallenge::Trivial { timestamp }
                             }
 
+                            // This is a production system. Oxide support keys
+                            // are required to unlock the techport, so perform
+                            // the ECDSA-SHA2-NISTp256 challenge against those
+                            // keys.
                             Ok(LifecycleState::Release) => {
                                 UnlockChallenge::EcdsaSha2Nistp256(
                                     get_ecdsa_challenge()?,
@@ -696,6 +713,8 @@ impl SpHandler for MgsHandler {
                             // system can still be debugged, if a valid
                             // credential is provided.
                             Err(error) => {
+                                // TODO(eliza): it may be worth sending an
+                                // ereport here as well?
                                 ringbuf_entry!(Trace::RotLifecycleReadFailed(
                                     error
                                 ));
