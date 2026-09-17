@@ -183,9 +183,9 @@ impl Count for TempGlitch {
     }
 }
 
-// Keep counters each time the delta between two samples exceeds the value
-// of `MAX_RESAMPLE_VARIANCE_CELSIUS`. This also counts how often it happens
-// on a per-port basis, as well as the last 32 instances it has been observed.
+// Keep a record of the last 32 times the delta between two samples exceeded
+// the value of `MAX_RESAMPLE_VARIANCE_CELSIUS`. This also counts the total
+// number of times it has happened on a per-port basis.
 //
 // This augments the per-port info kept in [`PortData`].
 //
@@ -537,7 +537,7 @@ impl XcvrApi {
         m: &ThermalModel,
     ) -> Result<(Celsius, f32), TempReadError> {
         // Decide which function we will use for reading temperature
-        let func = match m.interface {
+        let read_temp = match m.interface {
             ManagementInterface::Cmis => Self::read_cmis_temperature,
             ManagementInterface::Sff8636 => Self::read_sff8636_temperature,
             ManagementInterface::Unknown(..) => {
@@ -550,8 +550,8 @@ impl XcvrApi {
 
         // Attempt to get the temperature twice to determine if we get a stable
         // temperature. If either attempt fails, just return the error.
-        let a = func(self, port)?;
-        let b = func(self, port)?;
+        let a = read_temp(self, port)?;
+        let b = read_temp(self, port)?;
 
         let diff = (a.0 - b.0).abs();
 
