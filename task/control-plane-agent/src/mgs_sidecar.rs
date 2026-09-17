@@ -97,6 +97,7 @@ enum Trace {
     WrongKey,
     UntrustedResponse(GwMonorailError),
     RngFillFailed(drv_rng_api::RngError),
+    RotLifecycleReadFailed(#[count(children)] drv_sprot_api::StateOrSprotError),
 }
 counted_ringbuf!(Trace, 16, Trace::None);
 
@@ -660,29 +661,65 @@ impl SpHandler for MgsHandler {
                         use drv_sprot_api::{LifecycleState, SpRot};
                         let sprot =
                             SpRot::from(crate::mgs_common::SPROT.get_task_id());
+                        // First, consult the root of trust to determine which
+                        // kind of challenge to perform. We don't actually need
+                        // the RoT's assistance to verify the challenge, but we
+                        // decide whether to perform the "real" challenge or not
+                        // based on whether the RoT is release-signed (which
+                        // would indicate we are a production system).
                         let challenge = match sprot.lifecycle_state() {
+                            // If the RoT provides a positive indication that we
+                            // are *not* a production-signed system (i.e. we are
+                            // an internal dev system, we have not yet been
+                            // programmed at the factory, or we have been
+                            // decommissioned), Oxide support keys are not
+                            // required to unlock the technician port. In this
+                            // case, we perform a "trivial" challenge.
                             Ok(
                                 LifecycleState::Development
                                 | LifecycleState::Unprogrammed
                                 | LifecycleState::EndOfLife,
-                            )
-                            | Err(_) => {
-                                // Right now, we fail open if we can't talk to
-                                // the RoT.  This is intentional: the RoT
-                                // protocol has checksum / retries, so we
-                                // shouldn't see spurious failures.  If
-                                // something has gone sufficiently wrong that we
-                                // can't talk to the RoT, then we probably want
-                                // to fail into a state where we can debug the
-                                // system over the tech port.
-                                //
-                                // XXX we may want to reevaluate this in the
-                                // future!
+                            ) => {
                                 let timestamp = sys_get_timer().now;
                                 UnlockChallenge::Trivial { timestamp }
                             }
 
+                            // This is a production system. Oxide support keys
+                            // are required to unlock the techport, so perform
+                            // the ECDSA-SHA2-NISTp256 challenge against those
+                            // keys.
                             Ok(LifecycleState::Release) => {
+                                UnlockChallenge::EcdsaSha2Nistp256(
+                                    get_ecdsa_challenge()?,
+                                )
+                            }
+
+                            // If we cannot get the RoT's lifecycle state, it
+                            // may be transiently in reset, such as in order to
+                            // perform a RoT firmware update. Therefore, we fall
+                            // back to the ECDSA challenge, as though we were a
+                            // release system. While this means a Development or
+                            // Unprogrammed system may transiently perform a
+                            // real challenge rather than the trivial challenge,
+                            // this is better than failing open in a Release
+                            // system
+                            //
+                            // Performing the Release ECDSA challenge does not
+                            // actually require talking to the RoT beyond this
+                            // code for determining the lifecycle state, so the
+                            // Release challenge we perform in this case will
+                            // still allow the techport to be unlocked. This
+                            // means that if the RoT failure is persistent, the
+                            // system can still be debugged, if a valid
+                            // credential is provided.
+                            //
+                            // TODO(eliza): it may be worth sending an ereport
+                            // here as well? See:
+                            // https://github.com/oxidecomputer/hubris/issues/2698
+                            Err(error) => {
+                                ringbuf_entry!(Trace::RotLifecycleReadFailed(
+                                    error
+                                ));
                                 UnlockChallenge::EcdsaSha2Nistp256(
                                     get_ecdsa_challenge()?,
                                 )
