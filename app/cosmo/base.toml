@@ -154,7 +154,7 @@ priority = 8
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 3000
 start = true
-task-slots = ["i2c_driver", "sensor", "cosmo_seq", "jefe"]
+task-slots = ["i2c_driver", "sensor", "cosmo_seq", "packrat"]
 notifications = ["timer"]
 
 [tasks.power]
@@ -169,7 +169,7 @@ notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "turbo"]
 priority = 7
 max-sizes = {flash = 32768, ram = 65536 }
 stacksize = 1328
@@ -968,6 +968,7 @@ mux = 1
 segment = 7
 address = 0b1010_000
 device = "at24csw080"
+eeprom-vpd = "sled-fan-tray"
 description = "Fan VPD"
 refdes = ["J34", "U1"]
 name = "fan_vpd"

@@ -55,8 +55,12 @@ mod server;
     path = "bsp/minibar.rs"
 )]
 #[cfg_attr(
-    any(target_board = "cosmo-a", target_board = "cosmo-b",),
-    path = "bsp/cosmo_ab.rs"
+    any(
+        target_board = "cosmo-a",
+        target_board = "cosmo-b",
+        target_board = "metro-a",
+    ),
+    path = "bsp/cosmo_ab_metro_a.rs"
 )]
 mod bsp;
 

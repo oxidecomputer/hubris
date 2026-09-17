@@ -11,6 +11,403 @@ pub mod devices {
 
     #[allow(dead_code)]
     #[allow(clippy::match_single_binding)]
+    pub fn device_by_index(task: TaskId, index: usize) -> Option<I2cDevice> {
+        match index {
+            0 => Some(
+                // Fan 1 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x10,
+                ),
+            ),
+            1 => Some(
+                // Fan 0/1 controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x23,
+                ),
+            ),
+            2 => Some(
+                // North-northeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x49,
+                ),
+            ),
+            3 => Some(
+                // TF2 VDD rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x63,
+                ),
+            ),
+            4 => Some(
+                // Northeast fan mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    None,
+                    0x70,
+                ),
+            ),
+            5 => Some(
+                // Fan 0 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+            ),
+            6 => Some(
+                // V3P3_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x1a,
+                ),
+            ),
+            7 => Some(
+                // Northeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+            ),
+            8 => Some(
+                // 54V hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x16,
+                ),
+            ),
+            9 => Some(
+                // V5P0_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+            ),
+            10 => Some(
+                // North-northwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ),
+            ),
+            11 => Some(
+                // TF2 temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x4c,
+                ),
+            ),
+            12 => Some(
+                // TF2 VDDA rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x60,
+                ),
+            ),
+            13 => Some(
+                // Intermediate bus converter
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x67,
+                ),
+            ),
+            14 => Some(
+                // Fan 2 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x13,
+                ),
+            ),
+            15 => Some(
+                // Fan 3 hot swap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x10,
+                ),
+            ),
+            16 => Some(
+                // Northwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+            ),
+            17 => Some(
+                // Fan 2/3 controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x20,
+                ),
+            ),
+            18 => Some(
+                // Northwest fan mux
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    None,
+                    0x70,
+                ),
+            ),
+            19 => Some(
+                // VDD[A]18 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x62,
+                ),
+            ),
+            20 => Some(
+                // Front I/O hotswap controller
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x54,
+                ),
+            ),
+            21 => Some(
+                // Clock generator
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x58,
+                ),
+            ),
+            22 => Some(
+                // South temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x4a,
+                ),
+            ),
+            23 => Some(
+                // Southeast temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x48,
+                ),
+            ),
+            24 => Some(
+                // Southwest temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(1),
+                    None,
+                    0x49,
+                ),
+            ),
+            25 => Some(
+                // V1P0_MGMT rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1b,
+                ),
+            ),
+            26 => Some(
+                // V1P8_SYS rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x1c,
+                ),
+            ),
+            27 => Some(
+                // VSC7448 temperature sensor
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(2),
+                    None,
+                    0x4c,
+                ),
+            ),
+            28 => Some(
+                // Mainboard FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ),
+            29 => Some(
+                // Fan 0 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+            ),
+            30 => Some(
+                // Fan 1 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C1,
+                    PortIndex(0),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+            ),
+            31 => Some(
+                // Fan 2 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                    0x50,
+                ),
+            ),
+            32 => Some(
+                // Fan 3 FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(1),
+                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                    0x50,
+                ),
+            ),
+            33 => Some(
+                // Front IO board FRUID
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ),
+            ),
+            34 => Some(
+                // Front IO GPIO expander
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x73,
+                ),
+            ),
+            35 => Some(
+                // Front IO LED driver (left)
+                I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xa),
+            ),
+            36 => Some(
+                // Front IO LED driver (right)
+                I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0xb),
+            ),
+            37 => Some(
+                // Front IO V3P3_SYS_A2 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1b,
+                ),
+            ),
+            38 => Some(
+                // Front IO V3P3_QSFP0_A0 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x19,
+                ),
+            ),
+            39 => Some(
+                // Front IO V3P3_QSFP1_A0 rail
+                I2cDevice::new(
+                    task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x1a,
+                ),
+            ),
+
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
     pub fn lookup_controller(index: usize) -> Option<Controller> {
         match index {
             0..=7 | 29..=30 => Some(Controller::I2C1),

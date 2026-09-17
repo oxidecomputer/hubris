@@ -337,6 +337,7 @@ impl MgsHandler {
             addr: Address::Ipv6(sender.addr.ip.into()),
             port: sender.addr.port,
             size: n as u32,
+            #[cfg(feature = "vlan")]
             vid: sender.vid,
         })
     }
@@ -715,6 +716,15 @@ impl SpHandler for MgsHandler {
     fn power_state(&mut self) -> Result<PowerState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
         self.power_state_impl()
+    }
+
+    fn power_state_with_reason(
+        &mut self,
+    ) -> Result<gateway_messages::PowerStateWithReason, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::GetPowerStateWithReason
+        ));
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn set_power_state(
@@ -1143,6 +1153,14 @@ impl SpHandler for MgsHandler {
     ) -> Result<usize, SpError> {
         self.common
             .get_component_caboose_value(component, slot, key, buf)
+    }
+
+    fn component_get_vpd(
+        &mut self,
+        component: SpComponent,
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
+        self.common.component_get_vpd(component, buf)
     }
 
     fn reset_component_prepare(

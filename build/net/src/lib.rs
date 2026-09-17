@@ -166,6 +166,20 @@ pub fn generate_vlan_enum(
             pub enum VLanId {
                 None,
             }
+
+            impl VLanId {
+                pub fn cfg(&self) -> VLanConfig {
+                    // No VLANs are configured on this board (e.g. Nucleo dev
+                    // boards). Return a fixed config so callers that only need
+                    // `.port` compile without per-call-site cfg handling. This
+                    // arm is only generated for non-VLAN builds.
+                    VLanConfig {
+                        vid: 0,
+                        always_trusted: true,
+                        port: SpPort::One,
+                    }
+                }
+            }
         }
     } else {
         let names = config

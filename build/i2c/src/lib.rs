@@ -74,6 +74,7 @@ struct I2cController {
 // a controller *and* a named bus), so the validation code should go to
 // additional lengths to assure that these mistakes are caught in compilation.
 //
+
 #[derive(Clone, Debug, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
@@ -107,6 +108,12 @@ struct I2cDevice {
 
     /// description of device
     description: String,
+
+    /// if this is an EEPROM, configures the format for VPD read from this
+    /// EEPROM.
+    ///
+    /// providing a value for this is valid only if `device = "at24csw080"`.
+    eeprom_vpd: Option<EepromVpd>,
 
     /// reference designator, if any
     refdes: Option<Refdes>,
@@ -577,6 +584,25 @@ impl std::fmt::Display for Sensor {
     }
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Deserialize,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Default,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum EepromVpd {
+    #[default]
+    SingleBarcode,
+    SledFanTray,
+}
+
 #[derive(PartialEq)]
 enum PowerDevices {
     /// PMBus power devices
@@ -652,6 +678,9 @@ fn calculate_validate_drivers() -> Result<HashSet<String>> {
     Ok(drivers)
 }
 
+pub const VPD_EEPROM_DEVICES: &[&str] = &["at24csw080"];
+pub const VPD_TMP11X_DEVICES: &[&str] = &["tmp116", "tmp117"];
+
 impl ConfigGenerator {
     pub fn new_with_config(settings: CodegenSettings, i2c: I2cConfig) -> Self {
         let mut controllers = vec![];
@@ -713,6 +742,17 @@ impl ConfigGenerator {
                         );
                     }
                     (_, _) => {}
+                }
+                if d.eeprom_vpd.is_some() {
+                    assert!(
+                        VPD_EEPROM_DEVICES.contains(&d.device.as_str()),
+                        "device {} at address {:#x} is configured with an \
+                         EEPROM VPD format, but it is not a supported EEPROM \
+                         device (currently, we know about the following \
+                         EEPROMs: {VPD_EEPROM_DEVICES:?})",
+                        d.device,
+                        d.address,
+                    );
                 }
             }
         }
@@ -1171,10 +1211,48 @@ impl ConfigGenerator {
         use userlib::TaskId;
 "##
         )?;
+        //
+        // Generate a function that looks up an `I2cDevice` based on its index
+        // in the order returned by `device_descriptions()`.
+        //
+        // This is used by the generated code in `task-validate-api` and
+        // `control-plane-agent`, such as when we construct an `I2cDevice handle
+        // in order to read VPD or PMBus registers from a device. These indices
+        // are also referenced by the lookup table of PMBus rail names to
+        // device indices in `control-plane-agent`.
+        //
+        let task_arg = if self.devices.is_empty() {
+            // If we are generating a `device_by_index` function that has no
+            // devices in it, this argument will be unused, so suppress clippy
+            // warnings about it.
+            "_task"
+        } else {
+            "task"
+        };
+        write!(
+            output,
+            r##"
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn device_by_index(
+            {task_arg}: TaskId,
+            index: usize,
+        ) -> Option<I2cDevice> {{
+            match index {{"##,
+        )?;
+
+        for (index, device) in self.devices.iter().enumerate() {
+            let out = self.generate_device(device, 20);
+            writeln!(output, "{index} => Some({out}),")?;
+        }
 
         write!(
             output,
             r##"
+                _ => None,
+            }}
+        }}
+
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
         pub fn lookup_controller(index: usize) -> Option<Controller> {{
@@ -2008,6 +2086,7 @@ pub struct I2cDeviceDescription {
     pub device_id: Option<String>,
     pub name: Option<String>,
     pub validate_with_raw_read: bool,
+    pub eeprom_vpd: Option<EepromVpd>,
     /// If this is a PMBus device, this field contains additional data about the
     /// PMBus device to be used for generating PMBus-y code.
     pub pmbus: Option<PmbusDeviceDescription>,
@@ -2101,6 +2180,7 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
                 device_id,
                 name: device.name,
                 validate_with_raw_read: device.validate_with_raw_read,
+                eeprom_vpd: device.eeprom_vpd,
                 pmbus,
             }
         },
