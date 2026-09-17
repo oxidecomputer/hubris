@@ -43,6 +43,8 @@
 mod bsp;
 mod control;
 
+use core::mem::MaybeUninit;
+
 use crate::{
     bsp::{Bsp, PowerBitmask, SeqError},
     control::{BspInterface, ThermalControl},
@@ -51,6 +53,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
+use static_cell::ClaimOnceCell;
 use task_packrat_api::Packrat;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
 use task_thermal_api::{
@@ -73,36 +76,14 @@ enum Trace {
     Start,
     ThermalMode(#[count(children)] ThermalMode),
     AutoState(#[count(children)] ThermalAutoState),
-    PowerDownDueTo {
-        sensor_id: SensorId,
-        /// The thermal model's worst-case temperature projection for this
-        /// sensor.
-        ///
-        /// Note that this may not be an *actual temperature measurement*
-        /// from this sensor. Instead, it is projected from the last successful
-        /// temperature reading, the lag since that measurement was received,
-        /// and the thermal model's slew rate for the component.
-        ///
-        /// This ringbuf entry is always followed by a [`LastActualTemperature`]
-        /// entry, which records the last actual temperature measurement
-        /// reported by the sensor.
-        worst_case_temp: Celsius,
-    },
-    CriticalDueTo {
-        sensor_id: SensorId,
-        /// The thermal model's worst-case temperature projection for this
-        /// sensor.
-        ///
-        /// Note that this may not be an *actual temperature measurement*
-        /// from this sensor. Instead, it is projected from the last successful
-        /// temperature reading, the lag since that measurement was received,
-        /// and the thermal model's slew rate for the component.
-        ///
-        /// This ringbuf entry is always followed by a [`LastActualTemperature`]
-        /// entry, which records the last actual temperature measurement
-        /// reported by the sensor.
-        worst_case_temp: Celsius,
-    },
+    /// This ringbuf entry is always followed by a [`LastActualTemperature`]
+    /// entry, which records the last actual temperature measurement
+    /// reported by the sensor.
+    PowerDownDueTo(OffendingSensorInfo),
+    /// This ringbuf entry is always followed by a [`LastActualTemperature`]
+    /// entry, which records the last actual temperature measurement
+    /// reported by the sensor.
+    CriticalDueTo(OffendingSensorInfo),
     /// The last actual temperature measurement reported by a sensor.
     ///
     /// This is recorded after every [`CriticalDueTo`] or [`PowerDownDueTo`]
@@ -168,16 +149,34 @@ counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-struct ServerImpl<'a, B: control::BspInterface> {
+#[derive(Debug, PartialEq, Clone, Copy)]
+struct OffendingSensorInfo {
+    sensor_id: SensorId,
+    /// The thermal model's worst-case temperature projection for this
+    /// sensor.
+    ///
+    /// Note that this may not be an *actual temperature measurement*
+    /// from this sensor. Instead, it is projected from the last successful
+    /// temperature reading, the lag since that measurement was received,
+    /// and the thermal model's slew rate for the component.
+    worst_case_temp: Celsius,
+}
+
+/// Store the entire server impl so that it is retrievable in system dumps
+#[unsafe(no_mangle)]
+static THERMAL_SERVER_IMPL: ClaimOnceCell<MaybeUninit<ServerImpl<Bsp>>> =
+    ClaimOnceCell::new(MaybeUninit::uninit());
+
+struct ServerImpl<B: control::BspInterface> {
     mode: ThermalMode,
-    control: ThermalControl<'a, B>,
+    control: ThermalControl<B>,
     deadline: u64,
     runtime: u64,
 }
 
 const TIMER_INTERVAL: u64 = 1000;
 
-impl<'a, B: control::BspInterface> ServerImpl<'a, B> {
+impl<B: control::BspInterface> ServerImpl<B> {
     /// Configures the control loop to run in manual mode, loading the given
     /// PWM value immediately to all fans.
     ///
@@ -218,9 +217,7 @@ impl<'a, B: control::BspInterface> ServerImpl<'a, B> {
     }
 }
 
-impl<'a, B: control::BspInterface> idl::InOrderThermalImpl
-    for ServerImpl<'a, B>
-{
+impl<B: control::BspInterface> idl::InOrderThermalImpl for ServerImpl<B> {
     fn get_mode(
         &mut self,
         _: &RecvMessage,
@@ -350,7 +347,7 @@ impl<'a, B: control::BspInterface> idl::InOrderThermalImpl
     }
 }
 
-impl<'a, B: control::BspInterface> NotificationHandler for ServerImpl<'a, B> {
+impl<B: control::BspInterface> NotificationHandler for ServerImpl<B> {
     fn current_notification_mask(&self) -> u32 {
         notifications::TIMER_MASK
     }
@@ -395,27 +392,40 @@ impl<'a, B: control::BspInterface> NotificationHandler for ServerImpl<'a, B> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[unsafe(export_name = "main")]
-fn main() -> ! {
+/// Initializing the server takes a lot of stack, it's big. Doing this in a
+/// non-inlined function allows the stack analyzer to see that main's stack
+/// frame doesn't retain the large space taken to initialize these structs,
+/// shrinking the total analyzed usage.
+///
+/// Rust loves to inline functions that are private and only ever called once,
+/// so we force inline never.
+#[inline(never)]
+fn init_server() -> &'static mut ServerImpl<Bsp> {
     let i2c_task = I2C.get_task_id();
     let sensor_api = SensorApi::from(SENSOR.get_task_id());
     let packrat = Packrat::from(PACKRAT.get_task_id());
 
     ringbuf_entry!(Trace::Start);
 
-    let mut bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&mut bsp, sensor_api, packrat);
+    let bsp = Bsp::new(i2c_task);
+    let control = ThermalControl::new(bsp, sensor_api, packrat);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
     sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
-    let mut server = ServerImpl {
+    let server = THERMAL_SERVER_IMPL.claim();
+    server.write(ServerImpl {
         mode: ThermalMode::Off,
         control,
         deadline,
         runtime: 0,
-    };
+    })
+}
+
+#[unsafe(export_name = "main")]
+fn main() -> ! {
+    let server = init_server();
     if <Bsp as BspInterface>::USE_CONTROLLER {
         server.set_mode_auto().unwrap_lite();
     } else {
@@ -424,7 +434,7 @@ fn main() -> ! {
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        idol_runtime::dispatch(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, server);
     }
 }
 
