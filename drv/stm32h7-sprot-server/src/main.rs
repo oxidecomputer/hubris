@@ -115,25 +115,26 @@ use gpio_irq_pins::ROT_IRQ;
 // SPI4 is connected to the NET board.
 cfg_if::cfg_if! {
     if #[cfg(any(
-            target_board = "gimlet-b",
-            target_board = "gimlet-c",
-            target_board = "gimlet-d",
-            target_board = "gimlet-e",
-            target_board = "gimlet-f",
-            target_board = "sidecar-b",
-            target_board = "sidecar-c",
-            target_board = "sidecar-d",
-            target_board = "psc-b",
-            target_board = "psc-c",
-            target_board = "observer-a",
-            target_board = "gemini-bu-1",
-            target_board = "grapefruit-a",
-            target_board = "grapefruit-b",
-            target_board = "minibar-a",
-            target_board = "minibar-b",
-            target_board = "cosmo-a",
-            target_board = "cosmo-b",
-            ))] {
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d",
+        target_board = "gimlet-e",
+        target_board = "gimlet-f",
+        target_board = "sidecar-b",
+        target_board = "sidecar-c",
+        target_board = "sidecar-d",
+        target_board = "psc-b",
+        target_board = "psc-c",
+        target_board = "observer-a",
+        target_board = "gemini-bu-1",
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
+        target_board = "minibar-a",
+        target_board = "minibar-b",
+        target_board = "cosmo-a",
+        target_board = "cosmo-b",
+        target_board = "metro-a",
+    ))] {
         const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::ROT;
         fn debug_config(_sys: &sys_api::Sys) { }
         fn debug_set(_sys: &sys_api::Sys, _asserted: bool) { }
