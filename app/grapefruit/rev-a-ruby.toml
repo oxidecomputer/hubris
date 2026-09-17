@@ -34,7 +34,7 @@ name = "task-thermal"
 features = ["grapefruit"]
 priority = 5
 max-sizes = {flash = 32768, ram = 5120 }
-stacksize = 1536
+stacksize = 2000
 start = true
 task-slots = ["i2c_driver", "sensor", "packrat"]
 notifications = ["timer"]

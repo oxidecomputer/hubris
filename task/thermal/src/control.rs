@@ -69,7 +69,7 @@
 //!   move the fans to their highest commanded speed when not communicated with
 //!   for a configured time duration.
 
-use crate::{ThermalError, Trace, bsp::PowerBitmask};
+use crate::{OffendingSensorInfo, ThermalError, Trace, bsp::PowerBitmask};
 use drv_i2c_devices::max31790::I2cWatchdog;
 
 use microcbor::Encode;
@@ -580,9 +580,9 @@ impl ThermalSensorErrors {
 /// This object uses slices of sensors and fans, which must be owned
 /// elsewhere; the standard pattern is to create static arrays in a
 /// `struct Bsp` which is conditionally included based on board name.
-pub(crate) struct ThermalControl<'a, B: BspInterface> {
-    /// Reference to board-specific parameters
-    bsp: &'a mut B,
+pub(crate) struct ThermalControl<B: BspInterface> {
+    /// Board-specific parameters
+    bsp: B,
 
     /// Task to which we should post sensor data updates
     sensor_api: SensorApi,
@@ -608,10 +608,10 @@ pub(crate) struct ThermalControl<'a, B: BspInterface> {
     ///
     /// This value is copied to `prev_err_blackbox` when the system is
     /// deemed `Uncontrollable` and powered off
-    err_blackbox: &'static mut ThermalSensorErrors,
+    err_blackbox: ThermalSensorErrors,
 
     /// Previous value of `err_blackbox`, copied over at power-down
-    prev_err_blackbox: &'static mut ThermalSensorErrors,
+    prev_err_blackbox: ThermalSensorErrors,
 
     /// Last group PWM control value
     last_pwm: PWMDuty,
@@ -622,6 +622,10 @@ pub(crate) struct ThermalControl<'a, B: BspInterface> {
     /// Tracks the total duration of excursions into the overheated control
     /// regime.
     overheat_timer: Option<OverheatTimer>,
+
+    // We never read this back, but humility does
+    #[allow(dead_code)]
+    last_shutdown_reason: Option<OffendingSensorInfo>,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
@@ -916,26 +920,14 @@ struct OverheatTimer {
     critical_ms: u64,
 }
 
-impl<'a, B: BspInterface> ThermalControl<'a, B> {
+impl<B: BspInterface> ThermalControl<B> {
     /// Constructs a new `ThermalControl` based on a `struct Bsp`. This
     /// requires that every BSP has the same internal structure,
     ///
     /// # Panics
     /// This function can only be called once, because it claims mutable static
     /// buffers.
-    pub fn new(
-        bsp: &'a mut B,
-        sensor_api: SensorApi,
-        packrat_api: Packrat,
-    ) -> Self {
-        use static_cell::ClaimOnceCell;
-
-        let [err_blackbox, prev_err_blackbox] = {
-            static BLACKBOXEN: ClaimOnceCell<[ThermalSensorErrors; 2]> =
-                ClaimOnceCell::new([ThermalSensorErrors::new(); 2]);
-            BLACKBOXEN.claim()
-        };
-
+    pub fn new(bsp: B, sensor_api: SensorApi, packrat_api: Packrat) -> Self {
         Self {
             bsp,
             sensor_api,
@@ -947,11 +939,12 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
 
             last_pwm: PWMDuty(0),
 
-            err_blackbox,
-            prev_err_blackbox,
+            err_blackbox: ThermalSensorErrors::new(),
+            prev_err_blackbox: ThermalSensorErrors::new(),
             fan_watchdog_configured: false,
             overheat_timer: None,
             ereporter: Ereporter::claim_static_resources(packrat_api),
+            last_shutdown_reason: None,
         }
     }
 
@@ -1119,9 +1112,6 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
                 self.set_pwm(Ok(target_pwm), now_ms)
             }
             ControlResult::PowerDown => {
-                ringbuf_entry!(Trace::PowerDownAt(sys_get_timer().now));
-                *self.prev_err_blackbox = *self.err_blackbox;
-                self.err_blackbox.clear();
                 if let Err(e) = self.bsp.power_down() {
                     ringbuf_entry!(Trace::PowerDownFailed(e));
                 }
@@ -1335,10 +1325,10 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
             last_reading,
             age_s,
         } = worst_case;
-        ringbuf_entry!(Trace::CriticalDueTo {
+        ringbuf_entry!(Trace::CriticalDueTo(OffendingSensorInfo {
             sensor_id,
             worst_case_temp
-        });
+        }));
         ringbuf_entry!(Trace::LastRealTemperature {
             sensor_id,
             temperature: last_reading,
@@ -1386,10 +1376,12 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
             last_reading,
             age_s,
         } = worst_case;
-        ringbuf_entry!(Trace::PowerDownDueTo {
+        let reason = OffendingSensorInfo {
             sensor_id,
-            worst_case_temp
-        });
+            worst_case_temp,
+        };
+        ringbuf_entry!(Trace::PowerDownDueTo(reason));
+        self.last_shutdown_reason = Some(reason);
         ringbuf_entry!(Trace::LastRealTemperature {
             sensor_id,
             temperature: last_reading,
@@ -1404,6 +1396,11 @@ impl<'a, B: BspInterface> ThermalControl<'a, B> {
     fn transition_to_uncontrollable(&mut self, now_ms: u64) -> ControlResult {
         self.record_leaving_critical(now_ms);
         self.record_leaving_overheat(now_ms);
+
+        // Record PowerDownAt once, in an edge-triggered fashion
+        ringbuf_entry!(Trace::PowerDownAt(now_ms));
+        self.prev_err_blackbox = self.err_blackbox;
+        self.err_blackbox.clear();
 
         self.bsp.reset_all_values();
         self.state = ThermalControlState::Uncontrollable;
