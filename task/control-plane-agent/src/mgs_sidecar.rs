@@ -712,9 +712,11 @@ impl SpHandler for MgsHandler {
                             // means that if the RoT failure is persistent, the
                             // system can still be debugged, if a valid
                             // credential is provided.
+                            //
+                            // TODO(eliza): it may be worth sending an ereport
+                            // here as well? See:
+                            // https://github.com/oxidecomputer/hubris/issues/2698
                             Err(error) => {
-                                // TODO(eliza): it may be worth sending an
-                                // ereport here as well?
                                 ringbuf_entry!(Trace::RotLifecycleReadFailed(
                                     error
                                 ));
