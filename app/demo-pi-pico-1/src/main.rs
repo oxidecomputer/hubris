@@ -5,6 +5,12 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "no_kernel")]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
+    loop {}
+}
+
 // make sure the vector table gets linked in
 extern crate rp2040_pac;
 
@@ -12,7 +18,7 @@ use cortex_m_rt::entry;
 
 #[unsafe(link_section = ".boot2")]
 #[used]
-pub static BOOT_LOADER: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
+pub static BOOT_LOADER: [u8; 256] = rp2040_boot2::BOOT_LOADER_W25Q080;
 
 const LED_GPIO_ID: usize = 25;
 
@@ -43,17 +49,23 @@ fn main() -> ! {
         .gpio_ctrl()
         .write(|w| w.funcsel().sio());
 
-    // figure out what clock speed to use
-    let cycles_per_ms = if p.CLOCKS.clk_sys_ctrl().read().src().is_clk_ref() {
-        // This is the reset state, so we'll assume we launched directly from
-        // flash running on the ROSC.
-        6_000 // ish
-    } else {
-        // This is _not_ the reset state, so we'll assume that the pico-debug
-        // resident debugger has reconfigured things to run off the 48 MHz USB
-        // clock.
-        48_000
-    };
-
-    unsafe { kern::startup::start_kernel(cycles_per_ms) };
+    cfg_select! {
+        feature = "no_kernel" => {
+            loop {}
+        }
+        _ => {
+            // figure out what clock speed to use
+            let cycles_per_ms = if p.CLOCKS.clk_sys_ctrl().read().src().is_clk_ref() {
+                // This is the reset state, so we'll assume we launched directly from
+                // flash running on the ROSC.
+                6_000 // ish
+            } else {
+                // This is _not_ the reset state, so we'll assume that the pico-debug
+                // resident debugger has reconfigured things to run off the 48 MHz USB
+                // clock.
+                48_000
+            };
+            unsafe { kern::startup::start_kernel(cycles_per_ms) };
+        }
+    }
 }

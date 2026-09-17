@@ -25,3 +25,6 @@ bench = false
 
 [lints]
 workspace = true
+
+[features]
+no_kernel = []
