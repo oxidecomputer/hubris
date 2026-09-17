@@ -247,7 +247,7 @@ struct PortData {
     /// Number of consecutive NACKS seen on a given port
     consecutive_errors: u8,
     /// Largest observed temperature drift between two samples
-    peak_diff: f32,
+    peak_temp_diff: f32,
     /// Number of times the temperature has been discarded, saturates
     discarded_temps: u32,
     /// Number of times the temperature has been samples. This counts resample
@@ -265,7 +265,7 @@ impl PortData {
     const fn new() -> Self {
         Self {
             consecutive_errors: 0,
-            peak_diff: 0.0,
+            peak_temp_diff: 0.0,
             discarded_temps: 0,
             total_temp_samples: 0,
             model: None,
@@ -691,7 +691,7 @@ impl ServerImpl {
                         TRANSCEIVER_TEMPERATURE_SENSORS[i],
                         reading.0,
                     );
-                    data.peak_diff = data.peak_diff.max(diff);
+                    data.peak_temp_diff = data.peak_temp_diff.max(diff);
                     data.consecutive_errors = 0;
                 }
                 Err(e) => {
@@ -714,7 +714,7 @@ impl ServerImpl {
                         // device, since it could have been a momentary I2C
                         // glitch.
                         TempReadError::UnexpectedVariance(diff) => {
-                            data.peak_diff = data.peak_diff.max(diff);
+                            data.peak_temp_diff = data.peak_temp_diff.max(diff);
                             data.discarded_temps =
                                 data.discarded_temps.saturating_add(1);
                         }
