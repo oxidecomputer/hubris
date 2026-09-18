@@ -4,8 +4,8 @@
 
 //! Sensor management
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
 use core::convert::Infallible;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -249,7 +249,7 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-#[unsafe(export_name = "main")]
+#[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {
     // N.B. if you are staring at this macro thinking that it looks like it
     // doesn't do anything and might be obsolescent, the key is the :upper. This

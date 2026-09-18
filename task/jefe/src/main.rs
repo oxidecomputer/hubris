@@ -23,8 +23,8 @@
 //! means that hardware drivers required for this task must be built in instead
 //! of running in separate tasks.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 #![forbid(clippy::wildcard_imports)]
 
 #[cfg(feature = "dump")]
@@ -101,7 +101,7 @@ const fn initial_task_states() -> [TaskStatus; hubris_num_tasks::NUM_TASKS] {
     task_states
 }
 
-#[unsafe(export_name = "main")]
+#[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {
     let deadline =
         userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);

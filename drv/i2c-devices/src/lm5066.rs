@@ -11,6 +11,8 @@ use crate::{
     pmbus_validate,
 };
 use drv_i2c_api::*;
+// Provides `floor`/`powi` on no_std targets, where they are not inherent.
+#[allow(unused_imports)]
 use num_traits::float::FloatCore;
 use pmbus::commands::*;
 use ringbuf::*;

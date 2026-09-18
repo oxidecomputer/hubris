@@ -7,9 +7,10 @@
 //! See [`crate::control`] for more information regarding the implementation of
 //! the thermal control loop.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
+#[cfg_attr(target_board = "host", path = "bsp/host.rs")]
 #[cfg_attr(
     any(
         target_board = "gimlet-b",
@@ -423,7 +424,7 @@ fn init_server() -> &'static mut ServerImpl<Bsp> {
     })
 }
 
-#[unsafe(export_name = "main")]
+#[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {
     let server = init_server();
     if <Bsp as BspInterface>::USE_CONTROLLER {
