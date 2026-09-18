@@ -791,6 +791,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
+name = "cobs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "cobs"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd93fd2c1b27acd030440c9dbd9d14c1122aad622374fe05a670b67a4bc034be"
+dependencies = [
+ "heapless 0.9.3",
+ "thiserror",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3099,6 +3118,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-io"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef1a6892d9eef45c8fa6b9e0086428a2cca8491aca8f787c534a3d6d0bcb3ced"
+
+[[package]]
+name = "embedded-io"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3527,6 +3558,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3558,10 +3598,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdc6457c0eb62c71aac4bc17216026d8410337c4126773b9c5daba343f17964f"
 dependencies = [
  "atomic-polyfill",
- "hash32",
+ "hash32 0.2.1",
  "rustc_version 0.4.0",
  "serde",
  "spin 0.9.4",
+ "stable_deref_trait",
+]
+
+[[package]]
+name = "heapless"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25ba4bd83f9415b58b4ed8dc5714c76e626a105be4646c02630ad730ad3b5aa4"
+dependencies = [
+ "hash32 0.3.1",
  "stable_deref_trait",
 ]
 
@@ -3598,7 +3648,7 @@ version = "0.3.1"
 source = "git+https://github.com/oxidecomputer/hif#0e9a9d0774afe3c4eca5cb147fb64ad05d0bfcd8"
 dependencies = [
  "pkg-version",
- "postcard",
+ "postcard 0.7.2",
  "serde",
 ]
 
@@ -3649,6 +3699,17 @@ dependencies = [
  "unwrap-lite",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "hostcall"
+version = "0.1.0"
+dependencies = [
+ "cobs 0.5.1",
+ "nprpc",
+ "postcard 1.1.3",
+ "postcard-schema-ng",
+ "serde",
 ]
 
 [[package]]
@@ -4553,6 +4614,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 
 [[package]]
+name = "nprpc"
+version = "0.1.0"
+source = "git+https://github.com/jamesmunns/nprpc.git?rev=de236b3#de236b35bbcc5707c6264204e5a59df5a9fdb06c"
+dependencies = [
+ "postcard 1.1.3",
+ "postcard-schema-ng",
+ "serde",
+]
+
+[[package]]
 name = "num"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4953,8 +5024,21 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8863e251332eb18520388099b8b0acc4810ed6e602e3b6f674e8a46ba20e15c"
 dependencies = [
- "heapless",
+ "heapless 0.7.17",
  "postcard-cobs",
+ "serde",
+]
+
+[[package]]
+name = "postcard"
+version = "1.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6764c3b5dd454e283a30e6dfe78e9b31096d9e32036b5d1eaac7a6119ccb9a24"
+dependencies = [
+ "cobs 0.3.0",
+ "embedded-io 0.4.0",
+ "embedded-io 0.6.1",
+ "heapless 0.7.17",
  "serde",
 ]
 
@@ -4963,6 +5047,31 @@ name = "postcard-cobs"
 version = "0.1.5-pre"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c68cb38ed13fd7bc9dd5db8f165b7c8d9c1a315104083a2b10f11354c2af97f"
+
+[[package]]
+name = "postcard-core"
+version = "0.1.0"
+source = "git+https://github.com/jamesmunns/postcard?rev=ed97b79#ed97b798a6c99eb83fb1cbc9063f71311fc50b23"
+
+[[package]]
+name = "postcard-derive-ng"
+version = "0.3.1"
+source = "git+https://github.com/jamesmunns/postcard?rev=ed97b79#ed97b798a6c99eb83fb1cbc9063f71311fc50b23"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
+name = "postcard-schema-ng"
+version = "0.3.2"
+source = "git+https://github.com/jamesmunns/postcard?rev=ed97b79#ed97b798a6c99eb83fb1cbc9063f71311fc50b23"
+dependencies = [
+ "postcard-core",
+ "postcard-derive-ng",
+ "serde",
+]
 
 [[package]]
 name = "potential_utf"
@@ -5565,9 +5674,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.228"
+version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
+checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
  "serde_derive",
@@ -5626,22 +5735,22 @@ dependencies = [
 
 [[package]]
 name = "serde_core"
-version = "1.0.228"
+version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
+checksum = "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.228"
+version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
+checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.106",
+ "syn 3.0.6",
 ]
 
 [[package]]
@@ -5822,7 +5931,7 @@ dependencies = [
  "bitflags 1.3.2",
  "byteorder",
  "cfg-if",
- "heapless",
+ "heapless 0.7.17",
  "managed",
 ]
 
@@ -5831,7 +5940,7 @@ name = "snitch-core"
 version = "0.1.0"
 dependencies = [
  "counters",
- "heapless",
+ "heapless 0.7.17",
  "minicbor-serde",
  "serde",
  "unwrap-lite",
@@ -6106,6 +6215,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "synstructure"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6209,7 +6329,7 @@ dependencies = [
  "dump-agent-api",
  "enum-map",
  "gateway-messages",
- "heapless",
+ "heapless 0.7.17",
  "host-sp-messages",
  "hubpack",
  "humpty",
@@ -6452,7 +6572,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "enum-map",
  "ereports",
- "heapless",
+ "heapless 0.7.17",
  "host-sp-messages",
  "hubpack",
  "idol",
@@ -6599,7 +6719,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
  "enum-map",
- "heapless",
+ "heapless 0.7.17",
  "hubpack",
  "hubris-num-tasks",
  "idol",
@@ -6958,7 +7078,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "drv-stm32h7-usart",
- "heapless",
+ "heapless 0.7.17",
  "idol",
  "ringbuf",
  "userlib",

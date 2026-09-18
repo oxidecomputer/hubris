@@ -1,0 +1,14 @@
+[package]
+name = "hostcall"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cobs = { workspace = true }
+nprpc = { workspace = true, features = ["std"] }
+postcard = { workspace = true, features = ["use-std"] }
+postcard-schema-ng = { workspace = true, features = ["use-std"] }
+serde = { workspace = true }
+
+[lints]
+workspace = true
