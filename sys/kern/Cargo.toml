@@ -25,6 +25,7 @@ armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
 # protocol, and the run is described by a RON configuration file.
 [target.'cfg(not(target_os = "none"))'.dependencies]
 hostcall = { path = "../hostcall" }
+idol-trace = { path = "../../build/idol-trace" }
 postcard = { workspace = true, features = ["use-std"] }
 ron = { workspace = true }
 

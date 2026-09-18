@@ -18,6 +18,11 @@
 //! * Receives are answered with a `ping`-style message from a fake peer, or,
 //!   once a few of those have been delivered, by firing the task's timer,
 //!   which advances the virtual clock to the deadline.
+//! * Sends to a slot with a known interface (`--idol NAME=PATH`, and by
+//!   default `sensor=idl/sensor.idol`) are logged as decoded operations. For
+//!   the `Sensor` interface the fixture also acts as the sensor task: `post`
+//!   and `nodata` are stored per sensor id, and the `get*` operations answer
+//!   from what was stored, so a run shows every value set and retrieved.
 //! * Leases, interrupts and posts are logged but not modelled.
 //!
 //! Every syscall is logged to stderr, and the task's own stderr is passed
@@ -38,6 +43,7 @@ use hostcall::{
     RecvRequest, RecvResponse, ReplyFaultRequest, ReplyRequest, SendRequest,
     SendResponse, Server, SetTimerRequest, TimerState, all, runtime, syscalls,
 };
+use idol_trace::{Decoder, Value};
 
 #[derive(Parser)]
 #[clap(about = "Runs a host-built Hubris task, playing the kernel for it")]
@@ -50,6 +56,12 @@ struct Args {
     /// usart_driver=4.
     #[clap(long = "slot", value_name = "NAME=INDEX")]
     slots: Vec<String>,
+
+    /// Interface definition for a slot, as NAME=PATH to its .idol file, so
+    /// requests to it are decoded (and, for `Sensor`, answered from a model).
+    /// Defaults to sensor=idl/sensor.idol when that file exists.
+    #[clap(long = "idol", value_name = "NAME=PATH")]
+    idols: Vec<String>,
 
     /// Stop the task after this many syscalls.
     #[clap(long, default_value = "300")]
@@ -72,6 +84,9 @@ const FAKE_PEER: u16 = 1;
 
 struct Fixture {
     slots: BTreeMap<String, u16>,
+    /// Interfaces by task index: the slot name and its decoder.
+    decoders: BTreeMap<u16, (String, Decoder)>,
+    sensors: SensorModel,
     /// Virtual time in ticks; only advances when a timer fires.
     now: u64,
     timer: Option<(u64, u32)>,
@@ -190,6 +205,28 @@ impl syscalls::Server for Fixture {
         }
         if Some(rqst.target & 0x3ff) == self.slot_named("usart_driver") {
             return Ok(self.uart_reply(rqst));
+        }
+        let Fixture {
+            decoders, sensors, ..
+        } = self;
+        if let Some((slot, decoder)) = decoders.get(&(rqst.target & 0x3ff)) {
+            eprintln!(
+                "[fixture      ] {slot}: {}",
+                decoder.describe_request(rqst.operation, &rqst.message)
+            );
+            if decoder.interface_name() == "Sensor" {
+                let (code, reply) =
+                    sensors.handle(decoder, rqst.operation, &rqst.message);
+                eprintln!(
+                    "[fixture      ] {slot}: -> {}",
+                    decoder.describe_reply(rqst.operation, code, &reply)
+                );
+                return Ok(SendResponse {
+                    code,
+                    reply,
+                    lease_writebacks: vec![None; rqst.leases.len()],
+                });
+            }
         }
         let code = self.next_code;
         self.next_code = self.next_code.wrapping_add(1);
@@ -355,11 +392,178 @@ impl runtime::Server for Fixture {
     }
 }
 
+/// The sensor task, as far as its clients can tell: the latest data or
+/// error per sensor id, answered back through the `Sensor` interface's
+/// hubpack encoding.
+#[derive(Default)]
+struct SensorModel {
+    latest: BTreeMap<u64, Sample>,
+    errors: BTreeMap<u64, u32>,
+}
+
+#[derive(Clone, Copy)]
+enum Sample {
+    Data { value: f32, timestamp: u64 },
+    NoData { kind: u8, timestamp: u64 },
+}
+
+/// `SensorError` code for a `NoData` variant, as `sensor` maps them.
+fn nodata_error(kind: u8) -> u32 {
+    match kind {
+        0 => 7, // DeviceOff
+        1 => 4, // DeviceError
+        2 => 3, // DeviceNotPresent -> NotPresent
+        3 => 5, // DeviceUnavailable
+        4 => 6, // DeviceTimeout
+        _ => 4,
+    }
+}
+
+const NO_READING: u32 = 2;
+
+impl SensorModel {
+    /// Answers one operation: the response code and hubpack reply body.
+    fn handle(
+        &mut self,
+        decoder: &Decoder,
+        op: u16,
+        body: &[u8],
+    ) -> (u32, Vec<u8>) {
+        let Some(name) = decoder.op_name(op) else {
+            return (1, Vec::new());
+        };
+        let Ok(args) = decoder.decode_args(op, body) else {
+            return (1, Vec::new());
+        };
+        let arg = |wanted: &str| {
+            args.iter().find(|(n, _)| n == wanted).map(|(_, v)| v)
+        };
+        let id = arg("id").and_then(Value::as_u64).unwrap_or(0);
+        let timestamp = arg("timestamp").and_then(Value::as_u64).unwrap_or(0);
+        let data_reply = |value: f32, timestamp: u64| {
+            let mut out = value.to_le_bytes().to_vec();
+            out.extend(timestamp.to_le_bytes());
+            out
+        };
+        match name {
+            "post" => {
+                let value = arg("value").and_then(Value::as_f32).unwrap_or(0.0);
+                self.latest.insert(id, Sample::Data { value, timestamp });
+                (0, Vec::new())
+            }
+            "nodata" => {
+                let kind =
+                    arg("nodata").and_then(Value::variant_index).unwrap_or(1);
+                self.latest.insert(id, Sample::NoData { kind, timestamp });
+                *self.errors.entry(id).or_default() += 1;
+                (0, Vec::new())
+            }
+            "get" => match self.latest.get(&id) {
+                Some(Sample::Data { value, .. }) => {
+                    (0, value.to_le_bytes().to_vec())
+                }
+                Some(Sample::NoData { kind, .. }) => {
+                    (nodata_error(*kind), Vec::new())
+                }
+                None => (NO_READING, Vec::new()),
+            },
+            "get_reading" => match self.latest.get(&id) {
+                Some(Sample::Data { value, timestamp }) => {
+                    let mut out = timestamp.to_le_bytes().to_vec();
+                    out.extend(value.to_le_bytes());
+                    (0, out)
+                }
+                Some(Sample::NoData { kind, .. }) => {
+                    (nodata_error(*kind), Vec::new())
+                }
+                None => (NO_READING, Vec::new()),
+            },
+            "get_raw_reading" => match self.latest.get(&id) {
+                Some(Sample::Data { value, timestamp }) => {
+                    let mut out = vec![1, 0];
+                    out.extend(value.to_le_bytes());
+                    out.extend(timestamp.to_le_bytes());
+                    (0, out)
+                }
+                Some(Sample::NoData { kind, timestamp }) => {
+                    let mut out = vec![1, 1, *kind];
+                    out.extend(timestamp.to_le_bytes());
+                    (0, out)
+                }
+                None => (0, vec![0]),
+            },
+            "get_last_data" | "get_min" | "get_max" => {
+                match self.latest.get(&id) {
+                    Some(Sample::Data { value, timestamp })
+                        if name == "get_last_data" =>
+                    {
+                        let mut out = vec![1];
+                        out.extend(data_reply(*value, *timestamp));
+                        (0, out)
+                    }
+                    Some(Sample::Data { value, timestamp }) => {
+                        (0, data_reply(*value, *timestamp))
+                    }
+                    _ if name == "get_last_data" => (0, vec![0]),
+                    _ => (0, data_reply(0.0, 0)),
+                }
+            }
+            "get_last_nodata" => match self.latest.get(&id) {
+                Some(Sample::NoData { kind, timestamp }) => {
+                    let mut out = vec![1, *kind];
+                    out.extend(timestamp.to_le_bytes());
+                    (0, out)
+                }
+                _ => (0, vec![0]),
+            },
+            "get_nerrors" => (
+                0,
+                self.errors
+                    .get(&id)
+                    .copied()
+                    .unwrap_or(0)
+                    .to_le_bytes()
+                    .to_vec(),
+            ),
+            _ => (1, Vec::new()),
+        }
+    }
+}
+
+fn parse_idols(
+    args: &[String],
+    slots: &BTreeMap<String, u16>,
+) -> Result<BTreeMap<u16, (String, Decoder)>> {
+    let mut specs: Vec<(String, PathBuf)> = Vec::new();
+    let default = PathBuf::from("idl/sensor.idol");
+    if default.exists() && slots.contains_key("sensor") {
+        specs.push(("sensor".to_string(), default));
+    }
+    for arg in args {
+        let Some((name, path)) = arg.split_once('=') else {
+            bail!("--idol expects NAME=PATH, got {arg:?}");
+        };
+        specs.retain(|(n, _)| n != name);
+        specs.push((name.to_string(), PathBuf::from(path)));
+    }
+    let mut out = BTreeMap::new();
+    for (name, path) in specs {
+        let Some(&index) = slots.get(&name) else {
+            bail!(
+                "--idol names slot {name:?}, which is not defined; add --slot {name}=INDEX"
+            );
+        };
+        out.insert(index, (name, Decoder::load(&path)?));
+    }
+    Ok(out)
+}
+
 fn parse_slots(args: &[String]) -> Result<BTreeMap<String, u16>> {
     let mut slots = BTreeMap::from([
         ("peer".to_string(), 2),
         ("user_leds".to_string(), 3),
         ("usart_driver".to_string(), 4),
+        ("sensor".to_string(), 5),
     ]);
     for arg in args {
         let Some((name, index)) = arg.split_once('=') else {
@@ -403,6 +607,7 @@ fn describe_exit(status: ExitStatus) -> String {
 fn main() -> Result<()> {
     let args = Args::parse();
     let slots = parse_slots(&args.slots)?;
+    let decoders = parse_idols(&args.idols, &slots)?;
 
     let mut child = Command::new(&args.task)
         .stdin(Stdio::piped())
@@ -415,6 +620,8 @@ fn main() -> Result<()> {
 
     let mut fixture = Fixture {
         slots,
+        decoders,
+        sensors: SensorModel::default(),
         now: 0,
         timer: None,
         next_code: args.first_code,

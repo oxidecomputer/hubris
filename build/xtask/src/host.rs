@@ -118,12 +118,13 @@ struct HostTask {
     executable: Option<String>,
     slots: BTreeMap<String, u16>,
     idle: bool,
+    interface: Option<String>,
 }
 
 pub struct HostRunFlags {
     pub build: HostBuildFlags,
-    /// Log every syscall the kernel handles.
-    pub trace: bool,
+    /// Value for `HUBRIS_HOST_TRACE`: `all`, or the tasks to trace.
+    pub trace: Option<String>,
     /// Stop when virtual time would pass this tick.
     pub stop_at: Option<u64>,
     /// Build everything but don't launch the kernel.
@@ -161,11 +162,21 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
             .iter()
             .map(|(slot, target)| Ok((slot.clone(), index_of(target)?)))
             .collect::<Result<_>>()?;
+        // By convention a task named `foo` serves `idl/foo.idol`, when that
+        // exists; the kernel uses it to decode traffic in its trace.
+        let idol = Path::new("idl").join(format!("{name}.idol"));
+        let interface = idol
+            .exists()
+            .then(|| {
+                dunce::canonicalize(&idol).map(|p| p.display().to_string())
+            })
+            .transpose()?;
         host_tasks.push(HostTask {
             name: name.clone(),
             executable,
             slots,
             idle,
+            interface,
         });
         // Memory placement is meaningless on the host; the kernel's build
         // script ignores these regions and gives every task the whole
@@ -228,8 +239,8 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
 
     let mut cmd = std::process::Command::new(&kernel);
     cmd.env("HUBRIS_HOST_CONFIG", &config_path);
-    if flags.trace {
-        cmd.env("HUBRIS_HOST_TRACE", "1");
+    if let Some(trace) = &flags.trace {
+        cmd.env("HUBRIS_HOST_TRACE", trace);
     }
     println!("running {}", kernel.display());
     let status = cmd.status().context("launching the kernel")?;

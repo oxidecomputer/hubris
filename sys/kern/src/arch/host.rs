@@ -46,10 +46,17 @@
 //! `HUBRIS_HOST_CONFIG` names a RON file with a [`HostConfig`], produced by
 //! `cargo xtask host-run`: one entry per task in task-index order, giving the
 //! executable to launch and the task's `task_slot!` name-to-index map, which
-//! on hardware is patched into the binary after linking. Set
-//! `HUBRIS_HOST_TRACE` to log every syscall to stderr.
+//! on hardware is patched into the binary after linking, and optionally the
+//! `.idol` file of the interface the task serves, so that traffic to it can
+//! be decoded.
+//!
+//! Set `HUBRIS_HOST_TRACE` to log syscalls to stderr: `1` (or `all`) logs
+//! everything, and a comma-separated list of task names logs only the
+//! syscalls made by, or addressed to, those tasks. Sends and replies to a
+//! task with a known interface are shown as decoded operations, such as
+//! `SEND to sensor: post(id: SensorId(3), value: 31.5, timestamp: 1000)`.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fmt::Display;
 use std::io::BufReader;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -72,6 +79,7 @@ use hostcall::{
     ReplyFaultRequest, ReplyRequest, SendRequest, SendResponse,
     SetTimerRequest, StreamIo, TimerState,
 };
+use idol_trace::Decoder;
 use serde::{Deserialize, Serialize};
 
 use crate::atomic::AtomicExt;
@@ -112,6 +120,10 @@ pub struct HostTask {
     /// The idle task never runs: selecting it advances virtual time instead.
     #[serde(default)]
     pub idle: bool,
+    /// The `.idol` file of the interface this task serves, if any, for
+    /// decoding traffic to it in the trace.
+    #[serde(default)]
+    pub interface: Option<String>,
 }
 
 static CONFIG: OnceLock<HostConfig> = OnceLock::new();
@@ -131,9 +143,39 @@ fn config() -> &'static HostConfig {
     })
 }
 
+/// What `HUBRIS_HOST_TRACE` asked for.
+enum TraceFilter {
+    Off,
+    All,
+    /// Only syscalls involving one of these tasks.
+    Tasks(HashSet<String>),
+}
+
+fn trace_filter() -> &'static TraceFilter {
+    static FILTER: OnceLock<TraceFilter> = OnceLock::new();
+    FILTER.get_or_init(|| match std::env::var("HUBRIS_HOST_TRACE") {
+        Err(_) => TraceFilter::Off,
+        Ok(v) if v.is_empty() || v == "1" || v == "all" => TraceFilter::All,
+        Ok(v) => TraceFilter::Tasks(
+            v.split(',').map(|s| s.trim().to_string()).collect(),
+        ),
+    })
+}
+
 fn tracing() -> bool {
-    static TRACING: OnceLock<bool> = OnceLock::new();
-    *TRACING.get_or_init(|| std::env::var_os("HUBRIS_HOST_TRACE").is_some())
+    !matches!(trace_filter(), TraceFilter::Off)
+}
+
+/// Whether a syscall involving these tasks (the caller, and any peer) should
+/// be traced.
+fn traced(participants: &[usize]) -> bool {
+    match trace_filter() {
+        TraceFilter::Off => false,
+        TraceFilter::All => true,
+        TraceFilter::Tasks(names) => {
+            participants.iter().any(|&i| names.contains(task_name(i)))
+        }
+    }
 }
 
 macro_rules! trace {
@@ -143,6 +185,130 @@ macro_rules! trace {
                 format_args!($($arg)*));
         }
     };
+}
+
+/// Like `trace!`, for a syscall by `index` involving `participants`.
+macro_rules! trace_task {
+    ($participants:expr, $($arg:tt)*) => {
+        if traced($participants) {
+            eprintln!("[kernel t={}] {}", TICKS.load(Ordering::Relaxed),
+                format_args!($($arg)*));
+        }
+    };
+}
+
+fn task_name(index: usize) -> &'static str {
+    match config().tasks.get(index) {
+        Some(task) => &task.name,
+        None if index == TaskId::KERNEL.index() => "kernel",
+        None => "?",
+    }
+}
+
+/// Interface decoders, one per task, for tasks whose configuration names an
+/// `.idol` file.
+fn decoders() -> &'static [Option<Decoder>] {
+    static DECODERS: OnceLock<Vec<Option<Decoder>>> = OnceLock::new();
+    DECODERS.get_or_init(|| {
+        config()
+            .tasks
+            .iter()
+            .map(|task| {
+                let path = task.interface.as_ref()?;
+                match Decoder::load(std::path::Path::new(path)) {
+                    Ok(decoder) => Some(decoder),
+                    Err(e) => {
+                        eprintln!(
+                            "kernel: not decoding traffic to {}: {e:#}",
+                            task.name
+                        );
+                        None
+                    }
+                }
+            })
+            .collect()
+    })
+}
+
+/// Sends in flight, by sender: the target and operation, so that the reply
+/// can be decoded against the operation it answers.
+static PENDING_SENDS: Mutex<BTreeMap<usize, (usize, u16)>> =
+    Mutex::new(BTreeMap::new());
+
+/// Describes a syscall for the trace, decoding IPC where the peer's
+/// interface is known. Returns the text and the peer task, if any.
+fn describe_syscall(index: usize, kind: &CallKind) -> (String, Option<usize>) {
+    let mut pending = PENDING_SENDS.lock().unwrap_or_else(|e| e.into_inner());
+    match kind {
+        CallKind::Send {
+            target,
+            operation,
+            message,
+            leases,
+            ..
+        } => {
+            let peer = target.index();
+            pending.insert(index, (peer, *operation));
+            let what = match decoders().get(peer).and_then(Option::as_ref) {
+                Some(decoder) => {
+                    decoder.describe_request(*operation, &message.data)
+                }
+                None => {
+                    format!("op {operation} ({} bytes)", message.data.len())
+                }
+            };
+            let leases = match leases.len() {
+                0 => String::new(),
+                n => format!(" [{n} leases]"),
+            };
+            (
+                format!("SEND to {}: {what}{leases}", task_name(peer)),
+                Some(peer),
+            )
+        }
+        CallKind::Reply {
+            peer,
+            code,
+            message,
+        } => {
+            let peer = peer.index();
+            let what = match (
+                pending.remove(&peer),
+                decoders().get(index).and_then(Option::as_ref),
+            ) {
+                (Some((target, op)), Some(decoder)) if target == index => {
+                    format!(
+                        "{} -> {}",
+                        decoder.op_name(op).unwrap_or("?"),
+                        decoder.describe_reply(op, *code, &message.data)
+                    )
+                }
+                _ => format!("code {code} ({} bytes)", message.data.len()),
+            };
+            (format!("REPLY to {}: {what}", task_name(peer)), Some(peer))
+        }
+        CallKind::ReplyFault { peer, reason } => {
+            let peer = peer.index();
+            let op = pending
+                .remove(&peer)
+                .and_then(|(target, op)| (target == index).then_some(op))
+                .and_then(|op| {
+                    decoders()
+                        .get(index)
+                        .and_then(Option::as_ref)
+                        .and_then(|d| d.op_name(op).map(str::to_string))
+                })
+                .unwrap_or_default();
+            (
+                format!(
+                    "REPLY_FAULT to {}: {op} reason {reason}",
+                    task_name(peer)
+                ),
+                Some(peer),
+            )
+        }
+        other => (other.describe(), None),
+    }
 }
 
 /// Ends the run because the kernel itself cannot continue; this is the host
@@ -1154,7 +1320,8 @@ fn step() {
             fatal(format_args!("task {index} has no process to resume"))
         };
         if let Some(call) = finished_call {
-            trace!(
+            trace_task!(
+                &[index],
                 "task {}: resumed from {} with {:?}",
                 cfg.tasks[index].name,
                 sysnum_name(call.kind.sysnum()),
@@ -1185,7 +1352,11 @@ fn step() {
                     ),
                 }),
             };
-            trace!("task {}: task_slot {name:?} -> {answer:?}", task.name);
+            trace_task!(
+                &[index],
+                "task {}: task_slot {name:?} -> {answer:?}",
+                task.name
+            );
             let response = frame(&header, &answer);
             if let Some(proc) =
                 processes().get_mut(index).and_then(Option::as_mut)
@@ -1200,7 +1371,16 @@ fn step() {
             crate::profiling::event_secondary_syscall_exit();
         }
         Incoming::Syscall(call) => {
-            trace!("task {}: {}", cfg.tasks[index].name, call.kind.describe());
+            if tracing() {
+                let (what, peer) = describe_syscall(index, &call.kind);
+                let participants: Vec<usize> =
+                    [Some(index), peer].into_iter().flatten().collect();
+                trace_task!(
+                    &participants,
+                    "task {}: {what}",
+                    cfg.tasks[index].name
+                );
+            }
             let nr = call.kind.sysnum() as u32;
             // Safety: as in `current_task_index`.
             unsafe { (*current).save_mut().call = Some(call) };
@@ -1209,7 +1389,11 @@ fn step() {
             unsafe { crate::syscalls::syscall_entry(nr, current) };
         }
         Incoming::Gone(fault) => {
-            trace!("task {}: process ended, {fault:?}", cfg.tasks[index].name);
+            trace_task!(
+                &[index],
+                "task {}: process ended, {fault:?}",
+                cfg.tasks[index].name
+            );
             with_task_table(|tasks| {
                 let _ = task::force_fault(tasks, index, fault);
                 let next = task::select(index, tasks);
@@ -1242,7 +1426,8 @@ fn idle_step(idle_index: usize) {
             ))
         }
         TICKS.store(target.into(), Ordering::Relaxed);
-        trace!("idle: advanced time to the next deadline");
+        // Not attributable to a task: shown only when tracing everything.
+        trace_task!(&[], "idle: advanced time to the next deadline");
         crate::profiling::event_timer_isr_enter();
         let _ = task::process_timers(tasks, target);
         crate::profiling::event_timer_isr_exit();

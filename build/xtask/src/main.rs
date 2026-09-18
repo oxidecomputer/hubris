@@ -69,6 +69,10 @@ enum Xtask {
         /// Log every syscall the kernel handles to stderr.
         #[clap(long)]
         trace: bool,
+        /// Log only syscalls made by, or addressed to, these tasks
+        /// (comma-separated names); implies --trace.
+        #[clap(long, value_name = "TASKS")]
+        trace_only: Option<String>,
         /// Stop once virtual time would pass this many ticks.
         #[clap(long)]
         stop_at: Option<u64>,
@@ -404,6 +408,7 @@ fn run(xtask: Xtask) -> Result<()> {
             verbose,
             release,
             trace,
+            trace_only,
             stop_at,
             no_run,
             cfg,
@@ -412,7 +417,10 @@ fn run(xtask: Xtask) -> Result<()> {
                 &cfg,
                 host::HostRunFlags {
                     build: host::HostBuildFlags { verbose, release },
-                    trace,
+                    trace: match trace_only {
+                        Some(tasks) => Some(tasks),
+                        None => trace.then(|| "all".to_string()),
+                    },
                     stop_at,
                     no_run,
                 },

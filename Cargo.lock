@@ -3693,6 +3693,7 @@ dependencies = [
  "anyhow",
  "clap 3.2.23",
  "hostcall",
+ "idol-trace",
 ]
 
 [[package]]
@@ -3978,6 +3979,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "idol-trace"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "idol",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4107,6 +4117,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "hostcall",
+ "idol-trace",
  "indexmap 1.9.1",
  "kerncore",
  "phash",
@@ -7003,6 +7014,15 @@ dependencies = [
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "task-sensor-probe"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "task-sensor-api",
+ "userlib",
 ]
 
 [[package]]
