@@ -22,22 +22,23 @@ use anyhow::{Context, Result};
 use std::collections::HashSet;
 use std::fs::File;
 
+pub use analysis::OtherSensors;
 pub use analysis::{
     AnalysisSettings, ControllerRole, DeviceKey, DeviceNameKey,
-    DeviceRefdesKey, DeviceSensor, I2cDeviceDescription, I2cSensorsDescription,
-    PmbusDeviceDescription, PmbusRailDescription, Report, VpdKind,
+    DeviceRefdesKey, DeviceSensor, I2cDeviceDescription,
+    PmbusDeviceDescription, PmbusRailDescription, Report, SensorsDescription,
+    VpdKind,
 };
 pub use codegen::Codegen;
-pub use load::{Config, EepromVpd, I2cConfig, Refdes, Sensor};
+pub use load::{
+    Config, EepromVpd, I2cConfig, OtherSensorDevice, Refdes, Sensor,
+    SensorConfig,
+};
 
 /// Outputs from code generation which may be used by other build scripts.
 pub struct CodegenOutputs {
     /// The generated code that would be output to `i2c_config.rs`.
     pub code: String,
-    /// If codegen was run with the [`Section::Sensors`] section, the generated
-    /// sensor description, which may be used as an input to other code
-    /// generation steps.
-    pub sensors: Option<I2cSensorsDescription>,
 }
 
 /// A preset bundle of code generation settings, describing what a task needs
@@ -74,6 +75,15 @@ pub enum Section {
     Devices,
     Sensors,
     Validation,
+
+    /// The `other_sensors` module for non-I2C sensors (`[config.sensor]`).
+    OtherSensors,
+
+    /// A table mapping every sensor ID to its component ID.
+    SensorIdToComponentId,
+
+    /// A table mapping every sensor ID to its name.
+    SensorIdToName,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -157,12 +167,8 @@ impl CodegenSettings {
     }
 
     /// Analyze a loaded configuration with these settings.
-    pub fn analyze(&self, config: I2cConfig) -> Result<Report> {
+    pub fn analyze(&self, config: Config) -> Result<Report> {
         analysis::analyze(config, &self.analysis_settings())
-    }
-
-    fn has(&self, section: Section) -> bool {
-        self.sections.contains(&section)
     }
 }
 
@@ -238,20 +244,16 @@ pub fn codegen(
             Section::Devices => g.generate_devices()?,
             Section::Sensors => g.generate_sensors()?,
             Section::Validation => g.generate_validation()?,
+            Section::OtherSensors => g.generate_other_sensors()?,
+            Section::SensorIdToComponentId => {
+                g.generate_sensor_id_to_component_id()?
+            }
+            Section::SensorIdToName => g.generate_sensor_id_to_name()?,
         });
     }
     let output = codegen::i2c_config_module(body).to_string();
 
-    let sensors = if settings.has(Section::Sensors) {
-        Some(report.sensors)
-    } else {
-        None
-    };
-
-    Ok(CodegenOutputs {
-        code: output,
-        sensors,
-    })
+    Ok(CodegenOutputs { code: output })
 }
 
 /// Run code generation and write the output to an `i2c_config.rs` file in the

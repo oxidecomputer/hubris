@@ -1,0 +1,135 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+pub mod other_sensors {
+    #[allow(unused_imports)]
+    use super::super::SensorId;
+    #[allow(dead_code)]
+    pub const NUM_SENSORS: usize = 25;
+    #[allow(dead_code)]
+    pub const NUM_DIMM_A_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM A, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_A_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(129);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_A_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM A, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_A_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(130);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_B_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM B, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_B_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(131);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_B_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM B, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_B_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(132);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_C_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM C, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_C_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(133);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_C_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM C, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_C_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(134);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_D_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM D, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_D_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(135);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_D_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM D, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_D_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(136);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_E_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM E, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_E_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(137);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_E_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM E, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_E_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(138);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_F_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM F, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_F_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(139);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_F_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM F, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_F_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(140);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_G_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM G, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_G_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(141);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_G_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM G, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_G_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(142);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_H_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM H, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_H_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(143);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_H_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM H, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_H_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(144);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_I_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM I, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_I_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(145);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_I_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM I, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_I_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(146);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_J_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM J, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_J_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(147);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_J_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM J, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_J_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(148);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_K_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM K, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_K_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(149);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_K_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM K, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_K_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(150);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_L_TS0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM L, sensor 0"]
+    #[allow(dead_code)]
+    pub const DIMM_L_TS0_TEMPERATURE_SENSOR: SensorId = SensorId::new(151);
+    #[allow(dead_code)]
+    pub const NUM_DIMM_L_TS1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " DIMM L, sensor 1"]
+    #[allow(dead_code)]
+    pub const DIMM_L_TS1_TEMPERATURE_SENSOR: SensorId = SensorId::new(152);
+    #[allow(dead_code)]
+    pub const NUM_THERMAL_LOOP_FAN_CTRL_PWM_SENSORS: usize = 1;
+    #[doc = " Thermal loop"]
+    #[allow(dead_code)]
+    pub const THERMAL_LOOP_FAN_CTRL_PWM_SENSOR: SensorId = SensorId::new(153);
+}

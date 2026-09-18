@@ -74,7 +74,7 @@ impl Fixture {
             ..Default::default()
         };
 
-        let config = load::parse(toml).unwrap();
+        let config = load::parse_config(toml).unwrap();
         let report = analysis::analyze(config, &settings).unwrap();
 
         Fixture { report }
@@ -360,4 +360,84 @@ fn controllers_for_each_target() {
             .unwrap_or("(none)");
         insta::assert_snapshot!(format!("{target:?}"), line);
     }
+}
+
+const OTHER_SENSORS: &str = r#"
+[[sensor.devices]]
+name = "dimm_a"
+device = "ts0"
+description = "DIMM A"
+sensors = { temperature = 1 }
+refdes = ["J1", "U2"]
+
+[[sensor.devices]]
+name = "fans"
+device = "fpga"
+description = "fan hub"
+sensors = { speed = 3 }
+refdes = "U9"
+"#;
+
+#[test]
+fn other_sensors() {
+    let f = Fixture::new(&devices(&format!(
+        r#"
+[[i2c.devices]]
+device = "tmp117"
+name = "north"
+refdes = "U7"
+bus = "bus1"
+address = 0x48
+description = "an i2c temperature sensor"
+sensors = {{ temperature = 1 }}
+{OTHER_SENSORS}"#
+    )));
+    assert_snapshot!(f.section(Codegen::generate_other_sensors));
+}
+
+#[test]
+fn other_sensors_empty() {
+    let f = Fixture::new(CONTROLLERS);
+    assert_snapshot!(f.section(Codegen::generate_other_sensors));
+}
+
+#[test]
+fn sensor_lookup_tables() {
+    let f = Fixture::new(&devices(&format!(
+        r#"
+[[i2c.devices]]
+device = "tmp117"
+name = "north"
+refdes = "U7"
+bus = "bus1"
+address = 0x48
+description = "an i2c temperature sensor"
+sensors = {{ temperature = 1 }}
+{OTHER_SENSORS}"#
+    )));
+    let mut out = f.section(Codegen::generate_sensor_id_to_component_id);
+    out.push_str(&f.section(Codegen::generate_sensor_id_to_name));
+    assert_snapshot!(out);
+}
+
+#[test]
+fn sensor_lookup_tables_need_refdes_and_name() {
+    // An I2C sensor with neither a name nor a refdes.
+    let f = Fixture::new(&devices(
+        r#"
+[[i2c.devices]]
+device = "tmp117"
+bus = "bus1"
+address = 0x48
+description = "anonymous"
+sensors = { temperature = 1 }
+"#,
+    ));
+    let g = f.codegen(CodegenTarget::None);
+
+    let err = g.generate_sensor_id_to_component_id().unwrap_err();
+    assert!(format!("{err:#}").contains("has no refdes"), "{err:#}");
+
+    let err = g.generate_sensor_id_to_name().unwrap_err();
+    assert!(format!("{err:#}").contains("has no name"), "{err:#}");
 }

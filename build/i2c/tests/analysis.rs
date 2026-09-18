@@ -58,7 +58,7 @@ fn analyze(devices: &str) -> Result<Report> {
 }
 
 fn analyze_with(toml: &str, settings: AnalysisSettings) -> Result<Report> {
-    analysis::analyze(load::parse(toml)?, &settings)
+    analysis::analyze(load::parse_config(toml)?, &settings)
 }
 
 /// Asserts that analysis fails with an error containing `needle`.
@@ -467,7 +467,7 @@ name = "south"
 sensors = { temperature = 2, voltage = 1 }
 "#;
     let report = analyze(devices).unwrap();
-    assert_eq!(report.sensors.total_sensors, 6);
+    assert_eq!(report.sensors.total_i2c_sensors, 6);
 
     //
     // Sensors are numbered device by device, and within a device in the order
@@ -943,5 +943,88 @@ description = "no vpd"
             Some(VpdKind::Tmp11x),
             None,
         ]
+    );
+}
+
+const OTHER_SENSORS: &str = r#"
+[[sensor.devices]]
+name = "dimm_a"
+device = "ts0"
+description = "DIMM A"
+sensors = { temperature = 2 }
+refdes = "J1"
+
+[[sensor.devices]]
+name = "fans"
+device = "fpga"
+description = "fan hub"
+sensors = { speed = 3, temperature = 1 }
+"#;
+
+#[test]
+fn other_sensors_follow_i2c_sensor_ids() {
+    use build_i2c::Sensor;
+
+    let report = analyze(&format!(
+        r#"
+[[i2c.devices]]
+device = "tmp117"
+name = "north"
+refdes = "U7"
+bus = "bus1"
+address = 0x48
+description = "an i2c temperature sensor"
+sensors = {{ temperature = 1 }}
+{OTHER_SENSORS}"#
+    ))
+    .unwrap();
+
+    let s = &report.sensors;
+    assert_eq!(s.total_i2c_sensors, 1);
+    assert_eq!(s.total_other_sensors, 6);
+    assert_eq!(s.by_id.len(), 7);
+
+    // Non-I2C IDs continue after the I2C ones, in manifest order, and by
+    // kind within a device (in `Sensor` order: temperature before speed).
+    assert_eq!(s.other_sensors.len(), 2);
+    let dimm = &s.other_sensors[0];
+    assert_eq!(dimm.config.name, "dimm_a");
+    assert_eq!(dimm.ids_by_kind[&Sensor::Temperature], vec![1, 2]);
+    let fans = &s.other_sensors[1];
+    assert_eq!(fans.ids_by_kind[&Sensor::Temperature], vec![3]);
+    assert_eq!(fans.ids_by_kind[&Sensor::Speed], vec![4, 5, 6]);
+
+    // They are all visible by ID, with their name and refdes.
+    let sensor = s.by_id.get(&2).unwrap();
+    assert_eq!(sensor.name.as_deref(), Some("dimm_a"));
+    assert_eq!(sensor.kind, Sensor::Temperature);
+    assert_eq!(
+        sensor.refdes,
+        Some(build_i2c::Refdes::Component("J1".into()))
+    );
+    assert_eq!(s.by_id.get(&6).unwrap().refdes, None);
+}
+
+#[test]
+fn error_duplicate_other_sensor_name() {
+    let err = analyze(
+        r#"
+[[sensor.devices]]
+name = "dimm_a"
+device = "ts0"
+description = "DIMM A"
+sensors = { temperature = 1 }
+
+[[sensor.devices]]
+name = "dimm_a"
+device = "ts1"
+description = "DIMM A again"
+sensors = { temperature = 1 }
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        format!("{err:#}").contains("Duplicate sensor name: dimm_a"),
+        "{err:#}"
     );
 }

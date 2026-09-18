@@ -1,0 +1,175 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+pub mod other_sensors {
+    #[allow(unused_imports)]
+    use super::super::SensorId;
+    #[allow(dead_code)]
+    pub const NUM_SENSORS: usize = 33;
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR0_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 0"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR0_TEMPERATURE_SENSOR: SensorId = SensorId::new(74);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR1_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 1"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR1_TEMPERATURE_SENSOR: SensorId = SensorId::new(75);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR2_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 2"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR2_TEMPERATURE_SENSOR: SensorId = SensorId::new(76);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR3_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 3"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR3_TEMPERATURE_SENSOR: SensorId = SensorId::new(77);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR4_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 4"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR4_TEMPERATURE_SENSOR: SensorId = SensorId::new(78);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR5_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 5"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR5_TEMPERATURE_SENSOR: SensorId = SensorId::new(79);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR6_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 6"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR6_TEMPERATURE_SENSOR: SensorId = SensorId::new(80);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR7_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 7"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR7_TEMPERATURE_SENSOR: SensorId = SensorId::new(81);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR8_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 8"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR8_TEMPERATURE_SENSOR: SensorId = SensorId::new(82);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR9_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 9"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR9_TEMPERATURE_SENSOR: SensorId = SensorId::new(83);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR10_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 10"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR10_TEMPERATURE_SENSOR: SensorId = SensorId::new(84);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR11_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 11"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR11_TEMPERATURE_SENSOR: SensorId = SensorId::new(85);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR12_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 12"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR12_TEMPERATURE_SENSOR: SensorId = SensorId::new(86);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR13_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 13"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR13_TEMPERATURE_SENSOR: SensorId = SensorId::new(87);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR14_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 14"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR14_TEMPERATURE_SENSOR: SensorId = SensorId::new(88);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR15_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 15"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR15_TEMPERATURE_SENSOR: SensorId = SensorId::new(89);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR16_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 16"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR16_TEMPERATURE_SENSOR: SensorId = SensorId::new(90);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR17_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 17"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR17_TEMPERATURE_SENSOR: SensorId = SensorId::new(91);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR18_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 18"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR18_TEMPERATURE_SENSOR: SensorId = SensorId::new(92);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR19_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 19"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR19_TEMPERATURE_SENSOR: SensorId = SensorId::new(93);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR20_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 20"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR20_TEMPERATURE_SENSOR: SensorId = SensorId::new(94);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR21_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 21"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR21_TEMPERATURE_SENSOR: SensorId = SensorId::new(95);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR22_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 22"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR22_TEMPERATURE_SENSOR: SensorId = SensorId::new(96);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR23_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 23"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR23_TEMPERATURE_SENSOR: SensorId = SensorId::new(97);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR24_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 24"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR24_TEMPERATURE_SENSOR: SensorId = SensorId::new(98);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR25_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 25"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR25_TEMPERATURE_SENSOR: SensorId = SensorId::new(99);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR26_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 26"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR26_TEMPERATURE_SENSOR: SensorId = SensorId::new(100);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR27_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 27"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR27_TEMPERATURE_SENSOR: SensorId = SensorId::new(101);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR28_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 28"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR28_TEMPERATURE_SENSOR: SensorId = SensorId::new(102);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR29_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 29"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR29_TEMPERATURE_SENSOR: SensorId = SensorId::new(103);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR30_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 30"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR30_TEMPERATURE_SENSOR: SensorId = SensorId::new(104);
+    #[allow(dead_code)]
+    pub const NUM_QSFP_XCVR31_TEMPERATURE_SENSORS: usize = 1;
+    #[doc = " QSFP transceiver 31"]
+    #[allow(dead_code)]
+    pub const QSFP_XCVR31_TEMPERATURE_SENSOR: SensorId = SensorId::new(105);
+    #[allow(dead_code)]
+    pub const NUM_THERMAL_LOOP_FAN_CTRL_PWM_SENSORS: usize = 1;
+    #[doc = " Thermal loop"]
+    #[allow(dead_code)]
+    pub const THERMAL_LOOP_FAN_CTRL_PWM_SENSOR: SensorId = SensorId::new(106);
+}

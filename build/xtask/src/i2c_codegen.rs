@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{Result, bail};
-use build_i2c::{CodegenSettings, Disposition, I2cConfig, Report};
+use build_i2c::{CodegenSettings, Disposition, Report};
 use std::{fs::File, io::Write, path::Path};
 
 use crate::config::Config;
@@ -22,7 +22,7 @@ pub enum Stage {
 }
 
 /// Load the I2C section of an application manifest.
-pub fn load_config(cfg: &Path) -> Result<I2cConfig> {
+pub fn load_config(cfg: &Path) -> Result<build_i2c::Config> {
     let cfg = Config::from_file(cfg)?;
 
     // This is a little roundabout of a process, but roughly approximates what
@@ -35,7 +35,7 @@ pub fn load_config(cfg: &Path) -> Result<I2cConfig> {
     // ...and now that it's a string, parse the contents back as *i2c*'s
     // different notion of what a manifest toml looks like (mostly just the
     // i2c config section).
-    build_i2c::load::parse(&config)
+    build_i2c::load::parse_config(&config)
 }
 
 /// Load and analyze the I2C section of an application manifest.

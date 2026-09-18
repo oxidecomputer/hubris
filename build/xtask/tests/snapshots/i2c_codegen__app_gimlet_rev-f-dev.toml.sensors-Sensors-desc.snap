@@ -1,6 +1,6 @@
 ---
 source: build/xtask/tests/i2c-codegen.rs
-expression: desc.to_string()
+expression: report.sensors.to_string()
 ---
 by_device:
   - DeviceKey { device: "adm127x", kind: Temperature } :: [96, 99]
@@ -394,6 +394,7 @@ by_id:
   - DeviceSensor { refdes: Some(Component("M15")), name: Some("DIMM_H1"), kind: Temperature, id: 132 }
   - DeviceSensor { refdes: Some(Component("P1")), name: Some("M2_A"), kind: Temperature, id: 133 }
   - DeviceSensor { refdes: Some(Component("P2")), name: Some("M2_B"), kind: Temperature, id: 134 }
+  - DeviceSensor { refdes: Some(Component("fan_ctrl")), name: Some("fan_ctrl"), kind: Pwm, id: 135 }
 device_sensors:
   - I2cDevice(0)
     - 0.0: DeviceSensor { refdes: Some(Path(["J194", "U1"])), name: Some("Southwest"), kind: Temperature, id: 0 }
@@ -607,4 +608,8 @@ device_sensors:
     - 75.0: DeviceSensor { refdes: Some(Component("P1")), name: Some("M2_A"), kind: Temperature, id: 133 }
   - I2cDevice(76)
     - 76.0: DeviceSensor { refdes: Some(Component("P2")), name: Some("M2_B"), kind: Temperature, id: 134 }
-total_sensors: 135
+total_i2c_sensors: 135
+other_sensors:
+  - OtherSensorDevice(0) "fan_ctrl" ("thermal_loop", "Thermal loop", refdes Some(Component("fan_ctrl")))
+    - Pwm :: [135]
+total_other_sensors: 1

@@ -1,6 +1,6 @@
 ---
 source: build/xtask/tests/i2c-codegen.rs
-expression: desc.to_string()
+expression: report.sensors.to_string()
 ---
 by_device:
   - DeviceKey { device: "adm127x", kind: Temperature } :: [126]
@@ -379,6 +379,31 @@ by_id:
   - DeviceSensor { refdes: Some(Component("U79")), name: Some("V54P5_IBC_A3"), kind: Temperature, id: 126 }
   - DeviceSensor { refdes: Some(Component("U79")), name: Some("V54P5_IBC_A3"), kind: Current, id: 127 }
   - DeviceSensor { refdes: Some(Component("U79")), name: Some("V54P5_IBC_A3"), kind: Voltage, id: 128 }
+  - DeviceSensor { refdes: Some(Component("J101")), name: Some("A_TS0"), kind: Temperature, id: 129 }
+  - DeviceSensor { refdes: Some(Component("J101")), name: Some("A_TS1"), kind: Temperature, id: 130 }
+  - DeviceSensor { refdes: Some(Component("J102")), name: Some("B_TS0"), kind: Temperature, id: 131 }
+  - DeviceSensor { refdes: Some(Component("J102")), name: Some("B_TS1"), kind: Temperature, id: 132 }
+  - DeviceSensor { refdes: Some(Component("J103")), name: Some("C_TS0"), kind: Temperature, id: 133 }
+  - DeviceSensor { refdes: Some(Component("J103")), name: Some("C_TS1"), kind: Temperature, id: 134 }
+  - DeviceSensor { refdes: Some(Component("J104")), name: Some("D_TS0"), kind: Temperature, id: 135 }
+  - DeviceSensor { refdes: Some(Component("J104")), name: Some("D_TS1"), kind: Temperature, id: 136 }
+  - DeviceSensor { refdes: Some(Component("J105")), name: Some("E_TS0"), kind: Temperature, id: 137 }
+  - DeviceSensor { refdes: Some(Component("J105")), name: Some("E_TS1"), kind: Temperature, id: 138 }
+  - DeviceSensor { refdes: Some(Component("J106")), name: Some("F_TS0"), kind: Temperature, id: 139 }
+  - DeviceSensor { refdes: Some(Component("J106")), name: Some("F_TS1"), kind: Temperature, id: 140 }
+  - DeviceSensor { refdes: Some(Component("J107")), name: Some("G_TS0"), kind: Temperature, id: 141 }
+  - DeviceSensor { refdes: Some(Component("J107")), name: Some("G_TS1"), kind: Temperature, id: 142 }
+  - DeviceSensor { refdes: Some(Component("J108")), name: Some("H_TS0"), kind: Temperature, id: 143 }
+  - DeviceSensor { refdes: Some(Component("J108")), name: Some("H_TS1"), kind: Temperature, id: 144 }
+  - DeviceSensor { refdes: Some(Component("J109")), name: Some("I_TS0"), kind: Temperature, id: 145 }
+  - DeviceSensor { refdes: Some(Component("J109")), name: Some("I_TS1"), kind: Temperature, id: 146 }
+  - DeviceSensor { refdes: Some(Component("J110")), name: Some("J_TS0"), kind: Temperature, id: 147 }
+  - DeviceSensor { refdes: Some(Component("J110")), name: Some("J_TS1"), kind: Temperature, id: 148 }
+  - DeviceSensor { refdes: Some(Component("J111")), name: Some("K_TS0"), kind: Temperature, id: 149 }
+  - DeviceSensor { refdes: Some(Component("J111")), name: Some("K_TS1"), kind: Temperature, id: 150 }
+  - DeviceSensor { refdes: Some(Component("J112")), name: Some("L_TS0"), kind: Temperature, id: 151 }
+  - DeviceSensor { refdes: Some(Component("J112")), name: Some("L_TS1"), kind: Temperature, id: 152 }
+  - DeviceSensor { refdes: Some(Component("fan_ctrl")), name: Some("fan_ctrl"), kind: Pwm, id: 153 }
 device_sensors:
   - I2cDevice(0)
   - I2cDevice(1)
@@ -572,4 +597,56 @@ device_sensors:
     - 62.0: DeviceSensor { refdes: Some(Component("U79")), name: Some("V54P5_IBC_A3"), kind: Temperature, id: 126 }
     - 62.1: DeviceSensor { refdes: Some(Component("U79")), name: Some("V54P5_IBC_A3"), kind: Current, id: 127 }
     - 62.2: DeviceSensor { refdes: Some(Component("U79")), name: Some("V54P5_IBC_A3"), kind: Voltage, id: 128 }
-total_sensors: 129
+total_i2c_sensors: 129
+other_sensors:
+  - OtherSensorDevice(0) "A_TS0" ("dimm", "DIMM A, sensor 0", refdes Some(Component("J101")))
+    - Temperature :: [129]
+  - OtherSensorDevice(1) "A_TS1" ("dimm", "DIMM A, sensor 1", refdes Some(Component("J101")))
+    - Temperature :: [130]
+  - OtherSensorDevice(2) "B_TS0" ("dimm", "DIMM B, sensor 0", refdes Some(Component("J102")))
+    - Temperature :: [131]
+  - OtherSensorDevice(3) "B_TS1" ("dimm", "DIMM B, sensor 1", refdes Some(Component("J102")))
+    - Temperature :: [132]
+  - OtherSensorDevice(4) "C_TS0" ("dimm", "DIMM C, sensor 0", refdes Some(Component("J103")))
+    - Temperature :: [133]
+  - OtherSensorDevice(5) "C_TS1" ("dimm", "DIMM C, sensor 1", refdes Some(Component("J103")))
+    - Temperature :: [134]
+  - OtherSensorDevice(6) "D_TS0" ("dimm", "DIMM D, sensor 0", refdes Some(Component("J104")))
+    - Temperature :: [135]
+  - OtherSensorDevice(7) "D_TS1" ("dimm", "DIMM D, sensor 1", refdes Some(Component("J104")))
+    - Temperature :: [136]
+  - OtherSensorDevice(8) "E_TS0" ("dimm", "DIMM E, sensor 0", refdes Some(Component("J105")))
+    - Temperature :: [137]
+  - OtherSensorDevice(9) "E_TS1" ("dimm", "DIMM E, sensor 1", refdes Some(Component("J105")))
+    - Temperature :: [138]
+  - OtherSensorDevice(10) "F_TS0" ("dimm", "DIMM F, sensor 0", refdes Some(Component("J106")))
+    - Temperature :: [139]
+  - OtherSensorDevice(11) "F_TS1" ("dimm", "DIMM F, sensor 1", refdes Some(Component("J106")))
+    - Temperature :: [140]
+  - OtherSensorDevice(12) "G_TS0" ("dimm", "DIMM G, sensor 0", refdes Some(Component("J107")))
+    - Temperature :: [141]
+  - OtherSensorDevice(13) "G_TS1" ("dimm", "DIMM G, sensor 1", refdes Some(Component("J107")))
+    - Temperature :: [142]
+  - OtherSensorDevice(14) "H_TS0" ("dimm", "DIMM H, sensor 0", refdes Some(Component("J108")))
+    - Temperature :: [143]
+  - OtherSensorDevice(15) "H_TS1" ("dimm", "DIMM H, sensor 1", refdes Some(Component("J108")))
+    - Temperature :: [144]
+  - OtherSensorDevice(16) "I_TS0" ("dimm", "DIMM I, sensor 0", refdes Some(Component("J109")))
+    - Temperature :: [145]
+  - OtherSensorDevice(17) "I_TS1" ("dimm", "DIMM I, sensor 1", refdes Some(Component("J109")))
+    - Temperature :: [146]
+  - OtherSensorDevice(18) "J_TS0" ("dimm", "DIMM J, sensor 0", refdes Some(Component("J110")))
+    - Temperature :: [147]
+  - OtherSensorDevice(19) "J_TS1" ("dimm", "DIMM J, sensor 1", refdes Some(Component("J110")))
+    - Temperature :: [148]
+  - OtherSensorDevice(20) "K_TS0" ("dimm", "DIMM K, sensor 0", refdes Some(Component("J111")))
+    - Temperature :: [149]
+  - OtherSensorDevice(21) "K_TS1" ("dimm", "DIMM K, sensor 1", refdes Some(Component("J111")))
+    - Temperature :: [150]
+  - OtherSensorDevice(22) "L_TS0" ("dimm", "DIMM L, sensor 0", refdes Some(Component("J112")))
+    - Temperature :: [151]
+  - OtherSensorDevice(23) "L_TS1" ("dimm", "DIMM L, sensor 1", refdes Some(Component("J112")))
+    - Temperature :: [152]
+  - OtherSensorDevice(24) "fan_ctrl" ("thermal_loop", "Thermal loop", refdes Some(Component("fan_ctrl")))
+    - Pwm :: [153]
+total_other_sensors: 25

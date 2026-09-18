@@ -1,6 +1,6 @@
 ---
 source: build/xtask/tests/i2c-codegen.rs
-expression: desc.to_string()
+expression: report.sensors.to_string()
 ---
 by_device:
   - DeviceKey { device: "adm127x", kind: Temperature } :: [0, 11, 18, 36, 39]
@@ -237,6 +237,39 @@ by_id:
   - DeviceSensor { refdes: Some(Path(["J61", "U18"])), name: Some("V3P3_QSFP1_A0"), kind: Temperature, id: 71 }
   - DeviceSensor { refdes: Some(Path(["J61", "U18"])), name: Some("V3P3_QSFP1_A0"), kind: Current, id: 72 }
   - DeviceSensor { refdes: Some(Path(["J61", "U18"])), name: Some("V3P3_QSFP1_A0"), kind: Voltage, id: 73 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J13A"])), name: Some("xcvr0"), kind: Temperature, id: 74 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J13B"])), name: Some("xcvr1"), kind: Temperature, id: 75 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J14A"])), name: Some("xcvr2"), kind: Temperature, id: 76 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J14B"])), name: Some("xcvr3"), kind: Temperature, id: 77 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J15A"])), name: Some("xcvr4"), kind: Temperature, id: 78 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J15B"])), name: Some("xcvr5"), kind: Temperature, id: 79 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J16A"])), name: Some("xcvr6"), kind: Temperature, id: 80 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J16B"])), name: Some("xcvr7"), kind: Temperature, id: 81 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J17A"])), name: Some("xcvr8"), kind: Temperature, id: 82 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J17B"])), name: Some("xcvr9"), kind: Temperature, id: 83 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J18A"])), name: Some("xcvr10"), kind: Temperature, id: 84 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J18B"])), name: Some("xcvr11"), kind: Temperature, id: 85 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J19A"])), name: Some("xcvr12"), kind: Temperature, id: 86 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J19B"])), name: Some("xcvr13"), kind: Temperature, id: 87 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J20A"])), name: Some("xcvr14"), kind: Temperature, id: 88 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J20B"])), name: Some("xcvr15"), kind: Temperature, id: 89 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J21B"])), name: Some("xcvr16"), kind: Temperature, id: 90 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J21A"])), name: Some("xcvr17"), kind: Temperature, id: 91 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J22B"])), name: Some("xcvr18"), kind: Temperature, id: 92 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J22A"])), name: Some("xcvr19"), kind: Temperature, id: 93 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J23B"])), name: Some("xcvr20"), kind: Temperature, id: 94 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J23A"])), name: Some("xcvr21"), kind: Temperature, id: 95 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J24B"])), name: Some("xcvr22"), kind: Temperature, id: 96 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J24A"])), name: Some("xcvr23"), kind: Temperature, id: 97 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J25B"])), name: Some("xcvr24"), kind: Temperature, id: 98 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J25A"])), name: Some("xcvr25"), kind: Temperature, id: 99 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J26B"])), name: Some("xcvr26"), kind: Temperature, id: 100 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J26A"])), name: Some("xcvr27"), kind: Temperature, id: 101 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J27B"])), name: Some("xcvr28"), kind: Temperature, id: 102 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J28A"])), name: Some("xcvr29"), kind: Temperature, id: 103 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J28B"])), name: Some("xcvr30"), kind: Temperature, id: 104 }
+  - DeviceSensor { refdes: Some(Path(["J61", "J28A"])), name: Some("xcvr31"), kind: Temperature, id: 105 }
+  - DeviceSensor { refdes: Some(Component("fan_ctrl")), name: Some("fan_ctrl"), kind: Pwm, id: 106 }
 device_sensors:
   - I2cDevice(0)
     - 0.0: DeviceSensor { refdes: Some(Component("U6")), name: Some("V54_FAN1"), kind: Temperature, id: 0 }
@@ -352,4 +385,72 @@ device_sensors:
     - 39.0: DeviceSensor { refdes: Some(Path(["J61", "U18"])), name: Some("V3P3_QSFP1_A0"), kind: Temperature, id: 71 }
     - 39.1: DeviceSensor { refdes: Some(Path(["J61", "U18"])), name: Some("V3P3_QSFP1_A0"), kind: Current, id: 72 }
     - 39.2: DeviceSensor { refdes: Some(Path(["J61", "U18"])), name: Some("V3P3_QSFP1_A0"), kind: Voltage, id: 73 }
-total_sensors: 74
+total_i2c_sensors: 74
+other_sensors:
+  - OtherSensorDevice(0) "xcvr0" ("qsfp", "QSFP transceiver 0", refdes Some(Path(["J61", "J13A"])))
+    - Temperature :: [74]
+  - OtherSensorDevice(1) "xcvr1" ("qsfp", "QSFP transceiver 1", refdes Some(Path(["J61", "J13B"])))
+    - Temperature :: [75]
+  - OtherSensorDevice(2) "xcvr2" ("qsfp", "QSFP transceiver 2", refdes Some(Path(["J61", "J14A"])))
+    - Temperature :: [76]
+  - OtherSensorDevice(3) "xcvr3" ("qsfp", "QSFP transceiver 3", refdes Some(Path(["J61", "J14B"])))
+    - Temperature :: [77]
+  - OtherSensorDevice(4) "xcvr4" ("qsfp", "QSFP transceiver 4", refdes Some(Path(["J61", "J15A"])))
+    - Temperature :: [78]
+  - OtherSensorDevice(5) "xcvr5" ("qsfp", "QSFP transceiver 5", refdes Some(Path(["J61", "J15B"])))
+    - Temperature :: [79]
+  - OtherSensorDevice(6) "xcvr6" ("qsfp", "QSFP transceiver 6", refdes Some(Path(["J61", "J16A"])))
+    - Temperature :: [80]
+  - OtherSensorDevice(7) "xcvr7" ("qsfp", "QSFP transceiver 7", refdes Some(Path(["J61", "J16B"])))
+    - Temperature :: [81]
+  - OtherSensorDevice(8) "xcvr8" ("qsfp", "QSFP transceiver 8", refdes Some(Path(["J61", "J17A"])))
+    - Temperature :: [82]
+  - OtherSensorDevice(9) "xcvr9" ("qsfp", "QSFP transceiver 9", refdes Some(Path(["J61", "J17B"])))
+    - Temperature :: [83]
+  - OtherSensorDevice(10) "xcvr10" ("qsfp", "QSFP transceiver 10", refdes Some(Path(["J61", "J18A"])))
+    - Temperature :: [84]
+  - OtherSensorDevice(11) "xcvr11" ("qsfp", "QSFP transceiver 11", refdes Some(Path(["J61", "J18B"])))
+    - Temperature :: [85]
+  - OtherSensorDevice(12) "xcvr12" ("qsfp", "QSFP transceiver 12", refdes Some(Path(["J61", "J19A"])))
+    - Temperature :: [86]
+  - OtherSensorDevice(13) "xcvr13" ("qsfp", "QSFP transceiver 13", refdes Some(Path(["J61", "J19B"])))
+    - Temperature :: [87]
+  - OtherSensorDevice(14) "xcvr14" ("qsfp", "QSFP transceiver 14", refdes Some(Path(["J61", "J20A"])))
+    - Temperature :: [88]
+  - OtherSensorDevice(15) "xcvr15" ("qsfp", "QSFP transceiver 15", refdes Some(Path(["J61", "J20B"])))
+    - Temperature :: [89]
+  - OtherSensorDevice(16) "xcvr16" ("qsfp", "QSFP transceiver 16", refdes Some(Path(["J61", "J21B"])))
+    - Temperature :: [90]
+  - OtherSensorDevice(17) "xcvr17" ("qsfp", "QSFP transceiver 17", refdes Some(Path(["J61", "J21A"])))
+    - Temperature :: [91]
+  - OtherSensorDevice(18) "xcvr18" ("qsfp", "QSFP transceiver 18", refdes Some(Path(["J61", "J22B"])))
+    - Temperature :: [92]
+  - OtherSensorDevice(19) "xcvr19" ("qsfp", "QSFP transceiver 19", refdes Some(Path(["J61", "J22A"])))
+    - Temperature :: [93]
+  - OtherSensorDevice(20) "xcvr20" ("qsfp", "QSFP transceiver 20", refdes Some(Path(["J61", "J23B"])))
+    - Temperature :: [94]
+  - OtherSensorDevice(21) "xcvr21" ("qsfp", "QSFP transceiver 21", refdes Some(Path(["J61", "J23A"])))
+    - Temperature :: [95]
+  - OtherSensorDevice(22) "xcvr22" ("qsfp", "QSFP transceiver 22", refdes Some(Path(["J61", "J24B"])))
+    - Temperature :: [96]
+  - OtherSensorDevice(23) "xcvr23" ("qsfp", "QSFP transceiver 23", refdes Some(Path(["J61", "J24A"])))
+    - Temperature :: [97]
+  - OtherSensorDevice(24) "xcvr24" ("qsfp", "QSFP transceiver 24", refdes Some(Path(["J61", "J25B"])))
+    - Temperature :: [98]
+  - OtherSensorDevice(25) "xcvr25" ("qsfp", "QSFP transceiver 25", refdes Some(Path(["J61", "J25A"])))
+    - Temperature :: [99]
+  - OtherSensorDevice(26) "xcvr26" ("qsfp", "QSFP transceiver 26", refdes Some(Path(["J61", "J26B"])))
+    - Temperature :: [100]
+  - OtherSensorDevice(27) "xcvr27" ("qsfp", "QSFP transceiver 27", refdes Some(Path(["J61", "J26A"])))
+    - Temperature :: [101]
+  - OtherSensorDevice(28) "xcvr28" ("qsfp", "QSFP transceiver 28", refdes Some(Path(["J61", "J27B"])))
+    - Temperature :: [102]
+  - OtherSensorDevice(29) "xcvr29" ("qsfp", "QSFP transceiver 29", refdes Some(Path(["J61", "J28A"])))
+    - Temperature :: [103]
+  - OtherSensorDevice(30) "xcvr30" ("qsfp", "QSFP transceiver 30", refdes Some(Path(["J61", "J28B"])))
+    - Temperature :: [104]
+  - OtherSensorDevice(31) "xcvr31" ("qsfp", "QSFP transceiver 31", refdes Some(Path(["J61", "J28A"])))
+    - Temperature :: [105]
+  - OtherSensorDevice(32) "fan_ctrl" ("thermal_loop", "Thermal loop", refdes Some(Component("fan_ctrl")))
+    - Pwm :: [106]
+total_other_sensors: 33

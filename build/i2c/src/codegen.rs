@@ -625,14 +625,21 @@ impl Codegen<'_> {
         }
     }
 
+    /// Emits the `NUM_*_SENSORS` count and `*_SENSOR`/`*_SENSORS` ID
+    /// constants for one group of sensors, optionally documented with `doc`.
     fn emit_sensor(
         &self,
         device: &str,
         label: &str,
         ids: &[usize],
+        doc: Option<&str>,
     ) -> TokenStream {
         let device = device.to_uppercase();
         let n_sensors = ids.len();
+        let doc = doc.map(|d| {
+            let d = self::doc(d);
+            quote!(#[doc = #d])
+        });
 
         let count = ident(&format!("NUM_{device}_{label}_SENSORS"));
         let n = usize_lit(n_sensors);
@@ -641,6 +648,7 @@ impl Codegen<'_> {
             let name = ident(&format!("{device}_{label}_SENSOR"));
             let id = usize_lit(*id);
             quote! {
+                #doc
                 #[allow(dead_code)]
                 pub const #name: SensorId = SensorId::new(#id);
             }
@@ -648,6 +656,7 @@ impl Codegen<'_> {
             let name = ident(&format!("{device}_{label}_SENSORS"));
             let ids = ids.iter().map(|&id| usize_lit(id));
             quote! {
+                #doc
                 #[allow(dead_code)]
                 pub const #name: [SensorId; #n] = [ #(SensorId::new(#ids)),* ];
             }
@@ -771,7 +780,7 @@ impl Codegen<'_> {
 
     pub fn generate_sensors(&self) -> Result<TokenStream> {
         let s = &self.report.sensors;
-        let total = usize_lit(s.total_sensors);
+        let total = usize_lit(s.total_i2c_sensors);
 
         let structs = self.report.devices.iter().enumerate().map(|(i, d)| {
             let info = &self.report.sensor_structs[i];
@@ -793,17 +802,17 @@ impl Codegen<'_> {
         });
 
         let by_device = s.by_device.iter().map(|(k, ids)| {
-            self.emit_sensor(&k.device, &k.kind.to_string(), ids)
+            self.emit_sensor(&k.device, &k.kind.to_string(), ids, None)
         });
 
         let by_name = s.by_name.iter().map(|(k, ids)| {
             let label = format!("{}_{}", k.name.to_uppercase(), k.kind);
-            self.emit_sensor(&k.device, &label, ids)
+            self.emit_sensor(&k.device, &label, ids, None)
         });
 
         let by_refdes = s.by_refdes.iter().map(|(k, ids)| {
             let label = format!("{}_{}", k.refdes.to_upper_ident(), k.kind);
-            self.emit_sensor(&k.device, &label, ids)
+            self.emit_sensor(&k.device, &label, ids, None)
         });
 
         Ok(quote! {
@@ -819,6 +828,108 @@ impl Codegen<'_> {
                 #(#by_name)*
                 #(#by_refdes)*
             }
+        })
+    }
+
+    /// The `other_sensors` module: constants for the sensors of non-I2C
+    /// devices (from `[config.sensor]`), which share the ID space with the
+    /// I2C sensors.
+    pub fn generate_other_sensors(&self) -> Result<TokenStream> {
+        let s = &self.report.sensors;
+        let total = usize_lit(s.total_other_sensors);
+
+        let consts = s.other_sensors.iter().flat_map(|d| {
+            d.ids_by_kind.iter().map(|(kind, ids)| {
+                let label =
+                    format!("{}_{kind}", d.config.name.to_ascii_uppercase());
+                self.emit_sensor(
+                    &d.config.device,
+                    &label,
+                    ids,
+                    Some(&d.config.description),
+                )
+            })
+        });
+
+        Ok(quote! {
+            pub mod other_sensors {
+                #[allow(unused_imports)]
+                use super::super::SensorId;
+
+                #[allow(dead_code)]
+                pub const NUM_SENSORS: usize = #total;
+
+                #(#consts)*
+            }
+        })
+    }
+
+    /// A table mapping every sensor ID (I2C and otherwise) to its component
+    /// ID, as `fixedstr::FixedStr`s.
+    ///
+    /// This is an error if any sensor has no refdes.
+    pub fn generate_sensor_id_to_component_id(&self) -> Result<TokenStream> {
+        let mut ids = Vec::new();
+        let mut max_len = 0;
+
+        for sensor in &self.report.sensors.by_id {
+            let Some(refdes) = &sensor.refdes else {
+                bail!(
+                    "we were asked to generate a sensor-ID-to-component-ID \
+                     lookup table, but sensor ID {} (name: {:?}, type: {:?}) \
+                     has no refdes",
+                    sensor.id,
+                    sensor.name.as_deref().unwrap_or("<no name>"),
+                    sensor.kind,
+                );
+            };
+            let cid = refdes.to_component_id();
+            max_len = max_len.max(cid.len());
+            ids.push(cid);
+        }
+
+        let n = usize_lit(ids.len());
+        let max_len = usize_lit(max_len);
+
+        Ok(quote! {
+            pub const MAX_SENSOR_COMPONENT_ID_LEN: usize = #max_len;
+
+            pub const SENSOR_ID_TO_COMPONENT_ID: [
+                fixedstr::FixedStr<'static, MAX_SENSOR_COMPONENT_ID_LEN>;
+                #n
+            ] = [ #(fixedstr::FixedStr::from_str(#ids)),* ];
+        })
+    }
+
+    /// A table mapping every sensor ID (I2C and otherwise) to its name, as
+    /// `fixedstr::FixedStr`s.
+    ///
+    /// This is an error if any sensor has no name.
+    pub fn generate_sensor_id_to_name(&self) -> Result<TokenStream> {
+        let mut names = Vec::new();
+        let mut max_len = 0;
+
+        for sensor in &self.report.sensors.by_id {
+            let Some(name) = &sensor.name else {
+                bail!(
+                    "we were asked to generate a sensor-name lookup table, \
+                     but sensor {sensor:?} has no name"
+                );
+            };
+            max_len = max_len.max(name.len());
+            names.push(name.clone());
+        }
+
+        let n = usize_lit(names.len());
+        let max_len = usize_lit(max_len);
+
+        Ok(quote! {
+            pub const MAX_SENSOR_NAME_LEN: usize = #max_len;
+
+            pub const SENSOR_ID_TO_NAME: [
+                fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>;
+                #n
+            ] = [ #(fixedstr::FixedStr::from_str(#names)),* ];
         })
     }
 

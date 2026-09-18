@@ -14,16 +14,20 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 
 /// Load the I2C configuration from the environment, as set up by `xtask dist`.
-pub fn load_from_env() -> Result<I2cConfig> {
-    let config = build_util::config::<Config>()
-        .map_err(|err| anyhow::anyhow!("malformed config.i2c: {err:?}"))?;
-    Ok(config.i2c)
+pub fn load_from_env() -> Result<Config> {
+    build_util::config::<Config>()
+        .map_err(|err| anyhow::anyhow!("malformed config.i2c: {err:?}"))
 }
 
 /// Parse an application manifest (or fragment thereof) from a TOML string.
+pub fn parse_config(toml: &str) -> Result<Config> {
+    build_util::toml_from_str(toml)
+}
+
+/// Parse just the I2C section of an application manifest (or fragment
+/// thereof) from a TOML string.
 pub fn parse(toml: &str) -> Result<I2cConfig> {
-    let config: Config = build_util::toml_from_str(toml)?;
-    Ok(config.i2c)
+    Ok(parse_config(toml)?.i2c)
 }
 //
 // Our definition of the `Config` type.  We share this type with all other
@@ -33,6 +37,37 @@ pub fn parse(toml: &str) -> Result<I2cConfig> {
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub i2c: I2cConfig,
+
+    /// Sensors which are not attached via I2C (`[config.sensor]`), but which
+    /// share the sensor ID space with the I2C sensors.
+    pub sensor: Option<SensorConfig>,
+}
+
+/// The `[config.sensor]` section: sensors not attached via I2C.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct SensorConfig {
+    pub devices: Vec<OtherSensorDevice>,
+}
+
+/// A non-I2C device with sensors.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct OtherSensorDevice {
+    /// device name (must be unique among non-I2C devices)
+    pub name: String,
+
+    /// device part name
+    pub device: String,
+
+    /// description of device
+    pub description: String,
+
+    /// number of sensors of each kind
+    pub sensors: BTreeMap<Sensor, usize>,
+
+    /// reference designator, if any
+    pub refdes: Option<Refdes>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

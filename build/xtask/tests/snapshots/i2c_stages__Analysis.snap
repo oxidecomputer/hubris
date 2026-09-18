@@ -92,16 +92,16 @@ Report {
         ): 0,
     },
     buses: {
+        "i2c4": (
+            4,
+            0,
+        ),
         "i2c2": (
             2,
             0,
         ),
         "i2c3": (
             3,
-            0,
-        ),
-        "i2c4": (
-            4,
             0,
         ),
     },
@@ -115,13 +115,15 @@ Report {
     max_component_id_len: 0,
     pmbus_rails: [],
     power_rails: [],
-    sensors: I2cSensorsDescription {
+    sensors: SensorsDescription {
         by_device: {},
         by_refdes: {},
         by_name: {},
         by_id: {},
         device_sensors: [],
-        total_sensors: 0,
+        total_i2c_sensors: 0,
+        other_sensors: [],
+        total_other_sensors: 0,
     },
     sensor_structs: [],
     validation: None,

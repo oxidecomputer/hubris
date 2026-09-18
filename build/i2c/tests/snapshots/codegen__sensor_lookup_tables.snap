@@ -1,0 +1,23 @@
+---
+source: build/i2c/tests/codegen.rs
+expression: out
+---
+pub const MAX_SENSOR_COMPONENT_ID_LEN: usize = 5;
+pub const SENSOR_ID_TO_COMPONENT_ID: [fixedstr::FixedStr<
+    'static,
+    MAX_SENSOR_COMPONENT_ID_LEN,
+>; 5] = [
+    fixedstr::FixedStr::from_str("U7"),
+    fixedstr::FixedStr::from_str("J1/U2"),
+    fixedstr::FixedStr::from_str("U9"),
+    fixedstr::FixedStr::from_str("U9"),
+    fixedstr::FixedStr::from_str("U9"),
+];
+pub const MAX_SENSOR_NAME_LEN: usize = 6;
+pub const SENSOR_ID_TO_NAME: [fixedstr::FixedStr<'static, MAX_SENSOR_NAME_LEN>; 5] = [
+    fixedstr::FixedStr::from_str("north"),
+    fixedstr::FixedStr::from_str("dimm_a"),
+    fixedstr::FixedStr::from_str("fans"),
+    fixedstr::FixedStr::from_str("fans"),
+    fixedstr::FixedStr::from_str("fans"),
+];

@@ -55,6 +55,9 @@ gen_fns!(
     generate_ports,
     generate_sensors,
     generate_validation,
+    generate_other_sensors,
+    generate_sensor_id_to_component_id,
+    generate_sensor_id_to_name,
 );
 
 #[test]
@@ -83,6 +86,21 @@ fn snapshot() {
         ("controllers", Disposition::Target, generate_controllers),
         ("pins", Disposition::Target, generate_pins),
         ("ports", Disposition::Target, generate_ports),
+        (
+            "other-sensors",
+            Disposition::Sensors,
+            generate_other_sensors,
+        ),
+        (
+            "sensor-id-to-component-id",
+            Disposition::Sensors,
+            generate_sensor_id_to_component_id,
+        ),
+        (
+            "sensor-id-to-name",
+            Disposition::Sensors,
+            generate_sensor_id_to_name,
+        ),
     ];
 
     let all_dispositions = [
@@ -202,8 +220,16 @@ fn snapshot_file(
         report: &report,
         codegen_target: settings.codegen_target,
     };
-    // Do code generation with the given function
-    let out = (f)(&g).unwrap().to_string();
+    // Do code generation with the given function; some sections are errors
+    // for some manifests (e.g. lookup tables when a sensor has no refdes),
+    // in which case we snapshot the error text instead.
+    let out = match (f)(&g) {
+        Ok(tokens) => tokens.to_string(),
+        Err(e) => {
+            assert_snapshot!(name, format!("ERROR: {e:#}"));
+            return;
+        }
+    };
     // Write and format the file...
     xtask::i2c_codegen::write_file(&out, &temp_out, true).unwrap();
 

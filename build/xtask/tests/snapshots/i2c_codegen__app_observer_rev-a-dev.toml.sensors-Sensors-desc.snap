@@ -1,6 +1,6 @@
 ---
 source: build/xtask/tests/i2c-codegen.rs
-expression: desc.to_string()
+expression: report.sensors.to_string()
 ---
 by_device:
   - DeviceKey { device: "mwocp67", kind: Temperature } :: [1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 21, 22, 23, 24, 25, 31, 32, 33, 34, 35, 41, 42, 43, 44, 45, 51, 52, 53, 54, 55]
@@ -224,4 +224,6 @@ device_sensors:
     - 13.7: DeviceSensor { refdes: Some(Component("PSU5")), name: Some("V50_PSU5"), kind: InputCurrent, id: 58 }
     - 13.8: DeviceSensor { refdes: Some(Component("PSU5")), name: Some("V50_PSU5"), kind: InputVoltage, id: 59 }
     - 13.9: DeviceSensor { refdes: Some(Component("PSU5")), name: Some("psu5mcu"), kind: Speed, id: 60 }
-total_sensors: 61
+total_i2c_sensors: 61
+other_sensors:
+total_other_sensors: 0

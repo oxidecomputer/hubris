@@ -13,7 +13,8 @@
 //! generation is a pure function of the [`Report`].
 
 use crate::load::{
-    EepromVpd, I2cConfig, I2cController, I2cDevice, I2cSensors, Refdes, Sensor,
+    Config, EepromVpd, I2cController, I2cDevice, I2cSensors, OtherSensorDevice,
+    Refdes, Sensor, SensorConfig,
 };
 use anyhow::{Result, bail};
 use convert_case::{Case, Casing};
@@ -210,7 +211,7 @@ pub struct Report {
     pub power_rails: Vec<PowerRail>,
 
     /// The sensors of every device.
-    pub sensors: I2cSensorsDescription,
+    pub sensors: SensorsDescription,
 
     /// Per-device sensor `struct` information, parallel to [`Report::devices`].
     pub sensor_structs: Vec<SensorStruct>,
@@ -266,10 +267,12 @@ impl Report {
 }
 
 /// Analyze a loaded configuration, producing a [`Report`].
-pub fn analyze(
-    config: I2cConfig,
-    settings: &AnalysisSettings,
-) -> Result<Report> {
+pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
+    let Config {
+        i2c: config,
+        sensor: other_sensors,
+    } = config;
+
     let mut controllers = vec![];
     let mut buses = HashMap::new();
     let mut ports = IndexMap::new();
@@ -352,7 +355,8 @@ pub fn analyze(
         d.pmbus = pmbus_description(&d.config);
     }
 
-    let sensors = I2cSensorsDescription::new(&config_devices)?;
+    let sensors =
+        SensorsDescription::new(&config_devices, other_sensors.as_ref())?;
     let sensor_structs = analyze_sensor_structs(&config_devices)?;
 
     let validation = match &settings.drivers {
@@ -947,7 +951,7 @@ impl iddqd::IdOrdItem for DeviceSensor {
 }
 
 #[derive(Debug)]
-pub struct I2cSensorsDescription {
+pub struct SensorsDescription {
     // In all maps below, the value is the sensor ID. The same sensor ID
     // can show up in multiple (including all!) of these maps.
     //
@@ -976,18 +980,38 @@ pub struct I2cSensorsDescription {
     /// name (if present)
     pub(crate) device_sensors: Vec<Vec<Arc<DeviceSensor>>>,
 
-    pub total_sensors: usize,
+    /// The number of I2C sensors; their IDs are `0..total_i2c_sensors`.
+    pub total_i2c_sensors: usize,
+
+    /// Non-I2C sensors (from `[config.sensor]`), in manifest order. Their
+    /// IDs follow the I2C sensors' IDs.
+    pub other_sensors: Vec<OtherSensors>,
+
+    /// The number of non-I2C sensors.
+    pub total_other_sensors: usize,
 }
 
-impl std::fmt::Display for I2cSensorsDescription {
+/// The sensors of a non-I2C device.
+#[derive(Debug)]
+pub struct OtherSensors {
+    /// The device's manifest entry.
+    pub config: OtherSensorDevice,
+
+    /// The IDs of this device's sensors, by kind, in allocation order.
+    pub ids_by_kind: BTreeMap<Sensor, Vec<usize>>,
+}
+
+impl std::fmt::Display for SensorsDescription {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let I2cSensorsDescription {
+        let SensorsDescription {
             by_device,
             by_name,
             by_refdes,
             by_id,
             device_sensors,
-            total_sensors,
+            total_i2c_sensors,
+            other_sensors,
+            total_other_sensors,
         } = self;
         writeln!(f, "by_device:")?;
         for (k, vs) in by_device {
@@ -1012,19 +1036,39 @@ impl std::fmt::Display for I2cSensorsDescription {
                 writeln!(f, "    - {i}.{j}: {s:?}")?;
             }
         }
-        writeln!(f, "total_sensors: {total_sensors}")
+        writeln!(f, "total_i2c_sensors: {total_i2c_sensors}")?;
+        writeln!(f, "other_sensors:")?;
+        for (i, d) in other_sensors.iter().enumerate() {
+            writeln!(
+                f,
+                "  - OtherSensorDevice({i}) {:?} ({:?}, {:?}, refdes {:?})",
+                d.config.name,
+                d.config.device,
+                d.config.description,
+                d.config.refdes
+            )?;
+            for (kind, ids) in &d.ids_by_kind {
+                writeln!(f, "    - {kind:?} :: {ids:?}")?;
+            }
+        }
+        writeln!(f, "total_other_sensors: {total_other_sensors}")
     }
 }
 
-impl I2cSensorsDescription {
-    pub(crate) fn new(devices: &[I2cDevice]) -> Result<Self> {
+impl SensorsDescription {
+    pub(crate) fn new(
+        devices: &[I2cDevice],
+        other: Option<&SensorConfig>,
+    ) -> Result<Self> {
         let mut desc = Self {
             by_device: BTreeMap::new(),
             by_name: BTreeMap::new(),
             by_refdes: BTreeMap::new(),
             by_id: IdOrdMap::new(),
             device_sensors: vec![Vec::new(); devices.len()],
-            total_sensors: 0,
+            total_i2c_sensors: 0,
+            other_sensors: Vec::new(),
+            total_other_sensors: 0,
         };
 
         for (d_index, d) in devices.iter().enumerate() {
@@ -1059,7 +1103,56 @@ impl I2cSensorsDescription {
             }
         }
 
+        if let Some(other) = other {
+            desc.add_other_sensors(other)?;
+        }
+
         Ok(desc)
+    }
+
+    /// Allocates IDs for the non-I2C sensors, after all of the I2C sensors.
+    fn add_other_sensors(&mut self, other: &SensorConfig) -> Result<()> {
+        let mut names = std::collections::BTreeSet::new();
+
+        for d in &other.devices {
+            if !names.insert(d.name.clone()) {
+                bail!("Duplicate sensor name: {}", d.name);
+            }
+
+            let mut ids_by_kind = BTreeMap::new();
+
+            for (&kind, &count) in &d.sensors {
+                let ids: &mut Vec<usize> = ids_by_kind.entry(kind).or_default();
+                for _ in 0..count {
+                    let id = self.total_i2c_sensors + self.total_other_sensors;
+                    self.total_other_sensors += 1;
+
+                    let sensor = Arc::new(DeviceSensor {
+                        refdes: d.refdes.clone(),
+                        name: Some(d.name.clone()),
+                        kind,
+                        id,
+                    });
+
+                    if let Err(prev) = self.by_id.insert_unique(sensor.clone())
+                    {
+                        bail!(
+                            "weird: colliding sensor ID {id}: {prev:?} and \
+                             {sensor:?}"
+                        );
+                    }
+
+                    ids.push(id);
+                }
+            }
+
+            self.other_sensors.push(OtherSensors {
+                config: d.clone(),
+                ids_by_kind,
+            });
+        }
+
+        Ok(())
     }
 
     // `idx` is the index of the type of sensor within `d` (the idx-th
@@ -1077,8 +1170,8 @@ impl I2cSensorsDescription {
         idx: usize,
         dev_index: usize,
     ) -> Result<()> {
-        let id = self.total_sensors;
-        self.total_sensors += 1;
+        let id = self.total_i2c_sensors;
+        self.total_i2c_sensors += 1;
 
         let name: Option<String> = if let Some(power) = d.power_for_kind(kind) {
             if let Some(rails) = &power.rails {

@@ -1,0 +1,15 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+pub mod other_sensors {
+    #[allow(unused_imports)]
+    use super::super::SensorId;
+    #[allow(dead_code)]
+    pub const NUM_SENSORS: usize = 1;
+    #[allow(dead_code)]
+    pub const NUM_THERMAL_LOOP_FAN_CTRL_PWM_SENSORS: usize = 1;
+    #[doc = " Thermal loop"]
+    #[allow(dead_code)]
+    pub const THERMAL_LOOP_FAN_CTRL_PWM_SENSOR: SensorId = SensorId::new(135);
+}

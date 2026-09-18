@@ -6828,13 +6828,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-i2c",
- "build-util",
  "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "fixedstr",
  "hubpack",
- "iddqd",
  "idol",
  "idol-runtime",
  "num-derive",

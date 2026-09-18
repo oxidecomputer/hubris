@@ -238,3 +238,63 @@ fn unknown_i2c_fields_are_rejected() {
         "unexpected error: {err:#}"
     );
 }
+
+#[test]
+fn sensor_section_parses() {
+    let cfg = load::parse_config(
+        r#"
+[i2c]
+controllers = []
+
+[sensor]
+[[sensor.devices]]
+name = "dimm_a"
+device = "ts0"
+description = "DIMM A, sensor 0"
+sensors = { temperature = 1 }
+refdes = ["J1", "U2"]
+
+[[sensor.devices]]
+name = "fan_hub"
+device = "fpga"
+description = "fan speeds"
+sensors = { speed = 4, temperature = 2 }
+"#,
+    )
+    .unwrap();
+
+    let sensor = cfg.sensor.unwrap();
+    assert_eq!(sensor.devices.len(), 2);
+    let d = &sensor.devices[0];
+    assert_eq!(d.name, "dimm_a");
+    assert_eq!(d.device, "ts0");
+    assert_eq!(d.sensors[&build_i2c::Sensor::Temperature], 1);
+    assert_eq!(
+        d.refdes,
+        Some(build_i2c::Refdes::Path(vec!["J1".into(), "U2".into()]))
+    );
+    assert_eq!(sensor.devices[1].refdes, None);
+    assert_eq!(sensor.devices[1].sensors.len(), 2);
+}
+
+#[test]
+fn sensor_section_is_optional_and_strict() {
+    let cfg = load::parse_config("[i2c]\ncontrollers = []\n").unwrap();
+    assert!(cfg.sensor.is_none());
+
+    let err = load::parse_config(
+        r#"
+[i2c]
+controllers = []
+
+[[sensor.devices]]
+name = "x"
+device = "y"
+description = "z"
+sensors = {}
+bogus = 1
+"#,
+    )
+    .unwrap_err();
+    assert!(format!("{err:#}").contains("bogus"), "{err:#}");
+}

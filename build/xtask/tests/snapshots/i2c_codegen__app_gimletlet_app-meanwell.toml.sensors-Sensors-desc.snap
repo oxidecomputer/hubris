@@ -1,10 +1,12 @@
 ---
 source: build/xtask/tests/i2c-codegen.rs
-expression: desc.to_string()
+expression: report.sensors.to_string()
 ---
 by_device:
 by_name:
 by_refdes:
 by_id:
 device_sensors:
-total_sensors: 0
+total_i2c_sensors: 0
+other_sensors:
+total_other_sensors: 0

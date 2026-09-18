@@ -1,0 +1,24 @@
+---
+source: build/i2c/tests/codegen.rs
+expression: "f.section(Codegen::generate_other_sensors)"
+---
+pub mod other_sensors {
+    #[allow(unused_imports)]
+    use super::super::SensorId;
+    #[allow(dead_code)]
+    pub const NUM_SENSORS: usize = 4;
+    #[allow(dead_code)]
+    pub const NUM_TS0_DIMM_A_TEMPERATURE_SENSORS: usize = 1;
+    /// DIMM A
+    #[allow(dead_code)]
+    pub const TS0_DIMM_A_TEMPERATURE_SENSOR: SensorId = SensorId::new(1);
+    #[allow(dead_code)]
+    pub const NUM_FPGA_FANS_SPEED_SENSORS: usize = 3;
+    /// fan hub
+    #[allow(dead_code)]
+    pub const FPGA_FANS_SPEED_SENSORS: [SensorId; 3] = [
+        SensorId::new(2),
+        SensorId::new(3),
+        SensorId::new(4),
+    ];
+}

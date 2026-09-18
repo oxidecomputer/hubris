@@ -1,0 +1,10 @@
+---
+source: build/i2c/tests/codegen.rs
+expression: "f.section(Codegen::generate_other_sensors)"
+---
+pub mod other_sensors {
+    #[allow(unused_imports)]
+    use super::super::SensorId;
+    #[allow(dead_code)]
+    pub const NUM_SENSORS: usize = 0;
+}

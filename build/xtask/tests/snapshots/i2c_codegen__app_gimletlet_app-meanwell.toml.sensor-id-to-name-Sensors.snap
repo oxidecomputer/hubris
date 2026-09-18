@@ -1,0 +1,9 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+pub const MAX_SENSOR_NAME_LEN: usize = 0;
+pub const SENSOR_ID_TO_NAME: [fixedstr::FixedStr<
+    'static,
+    MAX_SENSOR_NAME_LEN,
+>; 0] = [];
