@@ -49,7 +49,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -121,7 +121,7 @@ expression: "format!(\"{descs:#?}\")"
             "East",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -148,7 +148,9 @@ expression: "format!(\"{descs:#?}\")"
             "NNE",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -197,7 +199,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -239,7 +241,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: true,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -288,7 +290,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -346,7 +348,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -382,7 +384,9 @@ expression: "format!(\"{descs:#?}\")"
             "Northeast",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -431,7 +435,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -489,7 +493,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -525,7 +529,9 @@ expression: "format!(\"{descs:#?}\")"
             "NNW",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -552,7 +558,7 @@ expression: "format!(\"{descs:#?}\")"
             "tf2",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -637,7 +643,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -720,7 +726,7 @@ expression: "format!(\"{descs:#?}\")"
             "IBC",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -778,7 +784,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -836,7 +842,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -872,7 +878,9 @@ expression: "format!(\"{descs:#?}\")"
             "Northwest",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -935,7 +943,7 @@ expression: "format!(\"{descs:#?}\")"
             "West",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -947,7 +955,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: true,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1032,7 +1040,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1086,7 +1094,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1098,7 +1106,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: true,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1125,7 +1133,9 @@ expression: "format!(\"{descs:#?}\")"
             "South",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1152,7 +1162,9 @@ expression: "format!(\"{descs:#?}\")"
             "Southeast",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1179,7 +1191,9 @@ expression: "format!(\"{descs:#?}\")"
             "Southwest",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1228,7 +1242,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1286,7 +1300,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1322,7 +1336,7 @@ expression: "format!(\"{descs:#?}\")"
             "vsc7448",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1336,7 +1350,11 @@ expression: "format!(\"{descs:#?}\")"
             "local_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1348,7 +1366,11 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1360,7 +1382,11 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1372,7 +1398,11 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1384,7 +1414,11 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1396,7 +1430,11 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1408,7 +1446,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1422,7 +1460,7 @@ expression: "format!(\"{descs:#?}\")"
             "front_leds_left",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1436,7 +1474,7 @@ expression: "format!(\"{descs:#?}\")"
             "front_leds_right",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1494,7 +1532,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1561,7 +1599,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1628,7 +1666,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [

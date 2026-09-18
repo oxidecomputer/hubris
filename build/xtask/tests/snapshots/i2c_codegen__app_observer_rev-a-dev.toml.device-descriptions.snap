@@ -27,7 +27,9 @@ expression: "format!(\"{descs:#?}\")"
             "onboard",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -41,7 +43,11 @@ expression: "format!(\"{descs:#?}\")"
             "local_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -55,7 +61,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu0eeprom",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -190,7 +196,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu0mcu",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -213,7 +219,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu1eeprom",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -348,7 +354,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu1mcu",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -371,7 +377,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu2eeprom",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -506,7 +512,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu2mcu",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -529,7 +535,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu3eeprom",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -664,7 +670,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu3mcu",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -687,7 +693,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu4eeprom",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -822,7 +828,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu4mcu",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -845,7 +851,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu5eeprom",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -980,7 +986,7 @@ expression: "format!(\"{descs:#?}\")"
             "psu5mcu",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [

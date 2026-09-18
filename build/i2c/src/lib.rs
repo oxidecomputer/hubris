@@ -25,8 +25,7 @@ use std::fs::File;
 pub use analysis::{
     AnalysisSettings, ControllerRole, DeviceKey, DeviceNameKey,
     DeviceRefdesKey, DeviceSensor, I2cDeviceDescription, I2cSensorsDescription,
-    PmbusDeviceDescription, PmbusRailDescription, Report, VPD_EEPROM_DEVICES,
-    VPD_TMP11X_DEVICES,
+    PmbusDeviceDescription, PmbusRailDescription, Report, VpdKind,
 };
 pub use codegen::Codegen;
 pub use load::{Config, EepromVpd, I2cConfig, Refdes, Sensor};
@@ -152,6 +151,8 @@ impl CodegenSettings {
             role: self.role,
             component_ids: self.component_ids,
             drivers: self.drivers.clone(),
+            require_component_ids: false,
+            max_component_id_len: None,
         }
     }
 
@@ -288,11 +289,39 @@ pub fn codegen_to_file(
 /// `validate()` command.
 ///
 pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
-    let settings: CodegenSettings = Disposition::Validation.into();
-    let config = load::load_from_env().unwrap();
-    let report = settings.analyze(config).unwrap();
+    device_descriptions_with(&AnalysisSettings::for_device_descriptions())
+        .unwrap()
+        .into_iter()
+}
 
-    report.device_descriptions().collect::<Vec<_>>().into_iter()
+/// Returns the I2C device descriptions for the task being built, analyzed
+/// with the given settings.
+///
+/// Use [`AnalysisSettings::for_device_descriptions`] as a starting point and
+/// tighten it (e.g. requiring component IDs) as needed. The order of the
+/// descriptions matches the indexing used in the generated `validate()` and
+/// `device_by_index()` functions.
+pub fn device_descriptions_with(
+    settings: &AnalysisSettings,
+) -> Result<Vec<I2cDeviceDescription>> {
+    let config = load::load_from_env()?;
+    let report = analysis::analyze(config, settings)?;
+    Ok(report.device_descriptions().collect())
+}
+
+impl AnalysisSettings {
+    /// The settings used by [`device_descriptions`]: initiator controllers,
+    /// component IDs per the `component-id` feature, and no validation
+    /// drivers (which would have side effects on the build).
+    pub fn for_device_descriptions() -> Self {
+        Self {
+            role: ControllerRole::Initiator,
+            component_ids: cfg!(feature = "component-id"),
+            drivers: None,
+            require_component_ids: false,
+            max_component_id_len: None,
+        }
+    }
 }
 
 /// Determine the set of I2C device drivers available for validation.

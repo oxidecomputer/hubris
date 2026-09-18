@@ -30,7 +30,9 @@ expression: "format!(\"{descs:#?}\")"
             "Southwest",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -60,7 +62,9 @@ expression: "format!(\"{descs:#?}\")"
             "South",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -90,7 +94,9 @@ expression: "format!(\"{descs:#?}\")"
             "Southeast",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -102,7 +108,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: true,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -114,7 +120,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: true,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -126,7 +132,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: true,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -140,7 +146,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_a_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -215,7 +225,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_a_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -245,7 +255,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -259,7 +269,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_b_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -334,7 +348,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_b_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -364,7 +378,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N1",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -378,7 +392,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_c_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -453,7 +471,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_c_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -483,7 +501,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N2",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -497,7 +515,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_d_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -572,7 +594,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_d_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -602,7 +624,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N3",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -616,7 +638,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_e_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -691,7 +717,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_e_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -721,7 +747,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N4",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -735,7 +761,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_f_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -810,7 +840,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_f_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -840,7 +870,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N5",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -854,7 +884,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_g_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -929,7 +963,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_g_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -959,7 +993,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N6",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -973,7 +1007,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_h_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1048,7 +1086,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_h_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1078,7 +1116,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N7",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1092,7 +1130,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_i_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1167,7 +1209,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_i_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1197,7 +1239,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N8",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1211,7 +1253,11 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_j_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1286,7 +1332,7 @@ expression: "format!(\"{descs:#?}\")"
             "sharkfin_j_hsc",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1316,7 +1362,7 @@ expression: "format!(\"{descs:#?}\")"
             "U2_N9",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1330,7 +1376,11 @@ expression: "format!(\"{descs:#?}\")"
             "local_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Eeprom(
+                SingleBarcode,
+            ),
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1342,7 +1392,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: true,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1356,8 +1406,10 @@ expression: "format!(\"{descs:#?}\")"
             "fan_vpd",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: Some(
-            SledFanTray,
+        vpd: Some(
+            Eeprom(
+                SledFanTray,
+            ),
         ),
         pmbus: None,
     },
@@ -1385,7 +1437,7 @@ expression: "format!(\"{descs:#?}\")"
             "t6",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1436,7 +1488,7 @@ expression: "format!(\"{descs:#?}\")"
             "v3p3_sp_a2",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1496,7 +1548,7 @@ expression: "format!(\"{descs:#?}\")"
             "v3p3_sys_a0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1556,7 +1608,7 @@ expression: "format!(\"{descs:#?}\")"
             "v5p0_sys_a2",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1616,7 +1668,7 @@ expression: "format!(\"{descs:#?}\")"
             "v1p8_sys_a2",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1688,7 +1740,7 @@ expression: "format!(\"{descs:#?}\")"
             "m2",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1702,7 +1754,7 @@ expression: "format!(\"{descs:#?}\")"
             "RMI",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1732,7 +1784,7 @@ expression: "format!(\"{descs:#?}\")"
             "CPU",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1744,7 +1796,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: true,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -1853,7 +1905,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -1989,7 +2041,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -2133,7 +2185,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -2205,7 +2257,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -2263,7 +2315,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -2357,7 +2409,7 @@ expression: "format!(\"{descs:#?}\")"
         ),
         name: None,
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2408,7 +2460,7 @@ expression: "format!(\"{descs:#?}\")"
             "v0p96_nic",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -2447,7 +2499,9 @@ expression: "format!(\"{descs:#?}\")"
             "Northeast",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2477,7 +2531,9 @@ expression: "format!(\"{descs:#?}\")"
             "North",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2507,7 +2563,9 @@ expression: "format!(\"{descs:#?}\")"
             "Northwest",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: Some(
+            Tmp11x,
+        ),
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2558,7 +2616,7 @@ expression: "format!(\"{descs:#?}\")"
             "IBC",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: Some(
             PmbusDeviceDescription {
                 rails: [
@@ -2594,7 +2652,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_A0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2621,7 +2679,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_A1",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2648,7 +2706,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_B0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2675,7 +2733,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_B1",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2702,7 +2760,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_C0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2729,7 +2787,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_C1",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2756,7 +2814,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_D0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2783,7 +2841,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_D1",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2810,7 +2868,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_E0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2837,7 +2895,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_E1",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2864,7 +2922,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_F0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2891,7 +2949,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_F1",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2918,7 +2976,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_G0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2945,7 +3003,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_G1",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2972,7 +3030,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_H0",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -2999,7 +3057,7 @@ expression: "format!(\"{descs:#?}\")"
             "DIMM_H1",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -3026,7 +3084,7 @@ expression: "format!(\"{descs:#?}\")"
             "M2_A",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
     I2cDeviceDescription {
@@ -3053,7 +3111,7 @@ expression: "format!(\"{descs:#?}\")"
             "M2_B",
         ),
         validate_with_raw_read: false,
-        eeprom_vpd: None,
+        vpd: None,
         pmbus: None,
     },
 ]

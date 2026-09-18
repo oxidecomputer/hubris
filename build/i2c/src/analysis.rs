@@ -23,20 +23,51 @@ use multimap::MultiMap;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
-pub const VPD_EEPROM_DEVICES: &[&str] = &["at24csw080"];
-pub const VPD_TMP11X_DEVICES: &[&str] = &["tmp116", "tmp117"];
+/// Devices whose VPD is read from an EEPROM.
+const VPD_EEPROM_DEVICES: &[&str] = &["at24csw080"];
+/// Devices whose VPD is read from TMP11x-style EEPROM registers.
+const VPD_TMP11X_DEVICES: &[&str] = &["tmp116", "tmp117"];
+
+/// How a device's vital product data (VPD) is read, as far as the manifest
+/// can tell.
+///
+/// Consumers may know of additional VPD sources (e.g. PMBus devices whose
+/// drivers support the manufacturer registers); this only describes what
+/// follows from the device type in the manifest.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum VpdKind {
+    /// An EEPROM, in the given format.
+    Eeprom(EepromVpd),
+    /// A TMP116/TMP117 temperature sensor's EEPROM registers.
+    Tmp11x,
+}
+
+impl VpdKind {
+    /// Classifies a device by its type (and EEPROM format, if any).
+    pub(crate) fn of(d: &I2cDevice) -> Option<Self> {
+        let device = d.device.as_str();
+        if VPD_EEPROM_DEVICES.contains(&device) {
+            Some(Self::Eeprom(d.eeprom_vpd.unwrap_or_default()))
+        } else if VPD_TMP11X_DEVICES.contains(&device) {
+            Some(Self::Tmp11x)
+        } else {
+            None
+        }
+    }
+}
 
 /// The role that the I2C controllers of interest play.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum ControllerRole {
     /// We care about controllers acting as initiators.
+    #[default]
     Initiator,
     /// We care about controllers acting as targets.
     Target,
 }
 
 /// Knobs affecting analysis.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct AnalysisSettings {
     /// Which controllers are selected.
     pub role: ControllerRole,
@@ -50,6 +81,16 @@ pub struct AnalysisSettings {
     /// computing the set of drivers has side effects on the build (it runs
     /// `cargo metadata` and emits `cargo::rerun-if-changed` directives).
     pub drivers: Option<HashSet<String>>,
+
+    /// If `true`, every device must have a component ID (i.e. a refdes).
+    ///
+    /// Component IDs are always checked for uniqueness across all devices;
+    /// this additionally makes their absence an error, for consumers that
+    /// need to address every device by ID.
+    pub require_component_ids: bool,
+
+    /// If set, no component ID may be longer than this many bytes.
+    pub max_component_id_len: Option<usize>,
 }
 
 /// A device, with everything about its position on the bus resolved.
@@ -218,7 +259,7 @@ impl Report {
                     .map(Refdes::to_component_id),
                 name: device.config.name.clone(),
                 validate_with_raw_read: device.config.validate_with_raw_read,
-                eeprom_vpd: device.config.eeprom_vpd,
+                vpd: VpdKind::of(&device.config),
                 pmbus: device.pmbus.clone(),
             })
     }
@@ -301,6 +342,8 @@ pub fn analyze(
     }
 
     let groups = group_devices(&devices)?;
+
+    check_component_ids(&config_devices, settings)?;
 
     let (pmbus_rails, power_rails) = analyze_power(&devices)?;
 
@@ -386,6 +429,62 @@ fn check_devices(
     }
 
     Ok(())
+}
+
+/// Checks the component IDs (derived from refdes) across all devices.
+///
+/// IDs must be unique across the whole manifest, regardless of device type.
+/// Depending on `settings`, every device may also be required to have one,
+/// and IDs may be limited in length. All problems are reported together so
+/// that a manifest can be fixed in one pass.
+fn check_component_ids(
+    devices: &[I2cDevice],
+    settings: &AnalysisSettings,
+) -> Result<()> {
+    let mut problems = vec![];
+    let mut seen: HashMap<String, &I2cDevice> = HashMap::new();
+
+    for d in devices {
+        let Some(refdes) = &d.refdes else {
+            if settings.require_component_ids {
+                problems.push(format!(
+                    "device {:?} ({:?}) has no component ID (refdes)",
+                    d.device, d.description
+                ));
+            }
+            continue;
+        };
+
+        let id = refdes.to_component_id();
+
+        if let Some(max) = settings.max_component_id_len
+            && id.len() > max
+        {
+            problems.push(format!(
+                "component ID {id:?} for device {:?} exceeds the maximum \
+                 length ({max} bytes)",
+                d.device
+            ));
+        }
+
+        if let Some(prev) = seen.insert(id.clone(), d) {
+            problems.push(format!(
+                "duplicate component ID {id:?}: used by both {:?} ({:?}) and \
+                 {:?} ({:?})",
+                prev.device, prev.description, d.device, d.description
+            ));
+        }
+    }
+
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        bail!(
+            "{} component ID problem(s):\n  {}",
+            problems.len(),
+            problems.join("\n  ")
+        );
+    }
 }
 
 fn lookup_controller_port(
@@ -784,7 +883,8 @@ pub struct I2cDeviceDescription {
     pub device_id: Option<String>,
     pub name: Option<String>,
     pub validate_with_raw_read: bool,
-    pub eeprom_vpd: Option<EepromVpd>,
+    /// How this device's VPD is read, if the device type has VPD.
+    pub vpd: Option<VpdKind>,
     /// If this is a PMBus device, this field contains additional data about the
     /// PMBus device to be used for generating PMBus-y code.
     pub pmbus: Option<PmbusDeviceDescription>,

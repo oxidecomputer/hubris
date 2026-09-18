@@ -17,7 +17,16 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 fn write_pub_device_descriptions() -> anyhow::Result<()> {
     use gateway_messages::SpComponent;
-    let devices = build_i2c::device_descriptions().collect::<Vec<_>>();
+
+    //
+    // Every device must have a component ID (refdes) that fits in an
+    // `SpComponent`, and IDs must be unique; build-i2c checks all of that for
+    // us and reports every problem at once.
+    //
+    let mut settings = build_i2c::AnalysisSettings::for_device_descriptions();
+    settings.require_component_ids = true;
+    settings.max_component_id_len = Some(SpComponent::MAX_ID_LENGTH);
+    let devices = build_i2c::device_descriptions_with(&settings)?;
 
     let out_dir = std::env::var("OUT_DIR")?;
     let dest_path =
@@ -37,20 +46,6 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
         devices.len()
     )?;
 
-    //
-    // If a device in the TOML has no refdes, has the same refdes and suffix as
-    // another device, or produces a refdes-and-suffix string that is longer
-    // than the max component ID length, we will generate code that will not
-    // compile, so these errors are all fatal. However, as we loop over devices,
-    // we'll just log them and keep going, so that we can tell the user about
-    // *all* the bad devices in the config file, rather than bailing out at the
-    // first one. At the end, we return an error if there were any bad devices.
-    // This way, you don't have to fix one issue and recompile in order to
-    // discover the next error.
-    //
-    let mut missing_ids = 0;
-    let mut duplicate_ids = 0;
-    let mut ids_too_long = 0;
     //
     // The DEVICE_INDICES_BY_SORTED_ID array is used to look up indices by ID
     // using a binary search, so it must be sorted by ID. This map is used to
@@ -83,42 +78,31 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             caps.supports_any(&PmbusCapabilities::ANY_VPD_REGS)
         }) {
             Some("Pmbus")
-        } else if build_i2c::VPD_EEPROM_DEVICES.contains(&device_name) {
-            let vpd_mode = match dev.eeprom_vpd.unwrap_or_default() {
-                build_i2c::EepromVpd::SingleBarcode => "SingleBarcode",
-                build_i2c::EepromVpd::SledFanTray => "SledFanTray",
-            };
-            Some(vpd_mode)
-        } else if build_i2c::VPD_TMP11X_DEVICES.contains(&device_name) {
-            Some("Tmp11x")
         } else {
-            None
+            use build_i2c::{EepromVpd, VpdKind};
+            match dev.vpd {
+                Some(VpdKind::Eeprom(EepromVpd::SingleBarcode)) => {
+                    Some("SingleBarcode")
+                }
+                Some(VpdKind::Eeprom(EepromVpd::SledFanTray)) => {
+                    Some("SledFanTray")
+                }
+                Some(VpdKind::Tmp11x) => Some("Tmp11x"),
+                None => None,
+            }
         };
 
         writeln!(file, "    DeviceDescription {{")?;
         writeln!(file, "        device: {:?},", dev.device)?;
         writeln!(file, "        description: {:?},", dev.description)?;
-        if let Some(id) = dev.device_id.as_ref() {
-            if id.len() <= SpComponent::MAX_ID_LENGTH {
-                writeln!(file, "        id: \"{id}\",")?;
-                if id2idx.insert(id.to_string(), idx).is_some() {
-                    println!("cargo::error=duplicate device id {id:?}",);
-                    duplicate_ids += 1;
-                }
-            } else {
-                println!(
-                    "cargo::error=device ID {id:?} exceeds max length ({}B)",
-                    SpComponent::MAX_ID_LENGTH,
-                );
-                ids_too_long += 1;
-            }
-        } else {
-            println!(
-                "cargo::error=device {:?} ({:?}) hath no device ID (refdes)",
-                dev.device, dev.description
-            );
-            missing_ids += 1;
-        };
+        let id = dev.device_id.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "device {:?} has no ID, but build-i2c was asked to require one",
+                dev.device
+            )
+        })?;
+        writeln!(file, "        id: \"{id}\",")?;
+        id2idx.insert(id.to_string(), idx);
         match pmbus_capabilities {
             Some(caps) => writeln!(
                 file,
@@ -161,19 +145,6 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     writeln!(file, "];")?;
 
     file.flush()?;
-
-    anyhow::ensure!(missing_ids == 0, "{missing_ids} devices have no ID!");
-
-    anyhow::ensure!(
-        duplicate_ids == 0,
-        "{duplicate_ids} duplicate device IDs!"
-    );
-
-    anyhow::ensure!(
-        ids_too_long == 0,
-        "{ids_too_long} device IDs exceeded max length ({}B)!",
-        SpComponent::MAX_ID_LENGTH,
-    );
 
     Ok(())
 }

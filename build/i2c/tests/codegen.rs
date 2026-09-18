@@ -71,6 +71,7 @@ impl Fixture {
             drivers: drivers.map(|d| {
                 d.iter().map(|d| d.to_string()).collect::<HashSet<_>>()
             }),
+            ..Default::default()
         };
 
         let config = load::parse(toml).unwrap();

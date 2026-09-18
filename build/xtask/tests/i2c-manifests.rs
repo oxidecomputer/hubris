@@ -44,6 +44,7 @@ fn every_manifest_analyzes() {
         // Computing the validation drivers has side effects on the build, so
         // it stays opt-in; we don't need it here.
         drivers: None,
+        ..Default::default()
     };
 
     let mut checked: Vec<PathBuf> = vec![];

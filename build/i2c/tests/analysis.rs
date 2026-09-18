@@ -45,8 +45,7 @@ muxes = [{ driver = "pca9548", address = 0x70 }]
 fn settings(role: ControllerRole) -> AnalysisSettings {
     AnalysisSettings {
         role,
-        component_ids: false,
-        drivers: None,
+        ..Default::default()
     }
 }
 
@@ -601,6 +600,7 @@ fn validation_settings(drivers: &[&str]) -> AnalysisSettings {
                 .map(|d| d.to_string())
                 .collect::<HashSet<_>>(),
         ),
+        ..Default::default()
     }
 }
 
@@ -741,4 +741,207 @@ fn component_ids_are_resolved_on_request() {
     )
     .unwrap();
     assert_eq!(report.devices[0].component_id.as_deref(), Some("J1/U7"));
+}
+
+#[test]
+fn error_duplicate_component_id_across_device_types() {
+    // The same refdes on two different device types is still one component.
+    let err = analyze(
+        r#"
+[[i2c.devices]]
+device = "tmp117"
+refdes = "U7"
+bus = "bus1"
+address = 0x48
+description = "a temperature sensor"
+
+[[i2c.devices]]
+device = "at24csw080"
+refdes = "U7"
+bus = "bus2"
+address = 0x50
+description = "an eeprom"
+"#,
+    )
+    .unwrap_err();
+    let msg = format!("{err:#}");
+    assert!(msg.contains("duplicate component ID \"U7\""), "{msg}");
+    assert!(msg.contains("1 component ID problem(s)"), "{msg}");
+}
+
+#[test]
+fn component_ids_are_optional_by_default() {
+    let toml = format!(
+        "{CONTROLLERS}{}",
+        r#"
+[[i2c.devices]]
+device = "tmp117"
+bus = "bus1"
+address = 0x48
+description = "a temperature sensor without a refdes"
+"#
+    );
+    let report =
+        analyze_with(&toml, settings(ControllerRole::Initiator)).unwrap();
+    let descs: Vec<_> = report.device_descriptions().collect();
+    assert_eq!(descs[0].device_id, None);
+
+    let err = analyze_with(
+        &toml,
+        AnalysisSettings {
+            require_component_ids: true,
+            ..settings(ControllerRole::Initiator)
+        },
+    )
+    .unwrap_err();
+    assert!(
+        format!("{err:#}").contains("has no component ID (refdes)"),
+        "{err:#}"
+    );
+}
+
+#[test]
+fn error_component_id_too_long() {
+    let toml = format!(
+        "{CONTROLLERS}{}",
+        r#"
+[[i2c.devices]]
+device = "tmp117"
+refdes = ["J1", "U7"]
+bus = "bus1"
+address = 0x48
+description = "a temperature sensor"
+"#
+    );
+    // "J1/U7" is 5 bytes.
+    analyze_with(
+        &toml,
+        AnalysisSettings {
+            max_component_id_len: Some(5),
+            ..settings(ControllerRole::Initiator)
+        },
+    )
+    .unwrap();
+
+    let err = analyze_with(
+        &toml,
+        AnalysisSettings {
+            max_component_id_len: Some(4),
+            ..settings(ControllerRole::Initiator)
+        },
+    )
+    .unwrap_err();
+    assert!(
+        format!("{err:#}")
+            .contains("component ID \"J1/U7\" for device \"tmp117\" exceeds"),
+        "{err:#}"
+    );
+}
+
+#[test]
+fn all_component_id_problems_are_reported_together() {
+    let toml = format!(
+        "{CONTROLLERS}{}",
+        r#"
+[[i2c.devices]]
+device = "tmp117"
+bus = "bus1"
+address = 0x48
+description = "no refdes"
+
+[[i2c.devices]]
+device = "tmp117"
+refdes = "U1"
+bus = "bus1"
+address = 0x49
+description = "first U1"
+
+[[i2c.devices]]
+device = "at24csw080"
+refdes = "U1"
+bus = "bus2"
+address = 0x50
+description = "second U1"
+
+[[i2c.devices]]
+device = "tmp117"
+refdes = ["J100", "U200"]
+bus = "bus2"
+address = 0x4a
+description = "too long"
+"#
+    );
+    let err = analyze_with(
+        &toml,
+        AnalysisSettings {
+            require_component_ids: true,
+            max_component_id_len: Some(8),
+            ..settings(ControllerRole::Initiator)
+        },
+    )
+    .unwrap_err();
+    let msg = format!("{err:#}");
+    assert!(msg.contains("3 component ID problem(s)"), "{msg}");
+    assert!(msg.contains("has no component ID"), "{msg}");
+    assert!(msg.contains("duplicate component ID \"U1\""), "{msg}");
+    assert!(
+        msg.contains("\"J100/U200\" for device \"tmp117\" exceeds"),
+        "{msg}"
+    );
+}
+
+#[test]
+fn vpd_kind_is_classified_by_device_type() {
+    use build_i2c::{EepromVpd, VpdKind};
+    let report = analyze(
+        r#"
+[[i2c.devices]]
+device = "at24csw080"
+refdes = "U1"
+bus = "bus1"
+address = 0x50
+description = "default eeprom format"
+
+[[i2c.devices]]
+device = "at24csw080"
+refdes = "U2"
+bus = "bus1"
+address = 0x51
+description = "fan tray eeprom"
+eeprom-vpd = "sled-fan-tray"
+
+[[i2c.devices]]
+device = "tmp117"
+refdes = "U3"
+bus = "bus1"
+address = 0x48
+description = "tmp11x"
+
+[[i2c.devices]]
+device = "tmp116"
+refdes = "U4"
+bus = "bus1"
+address = 0x49
+description = "tmp11x too"
+
+[[i2c.devices]]
+device = "max31790"
+refdes = "U5"
+bus = "bus2"
+address = 0x20
+description = "no vpd"
+"#,
+    )
+    .unwrap();
+    let vpd: Vec<_> = report.device_descriptions().map(|d| d.vpd).collect();
+    assert_eq!(
+        vpd,
+        [
+            Some(VpdKind::Eeprom(EepromVpd::SingleBarcode)),
+            Some(VpdKind::Eeprom(EepromVpd::SledFanTray)),
+            Some(VpdKind::Tmp11x),
+            Some(VpdKind::Tmp11x),
+            None,
+        ]
+    );
 }
