@@ -4,46 +4,65 @@
 
 //! Tests for stage 2 of the pipeline: analyzing a loaded manifest.
 
+mod common;
+
 use anyhow::Result;
 use build_i2c::analysis::{
-    self, AnalysisSettings, ControllerRole, DeviceBus, DeviceGroup, MuxSegment,
-    Report,
+    self, AnalysisSettings, ControllerRole, DeviceBus, MuxSegment, Report,
+    VpdKind,
 };
-use build_i2c::load;
-use std::collections::HashSet;
+use build_i2c::load::{
+    Config, EepromVpd, I2cConfig, I2cController, I2cDevice, I2cPower,
+    I2cSensors, OtherSensorDevice, Refdes, Sensor, SensorConfig,
+};
+use std::collections::{BTreeMap, HashSet};
 
 //
-// Two controllers: controller 2 has two ports (and so requires devices to name
-// one), while controller 3 has a single port (with a mux on it).
+// Two controllers: controller 2 has two ports (and so requires devices to
+// name one), while controller 3 has a single port (with a mux on it).
 //
-const CONTROLLERS: &str = r#"
-[i2c]
-
-[[i2c.controllers]]
-controller = 2
-
-[i2c.controllers.ports.B]
-name = "bus1"
-scl = { pin = 10 }
-sda = { pin = 11 }
-af = 4
-
-[i2c.controllers.ports.F]
-name = "bus2"
-scl = { pin = 12 }
-sda = { pin = 13 }
-af = 4
-
-[[i2c.controllers]]
-controller = 3
-
-[i2c.controllers.ports.A]
-name = "solo"
-scl = { pin = 1 }
-sda = { pin = 2 }
-af = 4
-muxes = [{ driver = "pca9548", address = 0x70 }]
-"#;
+fn controllers() -> Vec<I2cController> {
+    vec![
+        common::controller(
+            2,
+            [
+                (
+                    "B",
+                    common::port(
+                        Some("bus1"),
+                        common::pin(None, 10),
+                        common::pin(None, 11),
+                        4,
+                        vec![],
+                    ),
+                ),
+                (
+                    "F",
+                    common::port(
+                        Some("bus2"),
+                        common::pin(None, 12),
+                        common::pin(None, 13),
+                        4,
+                        vec![],
+                    ),
+                ),
+            ],
+        ),
+        common::controller(
+            3,
+            [(
+                "A",
+                common::port(
+                    Some("solo"),
+                    common::pin(None, 1),
+                    common::pin(None, 2),
+                    4,
+                    vec![common::mux("pca9548", 0x70, None)],
+                ),
+            )],
+        ),
+    ]
+}
 
 fn settings(role: ControllerRole) -> AnalysisSettings {
     AnalysisSettings {
@@ -52,21 +71,56 @@ fn settings(role: ControllerRole) -> AnalysisSettings {
     }
 }
 
-/// Analyze a manifest fragment appended to the standard controllers.
-fn analyze(devices: &str) -> Result<Report> {
-    analyze_with(
-        &format!("{CONTROLLERS}{devices}"),
+/// Analyzes a full manifest built from its parts.
+fn analyze_manifest(
+    controllers: Vec<I2cController>,
+    devices: Option<Vec<I2cDevice>>,
+    sensor: Option<SensorConfig>,
+    settings: AnalysisSettings,
+) -> Result<Report> {
+    analysis::analyze(
+        Config {
+            i2c: I2cConfig {
+                controllers,
+                devices,
+            },
+            sensor,
+        },
+        &settings,
+    )
+}
+
+/// Analyzes the standard controllers plus the given devices.
+fn analyze_with(
+    devices: Vec<I2cDevice>,
+    settings: AnalysisSettings,
+) -> Result<Report> {
+    analyze_manifest(controllers(), Some(devices), None, settings)
+}
+
+/// Analyzes the standard controllers plus the given devices, as an
+/// initiator.
+fn analyze(devices: Vec<I2cDevice>) -> Result<Report> {
+    analyze_with(devices, settings(ControllerRole::Initiator))
+}
+
+/// Analyzes the standard controllers plus the given devices and non-I2C
+/// sensors, as an initiator.
+fn analyze_with_sensor(
+    devices: Vec<I2cDevice>,
+    sensor: Option<SensorConfig>,
+) -> Result<Report> {
+    analyze_manifest(
+        controllers(),
+        Some(devices),
+        sensor,
         settings(ControllerRole::Initiator),
     )
 }
 
-fn analyze_with(toml: &str, settings: AnalysisSettings) -> Result<Report> {
-    analysis::analyze(load::parse_config(toml)?, &settings)
-}
-
 /// Asserts that analysis fails with an error containing `needle`.
 #[track_caller]
-fn assert_error(devices: &str, needle: &str) {
+fn assert_error(devices: Vec<I2cDevice>, needle: &str) {
     match analyze(devices) {
         Ok(_) => panic!("expected an error containing {needle:?}"),
         Err(e) => {
@@ -79,16 +133,10 @@ fn assert_error(devices: &str, needle: &str) {
     }
 }
 
-fn device(extra: &str) -> String {
-    format!(
-        r#"
-[[i2c.devices]]
-device = "tmp117"
-address = 0x48
-description = "a temperature sensor"
-{extra}
-"#
-    )
+/// A minimal `tmp117` device, with everything but `device`, `address`, and
+/// `description` left for the test to fill in.
+fn base_device() -> I2cDevice {
+    common::device("tmp117", 0x48, "a temperature sensor")
 }
 
 //
@@ -97,18 +145,31 @@ description = "a temperature sensor"
 
 #[test]
 fn resolves_bus_to_controller_and_port() {
-    let report = analyze(&device(r#"bus = "bus2""#)).unwrap();
+    let report = analyze(vec![I2cDevice {
+        bus: Some("bus2".into()),
+        ..base_device()
+    }])
+    .unwrap();
     assert_eq!(report.devices[0].location.controller, 2);
     assert_eq!(report.devices[0].location.index, 1);
 
-    let report = analyze(&device(r#"bus = "bus1""#)).unwrap();
+    let report = analyze(vec![I2cDevice {
+        bus: Some("bus1".into()),
+        ..base_device()
+    }])
+    .unwrap();
     assert_eq!(report.devices[0].location.controller, 2);
     assert_eq!(report.devices[0].location.index, 0);
 }
 
 #[test]
 fn resolves_explicit_port() {
-    let report = analyze(&device("controller = 2\nport = \"F\"")).unwrap();
+    let report = analyze(vec![I2cDevice {
+        controller: Some(2),
+        port: Some("F".into()),
+        ..base_device()
+    }])
+    .unwrap();
     assert_eq!(report.devices[0].location.controller, 2);
     assert_eq!(report.devices[0].location.index, 1);
 }
@@ -116,21 +177,34 @@ fn resolves_explicit_port() {
 #[test]
 fn resolves_singleton_port() {
     // Controller 3 has exactly one port, so naming a port is optional.
-    let report = analyze(&device("controller = 3")).unwrap();
+    let report = analyze(vec![I2cDevice {
+        controller: Some(3),
+        ..base_device()
+    }])
+    .unwrap();
     assert_eq!(report.devices[0].location.controller, 3);
     assert_eq!(report.devices[0].location.index, 0);
 }
 
 #[test]
 fn resolves_mux_and_segment() {
-    let report =
-        analyze(&device("controller = 3\nmux = 1\nsegment = 4")).unwrap();
+    let report = analyze(vec![I2cDevice {
+        controller: Some(3),
+        mux: Some(1),
+        segment: Some(4),
+        ..base_device()
+    }])
+    .unwrap();
     assert_eq!(
         report.devices[0].segment,
         Some(MuxSegment { mux: 1, segment: 4 })
     );
 
-    let report = analyze(&device("controller = 3")).unwrap();
+    let report = analyze(vec![I2cDevice {
+        controller: Some(3),
+        ..base_device()
+    }])
+    .unwrap();
     assert_eq!(report.devices[0].segment, None);
 }
 
@@ -139,7 +213,10 @@ fn registers_buses_from_every_controller() {
     // Buses are registered from all controllers, even those that don't match
     // our role, so that devices can always find their bus.
     let report = analyze_with(
-        &format!("{CONTROLLERS}{}", device(r#"bus = "bus1""#)),
+        vec![I2cDevice {
+            bus: Some("bus1".into()),
+            ..base_device()
+        }],
         settings(ControllerRole::Target),
     )
     .unwrap();
@@ -156,13 +233,17 @@ fn registers_buses_from_every_controller() {
 
 #[test]
 fn error_no_bus_or_controller() {
-    assert_error(&device(""), "must have a bus or controller");
+    assert_error(vec![base_device()], "must have a bus or controller");
 }
 
 #[test]
 fn error_both_bus_and_controller() {
     assert_error(
-        &device("controller = 2\nbus = \"bus1\""),
+        vec![I2cDevice {
+            controller: Some(2),
+            bus: Some("bus1".into()),
+            ..base_device()
+        }],
         "has both a bus and a controller",
     );
 }
@@ -170,7 +251,10 @@ fn error_both_bus_and_controller() {
 #[test]
 fn error_unknown_bus() {
     assert_error(
-        &device(r#"bus = "nonesuch""#),
+        vec![I2cDevice {
+            bus: Some("nonesuch".into()),
+            ..base_device()
+        }],
         "specifies unknown bus \"nonesuch\"",
     );
 }
@@ -178,26 +262,47 @@ fn error_unknown_bus() {
 #[test]
 fn error_both_port_and_bus() {
     assert_error(
-        &device("bus = \"bus1\"\nport = \"B\""),
+        vec![I2cDevice {
+            bus: Some("bus1".into()),
+            port: Some("B".into()),
+            ..base_device()
+        }],
         "has both port and bus",
     );
 }
 
 #[test]
 fn error_invalid_port() {
-    assert_error(&device("controller = 2\nport = \"Q\""), "has invalid port");
+    assert_error(
+        vec![I2cDevice {
+            controller: Some(2),
+            port: Some("Q".into()),
+            ..base_device()
+        }],
+        "has invalid port",
+    );
 }
 
 #[test]
 fn error_ambiguous_port() {
     // Controller 2 has two ports, so one must be named.
-    assert_error(&device("controller = 2"), "has ambiguous port");
+    assert_error(
+        vec![I2cDevice {
+            controller: Some(2),
+            ..base_device()
+        }],
+        "has ambiguous port",
+    );
 }
 
 #[test]
 fn error_mux_without_segment() {
     assert_error(
-        &device("controller = 3\nmux = 1"),
+        vec![I2cDevice {
+            controller: Some(3),
+            mux: Some(1),
+            ..base_device()
+        }],
         "specifies a mux but no segment",
     );
 }
@@ -205,7 +310,11 @@ fn error_mux_without_segment() {
 #[test]
 fn error_segment_without_mux() {
     assert_error(
-        &device("controller = 3\nsegment = 1"),
+        vec![I2cDevice {
+            controller: Some(3),
+            segment: Some(1),
+            ..base_device()
+        }],
         "specifies a segment but no mux",
     );
 }
@@ -213,36 +322,54 @@ fn error_segment_without_mux() {
 #[test]
 fn error_mux_zero() {
     assert_error(
-        &device("controller = 3\nmux = 0\nsegment = 1"),
+        vec![I2cDevice {
+            controller: Some(3),
+            mux: Some(0),
+            segment: Some(1),
+            ..base_device()
+        }],
         "invalid mux value of 0",
     );
 }
 
 #[test]
 fn error_mux_out_of_range() {
+    // Controller 3's only port has exactly one mux.
     assert_error(
-        &device("controller = 3\nmux = 2\nsegment = 1"),
+        vec![I2cDevice {
+            controller: Some(3),
+            mux: Some(2),
+            segment: Some(1),
+            ..base_device()
+        }],
         "invalid mux 2",
     );
 }
 
 #[test]
 fn error_bus_appears_twice() {
-    let toml = format!(
-        r#"{CONTROLLERS}
-[[i2c.controllers]]
-controller = 4
+    let mut all_controllers = controllers();
+    all_controllers.push(common::controller(
+        4,
+        [(
+            "C",
+            common::port(
+                Some("bus1"),
+                common::pin(None, 1),
+                common::pin(None, 2),
+                4,
+                vec![],
+            ),
+        )],
+    ));
 
-[i2c.controllers.ports.C]
-name = "bus1"
-scl = {{ pin = 1 }}
-sda = {{ pin = 2 }}
-af = 4
-"#
-    );
-
-    let err =
-        analyze_with(&toml, settings(ControllerRole::Initiator)).unwrap_err();
+    let err = analyze_manifest(
+        all_controllers,
+        None,
+        None,
+        settings(ControllerRole::Initiator),
+    )
+    .unwrap_err();
     assert!(
         format!("{err:#}").contains("i2c bus bus1 appears twice"),
         "unexpected error: {err:#}"
@@ -252,7 +379,11 @@ af = 4
 #[test]
 fn error_eeprom_vpd_on_non_eeprom() {
     assert_error(
-        &device("bus = \"bus1\"\neeprom-vpd = \"single-barcode\""),
+        vec![I2cDevice {
+            bus: Some("bus1".into()),
+            eeprom_vpd: Some(EepromVpd::SingleBarcode),
+            ..base_device()
+        }],
         "is not a supported EEPROM device",
     );
 }
@@ -263,54 +394,74 @@ fn error_eeprom_vpd_on_non_eeprom() {
 
 #[test]
 fn error_duplicate_name() {
-    let devices = format!(
-        "{}{}",
-        device("bus = \"bus1\"\nname = \"north\""),
-        device("bus = \"bus2\"\nname = \"north\"")
-    );
-    assert_error(&devices, "duplicate name north for device tmp117");
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            name: Some("north".into()),
+            ..base_device()
+        },
+        I2cDevice {
+            bus: Some("bus2".into()),
+            name: Some("north".into()),
+            ..base_device()
+        },
+    ];
+    assert_error(devices, "duplicate name north for device tmp117");
 }
 
 #[test]
 fn error_duplicate_refdes() {
-    let devices = format!(
-        "{}{}",
-        device("bus = \"bus1\"\nrefdes = \"U1\""),
-        device("bus = \"bus2\"\nrefdes = \"U1\"")
-    );
-    assert_error(&devices, "duplicate refdes");
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            refdes: Some(Refdes::Component("U1".into())),
+            ..base_device()
+        },
+        I2cDevice {
+            bus: Some("bus2".into()),
+            refdes: Some(Refdes::Component("U1".into())),
+            ..base_device()
+        },
+    ];
+    assert_error(devices, "duplicate refdes");
 }
 
 #[test]
 fn error_refdes_collides_with_name() {
-    let devices = format!(
-        "{}{}",
-        device("bus = \"bus1\"\nname = \"U1\""),
-        device("bus = \"bus2\"\nrefdes = \"U1\"")
-    );
-    assert_error(&devices, "is also a device name");
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            name: Some("U1".into()),
+            ..base_device()
+        },
+        I2cDevice {
+            bus: Some("bus2".into()),
+            refdes: Some(Refdes::Component("U1".into())),
+            ..base_device()
+        },
+    ];
+    assert_error(devices, "is also a device name");
 }
 
 //
 // Power errors
 //
 
-fn power_device(power: &str) -> String {
-    format!(
-        r#"
-[[i2c.devices]]
-device = "raa229618"
-bus = "bus1"
-address = 0x35
-description = "a power controller"
-power = {{ {power} }}
-"#
-    )
+fn power_device(power: I2cPower) -> I2cDevice {
+    I2cDevice {
+        bus: Some("bus1".into()),
+        power: Some(power),
+        ..common::device("raa229618", 0x35, "a power controller")
+    }
 }
 
 #[test]
 fn resolves_power_rails() {
-    let report = analyze(&power_device(r#"rails = ["V1", "V2"]"#)).unwrap();
+    let report = analyze(vec![power_device(I2cPower {
+        rails: Some(vec!["V1".into(), "V2".into()]),
+        ..Default::default()
+    })])
+    .unwrap();
 
     assert_eq!(report.rails.pmbus.len(), 2);
     assert_eq!(report.rails.pmbus[0].rail, "V1");
@@ -322,12 +473,20 @@ fn resolves_power_rails() {
     assert!(report.rails.non_pmbus.is_empty());
 
     // A single rail has no bank...
-    let report = analyze(&power_device(r#"rails = ["V1"]"#)).unwrap();
+    let report = analyze(vec![power_device(I2cPower {
+        rails: Some(vec!["V1".into()]),
+        ..Default::default()
+    })])
+    .unwrap();
     assert_eq!(report.rails.pmbus[0].bank, None);
 
     // ...and a non-PMBus device's rails appear in both lists.
-    let report =
-        analyze(&power_device(r#"rails = ["V1"], pmbus = false"#)).unwrap();
+    let report = analyze(vec![power_device(I2cPower {
+        rails: Some(vec!["V1".into()]),
+        pmbus: false,
+        ..Default::default()
+    })])
+    .unwrap();
     assert_eq!(report.rails.pmbus.len(), 1);
     assert_eq!(report.rails.non_pmbus.len(), 1);
 }
@@ -335,7 +494,11 @@ fn resolves_power_rails() {
 #[test]
 fn error_rail_phase_length_mismatch() {
     assert_error(
-        &power_device(r#"rails = ["V1", "V2"], phases = [[0, 1]]"#),
+        vec![power_device(I2cPower {
+            rails: Some(vec!["V1".into(), "V2".into()]),
+            phases: Some(vec![vec![0, 1]]),
+            ..Default::default()
+        })],
         "rail/phase length mismatch",
     );
 }
@@ -343,19 +506,28 @@ fn error_rail_phase_length_mismatch() {
 #[test]
 fn error_duplicate_phase() {
     assert_error(
-        &power_device(r#"rails = ["V1", "V2"], phases = [[0, 1], [1]]"#),
+        vec![power_device(I2cPower {
+            rails: Some(vec!["V1".into(), "V2".into()]),
+            phases: Some(vec![vec![0, 1], vec![1]]),
+            ..Default::default()
+        })],
         "phase 1 appears multiple times",
     );
 }
 
 #[test]
 fn error_duplicate_rail() {
-    let devices = format!(
-        "{}{}",
-        power_device(r#"rails = ["V1"]"#),
-        power_device(r#"rails = ["V1"]"#)
-    );
-    assert_error(&devices, "duplicate rail V1");
+    let devices = vec![
+        power_device(I2cPower {
+            rails: Some(vec!["V1".into()]),
+            ..Default::default()
+        }),
+        power_device(I2cPower {
+            rails: Some(vec!["V1".into()]),
+            ..Default::default()
+        }),
+    ];
+    assert_error(devices, "duplicate rail V1");
 }
 
 //
@@ -364,69 +536,83 @@ fn error_duplicate_rail() {
 
 #[test]
 fn error_sensor_count_exceeds_rails() {
-    let devices = r#"
-[[i2c.devices]]
-device = "raa229618"
-bus = "bus1"
-address = 0x35
-description = "a power controller"
-power = { rails = ["V1"] }
-sensors = { voltage = 2 }
-"#;
+    let devices = vec![I2cDevice {
+        sensors: Some(I2cSensors {
+            voltage: 2,
+            ..Default::default()
+        }),
+        ..power_device(I2cPower {
+            rails: Some(vec!["V1".into()]),
+            ..Default::default()
+        })
+    }];
     assert_error(devices, "sensor count exceeds rails");
 }
 
 #[test]
 fn error_name_array_too_short() {
-    let devices = r#"
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus1"
-address = 0x48
-description = "a temperature sensor"
-sensors = { temperature = 2, names = ["north"] }
-"#;
+    let devices = vec![I2cDevice {
+        bus: Some("bus1".into()),
+        sensors: Some(I2cSensors {
+            temperature: 2,
+            names: Some(vec!["north".into()]),
+            ..Default::default()
+        }),
+        ..base_device()
+    }];
     assert_error(devices, "name array is too short (1) for sensor index (1)");
 }
 
 #[test]
 fn error_inconsistent_sensors() {
-    let devices = r#"
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus1"
-address = 0x48
-description = "one"
-sensors = { temperature = 1 }
-
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus2"
-address = 0x49
-description = "two"
-sensors = { temperature = 2 }
-"#;
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            description: "one".into(),
+            sensors: Some(I2cSensors {
+                temperature: 1,
+                ..Default::default()
+            }),
+            ..base_device()
+        },
+        I2cDevice {
+            bus: Some("bus2".into()),
+            address: 0x49,
+            description: "two".into(),
+            sensors: Some(I2cSensors {
+                temperature: 2,
+                ..Default::default()
+            }),
+            ..base_device()
+        },
+    ];
     assert_error(devices, "inconsistent numbers of sensors");
 }
 
 #[test]
 fn flavor_disambiguates_inconsistent_sensors() {
-    let devices = r#"
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus1"
-address = 0x48
-description = "one"
-sensors = { temperature = 1 }
-
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus2"
-address = 0x49
-description = "two"
-flavor = "double"
-sensors = { temperature = 2 }
-"#;
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            description: "one".into(),
+            sensors: Some(I2cSensors {
+                temperature: 1,
+                ..Default::default()
+            }),
+            ..base_device()
+        },
+        I2cDevice {
+            bus: Some("bus2".into()),
+            address: 0x49,
+            description: "two".into(),
+            flavor: Some("double".into()),
+            sensors: Some(I2cSensors {
+                temperature: 2,
+                ..Default::default()
+            }),
+            ..base_device()
+        },
+    ];
     let report = analyze(devices).unwrap();
     assert_eq!(report.sensor_structs[0].name, "tmp117");
     assert!(report.sensor_structs[0].declare);
@@ -436,42 +622,53 @@ sensors = { temperature = 2 }
 
 #[test]
 fn error_with_and_without_sensors() {
-    let devices = r#"
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus1"
-address = 0x48
-description = "one"
-sensors = { temperature = 1 }
-
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus2"
-address = 0x49
-description = "two"
-"#;
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            description: "one".into(),
+            sensors: Some(I2cSensors {
+                temperature: 1,
+                ..Default::default()
+            }),
+            ..base_device()
+        },
+        I2cDevice {
+            bus: Some("bus2".into()),
+            address: 0x49,
+            description: "two".into(),
+            ..base_device()
+        },
+    ];
     assert_error(devices, "declared both with and without sensors");
 }
 
 #[test]
 fn sensor_ids_are_assigned_in_order() {
-    let devices = r#"
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus1"
-address = 0x48
-description = "one"
-name = "north"
-sensors = { temperature = 2, voltage = 1 }
-
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus2"
-address = 0x49
-description = "two"
-name = "south"
-sensors = { temperature = 2, voltage = 1 }
-"#;
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            description: "one".into(),
+            name: Some("north".into()),
+            sensors: Some(I2cSensors {
+                temperature: 2,
+                voltage: 1,
+                ..Default::default()
+            }),
+            ..base_device()
+        },
+        I2cDevice {
+            bus: Some("bus2".into()),
+            address: 0x49,
+            description: "two".into(),
+            name: Some("south".into()),
+            sensors: Some(I2cSensors {
+                temperature: 2,
+                voltage: 1,
+                ..Default::default()
+            }),
+            ..base_device()
+        },
+    ];
     let report = analyze(devices).unwrap();
     assert_eq!(report.sensors.total_i2c_sensors, 6);
 
@@ -505,16 +702,22 @@ fn power_sensors_subset_names_only_those_kinds() {
     // `power.sensors` limits which sensor kinds are named after rails; other
     // kinds fall back to the `names` array.
     //
-    let devices = r#"
-[[i2c.devices]]
-device = "mwocp68"
-bus = "bus1"
-address = 0x40
-description = "a power shelf"
-name = "psu"
-power = { rails = ["V54_PSU"], sensors = ["voltage"] }
-sensors = { temperature = 2, voltage = 1, names = ["inlet", "outlet"] }
-"#;
+    let devices = vec![I2cDevice {
+        bus: Some("bus1".into()),
+        name: Some("psu".into()),
+        power: Some(I2cPower {
+            rails: Some(vec!["V54_PSU".into()]),
+            sensors: Some(vec![Sensor::Voltage]),
+            ..Default::default()
+        }),
+        sensors: Some(I2cSensors {
+            temperature: 2,
+            voltage: 1,
+            names: Some(vec!["inlet".into(), "outlet".into()]),
+            ..Default::default()
+        }),
+        ..common::device("mwocp68", 0x40, "a power shelf")
+    }];
     let report = analyze(devices).unwrap();
 
     let names: Vec<_> = report
@@ -538,27 +741,47 @@ sensors = { temperature = 2, voltage = 1, names = ["inlet", "outlet"] }
 // Roles
 //
 
-const TARGET_CONTROLLER: &str = r#"
-[[i2c.controllers]]
-controller = 7
-target = true
-
-[i2c.controllers.ports.B]
-scl = { pin = 1 }
-sda = { pin = 2 }
-af = 4
-"#;
+fn target_controller(n: u8) -> I2cController {
+    I2cController {
+        target: true,
+        ..common::controller(
+            n,
+            [(
+                "B",
+                common::port(
+                    None,
+                    common::pin(None, 1),
+                    common::pin(None, 2),
+                    4,
+                    vec![],
+                ),
+            )],
+        )
+    }
+}
 
 #[test]
 fn role_selects_controllers() {
-    let toml = format!("{CONTROLLERS}{TARGET_CONTROLLER}");
+    let mut all_controllers = controllers();
+    all_controllers.push(target_controller(7));
 
-    let initiator =
-        analyze_with(&toml, settings(ControllerRole::Initiator)).unwrap();
+    let initiator = analyze_manifest(
+        all_controllers.clone(),
+        None,
+        None,
+        settings(ControllerRole::Initiator),
+    )
+    .unwrap();
     assert_eq!(initiator.controllers.len(), 2);
     initiator.check_single_controller().unwrap_err();
 
-    let target = analyze_with(&toml, settings(ControllerRole::Target)).unwrap();
+    let target = analyze_manifest(
+        all_controllers,
+        None,
+        None,
+        settings(ControllerRole::Target),
+    )
+    .unwrap();
     assert_eq!(target.controllers.len(), 1);
     assert_eq!(target.controllers[0].controller, 7);
     target.check_single_controller().unwrap();
@@ -566,8 +789,13 @@ fn role_selects_controllers() {
 
 #[test]
 fn error_no_target_controller() {
-    let report =
-        analyze_with(CONTROLLERS, settings(ControllerRole::Target)).unwrap();
+    let report = analyze_manifest(
+        controllers(),
+        None,
+        None,
+        settings(ControllerRole::Target),
+    )
+    .unwrap();
 
     let err = report.check_single_controller().unwrap_err();
     assert_eq!(
@@ -578,12 +806,17 @@ fn error_no_target_controller() {
 
 #[test]
 fn error_two_target_controllers() {
-    let toml = format!(
-        "{CONTROLLERS}{TARGET_CONTROLLER}{}",
-        TARGET_CONTROLLER.replace("controller = 7", "controller = 8")
-    );
+    let mut all_controllers = controllers();
+    all_controllers.push(target_controller(7));
+    all_controllers.push(target_controller(8));
 
-    let report = analyze_with(&toml, settings(ControllerRole::Target)).unwrap();
+    let report = analyze_manifest(
+        all_controllers,
+        None,
+        None,
+        settings(ControllerRole::Target),
+    )
+    .unwrap();
 
     let err = report.check_single_controller().unwrap_err();
     assert_eq!(
@@ -612,24 +845,20 @@ fn validation_settings(drivers: &[&str]) -> AnalysisSettings {
 
 #[test]
 fn validation_strategies() {
-    let devices = format!(
-        "{}{}",
-        device("bus = \"bus1\""),
-        r#"
-[[i2c.devices]]
-device = "nonesuch"
-bus = "bus2"
-address = 0x20
-description = "a device with no driver"
-validate-with-raw-read = true
-"#
-    );
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            ..base_device()
+        },
+        I2cDevice {
+            bus: Some("bus2".into()),
+            validate_with_raw_read: true,
+            ..common::device("nonesuch", 0x20, "a device with no driver")
+        },
+    ];
 
-    let report = analyze_with(
-        &format!("{CONTROLLERS}{devices}"),
-        validation_settings(&["tmp117"]),
-    )
-    .unwrap();
+    let report =
+        analyze_with(devices, validation_settings(&["tmp117"])).unwrap();
 
     let validation = report.validation.unwrap();
     assert_eq!(
@@ -644,10 +873,11 @@ validate-with-raw-read = true
 #[test]
 fn error_driver_with_raw_read() {
     let err = analyze_with(
-        &format!(
-            "{CONTROLLERS}{}",
-            device("bus = \"bus1\"\nvalidate-with-raw-read = true")
-        ),
+        vec![I2cDevice {
+            bus: Some("bus1".into()),
+            validate_with_raw_read: true,
+            ..base_device()
+        }],
         validation_settings(&["tmp117"]),
     )
     .unwrap_err();
@@ -662,7 +892,10 @@ fn error_driver_with_raw_read() {
 #[test]
 fn error_no_driver_without_raw_read() {
     let err = analyze_with(
-        &format!("{CONTROLLERS}{}", device("bus = \"bus1\"")),
+        vec![I2cDevice {
+            bus: Some("bus1".into()),
+            ..base_device()
+        }],
         validation_settings(&[]),
     )
     .unwrap_err();
@@ -677,7 +910,11 @@ fn error_no_driver_without_raw_read() {
 fn validation_is_opt_in() {
     // Without drivers, no validation analysis is performed -- and so a device
     // with no driver is not an error.
-    let report = analyze(&device("bus = \"bus1\"")).unwrap();
+    let report = analyze(vec![I2cDevice {
+        bus: Some("bus1".into()),
+        ..base_device()
+    }])
+    .unwrap();
     assert!(report.validation.is_none());
 }
 
@@ -687,56 +924,47 @@ fn validation_is_opt_in() {
 
 #[test]
 fn groups_devices() {
-    let devices = r#"
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus1"
-name = "north"
-refdes = "U1"
-address = 0x48
-description = "one"
-
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus2"
-name = "south"
-address = 0x49
-description = "two"
-
-[[i2c.devices]]
-device = "at24csw080"
-controller = 3
-address = 0x50
-description = "three"
-eeprom-vpd = "single-barcode"
-"#;
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            name: Some("north".into()),
+            refdes: Some(Refdes::Component("U1".into())),
+            description: "one".into(),
+            ..base_device()
+        },
+        I2cDevice {
+            bus: Some("bus2".into()),
+            address: 0x49,
+            name: Some("south".into()),
+            description: "two".into(),
+            ..base_device()
+        },
+        I2cDevice {
+            controller: Some(3),
+            eeprom_vpd: Some(EepromVpd::SingleBarcode),
+            ..common::device("at24csw080", 0x50, "three")
+        },
+    ];
     let report = analyze(devices).unwrap();
-
-    fn group<K>(key: K, indices: &[usize]) -> DeviceGroup<K> {
-        DeviceGroup {
-            key,
-            indices: indices.to_vec(),
-        }
-    }
 
     assert_eq!(
         report.by_device,
         vec![
-            group("at24csw080".to_string(), &[2]),
-            group("tmp117".to_string(), &[0, 1]),
+            common::group("at24csw080".to_string(), &[2]),
+            common::group("tmp117".to_string(), &[0, 1]),
         ]
     );
     assert_eq!(
         report.by_bus,
         vec![
-            group(
+            common::group(
                 DeviceBus {
                     device: "tmp117".to_string(),
                     bus: "bus1".to_string()
                 },
                 &[0]
             ),
-            group(
+            common::group(
                 DeviceBus {
                     device: "tmp117".to_string(),
                     bus: "bus2".to_string()
@@ -747,21 +975,28 @@ eeprom-vpd = "single-barcode"
     );
     assert_eq!(
         report.by_controller,
-        vec![group(2, &[0, 1]), group(3, &[2])]
+        vec![common::group(2, &[0, 1]), common::group(3, &[2])]
     );
-    assert_eq!(report.by_port, vec![group(0, &[0, 2]), group(1, &[1])]);
+    assert_eq!(
+        report.by_port,
+        vec![common::group(0, &[0, 2]), common::group(1, &[1])]
+    );
     assert_eq!(report.max_component_id_len, 2);
 }
 
 #[test]
 fn component_ids_are_resolved_on_request() {
-    let devices = device("bus = \"bus1\"\nrefdes = [\"J1\", \"U7\"]");
+    let d = I2cDevice {
+        bus: Some("bus1".into()),
+        refdes: Some(Refdes::Path(vec!["J1".into(), "U7".into()])),
+        ..base_device()
+    };
 
-    let report = analyze(&devices).unwrap();
+    let report = analyze(vec![d.clone()]).unwrap();
     assert_eq!(report.devices[0].component_id, None);
 
     let report = analyze_with(
-        &format!("{CONTROLLERS}{devices}"),
+        vec![d],
         AnalysisSettings {
             component_ids: true,
             ..settings(ControllerRole::Initiator)
@@ -774,23 +1009,18 @@ fn component_ids_are_resolved_on_request() {
 #[test]
 fn error_duplicate_component_id_across_device_types() {
     // The same refdes on two different device types is still one component.
-    let err = analyze(
-        r#"
-[[i2c.devices]]
-device = "tmp117"
-refdes = "U7"
-bus = "bus1"
-address = 0x48
-description = "a temperature sensor"
-
-[[i2c.devices]]
-device = "at24csw080"
-refdes = "U7"
-bus = "bus2"
-address = 0x50
-description = "an eeprom"
-"#,
-    )
+    let err = analyze(vec![
+        I2cDevice {
+            refdes: Some(Refdes::Component("U7".into())),
+            bus: Some("bus1".into()),
+            ..base_device()
+        },
+        I2cDevice {
+            refdes: Some(Refdes::Component("U7".into())),
+            bus: Some("bus2".into()),
+            ..common::device("at24csw080", 0x50, "an eeprom")
+        },
+    ])
     .unwrap_err();
     let msg = format!("{err:#}");
     assert!(msg.contains("duplicate component ID \"U7\""), "{msg}");
@@ -799,23 +1029,19 @@ description = "an eeprom"
 
 #[test]
 fn component_ids_are_optional_by_default() {
-    let toml = format!(
-        "{CONTROLLERS}{}",
-        r#"
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus1"
-address = 0x48
-description = "a temperature sensor without a refdes"
-"#
-    );
+    let devices = vec![I2cDevice {
+        bus: Some("bus1".into()),
+        description: "a temperature sensor without a refdes".into(),
+        ..base_device()
+    }];
     let report =
-        analyze_with(&toml, settings(ControllerRole::Initiator)).unwrap();
+        analyze_with(devices.clone(), settings(ControllerRole::Initiator))
+            .unwrap();
     let descs: Vec<_> = report.device_descriptions().collect();
     assert_eq!(descs[0].device_id, None);
 
     let err = analyze_with(
-        &toml,
+        devices,
         AnalysisSettings {
             require_component_ids: true,
             ..settings(ControllerRole::Initiator)
@@ -830,20 +1056,15 @@ description = "a temperature sensor without a refdes"
 
 #[test]
 fn error_component_id_too_long() {
-    let toml = format!(
-        "{CONTROLLERS}{}",
-        r#"
-[[i2c.devices]]
-device = "tmp117"
-refdes = ["J1", "U7"]
-bus = "bus1"
-address = 0x48
-description = "a temperature sensor"
-"#
-    );
+    let d = I2cDevice {
+        refdes: Some(Refdes::Path(vec!["J1".into(), "U7".into()])),
+        bus: Some("bus1".into()),
+        ..base_device()
+    };
+
     // "J1/U7" is 5 bytes.
     analyze_with(
-        &toml,
+        vec![d.clone()],
         AnalysisSettings {
             max_component_id_len: Some(5),
             ..settings(ControllerRole::Initiator)
@@ -852,7 +1073,7 @@ description = "a temperature sensor"
     .unwrap();
 
     let err = analyze_with(
-        &toml,
+        vec![d],
         AnalysisSettings {
             max_component_id_len: Some(4),
             ..settings(ControllerRole::Initiator)
@@ -868,39 +1089,34 @@ description = "a temperature sensor"
 
 #[test]
 fn all_component_id_problems_are_reported_together() {
-    let toml = format!(
-        "{CONTROLLERS}{}",
-        r#"
-[[i2c.devices]]
-device = "tmp117"
-bus = "bus1"
-address = 0x48
-description = "no refdes"
-
-[[i2c.devices]]
-device = "tmp117"
-refdes = "U1"
-bus = "bus1"
-address = 0x49
-description = "first U1"
-
-[[i2c.devices]]
-device = "at24csw080"
-refdes = "U1"
-bus = "bus2"
-address = 0x50
-description = "second U1"
-
-[[i2c.devices]]
-device = "tmp117"
-refdes = ["J100", "U200"]
-bus = "bus2"
-address = 0x4a
-description = "too long"
-"#
-    );
+    let devices = vec![
+        I2cDevice {
+            bus: Some("bus1".into()),
+            description: "no refdes".into(),
+            ..base_device()
+        },
+        I2cDevice {
+            refdes: Some(Refdes::Component("U1".into())),
+            bus: Some("bus1".into()),
+            address: 0x49,
+            description: "first U1".into(),
+            ..base_device()
+        },
+        I2cDevice {
+            refdes: Some(Refdes::Component("U1".into())),
+            bus: Some("bus2".into()),
+            ..common::device("at24csw080", 0x50, "second U1")
+        },
+        I2cDevice {
+            refdes: Some(Refdes::Path(vec!["J100".into(), "U200".into()])),
+            bus: Some("bus2".into()),
+            address: 0x4a,
+            description: "too long".into(),
+            ..base_device()
+        },
+    ];
     let err = analyze_with(
-        &toml,
+        devices,
         AnalysisSettings {
             require_component_ids: true,
             max_component_id_len: Some(8),
@@ -920,46 +1136,34 @@ description = "too long"
 
 #[test]
 fn vpd_kind_is_classified_by_device_type() {
-    use build_i2c::{EepromVpd, VpdKind};
-    let report = analyze(
-        r#"
-[[i2c.devices]]
-device = "at24csw080"
-refdes = "U1"
-bus = "bus1"
-address = 0x50
-description = "default eeprom format"
-
-[[i2c.devices]]
-device = "at24csw080"
-refdes = "U2"
-bus = "bus1"
-address = 0x51
-description = "fan tray eeprom"
-eeprom-vpd = "sled-fan-tray"
-
-[[i2c.devices]]
-device = "tmp117"
-refdes = "U3"
-bus = "bus1"
-address = 0x48
-description = "tmp11x"
-
-[[i2c.devices]]
-device = "tmp116"
-refdes = "U4"
-bus = "bus1"
-address = 0x49
-description = "tmp11x too"
-
-[[i2c.devices]]
-device = "max31790"
-refdes = "U5"
-bus = "bus2"
-address = 0x20
-description = "no vpd"
-"#,
-    )
+    let report = analyze(vec![
+        I2cDevice {
+            refdes: Some(Refdes::Component("U1".into())),
+            bus: Some("bus1".into()),
+            ..common::device("at24csw080", 0x50, "default eeprom format")
+        },
+        I2cDevice {
+            refdes: Some(Refdes::Component("U2".into())),
+            bus: Some("bus1".into()),
+            eeprom_vpd: Some(EepromVpd::SledFanTray),
+            ..common::device("at24csw080", 0x51, "fan tray eeprom")
+        },
+        I2cDevice {
+            refdes: Some(Refdes::Component("U3".into())),
+            bus: Some("bus1".into()),
+            ..common::device("tmp117", 0x48, "tmp11x")
+        },
+        I2cDevice {
+            refdes: Some(Refdes::Component("U4".into())),
+            bus: Some("bus1".into()),
+            ..common::device("tmp116", 0x49, "tmp11x too")
+        },
+        I2cDevice {
+            refdes: Some(Refdes::Component("U5".into())),
+            bus: Some("bus2".into()),
+            ..common::device("max31790", 0x20, "no vpd")
+        },
+    ])
     .unwrap();
     let vpd: Vec<_> = report.device_descriptions().map(|d| d.vpd).collect();
     assert_eq!(
@@ -974,37 +1178,46 @@ description = "no vpd"
     );
 }
 
-const OTHER_SENSORS: &str = r#"
-[[sensor.devices]]
-name = "dimm_a"
-device = "ts0"
-description = "DIMM A"
-sensors = { temperature = 2 }
-refdes = "J1"
-
-[[sensor.devices]]
-name = "fans"
-device = "fpga"
-description = "fan hub"
-sensors = { speed = 3, temperature = 1 }
-"#;
+fn other_sensor_devices() -> Vec<OtherSensorDevice> {
+    vec![
+        OtherSensorDevice {
+            name: "dimm_a".into(),
+            device: "ts0".into(),
+            description: "DIMM A".into(),
+            sensors: BTreeMap::from([(Sensor::Temperature, 2)]),
+            refdes: Some(Refdes::Component("J1".into())),
+        },
+        OtherSensorDevice {
+            name: "fans".into(),
+            device: "fpga".into(),
+            description: "fan hub".into(),
+            sensors: BTreeMap::from([
+                (Sensor::Speed, 3),
+                (Sensor::Temperature, 1),
+            ]),
+            refdes: None,
+        },
+    ]
+}
 
 #[test]
 fn other_sensors_follow_i2c_sensor_ids() {
-    use build_i2c::Sensor;
-
-    let report = analyze(&format!(
-        r#"
-[[i2c.devices]]
-device = "tmp117"
-name = "north"
-refdes = "U7"
-bus = "bus1"
-address = 0x48
-description = "an i2c temperature sensor"
-sensors = {{ temperature = 1 }}
-{OTHER_SENSORS}"#
-    ))
+    let report = analyze_with_sensor(
+        vec![I2cDevice {
+            name: Some("north".into()),
+            refdes: Some(Refdes::Component("U7".into())),
+            bus: Some("bus1".into()),
+            description: "an i2c temperature sensor".into(),
+            sensors: Some(I2cSensors {
+                temperature: 1,
+                ..Default::default()
+            }),
+            ..base_device()
+        }],
+        Some(SensorConfig {
+            devices: other_sensor_devices(),
+        }),
+    )
     .unwrap();
 
     let s = &report.sensors;
@@ -1035,20 +1248,26 @@ sensors = {{ temperature = 1 }}
 
 #[test]
 fn error_duplicate_other_sensor_name() {
-    let err = analyze(
-        r#"
-[[sensor.devices]]
-name = "dimm_a"
-device = "ts0"
-description = "DIMM A"
-sensors = { temperature = 1 }
-
-[[sensor.devices]]
-name = "dimm_a"
-device = "ts1"
-description = "DIMM A again"
-sensors = { temperature = 1 }
-"#,
+    let err = analyze_with_sensor(
+        vec![],
+        Some(SensorConfig {
+            devices: vec![
+                OtherSensorDevice {
+                    name: "dimm_a".into(),
+                    device: "ts0".into(),
+                    description: "DIMM A".into(),
+                    sensors: BTreeMap::from([(Sensor::Temperature, 1)]),
+                    refdes: None,
+                },
+                OtherSensorDevice {
+                    name: "dimm_a".into(),
+                    device: "ts1".into(),
+                    description: "DIMM A again".into(),
+                    sensors: BTreeMap::from([(Sensor::Temperature, 1)]),
+                    refdes: None,
+                },
+            ],
+        }),
     )
     .unwrap_err();
     assert!(
