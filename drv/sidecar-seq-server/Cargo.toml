@@ -34,7 +34,7 @@ static-cell = { path = "../../lib/static-cell" }
 fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
 
 [features]
-h753 = ["build-i2c/h753"]
+h753 = []
 stay-in-a2 = []
 no-ipc-counters = ["idol/no-counters"]
 

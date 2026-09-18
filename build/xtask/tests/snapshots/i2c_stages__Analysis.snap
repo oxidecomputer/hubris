@@ -101,12 +101,12 @@ Report {
         },
     ],
     buses: {
-        "i2c3": ControllerPort {
-            controller: 3,
-            index: 0,
-        },
         "i2c2": ControllerPort {
             controller: 2,
+            index: 0,
+        },
+        "i2c3": ControllerPort {
+            controller: 3,
             index: 0,
         },
         "i2c4": ControllerPort {

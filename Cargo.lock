@@ -2137,7 +2137,6 @@ dependencies = [
 name = "drv-minibar-seq-server"
 version = "0.1.0"
 dependencies = [
- "build-i2c",
  "build-util",
  "counters",
  "drv-auxflash-api",
@@ -2899,7 +2898,6 @@ dependencies = [
 name = "drv-transceivers-api"
 version = "0.1.0"
 dependencies = [
- "build-i2c",
  "counters",
  "derive-idol-err",
  "drv-fpga-api",

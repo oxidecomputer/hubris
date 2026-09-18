@@ -150,16 +150,12 @@ fn snapshot() {
             let settings: CodegenSettings = disp.into();
             let report =
                 xtask::i2c_codegen::setup_report(manifest, &settings).unwrap();
-            match build_i2c::codegen(report, &settings) {
-                Ok(outputs) => {
+            match build_i2c::codegen(&report, &settings) {
+                Ok(code) => {
                     let dest = format!("{name}.snap");
                     let temp_out = tempdir.path().join(Path::new(&dest));
-                    xtask::i2c_codegen::write_file(
-                        &outputs.code,
-                        &temp_out,
-                        true,
-                    )
-                    .unwrap();
+                    xtask::i2c_codegen::write_file(&code, &temp_out, true)
+                        .unwrap();
                     let contents = std::fs::read_to_string(temp_out).unwrap();
                     assert_snapshot!(name, contents);
                 }

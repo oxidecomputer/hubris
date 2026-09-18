@@ -253,7 +253,7 @@ pub struct Report {
     pub ports: Vec<NamedPort>,
 
     /// Map of bus name to (controller, port index).
-    pub buses: HashMap<String, ControllerPort>,
+    pub buses: BTreeMap<String, ControllerPort>,
 
     /// All devices, in manifest order.  This order is load-bearing: it is the
     /// order used by `device_by_index()` and `validate()` in the generated
@@ -348,7 +348,7 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
     } = config;
 
     let mut controllers = vec![];
-    let mut buses = HashMap::new();
+    let mut buses = BTreeMap::new();
     let mut ports = Vec::new();
     let mut singletons = HashMap::new();
 
@@ -469,7 +469,7 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
 /// else having been resolved.
 fn check_devices(
     devices: &[I2cDevice],
-    buses: &HashMap<String, ControllerPort>,
+    buses: &BTreeMap<String, ControllerPort>,
 ) -> Result<()> {
     for d in devices {
         match (d.controller, d.bus.as_ref()) {
@@ -572,7 +572,7 @@ fn check_component_ids(
 
 fn lookup_controller_port(
     d: &I2cDevice,
-    buses: &HashMap<String, ControllerPort>,
+    buses: &BTreeMap<String, ControllerPort>,
     ports: &[NamedPort],
     singletons: &HashMap<u8, usize>,
 ) -> Result<ControllerPort> {

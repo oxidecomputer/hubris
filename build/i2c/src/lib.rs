@@ -37,8 +37,12 @@ pub use load::{
 
 /// Outputs from code generation which may be used by other build scripts.
 pub struct CodegenOutputs {
-    /// The generated code that would be output to `i2c_config.rs`.
+    /// The generated code that was written to `i2c_config.rs`.
     pub code: String,
+
+    /// The analysis the code was generated from, for build scripts which
+    /// derive further outputs from it.
+    pub report: Report,
 }
 
 /// A preset bundle of code generation settings, describing what a task needs
@@ -221,16 +225,13 @@ impl From<Disposition> for CodegenSettings {
 /// the `code` field of the `CodegenOutputs` struct. Using [`codegen_to_file`]
 /// will also write the generated code to the `i2c_config.rs` file for the task
 /// currently being built.
-pub fn codegen(
-    report: Report,
-    settings: &CodegenSettings,
-) -> Result<CodegenOutputs> {
+pub fn codegen(report: &Report, settings: &CodegenSettings) -> Result<String> {
     if settings.require_single_controller {
         report.check_single_controller()?;
     }
 
     let g = Codegen {
-        report: &report,
+        report,
         codegen_target: settings.codegen_target,
     };
 
@@ -253,7 +254,7 @@ pub fn codegen(
     }
     let output = codegen::i2c_config_module(body).to_string();
 
-    Ok(CodegenOutputs { code: output })
+    Ok(output)
 }
 
 /// Run code generation and write the output to an `i2c_config.rs` file in the
@@ -277,11 +278,11 @@ pub fn codegen_to_file(
     let dest_path = out_dir.join("i2c_config.rs");
     let mut file = File::create(dest_path)?;
 
-    let outputs = codegen(report, &settings)?;
+    let code = codegen(&report, &settings)?;
 
-    file.write_all(outputs.code.as_bytes())?;
+    file.write_all(code.as_bytes())?;
 
-    Ok(outputs)
+    Ok(CodegenOutputs { code, report })
 }
 
 ///

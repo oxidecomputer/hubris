@@ -23,11 +23,10 @@ ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [features]
-h753 = ["build-i2c/h753"]
+h753 = []
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
-build-i2c = { path = "../../build/i2c" }
 idol = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

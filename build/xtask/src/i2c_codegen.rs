@@ -76,8 +76,7 @@ pub fn run_stage(
         return Ok(format!("{report:#?}"));
     }
 
-    let build_i2c::CodegenOutputs { code, .. } =
-        build_i2c::codegen(report, &settings)?;
+    let code = build_i2c::codegen(&report, &settings)?;
     Ok(code)
 }
 

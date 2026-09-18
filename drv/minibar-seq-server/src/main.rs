@@ -28,7 +28,6 @@ task_slot!(FPGA, ecp5);
 task_slot!(AUXFLASH, auxflash);
 task_slot!(PACKRAT, packrat);
 
-include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 #[derive(Copy, Clone, PartialEq)]

@@ -6,13 +6,6 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
     build_util::build_notifications()?;
 
-    let disposition = build_i2c::Disposition::Devices;
-
-    if let Err(e) = build_i2c::codegen_to_file(disposition) {
-        println!("cargo::error=code generation failed: {e}");
-        std::process::exit(1);
-    }
-
     idol::Generator::new().build_server_support(
         "../../idl/minibar-seq.idol",
         "server_stub.rs",
