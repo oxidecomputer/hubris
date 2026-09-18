@@ -44,14 +44,14 @@ pub struct Config {
 }
 
 /// The `[config.sensor]` section: sensors not attached via I2C.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct SensorConfig {
     pub devices: Vec<OtherSensorDevice>,
 }
 
 /// A non-I2C device with sensors.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct OtherSensorDevice {
     /// device name (must be unique among non-I2C devices)
@@ -70,7 +70,7 @@ pub struct OtherSensorDevice {
     pub refdes: Option<Refdes>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct I2cConfig {
     pub controllers: Vec<I2cController>,
@@ -91,7 +91,7 @@ pub struct I2cConfig {
 // `IndexMap` for tables), we must be sure to impose our own (absolute)
 // ordering.
 //
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct I2cController {
     pub controller: u8,
@@ -111,7 +111,9 @@ pub struct I2cController {
 // additional lengths to assure that these mistakes are caught in compilation.
 //
 
-#[derive(Clone, Debug, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
+#[derive(
+    Clone, Debug, Deserialize, PartialOrd, Ord, Eq, PartialEq, Default,
+)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
 pub struct I2cDevice {
@@ -199,7 +201,7 @@ impl I2cDevice {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct I2cPort {
     pub name: Option<String>,
@@ -212,21 +214,21 @@ pub struct I2cPort {
     pub muxes: Vec<I2cMux>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct I2cPin {
     pub gpio_port: Option<String>,
     pub pin: u8,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct I2cGpio {
     pub port: String,
     pub pin: u8,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct I2cMux {
     pub driver: String,
@@ -262,7 +264,20 @@ impl I2cPower {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialOrd, PartialEq, Eq, Ord)]
+impl Default for I2cPower {
+    fn default() -> Self {
+        Self {
+            rails: None,
+            phases: None,
+            pmbus: Self::default_pmbus(),
+            sensors: None,
+        }
+    }
+}
+
+#[derive(
+    Clone, Debug, Deserialize, PartialOrd, PartialEq, Eq, Ord, Default,
+)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
 pub struct I2cSensors {

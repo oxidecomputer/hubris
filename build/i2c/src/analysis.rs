@@ -238,7 +238,7 @@ pub enum Validation {
 }
 
 /// Everything that code generation needs, resolved and validated.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Report {
     /// The role that [`Report::controllers`] were selected for.
     pub role: ControllerRole,
@@ -1050,7 +1050,7 @@ impl iddqd::IdOrdItem for DeviceSensor {
     iddqd::id_upcast!();
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SensorsDescription {
     // In all maps below, the value is the sensor ID. The same sensor ID
     // can show up in multiple (including all!) of these maps.
@@ -1062,23 +1062,23 @@ pub struct SensorsDescription {
     /// and by what kind of device the sensor exists within, e.g. "TMP117".
     /// A `(Temperature, TMP117)` may have multiple sensor IDs that match the
     /// same tuple of options.
-    pub(crate) by_device: BTreeMap<DeviceKey, Vec<usize>>,
+    pub by_device: BTreeMap<DeviceKey, Vec<usize>>,
     /// `by_refdes` tracks items on the two items above, PLUS what "refdes"
     /// is available, for example "U32". A `(Speed, Max31790, U32)` may
     /// have multiple sensor IDs, for example if there are 6 separate speed
     /// sensors hosted on the same physical I2C device.
-    pub(crate) by_refdes: BTreeMap<DeviceRefdesKey, Vec<usize>>,
+    pub by_refdes: BTreeMap<DeviceRefdesKey, Vec<usize>>,
     /// `by_name` tracks items on the triple of device/name/kind, for example
     /// `(TMP117, "North", Temperature)`. This actually should probably not
     /// ever match multiple items, and will be fixed in the future. See
     /// https://github.com/oxidecomputer/hubris/issues/2637 for details.
-    pub(crate) by_name: BTreeMap<DeviceNameKey, Vec<usize>>,
+    pub by_name: BTreeMap<DeviceNameKey, Vec<usize>>,
     /// All sensors by their ID
     pub by_id: IdOrdMap<Arc<DeviceSensor>>,
 
     /// list of all devices and a list of their sensors, with an optional sensor
     /// name (if present)
-    pub(crate) device_sensors: Vec<Vec<Arc<DeviceSensor>>>,
+    pub device_sensors: Vec<Vec<Arc<DeviceSensor>>>,
 
     /// The number of I2C sensors; their IDs are `0..total_i2c_sensors`.
     pub total_i2c_sensors: usize,
