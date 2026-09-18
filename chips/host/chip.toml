@@ -1,0 +1,2 @@
+# A host machine has no memory-mapped peripherals for tasks to claim; this file
+# exists because every app manifest names a chip.

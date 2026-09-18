@@ -55,6 +55,30 @@ enum Xtask {
         tasks: Vec<String>,
     },
 
+    /// Builds every task and the kernel of an app for the host machine and
+    /// runs the kernel, which launches the tasks as child processes. The
+    /// task named `idle` is not run; the kernel advances virtual time in
+    /// its place.
+    HostRun {
+        /// Request verbosity from tools we shell out to.
+        #[clap(short)]
+        verbose: bool,
+        /// Build with the release profile instead of dev.
+        #[clap(long)]
+        release: bool,
+        /// Log every syscall the kernel handles to stderr.
+        #[clap(long)]
+        trace: bool,
+        /// Stop once virtual time would pass this many ticks.
+        #[clap(long)]
+        stop_at: Option<u64>,
+        /// Build everything and write the run configuration, but don't run.
+        #[clap(long)]
+        no_run: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+    },
+
     /// Builds one or more cross-compiled binary as it would appear in the
     /// output of `dist`, but without all the other binaries or the final build
     /// archive. This is useful for iterating on a single task.
@@ -375,6 +399,24 @@ fn run(xtask: Xtask) -> Result<()> {
             for exe in exes {
                 println!("{}", exe.display());
             }
+        }
+        Xtask::HostRun {
+            verbose,
+            release,
+            trace,
+            stop_at,
+            no_run,
+            cfg,
+        } => {
+            host::run(
+                &cfg,
+                host::HostRunFlags {
+                    build: host::HostBuildFlags { verbose, release },
+                    trace,
+                    stop_at,
+                    no_run,
+                },
+            )?;
         }
         Xtask::Flash {
             dirty,

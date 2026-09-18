@@ -1,0 +1,43 @@
+# ping and pong under the real kernel, on the host.
+#
+# This manifest is consumed by `cargo xtask host-run`, which builds every task
+# and the kernel for the host machine instead of for `target`; the chip and
+# memory-related settings are placeholders that the host build ignores.
+name = "host-demo"
+target = "host"
+board = "host"
+chip = "../../chips/host"
+stacksize = 1024
+
+[kernel]
+name = "host-demo"
+requires = {flash = 0, ram = 0}
+
+[tasks.pong]
+name = "task-pong"
+priority = 3
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = ["user_leds"]
+notifications = ["timer"]
+
+[tasks.ping]
+name = "task-ping"
+priority = 4
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = [{peer = "pong"}]
+
+# Stands in for the LED driver: a server that answers every request with
+# success. (A real driver crate would work here too, if it built for the host.)
+[tasks.user_leds]
+name = "task-stub"
+priority = 2
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+[tasks.idle]
+name = "task-idle"
+priority = 5
+max-sizes = {flash = 0, ram = 0}
+start = true

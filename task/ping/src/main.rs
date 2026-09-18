@@ -5,7 +5,9 @@
 #![cfg_attr(target_os = "none", no_std)]
 #![cfg_attr(target_os = "none", no_main)]
 
-use userlib::{Lease, sys_panic, sys_send, task_slot};
+#[cfg(feature = "uart")]
+use userlib::Lease;
+use userlib::{sys_panic, sys_send, task_slot};
 
 task_slot!(PEER, peer);
 #[cfg(feature = "uart")]

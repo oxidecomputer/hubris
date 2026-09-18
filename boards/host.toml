@@ -1,0 +1,2 @@
+# The host machine, for running an app under the host-built kernel.
+# No probe: nothing is flashed.
