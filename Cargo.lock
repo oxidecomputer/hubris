@@ -434,7 +434,6 @@ dependencies = [
  "clap 3.2.23",
  "convert_case 0.4.0",
  "iddqd",
- "indexmap 1.9.1",
  "insta",
  "multimap",
  "prettyplease",

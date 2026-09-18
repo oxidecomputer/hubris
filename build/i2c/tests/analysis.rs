@@ -5,7 +5,10 @@
 //! Tests for stage 2 of the pipeline: analyzing a loaded manifest.
 
 use anyhow::Result;
-use build_i2c::analysis::{self, AnalysisSettings, ControllerRole, Report};
+use build_i2c::analysis::{
+    self, AnalysisSettings, ControllerRole, DeviceBus, DeviceGroup, MuxSegment,
+    Report,
+};
 use build_i2c::load;
 use std::collections::HashSet;
 
@@ -95,34 +98,37 @@ description = "a temperature sensor"
 #[test]
 fn resolves_bus_to_controller_and_port() {
     let report = analyze(&device(r#"bus = "bus2""#)).unwrap();
-    assert_eq!(report.devices[0].controller, 2);
-    assert_eq!(report.devices[0].port, 1);
+    assert_eq!(report.devices[0].location.controller, 2);
+    assert_eq!(report.devices[0].location.index, 1);
 
     let report = analyze(&device(r#"bus = "bus1""#)).unwrap();
-    assert_eq!(report.devices[0].controller, 2);
-    assert_eq!(report.devices[0].port, 0);
+    assert_eq!(report.devices[0].location.controller, 2);
+    assert_eq!(report.devices[0].location.index, 0);
 }
 
 #[test]
 fn resolves_explicit_port() {
     let report = analyze(&device("controller = 2\nport = \"F\"")).unwrap();
-    assert_eq!(report.devices[0].controller, 2);
-    assert_eq!(report.devices[0].port, 1);
+    assert_eq!(report.devices[0].location.controller, 2);
+    assert_eq!(report.devices[0].location.index, 1);
 }
 
 #[test]
 fn resolves_singleton_port() {
     // Controller 3 has exactly one port, so naming a port is optional.
     let report = analyze(&device("controller = 3")).unwrap();
-    assert_eq!(report.devices[0].controller, 3);
-    assert_eq!(report.devices[0].port, 0);
+    assert_eq!(report.devices[0].location.controller, 3);
+    assert_eq!(report.devices[0].location.index, 0);
 }
 
 #[test]
 fn resolves_mux_and_segment() {
     let report =
         analyze(&device("controller = 3\nmux = 1\nsegment = 4")).unwrap();
-    assert_eq!(report.devices[0].segment, Some((1, 4)));
+    assert_eq!(
+        report.devices[0].segment,
+        Some(MuxSegment { mux: 1, segment: 4 })
+    );
 
     let report = analyze(&device("controller = 3")).unwrap();
     assert_eq!(report.devices[0].segment, None);
@@ -139,7 +145,7 @@ fn registers_buses_from_every_controller() {
     .unwrap();
 
     assert!(report.controllers.is_empty());
-    assert_eq!(report.devices[0].controller, 2);
+    assert_eq!(report.devices[0].location.controller, 2);
     assert_eq!(report.ports.len(), 3);
     assert_eq!(report.buses.len(), 3);
 }
@@ -306,24 +312,24 @@ power = {{ {power} }}
 fn resolves_power_rails() {
     let report = analyze(&power_device(r#"rails = ["V1", "V2"]"#)).unwrap();
 
-    assert_eq!(report.pmbus_rails.len(), 2);
-    assert_eq!(report.pmbus_rails[0].rail, "V1");
-    assert_eq!(report.pmbus_rails[0].bank, Some(0));
-    assert_eq!(report.pmbus_rails[1].rail, "V2");
-    assert_eq!(report.pmbus_rails[1].bank, Some(1));
+    assert_eq!(report.rails.pmbus.len(), 2);
+    assert_eq!(report.rails.pmbus[0].rail, "V1");
+    assert_eq!(report.rails.pmbus[0].bank, Some(0));
+    assert_eq!(report.rails.pmbus[1].rail, "V2");
+    assert_eq!(report.rails.pmbus[1].bank, Some(1));
 
     // These rails are on a PMBus device, so they are not in `power`.
-    assert!(report.power_rails.is_empty());
+    assert!(report.rails.non_pmbus.is_empty());
 
     // A single rail has no bank...
     let report = analyze(&power_device(r#"rails = ["V1"]"#)).unwrap();
-    assert_eq!(report.pmbus_rails[0].bank, None);
+    assert_eq!(report.rails.pmbus[0].bank, None);
 
     // ...and a non-PMBus device's rails appear in both lists.
     let report =
         analyze(&power_device(r#"rails = ["V1"], pmbus = false"#)).unwrap();
-    assert_eq!(report.pmbus_rails.len(), 1);
-    assert_eq!(report.power_rails.len(), 1);
+    assert_eq!(report.rails.pmbus.len(), 1);
+    assert_eq!(report.rails.non_pmbus.len(), 1);
 }
 
 #[test]
@@ -706,22 +712,44 @@ eeprom-vpd = "single-barcode"
 "#;
     let report = analyze(devices).unwrap();
 
+    fn group<K>(key: K, indices: &[usize]) -> DeviceGroup<K> {
+        DeviceGroup {
+            key,
+            indices: indices.to_vec(),
+        }
+    }
+
     assert_eq!(
         report.by_device,
         vec![
-            ("at24csw080".to_string(), vec![2]),
-            ("tmp117".to_string(), vec![0, 1]),
+            group("at24csw080".to_string(), &[2]),
+            group("tmp117".to_string(), &[0, 1]),
         ]
     );
     assert_eq!(
         report.by_bus,
         vec![
-            (("tmp117".to_string(), "bus1".to_string()), vec![0]),
-            (("tmp117".to_string(), "bus2".to_string()), vec![1]),
+            group(
+                DeviceBus {
+                    device: "tmp117".to_string(),
+                    bus: "bus1".to_string()
+                },
+                &[0]
+            ),
+            group(
+                DeviceBus {
+                    device: "tmp117".to_string(),
+                    bus: "bus2".to_string()
+                },
+                &[1]
+            ),
         ]
     );
-    assert_eq!(report.by_controller, vec![(2, vec![0, 1]), (3, vec![2])]);
-    assert_eq!(report.by_port, vec![(0, vec![0, 2]), (1, vec![1])]);
+    assert_eq!(
+        report.by_controller,
+        vec![group(2, &[0, 1]), group(3, &[2])]
+    );
+    assert_eq!(report.by_port, vec![group(0, &[0, 2]), group(1, &[1])]);
     assert_eq!(report.max_component_id_len, 2);
 }
 

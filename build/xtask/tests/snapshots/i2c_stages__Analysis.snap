@@ -77,33 +77,42 @@ Report {
             target: false,
         },
     ],
-    ports: {
-        (
-            2,
-            "F",
-        ): 0,
-        (
-            3,
-            "C",
-        ): 0,
-        (
-            4,
-            "F",
-        ): 0,
-    },
+    ports: [
+        NamedPort {
+            name: "F",
+            port: ControllerPort {
+                controller: 2,
+                index: 0,
+            },
+        },
+        NamedPort {
+            name: "C",
+            port: ControllerPort {
+                controller: 3,
+                index: 0,
+            },
+        },
+        NamedPort {
+            name: "F",
+            port: ControllerPort {
+                controller: 4,
+                index: 0,
+            },
+        },
+    ],
     buses: {
-        "i2c4": (
-            4,
-            0,
-        ),
-        "i2c2": (
-            2,
-            0,
-        ),
-        "i2c3": (
-            3,
-            0,
-        ),
+        "i2c3": ControllerPort {
+            controller: 3,
+            index: 0,
+        },
+        "i2c2": ControllerPort {
+            controller: 2,
+            index: 0,
+        },
+        "i2c4": ControllerPort {
+            controller: 4,
+            index: 0,
+        },
     },
     devices: [],
     by_device: [],
@@ -113,8 +122,10 @@ Report {
     by_controller: [],
     by_port: [],
     max_component_id_len: 0,
-    pmbus_rails: [],
-    power_rails: [],
+    rails: PowerRails {
+        pmbus: [],
+        non_pmbus: [],
+    },
     sensors: SensorsDescription {
         by_device: {},
         by_refdes: {},

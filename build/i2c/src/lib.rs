@@ -22,12 +22,12 @@ use anyhow::{Context, Result};
 use std::collections::HashSet;
 use std::fs::File;
 
-pub use analysis::OtherSensors;
 pub use analysis::{
-    AnalysisSettings, ControllerRole, DeviceKey, DeviceNameKey,
-    DeviceRefdesKey, DeviceSensor, I2cDeviceDescription,
-    PmbusDeviceDescription, PmbusRailDescription, Report, SensorsDescription,
-    VpdKind,
+    AnalysisSettings, ControllerPort, ControllerRole, DeviceBus, DeviceGroup,
+    DeviceKey, DeviceLookup, DeviceName, DeviceNameKey, DeviceRefdes,
+    DeviceRefdesKey, DeviceSensor, I2cDeviceDescription, MuxSegment, NamedPort,
+    OtherSensors, PmbusDeviceDescription, PmbusRailDescription, PowerRails,
+    Report, SensorsDescription, VpdKind,
 };
 pub use codegen::Codegen;
 pub use load::{

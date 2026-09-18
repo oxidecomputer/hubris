@@ -9,7 +9,10 @@
 //! [`i2c_config_module`]) and renders it to a string.
 
 use crate::CodegenTarget;
-use crate::analysis::{Device, DeviceSensor, Report, Validation};
+use crate::analysis::{
+    Device, DeviceBus, DeviceGroup, DeviceName, DeviceRefdes, DeviceSensor,
+    MuxSegment, Report, Validation,
+};
 use crate::load::{I2cDevice, I2cSensors, Sensor};
 use anyhow::{Result, bail};
 use convert_case::{Case, Casing};
@@ -285,11 +288,11 @@ impl Codegen<'_> {
     /// This expects `task: TaskId` to be in scope, along with `I2cDevice`,
     /// `Controller` and `PortIndex` from `drv_i2c_api`.
     fn device_expr(&self, d: &Device) -> TokenStream {
-        let controller = format_ident!("I2C{}", d.controller);
-        let port = usize_lit(d.port);
+        let controller = format_ident!("I2C{}", d.location.controller);
+        let port = usize_lit(d.location.index);
 
         let segment = match d.segment {
-            Some((mux, segment)) => {
+            Some(MuxSegment { mux, segment }) => {
                 let mux = format_ident!("M{mux}");
                 let segment = format_ident!("S{segment}");
                 quote!(Some((drv_i2c_api::Mux::#mux, drv_i2c_api::Segment::#segment)))
@@ -391,31 +394,28 @@ impl Codegen<'_> {
             .report
             .by_device
             .iter()
-            .map(|(device, indices)| self.device_array_fn(device, indices));
+            .map(|g| self.device_array_fn(&g.key, &g.indices));
 
-        let by_bus =
-            self.report.by_bus.iter().map(|((device, bus), indices)| {
-                self.device_array_fn(&format!("{device}_{bus}"), indices)
-            });
+        let by_bus = self.report.by_bus.iter().map(|g| {
+            let DeviceBus { device, bus } = &g.key;
+            self.device_array_fn(&format!("{device}_{bus}"), &g.indices)
+        });
 
-        let by_name =
-            self.report.by_name.iter().map(|((device, name), index)| {
-                self.device_fn(
-                    &format!("{device}_{}", name.to_lowercase()),
-                    *index,
-                )
-            });
+        let by_name = self.report.by_name.iter().map(|l| {
+            let DeviceName { device, name } = &l.key;
+            self.device_fn(
+                &format!("{device}_{}", name.to_lowercase()),
+                l.index,
+            )
+        });
 
-        let by_refdes =
-            self.report
-                .by_refdes
-                .iter()
-                .map(|((device, refdes), index)| {
-                    self.device_fn(
-                        &format!("{device}_{}", refdes.to_lower_ident()),
-                        *index,
-                    )
-                });
+        let by_refdes = self.report.by_refdes.iter().map(|l| {
+            let DeviceRefdes { device, refdes } = &l.key;
+            self.device_fn(
+                &format!("{device}_{}", refdes.to_lower_ident()),
+                l.index,
+            )
+        });
 
         let max_component_id_len = self.report.component_ids.then(|| {
             let len = usize_lit(self.report.max_component_id_len);
@@ -554,8 +554,8 @@ impl Codegen<'_> {
 
     fn generate_power(&self, which: PowerDevices) -> TokenStream {
         let rails = match which {
-            PowerDevices::PMBus => &self.report.pmbus_rails,
-            PowerDevices::NonPMBus => &self.report.power_rails,
+            PowerDevices::PMBus => &self.report.rails.pmbus,
+            PowerDevices::NonPMBus => &self.report.rails.non_pmbus,
         };
 
         if rails.is_empty() {
@@ -934,20 +934,20 @@ impl Codegen<'_> {
     }
 
     pub fn generate_ports(&self) -> Result<TokenStream> {
-        let ports =
-            self.report.ports.iter().map(|((controller, port), index)| {
-                let name = ident(&format!(
-                    "i2c{controller}_{}",
-                    port.to_case(Case::Snake)
-                ));
-                let index = usize_lit(*index);
-                quote! {
-                    #[allow(dead_code)]
-                    pub const fn #name() -> drv_i2c_api::PortIndex {
-                        drv_i2c_api::PortIndex(#index)
-                    }
+        let ports = self.report.ports.iter().map(|p| {
+            let name = ident(&format!(
+                "i2c{}_{}",
+                p.port.controller,
+                p.name.to_case(Case::Snake)
+            ));
+            let index = usize_lit(p.port.index);
+            quote! {
+                #[allow(dead_code)]
+                pub const fn #name() -> drv_i2c_api::PortIndex {
+                    drv_i2c_api::PortIndex(#index)
                 }
-            });
+            }
+        });
 
         Ok(quote! {
             pub mod ports {
@@ -959,12 +959,13 @@ impl Codegen<'_> {
 
 /// Generates `match` arms mapping each group of device indices to a result,
 /// coalescing runs of consecutive indices into ranges (`0..=2 | 5..=5`).
-fn match_arms<C>(
-    source: &[(C, Vec<usize>)],
-    result: impl Fn(&C) -> TokenStream,
+fn match_arms<K>(
+    source: &[DeviceGroup<K>],
+    result: impl Fn(&K) -> TokenStream,
 ) -> TokenStream {
-    let arms = source.iter().map(|(key, indices)| {
-        let ranges = indices
+    let arms = source.iter().map(|group| {
+        let ranges = group
+            .indices
             .iter()
             .map(|&i| i..i + 1)
             .collect::<RangeSet<usize>>();
@@ -973,7 +974,7 @@ fn match_arms<C>(
             let end = usize_lit(range.end - 1);
             quote!(#start..=#end)
         });
-        let result = result(key);
+        let result = result(&group.key);
         quote! {
             #(#patterns)|* => #result,
         }

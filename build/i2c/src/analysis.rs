@@ -19,7 +19,6 @@ use crate::load::{
 use anyhow::{Result, bail};
 use convert_case::{Case, Casing};
 use iddqd::IdOrdMap;
-use indexmap::IndexMap;
 use multimap::MultiMap;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
@@ -94,20 +93,99 @@ pub struct AnalysisSettings {
     pub max_component_id_len: Option<usize>,
 }
 
+/// A port on a controller, identified by the controller number and the
+/// port's index among that controller's ports (in manifest order).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ControllerPort {
+    /// The controller number (e.g. `2` for `I2C2`).
+    pub controller: u8,
+
+    /// The index of the port on that controller.
+    pub index: usize,
+}
+
+/// A port as named in the manifest (e.g. `B`), resolved to its location.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NamedPort {
+    /// The port's name in the manifest.
+    pub name: String,
+
+    /// Where the port is.
+    pub port: ControllerPort,
+}
+
+/// The mux (1-indexed) and segment behind which a device lives.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct MuxSegment {
+    pub mux: u8,
+    pub segment: u8,
+}
+
+/// A group of devices sharing a key, as indices into [`Report::devices`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeviceGroup<K> {
+    /// What the devices have in common.
+    pub key: K,
+
+    /// The devices, in manifest order.
+    pub indices: Vec<usize>,
+}
+
+/// A single device found by a key which is unique to it, as an index into
+/// [`Report::devices`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeviceLookup<K> {
+    /// The key which identifies the device.
+    pub key: K,
+
+    /// The device.
+    pub index: usize,
+}
+
+/// A device type (e.g. `tmp117`) on a named bus.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct DeviceBus {
+    pub device: String,
+    pub bus: String,
+}
+
+/// A device type (e.g. `tmp117`) with a name from the manifest.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct DeviceName {
+    pub device: String,
+    pub name: String,
+}
+
+/// A device type (e.g. `tmp117`) with a reference designator.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct DeviceRefdes {
+    pub device: String,
+    pub refdes: Refdes,
+}
+
+/// The power rails of a configuration, split by how they are exposed.
+#[derive(Debug, Default)]
+pub struct PowerRails {
+    /// Every rail, in rail-name order (exposed in the generated `pmbus`
+    /// module).
+    pub pmbus: Vec<PowerRail>,
+
+    /// Only the rails on non-PMBus devices, in rail-name order (exposed in
+    /// the generated `power` module).
+    pub non_pmbus: Vec<PowerRail>,
+}
+
 /// A device, with everything about its position on the bus resolved.
 #[derive(Clone, Debug)]
 pub struct Device {
     /// The device as it appeared in the manifest.
     pub config: I2cDevice,
 
-    /// The controller this device hangs off of.
-    pub controller: u8,
-
-    /// The index of the port this device hangs off of.
-    pub port: usize,
+    /// The controller and port this device hangs off of.
+    pub location: ControllerPort,
 
     /// The mux and segment this device lives behind, if any.
-    pub segment: Option<(u8, u8)>,
+    pub segment: Option<MuxSegment>,
 
     /// The component ID of this device, if component IDs were requested and
     /// this device has a reference designator.
@@ -172,10 +250,10 @@ pub struct Report {
     pub controllers: Vec<I2cController>,
 
     /// Map of (controller, port name) to port index, in manifest order.
-    pub ports: IndexMap<(u8, String), usize>,
+    pub ports: Vec<NamedPort>,
 
     /// Map of bus name to (controller, port index).
-    pub buses: HashMap<String, (u8, usize)>,
+    pub buses: HashMap<String, ControllerPort>,
 
     /// All devices, in manifest order.  This order is load-bearing: it is the
     /// order used by `device_by_index()` and `validate()` in the generated
@@ -183,32 +261,28 @@ pub struct Report {
     pub devices: Vec<Device>,
 
     /// Devices grouped by device name, sorted by device name.
-    pub by_device: Vec<(String, Vec<usize>)>,
+    pub by_device: Vec<DeviceGroup<String>>,
 
     /// Devices grouped by (device name, bus name), sorted.
-    pub by_bus: Vec<((String, String), Vec<usize>)>,
+    pub by_bus: Vec<DeviceGroup<DeviceBus>>,
 
     /// Devices by (device name, name), sorted.
-    pub by_name: Vec<((String, String), usize)>,
+    pub by_name: Vec<DeviceLookup<DeviceName>>,
 
     /// Devices by (device name, refdes), sorted.
-    pub by_refdes: Vec<((String, Refdes), usize)>,
+    pub by_refdes: Vec<DeviceLookup<DeviceRefdes>>,
 
     /// Devices grouped by controller, sorted by controller.
-    pub by_controller: Vec<(u8, Vec<usize>)>,
+    pub by_controller: Vec<DeviceGroup<u8>>,
 
     /// Devices grouped by port index, sorted by port index.
-    pub by_port: Vec<(usize, Vec<usize>)>,
+    pub by_port: Vec<DeviceGroup<usize>>,
 
     /// The longest component ID of any device with a refdes.
     pub max_component_id_len: usize,
 
-    /// Rails emitted into the `pmbus` module.  Note that this contains *all*
-    /// power rails, not only those on PMBus devices.
-    pub pmbus_rails: Vec<PowerRail>,
-
-    /// Rails emitted into the `power` module: those on non-PMBus devices.
-    pub power_rails: Vec<PowerRail>,
+    /// The power rails, split by how they are exposed.
+    pub rails: PowerRails,
 
     /// The sensors of every device.
     pub sensors: SensorsDescription,
@@ -275,7 +349,7 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
 
     let mut controllers = vec![];
     let mut buses = HashMap::new();
-    let mut ports = IndexMap::new();
+    let mut ports = Vec::new();
     let mut singletons = HashMap::new();
 
     for c in &config.controllers {
@@ -284,8 +358,13 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
         // match our role) to assure that devices can always find their bus.
         //
         for (index, (p, port)) in c.ports.iter().enumerate() {
+            let location = ControllerPort {
+                controller: c.controller,
+                index,
+            };
+
             if let Some(name) = &port.name
-                && buses.insert(name.clone(), (c.controller, index)).is_some()
+                && buses.insert(name.clone(), location).is_some()
             {
                 bail!("i2c bus {name} appears twice");
             }
@@ -294,7 +373,10 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
                 singletons.insert(c.controller, index);
             }
 
-            ports.insert((c.controller, p.clone()), index);
+            ports.push(NamedPort {
+                name: p.clone(),
+                port: location,
+            });
         }
 
         if c.target != (settings.role == ControllerRole::Target) {
@@ -315,10 +397,9 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
     let mut devices = Vec::with_capacity(config_devices.len());
 
     for d in &config_devices {
-        let (controller, port) =
-            lookup_controller_port(d, &buses, &ports, &singletons)?;
+        let location = lookup_controller_port(d, &buses, &ports, &singletons)?;
 
-        let segment = lookup_segment(d, &config.controllers, controller, port)?;
+        let segment = lookup_segment(d, &config.controllers, location)?;
 
         let component_id = if settings.component_ids {
             if let Some(ref refdes) = d.refdes {
@@ -336,8 +417,7 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
 
         devices.push(Device {
             config: d.clone(),
-            controller,
-            port,
+            location,
             segment,
             component_id,
             pmbus: None,
@@ -348,7 +428,7 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
 
     check_component_ids(&config_devices, settings)?;
 
-    let (pmbus_rails, power_rails) = analyze_power(&devices)?;
+    let rails = analyze_power(&devices)?;
 
     // Now that power has been checked, we can describe the PMBus devices.
     for d in &mut devices {
@@ -378,8 +458,7 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
         by_controller: groups.by_controller,
         by_port: groups.by_port,
         max_component_id_len: groups.max_component_id_len,
-        pmbus_rails,
-        power_rails,
+        rails,
         sensors,
         sensor_structs,
         validation,
@@ -390,7 +469,7 @@ pub fn analyze(config: Config, settings: &AnalysisSettings) -> Result<Report> {
 /// else having been resolved.
 fn check_devices(
     devices: &[I2cDevice],
-    buses: &HashMap<String, (u8, usize)>,
+    buses: &HashMap<String, ControllerPort>,
 ) -> Result<()> {
     for d in devices {
         match (d.controller, d.bus.as_ref()) {
@@ -493,33 +572,36 @@ fn check_component_ids(
 
 fn lookup_controller_port(
     d: &I2cDevice,
-    buses: &HashMap<String, (u8, usize)>,
-    ports: &IndexMap<(u8, String), usize>,
+    buses: &HashMap<String, ControllerPort>,
+    ports: &[NamedPort],
     singletons: &HashMap<u8, usize>,
-) -> Result<(u8, usize)> {
+) -> Result<ControllerPort> {
     let controller = match &d.bus {
-        Some(bus) => buses[bus].0,
+        Some(bus) => buses[bus].controller,
         None => d.controller.unwrap(),
     };
 
-    let port = match (&d.bus, &d.port) {
+    let index = match (&d.bus, &d.port) {
         (Some(_), Some(_)) => {
             bail!("device {} has both port and bus", d.device);
         }
 
         (Some(bus), None) => match buses.get(bus) {
-            Some((_, port)) => port,
+            Some(port) => port.index,
             None => {
                 bail!("device {} has invalid bus", d.device);
             }
         },
 
-        (None, Some(port)) => {
-            match ports.get(&(controller, port.to_string())) {
+        (None, Some(name)) => {
+            match ports
+                .iter()
+                .find(|p| p.port.controller == controller && p.name == *name)
+            {
                 None => {
                     bail!("device {} has invalid port", d.device);
                 }
-                Some(port) => port,
+                Some(port) => port.port.index,
             }
         }
 
@@ -528,28 +610,27 @@ fn lookup_controller_port(
         // controller has only a single port; check the singletons.
         //
         (None, None) => match singletons.get(&controller) {
-            Some(port) => port,
+            Some(&index) => index,
             None => {
                 bail!("device {} has ambiguous port", d.device)
             }
         },
     };
 
-    Ok((controller, *port))
+    Ok(ControllerPort { controller, index })
 }
 
 fn lookup_segment(
     d: &I2cDevice,
     all_controllers: &[I2cController],
-    controller: u8,
-    port: usize,
-) -> Result<Option<(u8, u8)>> {
+    location: ControllerPort,
+) -> Result<Option<MuxSegment>> {
     match (d.mux, d.segment) {
         (Some(mux), Some(segment)) => {
             let mux_count = all_controllers
                 .iter()
-                .find(|c| c.controller == controller)
-                .and_then(|c| c.ports.values().nth(port))
+                .find(|c| c.controller == location.controller)
+                .and_then(|c| c.ports.values().nth(location.index))
                 .map(|p| p.muxes.len())
                 .unwrap_or(0);
 
@@ -562,7 +643,7 @@ fn lookup_segment(
                 bail!("invalid mux {mux} for {d:?} (must be <= {mux_count})");
             }
 
-            Ok(Some((mux, segment)))
+            Ok(Some(MuxSegment { mux, segment }))
         }
         (None, None) => Ok(None),
         (Some(_), None) => {
@@ -576,13 +657,35 @@ fn lookup_segment(
 
 #[derive(Default)]
 struct Groups {
-    by_device: Vec<(String, Vec<usize>)>,
-    by_bus: Vec<((String, String), Vec<usize>)>,
-    by_name: Vec<((String, String), usize)>,
-    by_refdes: Vec<((String, Refdes), usize)>,
-    by_controller: Vec<(u8, Vec<usize>)>,
-    by_port: Vec<(usize, Vec<usize>)>,
+    by_device: Vec<DeviceGroup<String>>,
+    by_bus: Vec<DeviceGroup<DeviceBus>>,
+    by_name: Vec<DeviceLookup<DeviceName>>,
+    by_refdes: Vec<DeviceLookup<DeviceRefdes>>,
+    by_controller: Vec<DeviceGroup<u8>>,
+    by_port: Vec<DeviceGroup<usize>>,
     max_component_id_len: usize,
+}
+
+/// Collects a multimap into sorted [`DeviceGroup`]s.
+fn groups<K: Ord + Eq + std::hash::Hash>(
+    map: MultiMap<K, usize>,
+) -> Vec<DeviceGroup<K>> {
+    let mut groups: Vec<_> = map
+        .into_iter()
+        .map(|(key, indices)| DeviceGroup { key, indices })
+        .collect();
+    groups.sort_by(|a, b| a.key.cmp(&b.key));
+    groups
+}
+
+/// Collects a map into sorted [`DeviceLookup`]s.
+fn lookups<K: Ord>(map: HashMap<K, usize>) -> Vec<DeviceLookup<K>> {
+    let mut lookups: Vec<_> = map
+        .into_iter()
+        .map(|(key, index)| DeviceLookup { key, index })
+        .collect();
+    lookups.sort_by(|a, b| a.key.cmp(&b.key));
+    lookups
 }
 
 fn group_devices(devices: &[Device]) -> Result<Groups> {
@@ -600,30 +703,39 @@ fn group_devices(devices: &[Device]) -> Result<Groups> {
         let d = &dev.config;
 
         by_device.insert(d.device.clone(), index);
-        by_port.insert(dev.port, index);
-        by_controller.insert(dev.controller, index);
+        by_port.insert(dev.location.index, index);
+        by_controller.insert(dev.location.controller, index);
 
         if let Some(bus) = &d.bus {
-            by_bus.insert((d.device.clone(), bus.clone()), index);
+            let key = DeviceBus {
+                device: d.device.clone(),
+                bus: bus.clone(),
+            };
+            by_bus.insert(key, index);
         }
 
-        if let Some(name) = &d.name
-            && by_name
-                .insert((d.device.clone(), name.clone()), index)
-                .is_some()
-        {
-            bail!("duplicate name {} for device {}", name, d.device)
+        if let Some(name) = &d.name {
+            let key = DeviceName {
+                device: d.device.clone(),
+                name: name.clone(),
+            };
+            if by_name.insert(key, index).is_some() {
+                bail!("duplicate name {} for device {}", name, d.device)
+            }
         }
 
         if let Some(refdes) = &d.refdes {
-            if by_refdes
-                .insert((d.device.clone(), refdes.clone()), index)
-                .is_some()
-            {
+            let key = DeviceRefdes {
+                device: d.device.clone(),
+                refdes: refdes.clone(),
+            };
+            let as_name = DeviceName {
+                device: d.device.clone(),
+                name: refdes.to_upper_ident(),
+            };
+            if by_refdes.insert(key, index).is_some() {
                 bail!("duplicate refdes {refdes:?} for device {}", d.device)
-            } else if by_name
-                .contains_key(&(d.device.clone(), refdes.to_upper_ident()))
-            {
+            } else if by_name.contains_key(&as_name) {
                 bail!(
                     "refdes {refdes:?} for device {} is also a device name",
                     d.device
@@ -633,34 +745,26 @@ fn group_devices(devices: &[Device]) -> Result<Groups> {
     }
 
     let mut groups = Groups {
-        by_device: by_device.into_iter().collect(),
-        by_bus: by_bus.into_iter().collect(),
-        by_name: by_name.into_iter().collect(),
-        by_refdes: by_refdes.into_iter().collect(),
-        by_controller: by_controller.into_iter().collect(),
-        by_port: by_port.into_iter().collect(),
+        by_device: groups(by_device),
+        by_bus: groups(by_bus),
+        by_name: lookups(by_name),
+        by_refdes: lookups(by_refdes),
+        by_controller: groups(by_controller),
+        by_port: groups(by_port),
         max_component_id_len: 0,
     };
 
-    groups.by_device.sort();
-    groups.by_bus.sort();
-    groups.by_name.sort();
-    groups.by_refdes.sort();
-    groups.by_controller.sort();
-    groups.by_port.sort();
-
-    for ((_device, refdes), _) in &groups.by_refdes {
+    for lookup in &groups.by_refdes {
         groups.max_component_id_len =
-            groups.max_component_id_len.max(refdes.len());
+            groups.max_component_id_len.max(lookup.key.refdes.len());
     }
 
     Ok(groups)
 }
 
-fn analyze_power(
-    devices: &[Device],
-) -> Result<(Vec<PowerRail>, Vec<PowerRail>)> {
-    let mut byrail: HashMap<&String, (usize, Option<usize>)> = HashMap::new();
+fn analyze_power(devices: &[Device]) -> Result<PowerRails> {
+    // Keyed by rail name, which also gives us the rail-name ordering.
+    let mut byrail: BTreeMap<String, PowerRail> = BTreeMap::new();
 
     for (index, dev) in devices.iter().enumerate() {
         let d = &dev.config;
@@ -694,9 +798,20 @@ fn analyze_power(
                         continue;
                     }
 
-                    let idx = if single { None } else { Some(rindex) };
+                    let bank = if single { None } else { Some(rindex) };
+                    let phases = power
+                        .phases
+                        .as_ref()
+                        .map(|phases| phases[bank.unwrap_or(0)].clone());
 
-                    if byrail.insert(rail, (index, idx)).is_some() {
+                    let entry = PowerRail {
+                        rail: rail.clone(),
+                        device: index,
+                        bank,
+                        phases,
+                    };
+
+                    if byrail.insert(rail.clone(), entry).is_some() {
                         bail!("duplicate rail {rail}");
                     }
                 }
@@ -704,38 +819,23 @@ fn analyze_power(
         }
     }
 
-    let mut all: Vec<_> = byrail.into_iter().collect();
-    all.sort();
+    let mut rails = PowerRails::default();
 
-    let mut pmbus_rails = vec![];
-    let mut power_rails = vec![];
-
-    for (rail, (index, bank)) in all {
-        let power = devices[index].config.power.as_ref();
-        let phases = power.and_then(|p| p.phases.as_ref()).map(|phases| {
-            let raw_bank = bank.unwrap_or(0);
-            phases[raw_bank].clone()
-        });
-
-        let entry = PowerRail {
-            rail: rail.clone(),
-            device: index,
-            bank,
-            phases,
-        };
+    for entry in byrail.into_values() {
+        let power = devices[entry.device].config.power.as_ref();
 
         //
         // Note that the `pmbus` module contains *every* power rail, while the
         // `power` module contains only those rails on non-PMBus devices.
         //
-        if !power.map(|p| p.pmbus).unwrap_or(false) {
-            power_rails.push(entry.clone());
+        if !power.is_some_and(|p| p.pmbus) {
+            rails.non_pmbus.push(entry.clone());
         }
 
-        pmbus_rails.push(entry);
+        rails.pmbus.push(entry);
     }
 
-    Ok((pmbus_rails, power_rails))
+    Ok(rails)
 }
 
 fn pmbus_description(d: &I2cDevice) -> Option<PmbusDeviceDescription> {
