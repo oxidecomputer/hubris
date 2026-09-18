@@ -150,6 +150,7 @@ impl Fixture {
         RecvMessage {
             sender: KERNEL_TASK_ID,
             operation: bits,
+            message_len: 0,
             message: Vec::new(),
             response_capacity: 0,
             lease_count: 0,
@@ -162,6 +163,7 @@ impl Fixture {
         RecvMessage {
             sender: from,
             operation: 1,
+            message_len: 5,
             message: b"hello".to_vec(),
             response_capacity: 16,
             lease_count: 0,

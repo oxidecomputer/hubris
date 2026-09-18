@@ -115,8 +115,11 @@ pub struct RecvMessage {
     pub sender: u16,
     /// Operation code, or the notification bits when `sender` is the kernel.
     pub operation: u32,
-    /// The full message. As the kernel does, the task truncates it to its
-    /// buffer but reports the full length.
+    /// Length of the message as sent. The kernel reports this honestly even
+    /// when it exceeds the receiver's buffer, so the receiver can fault the
+    /// sender for it.
+    pub message_len: u32,
+    /// The message, truncated to the receiver's capacity.
     pub message: Vec<u8>,
     pub response_capacity: u32,
     pub lease_count: u32,

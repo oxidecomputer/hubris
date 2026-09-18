@@ -217,12 +217,13 @@ pub fn sys_recv(
     });
     match response {
         Ok(message) => {
-            // Truncate like the kernel does, but report the honest length.
+            // The fixture truncated to our capacity; the honest length is
+            // reported separately, as the kernel does.
             copy_prefix(buffer, &message.message);
             Ok(RecvMessage {
                 sender: TaskId(message.sender),
                 operation: message.operation,
-                message_len: message.message.len(),
+                message_len: message.message_len as usize,
                 response_capacity: message.response_capacity as usize,
                 lease_count: message.lease_count as usize,
             })

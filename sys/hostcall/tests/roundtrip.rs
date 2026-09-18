@@ -49,6 +49,7 @@ impl syscalls::Server for Echo {
         Ok(Ok(RecvMessage {
             sender: 7,
             operation: 1,
+            message_len: 3,
             message: vec![1, 2, 3],
             response_capacity: rqst.body.capacity,
             lease_count: 0,
@@ -212,7 +213,7 @@ fn client_and_server_over_pipes() {
         (
             msg.sender,
             msg.operation,
-            msg.message.len(),
+            msg.message_len,
             msg.response_capacity
         ),
         (7, 1, 3, 2)
