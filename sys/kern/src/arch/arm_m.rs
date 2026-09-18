@@ -317,7 +317,7 @@ pub fn reinitialize(task: &mut task::Task) {
             let prev_region = &task.region_table()[i];
 
             // If the region table is corrupt such that a region descriptor
-            // overflows a u32, then bail out.
+            // overflows the address space, then bail out.
             let Some(prev_region_end) =
                 prev_region.base.checked_add(prev_region.size)
             else {
@@ -340,9 +340,9 @@ pub fn reinitialize(task: &mut task::Task) {
         // -- just skip filling the stack.
         if okay
             && let Some(region_size) =
-                (initial_stack - frame_size).checked_sub(region.base as usize)
+                (initial_stack - frame_size).checked_sub(region.base)
             && let Ok(mut uslice) =
-                USlice::<u32>::from_raw(region.base as usize, region_size >> 2)
+                USlice::<u32>::from_raw(region.base, region_size >> 2)
         {
             // This one, we're unwrapping rather than tolerating failure. This
             // is because try_write failing would indicate an invalid region
@@ -393,10 +393,12 @@ pub struct RegionDescExt {
 
 #[cfg(any(armv6m, armv7m))]
 pub const fn compute_region_extension_data(
-    base: u32,
-    size: u32,
+    base: usize,
+    size: usize,
     attributes: RegionAttributes,
 ) -> RegionDescExt {
+    let base = base as u32;
+    let size = size as u32;
     // This platform requires 32-byte alignment of all regions.
     if base & 0x1F != 0 {
         panic!();
@@ -543,10 +545,12 @@ pub struct RegionDescExt {
 
 #[cfg(armv8m)]
 pub const fn compute_region_extension_data(
-    base: u32,
-    size: u32,
+    base: usize,
+    size: usize,
     ratts: RegionAttributes,
 ) -> RegionDescExt {
+    let base = base as u32;
+    let size = size as u32;
     // This MPU requires that all regions are 32-byte aligned...in part
     // because it stuffs extra stuff into the bottom five bits.
     if base & 0x1F != 0 {
