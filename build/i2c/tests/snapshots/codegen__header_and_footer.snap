@@ -1,6 +1,0 @@
----
-source: build/i2c/tests/codegen.rs
-expression: out
----
-pub(crate) mod i2c_config {
-}

@@ -2,869 +2,712 @@
 source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
-
 pub mod devices {
     #[allow(unused_imports)]
     use drv_i2c_api::{Controller, I2cDevice, PortIndex};
     #[allow(unused_imports)]
     use userlib::TaskId;
-
     #[allow(dead_code)]
     #[allow(clippy::match_single_binding)]
+    #[allow(unused_doc_comments)]
     pub fn device_by_index(task: TaskId, index: usize) -> Option<I2cDevice> {
         match index {
-            0 => Some(
-                // Southwest temperature sensor
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    None,
-                    0x48,
-                    "J194/U1",
-                ),
-            ),
-            1 => Some(
-                // South temperature sensor
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    None,
-                    0x49,
-                    "J195/U1",
-                ),
-            ),
-            2 => Some(
-                // Southeast temperature sensor
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    None,
-                    0x4a,
-                    "J196/U1",
-                ),
-            ),
-            3 => Some(
-                // U.2 ABCD mux
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    None,
-                    0x70,
-                    "U336",
-                ),
-            ),
-            4 => Some(
-                // U.2 EFGH mux
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    None,
-                    0x71,
-                    "U339",
-                ),
-            ),
-            5 => Some(
-                // U.2 IJ/FRUID mux
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    None,
-                    0x72,
-                    "U337",
-                ),
-            ),
-            6 => Some(
-                // U.2 Sharkfin A VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
-                    0x50,
-                    "J206/U7",
-                ),
-            ),
-            7 => Some(
-                // U.2 Sharkfin A hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
-                    0x38,
-                    "J206/U8",
-                ),
-            ),
-            8 => Some(
-                // U.2 A NVMe Basic Management Command
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
-                    0x6a,
-                    "J206/J1",
-                ),
-            ),
-            9 => Some(
-                // U.2 Sharkfin B VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
-                    0x50,
-                    "J207/U7",
-                ),
-            ),
-            10 => Some(
-                // U.2 Sharkfin B hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
-                    0x38,
-                    "J207/U8",
-                ),
-            ),
-            11 => Some(
-                // U.2 B NVMe Basic Management Control
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
-                    0x6a,
-                    "J207/J1",
-                ),
-            ),
-            12 => Some(
-                // U.2 Sharkfin C VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
-                    0x50,
-                    "J208/U7",
-                ),
-            ),
-            13 => Some(
-                // U.2 Sharkfin C hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
-                    0x38,
-                    "J208/U8",
-                ),
-            ),
-            14 => Some(
-                // U.2 C NVMe Basic Management Control
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
-                    0x6a,
-                    "J208/J1",
-                ),
-            ),
-            15 => Some(
-                // U.2 Sharkfin D VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
-                    0x50,
-                    "J209/U7",
-                ),
-            ),
-            16 => Some(
-                // U.2 Sharkfin D hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
-                    0x38,
-                    "J209/U8",
-                ),
-            ),
-            17 => Some(
-                // U.2 D NVMe Basic Management Control
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
-                    0x6a,
-                    "J209/J1",
-                ),
-            ),
-            18 => Some(
-                // U.2 Sharkfin E VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S1)),
-                    0x50,
-                    "J210/U7",
-                ),
-            ),
-            19 => Some(
-                // U.2 Sharkfin E hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S1)),
-                    0x38,
-                    "J210/U8",
-                ),
-            ),
-            20 => Some(
-                // U.2 E NVMe Basic Management Control
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S1)),
-                    0x6a,
-                    "J210/J1",
-                ),
-            ),
-            21 => Some(
-                // U.2 Sharkfin F VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S2)),
-                    0x50,
-                    "J211/U7",
-                ),
-            ),
-            22 => Some(
-                // U.2 Sharkfin F hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S2)),
-                    0x38,
-                    "J211/U8",
-                ),
-            ),
-            23 => Some(
-                // U.2 F NVMe Basic Management Control
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S2)),
-                    0x6a,
-                    "J211/J1",
-                ),
-            ),
-            24 => Some(
-                // U.2 Sharkfin G VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S3)),
-                    0x50,
-                    "J212/U7",
-                ),
-            ),
-            25 => Some(
-                // U.2 Sharkfin G hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S3)),
-                    0x38,
-                    "J212/U8",
-                ),
-            ),
-            26 => Some(
-                // U.2 G NVMe Basic Management Control
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S3)),
-                    0x6a,
-                    "J212/J1",
-                ),
-            ),
-            27 => Some(
-                // U.2 Sharkfin H VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S4)),
-                    0x50,
-                    "J213/U7",
-                ),
-            ),
-            28 => Some(
-                // U.2 Sharkfin H hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S4)),
-                    0x38,
-                    "J213/U8",
-                ),
-            ),
-            29 => Some(
-                // U.2 H NVMe Basic Management Control
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S4)),
-                    0x6a,
-                    "J213/J1",
-                ),
-            ),
-            30 => Some(
-                // U.2 Sharkfin I VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S1)),
-                    0x50,
-                    "J214/U7",
-                ),
-            ),
-            31 => Some(
-                // U.2 Sharkfin I hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S1)),
-                    0x38,
-                    "J214/U8",
-                ),
-            ),
-            32 => Some(
-                // U.2 I NVMe Basic Management Control
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S1)),
-                    0x6a,
-                    "J214/J1",
-                ),
-            ),
-            33 => Some(
-                // U.2 Sharkfin J VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S2)),
-                    0x50,
-                    "J215/U7",
-                ),
-            ),
-            34 => Some(
-                // U.2 Sharkfin J hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S2)),
-                    0x38,
-                    "J215/U8",
-                ),
-            ),
-            35 => Some(
-                // U.2 J NVMe Basic Management Control
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S2)),
-                    0x6a,
-                    "J215/J1",
-                ),
-            ),
-            36 => Some(
-                // Gimlet VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(1),
-                    Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S4)),
-                    0x50,
-                    "U615",
-                ),
-            ),
-            37 => Some(
-                // M.2 mux
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x73,
-                    "U422",
-                ),
-            ),
-            38 => Some(
-                // Fan VPD
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
-                    0x50,
-                    "J180/U1",
-                ),
-            ),
-            39 => Some(
-                // T6 temperature sensor
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
-                    0x4c,
-                    "U491",
-                ),
-            ),
-            40 => Some(
-                // A2 3.3V rail
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x24,
-                    "U522",
-                ),
-            ),
-            41 => Some(
-                // A0 3.3V rail
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x26,
-                    "U560",
-                ),
-            ),
-            42 => Some(
-                // A2 5V rail
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x27,
-                    "U524",
-                ),
-            ),
-            43 => Some(
-                // A2 1.8V rail
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x29,
-                    "U561",
-                ),
-            ),
-            44 => Some(
-                // M.2 hot plug controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x3a,
-                    "U275",
-                ),
-            ),
-            45 => Some(
-                // CPU via SB-RMI
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x3c,
-                    "P0/SBRMI",
-                ),
-            ),
-            46 => Some(
-                // CPU temperature sensor
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x4c,
-                    "P0/SBTSI",
-                ),
-            ),
-            47 => Some(
-                // Clock generator
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x58,
-                    "U446",
-                ),
-            ),
-            48 => Some(
-                // CPU power controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5a,
-                    "U350",
-                ),
-            ),
-            49 => Some(
-                // SoC power controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5b,
-                    "U351",
-                ),
-            ),
-            50 => Some(
-                // DIMM/SP3 1.8V A0 power controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x5c,
-                    "U352",
-                ),
-            ),
-            51 => Some(
-                // Fan hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x10,
-                    "U419",
-                ),
-            ),
-            52 => Some(
-                // Sled hot swap controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x14,
-                    "U452",
-                ),
-            ),
-            53 => Some(
-                // Fan controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x20,
-                    "U321",
-                ),
-            ),
-            54 => Some(
-                // T6 power controller
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x25,
-                    "U565",
-                ),
-            ),
-            55 => Some(
-                // Northeast temperature sensor
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x48,
-                    "J197/U1",
-                ),
-            ),
-            56 => Some(
-                // North temperature sensor
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x49,
-                    "J198/U1",
-                ),
-            ),
-            57 => Some(
-                // Northwest temperature sensor
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x4a,
-                    "J199/U1",
-                ),
-            ),
-            58 => Some(
-                // Intermediate bus converter
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x67,
-                    "U431",
-                ),
-            ),
-            59 => Some(
-                // DIMM A0
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x18,
-                    "M0",
-                ),
-            ),
-            60 => Some(
-                // DIMM A1
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x19,
-                    "M8",
-                ),
-            ),
-            61 => Some(
-                // DIMM B0
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x1a,
-                    "M1",
-                ),
-            ),
-            62 => Some(
-                // DIMM B1
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x1b,
-                    "M9",
-                ),
-            ),
-            63 => Some(
-                // DIMM C0
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x1c,
-                    "M2",
-                ),
-            ),
-            64 => Some(
-                // DIMM C1
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x1d,
-                    "M10",
-                ),
-            ),
-            65 => Some(
-                // DIMM D0
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x1e,
-                    "M3",
-                ),
-            ),
-            66 => Some(
-                // DIMM D1
-                I2cDevice::new(
-                    task,
-                    Controller::I2C3,
-                    PortIndex(0),
-                    None,
-                    0x1f,
-                    "M11",
-                ),
-            ),
-            67 => Some(
-                // DIMM E0
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x18,
-                    "M4",
-                ),
-            ),
-            68 => Some(
-                // DIMM E1
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x19,
-                    "M12",
-                ),
-            ),
-            69 => Some(
-                // DIMM F0
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x1a,
-                    "M5",
-                ),
-            ),
-            70 => Some(
-                // DIMM F1
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x1b,
-                    "M13",
-                ),
-            ),
-            71 => Some(
-                // DIMM G0
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x1c,
-                    "M6",
-                ),
-            ),
-            72 => Some(
-                // DIMM G1
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x1d,
-                    "M14",
-                ),
-            ),
-            73 => Some(
-                // DIMM H0
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x1e,
-                    "M7",
-                ),
-            ),
-            74 => Some(
-                // DIMM H1
-                I2cDevice::new(
-                    task,
-                    Controller::I2C4,
-                    PortIndex(0),
-                    None,
-                    0x1f,
-                    "M15",
-                ),
-            ),
-            75 => Some(
-                // M.2 A NVMe Basic Management Command
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
-                    0x6a,
-                    "P1",
-                ),
-            ),
-            76 => Some(
-                // M.2 B NVMe Basic Management Command
-                I2cDevice::new(
-                    task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
-                    0x6a,
-                    "P2",
-                ),
-            ),
-
+            #[doc = " Southwest temperature sensor"]
+            0 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                None,
+                0x48,
+                "J194/U1",
+            )),
+            #[doc = " South temperature sensor"]
+            1 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                None,
+                0x49,
+                "J195/U1",
+            )),
+            #[doc = " Southeast temperature sensor"]
+            2 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                None,
+                0x4a,
+                "J196/U1",
+            )),
+            #[doc = " U.2 ABCD mux"]
+            3 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                None,
+                0x70,
+                "U336",
+            )),
+            #[doc = " U.2 EFGH mux"]
+            4 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                None,
+                0x71,
+                "U339",
+            )),
+            #[doc = " U.2 IJ/FRUID mux"]
+            5 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                None,
+                0x72,
+                "U337",
+            )),
+            #[doc = " U.2 Sharkfin A VPD"]
+            6 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                0x50,
+                "J206/U7",
+            )),
+            #[doc = " U.2 Sharkfin A hot swap controller"]
+            7 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                0x38,
+                "J206/U8",
+            )),
+            #[doc = " U.2 A NVMe Basic Management Command"]
+            8 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                0x6a,
+                "J206/J1",
+            )),
+            #[doc = " U.2 Sharkfin B VPD"]
+            9 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                0x50,
+                "J207/U7",
+            )),
+            #[doc = " U.2 Sharkfin B hot swap controller"]
+            10 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                0x38,
+                "J207/U8",
+            )),
+            #[doc = " U.2 B NVMe Basic Management Control"]
+            11 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                0x6a,
+                "J207/J1",
+            )),
+            #[doc = " U.2 Sharkfin C VPD"]
+            12 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                0x50,
+                "J208/U7",
+            )),
+            #[doc = " U.2 Sharkfin C hot swap controller"]
+            13 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                0x38,
+                "J208/U8",
+            )),
+            #[doc = " U.2 C NVMe Basic Management Control"]
+            14 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                0x6a,
+                "J208/J1",
+            )),
+            #[doc = " U.2 Sharkfin D VPD"]
+            15 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                0x50,
+                "J209/U7",
+            )),
+            #[doc = " U.2 Sharkfin D hot swap controller"]
+            16 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                0x38,
+                "J209/U8",
+            )),
+            #[doc = " U.2 D NVMe Basic Management Control"]
+            17 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                0x6a,
+                "J209/J1",
+            )),
+            #[doc = " U.2 Sharkfin E VPD"]
+            18 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S1)),
+                0x50,
+                "J210/U7",
+            )),
+            #[doc = " U.2 Sharkfin E hot swap controller"]
+            19 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S1)),
+                0x38,
+                "J210/U8",
+            )),
+            #[doc = " U.2 E NVMe Basic Management Control"]
+            20 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S1)),
+                0x6a,
+                "J210/J1",
+            )),
+            #[doc = " U.2 Sharkfin F VPD"]
+            21 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S2)),
+                0x50,
+                "J211/U7",
+            )),
+            #[doc = " U.2 Sharkfin F hot swap controller"]
+            22 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S2)),
+                0x38,
+                "J211/U8",
+            )),
+            #[doc = " U.2 F NVMe Basic Management Control"]
+            23 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S2)),
+                0x6a,
+                "J211/J1",
+            )),
+            #[doc = " U.2 Sharkfin G VPD"]
+            24 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S3)),
+                0x50,
+                "J212/U7",
+            )),
+            #[doc = " U.2 Sharkfin G hot swap controller"]
+            25 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S3)),
+                0x38,
+                "J212/U8",
+            )),
+            #[doc = " U.2 G NVMe Basic Management Control"]
+            26 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S3)),
+                0x6a,
+                "J212/J1",
+            )),
+            #[doc = " U.2 Sharkfin H VPD"]
+            27 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S4)),
+                0x50,
+                "J213/U7",
+            )),
+            #[doc = " U.2 Sharkfin H hot swap controller"]
+            28 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S4)),
+                0x38,
+                "J213/U8",
+            )),
+            #[doc = " U.2 H NVMe Basic Management Control"]
+            29 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M2, drv_i2c_api::Segment::S4)),
+                0x6a,
+                "J213/J1",
+            )),
+            #[doc = " U.2 Sharkfin I VPD"]
+            30 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S1)),
+                0x50,
+                "J214/U7",
+            )),
+            #[doc = " U.2 Sharkfin I hot swap controller"]
+            31 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S1)),
+                0x38,
+                "J214/U8",
+            )),
+            #[doc = " U.2 I NVMe Basic Management Control"]
+            32 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S1)),
+                0x6a,
+                "J214/J1",
+            )),
+            #[doc = " U.2 Sharkfin J VPD"]
+            33 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S2)),
+                0x50,
+                "J215/U7",
+            )),
+            #[doc = " U.2 Sharkfin J hot swap controller"]
+            34 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S2)),
+                0x38,
+                "J215/U8",
+            )),
+            #[doc = " U.2 J NVMe Basic Management Control"]
+            35 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S2)),
+                0x6a,
+                "J215/J1",
+            )),
+            #[doc = " Gimlet VPD"]
+            36 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(1),
+                Some((drv_i2c_api::Mux::M3, drv_i2c_api::Segment::S4)),
+                0x50,
+                "U615",
+            )),
+            #[doc = " M.2 mux"]
+            37 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(0),
+                None,
+                0x73,
+                "U422",
+            )),
+            #[doc = " Fan VPD"]
+            38 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(0),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+                0x50,
+                "J180/U1",
+            )),
+            #[doc = " T6 temperature sensor"]
+            39 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(0),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+                0x4c,
+                "U491",
+            )),
+            #[doc = " A2 3.3V rail"]
+            40 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x24,
+                "U522",
+            )),
+            #[doc = " A0 3.3V rail"]
+            41 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x26,
+                "U560",
+            )),
+            #[doc = " A2 5V rail"]
+            42 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x27,
+                "U524",
+            )),
+            #[doc = " A2 1.8V rail"]
+            43 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x29,
+                "U561",
+            )),
+            #[doc = " M.2 hot plug controller"]
+            44 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x3a,
+                "U275",
+            )),
+            #[doc = " CPU via SB-RMI"]
+            45 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x3c,
+                "P0/SBRMI",
+            )),
+            #[doc = " CPU temperature sensor"]
+            46 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x4c,
+                "P0/SBTSI",
+            )),
+            #[doc = " Clock generator"]
+            47 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x58,
+                "U446",
+            )),
+            #[doc = " CPU power controller"]
+            48 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x5a,
+                "U350",
+            )),
+            #[doc = " SoC power controller"]
+            49 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x5b,
+                "U351",
+            )),
+            #[doc = " DIMM/SP3 1.8V A0 power controller"]
+            50 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x5c,
+                "U352",
+            )),
+            #[doc = " Fan hot swap controller"]
+            51 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x10,
+                "U419",
+            )),
+            #[doc = " Sled hot swap controller"]
+            52 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x14,
+                "U452",
+            )),
+            #[doc = " Fan controller"]
+            53 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x20,
+                "U321",
+            )),
+            #[doc = " T6 power controller"]
+            54 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x25,
+                "U565",
+            )),
+            #[doc = " Northeast temperature sensor"]
+            55 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x48,
+                "J197/U1",
+            )),
+            #[doc = " North temperature sensor"]
+            56 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x49,
+                "J198/U1",
+            )),
+            #[doc = " Northwest temperature sensor"]
+            57 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x4a,
+                "J199/U1",
+            )),
+            #[doc = " Intermediate bus converter"]
+            58 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x67,
+                "U431",
+            )),
+            #[doc = " DIMM A0"]
+            59 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x18,
+                "M0",
+            )),
+            #[doc = " DIMM A1"]
+            60 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x19,
+                "M8",
+            )),
+            #[doc = " DIMM B0"]
+            61 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x1a,
+                "M1",
+            )),
+            #[doc = " DIMM B1"]
+            62 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x1b,
+                "M9",
+            )),
+            #[doc = " DIMM C0"]
+            63 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x1c,
+                "M2",
+            )),
+            #[doc = " DIMM C1"]
+            64 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x1d,
+                "M10",
+            )),
+            #[doc = " DIMM D0"]
+            65 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x1e,
+                "M3",
+            )),
+            #[doc = " DIMM D1"]
+            66 => Some(I2cDevice::new(
+                task,
+                Controller::I2C3,
+                PortIndex(0),
+                None,
+                0x1f,
+                "M11",
+            )),
+            #[doc = " DIMM E0"]
+            67 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x18,
+                "M4",
+            )),
+            #[doc = " DIMM E1"]
+            68 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x19,
+                "M12",
+            )),
+            #[doc = " DIMM F0"]
+            69 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x1a,
+                "M5",
+            )),
+            #[doc = " DIMM F1"]
+            70 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x1b,
+                "M13",
+            )),
+            #[doc = " DIMM G0"]
+            71 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x1c,
+                "M6",
+            )),
+            #[doc = " DIMM G1"]
+            72 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x1d,
+                "M14",
+            )),
+            #[doc = " DIMM H0"]
+            73 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x1e,
+                "M7",
+            )),
+            #[doc = " DIMM H1"]
+            74 => Some(I2cDevice::new(
+                task,
+                Controller::I2C4,
+                PortIndex(0),
+                None,
+                0x1f,
+                "M15",
+            )),
+            #[doc = " M.2 A NVMe Basic Management Command"]
+            75 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(0),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S1)),
+                0x6a,
+                "P1",
+            )),
+            #[doc = " M.2 B NVMe Basic Management Command"]
+            76 => Some(I2cDevice::new(
+                task,
+                Controller::I2C2,
+                PortIndex(0),
+                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S2)),
+                0x6a,
+                "P2",
+            )),
             _ => None,
         }
     }
-
     #[allow(dead_code)]
     #[allow(clippy::match_single_binding)]
     pub fn lookup_controller(index: usize) -> Option<Controller> {
@@ -875,7 +718,6 @@ pub mod devices {
             _ => None,
         }
     }
-
     #[allow(dead_code)]
     #[allow(clippy::match_single_binding)]
     pub fn lookup_port(index: usize) -> Option<PortIndex> {
@@ -885,11 +727,11 @@ pub mod devices {
             _ => None,
         }
     }
-
+    #[doc = " Fan hot swap controller"]
+    #[doc = " Sled hot swap controller"]
     #[allow(dead_code)]
     pub fn adm127x(task: TaskId) -> [I2cDevice; 2] {
         [
-            // Fan hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -898,7 +740,6 @@ pub mod devices {
                 0x10,
                 "U419",
             ),
-            // Sled hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -909,11 +750,21 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " U.2 Sharkfin A VPD"]
+    #[doc = " U.2 Sharkfin B VPD"]
+    #[doc = " U.2 Sharkfin C VPD"]
+    #[doc = " U.2 Sharkfin D VPD"]
+    #[doc = " U.2 Sharkfin E VPD"]
+    #[doc = " U.2 Sharkfin F VPD"]
+    #[doc = " U.2 Sharkfin G VPD"]
+    #[doc = " U.2 Sharkfin H VPD"]
+    #[doc = " U.2 Sharkfin I VPD"]
+    #[doc = " U.2 Sharkfin J VPD"]
+    #[doc = " Gimlet VPD"]
+    #[doc = " Fan VPD"]
     #[allow(dead_code)]
     pub fn at24csw080(task: TaskId) -> [I2cDevice; 12] {
         [
-            // U.2 Sharkfin A VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -922,7 +773,6 @@ pub mod devices {
                 0x50,
                 "J206/U7",
             ),
-            // U.2 Sharkfin B VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -931,7 +781,6 @@ pub mod devices {
                 0x50,
                 "J207/U7",
             ),
-            // U.2 Sharkfin C VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -940,7 +789,6 @@ pub mod devices {
                 0x50,
                 "J208/U7",
             ),
-            // U.2 Sharkfin D VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -949,7 +797,6 @@ pub mod devices {
                 0x50,
                 "J209/U7",
             ),
-            // U.2 Sharkfin E VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -958,7 +805,6 @@ pub mod devices {
                 0x50,
                 "J210/U7",
             ),
-            // U.2 Sharkfin F VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -967,7 +813,6 @@ pub mod devices {
                 0x50,
                 "J211/U7",
             ),
-            // U.2 Sharkfin G VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -976,7 +821,6 @@ pub mod devices {
                 0x50,
                 "J212/U7",
             ),
-            // U.2 Sharkfin H VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -985,7 +829,6 @@ pub mod devices {
                 0x50,
                 "J213/U7",
             ),
-            // U.2 Sharkfin I VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -994,7 +837,6 @@ pub mod devices {
                 0x50,
                 "J214/U7",
             ),
-            // U.2 Sharkfin J VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1003,7 +845,6 @@ pub mod devices {
                 0x50,
                 "J215/U7",
             ),
-            // Gimlet VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1012,7 +853,6 @@ pub mod devices {
                 0x50,
                 "U615",
             ),
-            // Fan VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1023,71 +863,68 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " Intermediate bus converter"]
     #[allow(dead_code)]
     pub fn bmr491(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // Intermediate bus converter
-            I2cDevice::new(
-                task,
-                Controller::I2C4,
-                PortIndex(0),
-                None,
-                0x67,
-                "U431",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C4,
+            PortIndex(0),
+            None,
+            0x67,
+            "U431",
+        )]
     }
-
+    #[doc = " Clock generator"]
     #[allow(dead_code)]
     pub fn idt8a34003(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // Clock generator
-            I2cDevice::new(
-                task,
-                Controller::I2C3,
-                PortIndex(0),
-                None,
-                0x58,
-                "U446",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C3,
+            PortIndex(0),
+            None,
+            0x58,
+            "U446",
+        )]
     }
-
+    #[doc = " DIMM/SP3 1.8V A0 power controller"]
     #[allow(dead_code)]
     pub fn isl68224(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // DIMM/SP3 1.8V A0 power controller
-            I2cDevice::new(
-                task,
-                Controller::I2C3,
-                PortIndex(0),
-                None,
-                0x5c,
-                "U352",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C3,
+            PortIndex(0),
+            None,
+            0x5c,
+            "U352",
+        )]
     }
-
+    #[doc = " Fan controller"]
     #[allow(dead_code)]
     pub fn max31790(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // Fan controller
-            I2cDevice::new(
-                task,
-                Controller::I2C4,
-                PortIndex(0),
-                None,
-                0x20,
-                "U321",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C4,
+            PortIndex(0),
+            None,
+            0x20,
+            "U321",
+        )]
     }
-
+    #[doc = " U.2 Sharkfin A hot swap controller"]
+    #[doc = " U.2 Sharkfin B hot swap controller"]
+    #[doc = " U.2 Sharkfin C hot swap controller"]
+    #[doc = " U.2 Sharkfin D hot swap controller"]
+    #[doc = " U.2 Sharkfin E hot swap controller"]
+    #[doc = " U.2 Sharkfin F hot swap controller"]
+    #[doc = " U.2 Sharkfin G hot swap controller"]
+    #[doc = " U.2 Sharkfin H hot swap controller"]
+    #[doc = " U.2 Sharkfin I hot swap controller"]
+    #[doc = " U.2 Sharkfin J hot swap controller"]
+    #[doc = " M.2 hot plug controller"]
     #[allow(dead_code)]
     pub fn max5970(task: TaskId) -> [I2cDevice; 11] {
         [
-            // U.2 Sharkfin A hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1096,7 +933,6 @@ pub mod devices {
                 0x38,
                 "J206/U8",
             ),
-            // U.2 Sharkfin B hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1105,7 +941,6 @@ pub mod devices {
                 0x38,
                 "J207/U8",
             ),
-            // U.2 Sharkfin C hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1114,7 +949,6 @@ pub mod devices {
                 0x38,
                 "J208/U8",
             ),
-            // U.2 Sharkfin D hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1123,7 +957,6 @@ pub mod devices {
                 0x38,
                 "J209/U8",
             ),
-            // U.2 Sharkfin E hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1132,7 +965,6 @@ pub mod devices {
                 0x38,
                 "J210/U8",
             ),
-            // U.2 Sharkfin F hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1141,7 +973,6 @@ pub mod devices {
                 0x38,
                 "J211/U8",
             ),
-            // U.2 Sharkfin G hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1150,7 +981,6 @@ pub mod devices {
                 0x38,
                 "J212/U8",
             ),
-            // U.2 Sharkfin H hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1159,7 +989,6 @@ pub mod devices {
                 0x38,
                 "J213/U8",
             ),
-            // U.2 Sharkfin I hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1168,7 +997,6 @@ pub mod devices {
                 0x38,
                 "J214/U8",
             ),
-            // U.2 Sharkfin J hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1177,7 +1005,6 @@ pub mod devices {
                 0x38,
                 "J215/U8",
             ),
-            // M.2 hot plug controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1188,11 +1015,21 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " U.2 A NVMe Basic Management Command"]
+    #[doc = " U.2 B NVMe Basic Management Control"]
+    #[doc = " U.2 C NVMe Basic Management Control"]
+    #[doc = " U.2 D NVMe Basic Management Control"]
+    #[doc = " U.2 E NVMe Basic Management Control"]
+    #[doc = " U.2 F NVMe Basic Management Control"]
+    #[doc = " U.2 G NVMe Basic Management Control"]
+    #[doc = " U.2 H NVMe Basic Management Control"]
+    #[doc = " U.2 I NVMe Basic Management Control"]
+    #[doc = " U.2 J NVMe Basic Management Control"]
+    #[doc = " M.2 A NVMe Basic Management Command"]
+    #[doc = " M.2 B NVMe Basic Management Command"]
     #[allow(dead_code)]
     pub fn nvme_bmc(task: TaskId) -> [I2cDevice; 12] {
         [
-            // U.2 A NVMe Basic Management Command
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1201,7 +1038,6 @@ pub mod devices {
                 0x6a,
                 "J206/J1",
             ),
-            // U.2 B NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1210,7 +1046,6 @@ pub mod devices {
                 0x6a,
                 "J207/J1",
             ),
-            // U.2 C NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1219,7 +1054,6 @@ pub mod devices {
                 0x6a,
                 "J208/J1",
             ),
-            // U.2 D NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1228,7 +1062,6 @@ pub mod devices {
                 0x6a,
                 "J209/J1",
             ),
-            // U.2 E NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1237,7 +1070,6 @@ pub mod devices {
                 0x6a,
                 "J210/J1",
             ),
-            // U.2 F NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1246,7 +1078,6 @@ pub mod devices {
                 0x6a,
                 "J211/J1",
             ),
-            // U.2 G NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1255,7 +1086,6 @@ pub mod devices {
                 0x6a,
                 "J212/J1",
             ),
-            // U.2 H NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1264,7 +1094,6 @@ pub mod devices {
                 0x6a,
                 "J213/J1",
             ),
-            // U.2 I NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1273,7 +1102,6 @@ pub mod devices {
                 0x6a,
                 "J214/J1",
             ),
-            // U.2 J NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1282,7 +1110,6 @@ pub mod devices {
                 0x6a,
                 "J215/J1",
             ),
-            // M.2 A NVMe Basic Management Command
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1291,7 +1118,6 @@ pub mod devices {
                 0x6a,
                 "P1",
             ),
-            // M.2 B NVMe Basic Management Command
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1302,11 +1128,13 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " U.2 ABCD mux"]
+    #[doc = " U.2 EFGH mux"]
+    #[doc = " U.2 IJ/FRUID mux"]
+    #[doc = " M.2 mux"]
     #[allow(dead_code)]
     pub fn pca9545(task: TaskId) -> [I2cDevice; 4] {
         [
-            // U.2 ABCD mux
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1315,7 +1143,6 @@ pub mod devices {
                 0x70,
                 "U336",
             ),
-            // U.2 EFGH mux
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1324,7 +1151,6 @@ pub mod devices {
                 0x71,
                 "U339",
             ),
-            // U.2 IJ/FRUID mux
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1333,7 +1159,6 @@ pub mod devices {
                 0x72,
                 "U337",
             ),
-            // M.2 mux
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1344,11 +1169,11 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " CPU power controller"]
+    #[doc = " SoC power controller"]
     #[allow(dead_code)]
     pub fn raa229618(task: TaskId) -> [I2cDevice; 2] {
         [
-            // CPU power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1357,7 +1182,6 @@ pub mod devices {
                 0x5a,
                 "U350",
             ),
-            // SoC power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1368,41 +1192,39 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " CPU via SB-RMI"]
     #[allow(dead_code)]
     pub fn sbrmi(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // CPU via SB-RMI
-            I2cDevice::new(
-                task,
-                Controller::I2C3,
-                PortIndex(0),
-                None,
-                0x3c,
-                "P0/SBRMI",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C3,
+            PortIndex(0),
+            None,
+            0x3c,
+            "P0/SBRMI",
+        )]
     }
-
+    #[doc = " CPU temperature sensor"]
     #[allow(dead_code)]
     pub fn sbtsi(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // CPU temperature sensor
-            I2cDevice::new(
-                task,
-                Controller::I2C3,
-                PortIndex(0),
-                None,
-                0x4c,
-                "P0/SBTSI",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C3,
+            PortIndex(0),
+            None,
+            0x4c,
+            "P0/SBTSI",
+        )]
     }
-
+    #[doc = " Southwest temperature sensor"]
+    #[doc = " South temperature sensor"]
+    #[doc = " Southeast temperature sensor"]
+    #[doc = " Northeast temperature sensor"]
+    #[doc = " North temperature sensor"]
+    #[doc = " Northwest temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117(task: TaskId) -> [I2cDevice; 6] {
         [
-            // Southwest temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1411,7 +1233,6 @@ pub mod devices {
                 0x48,
                 "J194/U1",
             ),
-            // South temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1420,7 +1241,6 @@ pub mod devices {
                 0x49,
                 "J195/U1",
             ),
-            // Southeast temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1429,7 +1249,6 @@ pub mod devices {
                 0x4a,
                 "J196/U1",
             ),
-            // Northeast temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1438,7 +1257,6 @@ pub mod devices {
                 0x48,
                 "J197/U1",
             ),
-            // North temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1447,7 +1265,6 @@ pub mod devices {
                 0x49,
                 "J198/U1",
             ),
-            // Northwest temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1458,26 +1275,26 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " T6 temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp451(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // T6 temperature sensor
-            I2cDevice::new(
-                task,
-                Controller::I2C2,
-                PortIndex(0),
-                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
-                0x4c,
-                "U491",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C2,
+            PortIndex(0),
+            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+            0x4c,
+            "U491",
+        )]
     }
-
+    #[doc = " A2 3.3V rail"]
+    #[doc = " A0 3.3V rail"]
+    #[doc = " A2 5V rail"]
+    #[doc = " A2 1.8V rail"]
+    #[doc = " T6 power controller"]
     #[allow(dead_code)]
     pub fn tps546b24a(task: TaskId) -> [I2cDevice; 5] {
         [
-            // A2 3.3V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1486,7 +1303,6 @@ pub mod devices {
                 0x24,
                 "U522",
             ),
-            // A0 3.3V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1495,7 +1311,6 @@ pub mod devices {
                 0x26,
                 "U560",
             ),
-            // A2 5V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1504,7 +1319,6 @@ pub mod devices {
                 0x27,
                 "U524",
             ),
-            // A2 1.8V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1513,7 +1327,6 @@ pub mod devices {
                 0x29,
                 "U561",
             ),
-            // T6 power controller
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1524,11 +1337,25 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " DIMM A0"]
+    #[doc = " DIMM A1"]
+    #[doc = " DIMM B0"]
+    #[doc = " DIMM B1"]
+    #[doc = " DIMM C0"]
+    #[doc = " DIMM C1"]
+    #[doc = " DIMM D0"]
+    #[doc = " DIMM D1"]
+    #[doc = " DIMM E0"]
+    #[doc = " DIMM E1"]
+    #[doc = " DIMM F0"]
+    #[doc = " DIMM F1"]
+    #[doc = " DIMM G0"]
+    #[doc = " DIMM G1"]
+    #[doc = " DIMM H0"]
+    #[doc = " DIMM H1"]
     #[allow(dead_code)]
     pub fn tse2004av(task: TaskId) -> [I2cDevice; 16] {
         [
-            // DIMM A0
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1537,7 +1364,6 @@ pub mod devices {
                 0x18,
                 "M0",
             ),
-            // DIMM A1
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1546,7 +1372,6 @@ pub mod devices {
                 0x19,
                 "M8",
             ),
-            // DIMM B0
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1555,7 +1380,6 @@ pub mod devices {
                 0x1a,
                 "M1",
             ),
-            // DIMM B1
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1564,7 +1388,6 @@ pub mod devices {
                 0x1b,
                 "M9",
             ),
-            // DIMM C0
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1573,7 +1396,6 @@ pub mod devices {
                 0x1c,
                 "M2",
             ),
-            // DIMM C1
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1582,7 +1404,6 @@ pub mod devices {
                 0x1d,
                 "M10",
             ),
-            // DIMM D0
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1591,7 +1412,6 @@ pub mod devices {
                 0x1e,
                 "M3",
             ),
-            // DIMM D1
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -1600,7 +1420,6 @@ pub mod devices {
                 0x1f,
                 "M11",
             ),
-            // DIMM E0
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1609,7 +1428,6 @@ pub mod devices {
                 0x18,
                 "M4",
             ),
-            // DIMM E1
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1618,7 +1436,6 @@ pub mod devices {
                 0x19,
                 "M12",
             ),
-            // DIMM F0
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1627,7 +1444,6 @@ pub mod devices {
                 0x1a,
                 "M5",
             ),
-            // DIMM F1
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1636,7 +1452,6 @@ pub mod devices {
                 0x1b,
                 "M13",
             ),
-            // DIMM G0
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1645,7 +1460,6 @@ pub mod devices {
                 0x1c,
                 "M6",
             ),
-            // DIMM G1
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1654,7 +1468,6 @@ pub mod devices {
                 0x1d,
                 "M14",
             ),
-            // DIMM H0
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1663,7 +1476,6 @@ pub mod devices {
                 0x1e,
                 "M7",
             ),
-            // DIMM H1
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1674,11 +1486,11 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " Fan hot swap controller"]
+    #[doc = " Sled hot swap controller"]
     #[allow(dead_code)]
     pub fn adm127x_rear(task: TaskId) -> [I2cDevice; 2] {
         [
-            // Fan hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1687,7 +1499,6 @@ pub mod devices {
                 0x10,
                 "U419",
             ),
-            // Sled hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -1698,11 +1509,20 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " U.2 Sharkfin A VPD"]
+    #[doc = " U.2 Sharkfin B VPD"]
+    #[doc = " U.2 Sharkfin C VPD"]
+    #[doc = " U.2 Sharkfin D VPD"]
+    #[doc = " U.2 Sharkfin E VPD"]
+    #[doc = " U.2 Sharkfin F VPD"]
+    #[doc = " U.2 Sharkfin G VPD"]
+    #[doc = " U.2 Sharkfin H VPD"]
+    #[doc = " U.2 Sharkfin I VPD"]
+    #[doc = " U.2 Sharkfin J VPD"]
+    #[doc = " Gimlet VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_front(task: TaskId) -> [I2cDevice; 11] {
         [
-            // U.2 Sharkfin A VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1711,7 +1531,6 @@ pub mod devices {
                 0x50,
                 "J206/U7",
             ),
-            // U.2 Sharkfin B VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1720,7 +1539,6 @@ pub mod devices {
                 0x50,
                 "J207/U7",
             ),
-            // U.2 Sharkfin C VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1729,7 +1547,6 @@ pub mod devices {
                 0x50,
                 "J208/U7",
             ),
-            // U.2 Sharkfin D VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1738,7 +1555,6 @@ pub mod devices {
                 0x50,
                 "J209/U7",
             ),
-            // U.2 Sharkfin E VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1747,7 +1563,6 @@ pub mod devices {
                 0x50,
                 "J210/U7",
             ),
-            // U.2 Sharkfin F VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1756,7 +1571,6 @@ pub mod devices {
                 0x50,
                 "J211/U7",
             ),
-            // U.2 Sharkfin G VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1765,7 +1579,6 @@ pub mod devices {
                 0x50,
                 "J212/U7",
             ),
-            // U.2 Sharkfin H VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1774,7 +1587,6 @@ pub mod devices {
                 0x50,
                 "J213/U7",
             ),
-            // U.2 Sharkfin I VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1783,7 +1595,6 @@ pub mod devices {
                 0x50,
                 "J214/U7",
             ),
-            // U.2 Sharkfin J VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1792,7 +1603,6 @@ pub mod devices {
                 0x50,
                 "J215/U7",
             ),
-            // Gimlet VPD
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1803,86 +1613,79 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " Fan VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_m2(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // Fan VPD
-            I2cDevice::new(
-                task,
-                Controller::I2C2,
-                PortIndex(0),
-                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
-                0x50,
-                "J180/U1",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C2,
+            PortIndex(0),
+            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S3)),
+            0x50,
+            "J180/U1",
+        )]
     }
-
+    #[doc = " Intermediate bus converter"]
     #[allow(dead_code)]
     pub fn bmr491_rear(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // Intermediate bus converter
-            I2cDevice::new(
-                task,
-                Controller::I2C4,
-                PortIndex(0),
-                None,
-                0x67,
-                "U431",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C4,
+            PortIndex(0),
+            None,
+            0x67,
+            "U431",
+        )]
     }
-
+    #[doc = " Clock generator"]
     #[allow(dead_code)]
     pub fn idt8a34003_mid(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // Clock generator
-            I2cDevice::new(
-                task,
-                Controller::I2C3,
-                PortIndex(0),
-                None,
-                0x58,
-                "U446",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C3,
+            PortIndex(0),
+            None,
+            0x58,
+            "U446",
+        )]
     }
-
+    #[doc = " DIMM/SP3 1.8V A0 power controller"]
     #[allow(dead_code)]
     pub fn isl68224_mid(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // DIMM/SP3 1.8V A0 power controller
-            I2cDevice::new(
-                task,
-                Controller::I2C3,
-                PortIndex(0),
-                None,
-                0x5c,
-                "U352",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C3,
+            PortIndex(0),
+            None,
+            0x5c,
+            "U352",
+        )]
     }
-
+    #[doc = " Fan controller"]
     #[allow(dead_code)]
     pub fn max31790_rear(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // Fan controller
-            I2cDevice::new(
-                task,
-                Controller::I2C4,
-                PortIndex(0),
-                None,
-                0x20,
-                "U321",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C4,
+            PortIndex(0),
+            None,
+            0x20,
+            "U321",
+        )]
     }
-
+    #[doc = " U.2 Sharkfin A hot swap controller"]
+    #[doc = " U.2 Sharkfin B hot swap controller"]
+    #[doc = " U.2 Sharkfin C hot swap controller"]
+    #[doc = " U.2 Sharkfin D hot swap controller"]
+    #[doc = " U.2 Sharkfin E hot swap controller"]
+    #[doc = " U.2 Sharkfin F hot swap controller"]
+    #[doc = " U.2 Sharkfin G hot swap controller"]
+    #[doc = " U.2 Sharkfin H hot swap controller"]
+    #[doc = " U.2 Sharkfin I hot swap controller"]
+    #[doc = " U.2 Sharkfin J hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_front(task: TaskId) -> [I2cDevice; 10] {
         [
-            // U.2 Sharkfin A hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1891,7 +1694,6 @@ pub mod devices {
                 0x38,
                 "J206/U8",
             ),
-            // U.2 Sharkfin B hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1900,7 +1702,6 @@ pub mod devices {
                 0x38,
                 "J207/U8",
             ),
-            // U.2 Sharkfin C hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1909,7 +1710,6 @@ pub mod devices {
                 0x38,
                 "J208/U8",
             ),
-            // U.2 Sharkfin D hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1918,7 +1718,6 @@ pub mod devices {
                 0x38,
                 "J209/U8",
             ),
-            // U.2 Sharkfin E hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1927,7 +1726,6 @@ pub mod devices {
                 0x38,
                 "J210/U8",
             ),
-            // U.2 Sharkfin F hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1936,7 +1734,6 @@ pub mod devices {
                 0x38,
                 "J211/U8",
             ),
-            // U.2 Sharkfin G hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1945,7 +1742,6 @@ pub mod devices {
                 0x38,
                 "J212/U8",
             ),
-            // U.2 Sharkfin H hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1954,7 +1750,6 @@ pub mod devices {
                 0x38,
                 "J213/U8",
             ),
-            // U.2 Sharkfin I hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1963,7 +1758,6 @@ pub mod devices {
                 0x38,
                 "J214/U8",
             ),
-            // U.2 Sharkfin J hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -1974,26 +1768,31 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " M.2 hot plug controller"]
     #[allow(dead_code)]
     pub fn max5970_mid(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // M.2 hot plug controller
-            I2cDevice::new(
-                task,
-                Controller::I2C3,
-                PortIndex(0),
-                None,
-                0x3a,
-                "U275",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C3,
+            PortIndex(0),
+            None,
+            0x3a,
+            "U275",
+        )]
     }
-
+    #[doc = " U.2 A NVMe Basic Management Command"]
+    #[doc = " U.2 B NVMe Basic Management Control"]
+    #[doc = " U.2 C NVMe Basic Management Control"]
+    #[doc = " U.2 D NVMe Basic Management Control"]
+    #[doc = " U.2 E NVMe Basic Management Control"]
+    #[doc = " U.2 F NVMe Basic Management Control"]
+    #[doc = " U.2 G NVMe Basic Management Control"]
+    #[doc = " U.2 H NVMe Basic Management Control"]
+    #[doc = " U.2 I NVMe Basic Management Control"]
+    #[doc = " U.2 J NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_front(task: TaskId) -> [I2cDevice; 10] {
         [
-            // U.2 A NVMe Basic Management Command
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2002,7 +1801,6 @@ pub mod devices {
                 0x6a,
                 "J206/J1",
             ),
-            // U.2 B NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2011,7 +1809,6 @@ pub mod devices {
                 0x6a,
                 "J207/J1",
             ),
-            // U.2 C NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2020,7 +1817,6 @@ pub mod devices {
                 0x6a,
                 "J208/J1",
             ),
-            // U.2 D NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2029,7 +1825,6 @@ pub mod devices {
                 0x6a,
                 "J209/J1",
             ),
-            // U.2 E NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2038,7 +1833,6 @@ pub mod devices {
                 0x6a,
                 "J210/J1",
             ),
-            // U.2 F NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2047,7 +1841,6 @@ pub mod devices {
                 0x6a,
                 "J211/J1",
             ),
-            // U.2 G NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2056,7 +1849,6 @@ pub mod devices {
                 0x6a,
                 "J212/J1",
             ),
-            // U.2 H NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2065,7 +1857,6 @@ pub mod devices {
                 0x6a,
                 "J213/J1",
             ),
-            // U.2 I NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2074,7 +1865,6 @@ pub mod devices {
                 0x6a,
                 "J214/J1",
             ),
-            // U.2 J NVMe Basic Management Control
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2085,11 +1875,11 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " M.2 A NVMe Basic Management Command"]
+    #[doc = " M.2 B NVMe Basic Management Command"]
     #[allow(dead_code)]
     pub fn nvme_bmc_m2(task: TaskId) -> [I2cDevice; 2] {
         [
-            // M.2 A NVMe Basic Management Command
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2098,7 +1888,6 @@ pub mod devices {
                 0x6a,
                 "P1",
             ),
-            // M.2 B NVMe Basic Management Command
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2109,11 +1898,12 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " U.2 ABCD mux"]
+    #[doc = " U.2 EFGH mux"]
+    #[doc = " U.2 IJ/FRUID mux"]
     #[allow(dead_code)]
     pub fn pca9545_front(task: TaskId) -> [I2cDevice; 3] {
         [
-            // U.2 ABCD mux
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2122,7 +1912,6 @@ pub mod devices {
                 0x70,
                 "U336",
             ),
-            // U.2 EFGH mux
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2131,7 +1920,6 @@ pub mod devices {
                 0x71,
                 "U339",
             ),
-            // U.2 IJ/FRUID mux
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2142,26 +1930,23 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " M.2 mux"]
     #[allow(dead_code)]
     pub fn pca9545_m2(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // M.2 mux
-            I2cDevice::new(
-                task,
-                Controller::I2C2,
-                PortIndex(0),
-                None,
-                0x73,
-                "U422",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C2,
+            PortIndex(0),
+            None,
+            0x73,
+            "U422",
+        )]
     }
-
+    #[doc = " CPU power controller"]
+    #[doc = " SoC power controller"]
     #[allow(dead_code)]
     pub fn raa229618_mid(task: TaskId) -> [I2cDevice; 2] {
         [
-            // CPU power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2170,7 +1955,6 @@ pub mod devices {
                 0x5a,
                 "U350",
             ),
-            // SoC power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2181,41 +1965,36 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " CPU via SB-RMI"]
     #[allow(dead_code)]
     pub fn sbrmi_mid(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // CPU via SB-RMI
-            I2cDevice::new(
-                task,
-                Controller::I2C3,
-                PortIndex(0),
-                None,
-                0x3c,
-                "P0/SBRMI",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C3,
+            PortIndex(0),
+            None,
+            0x3c,
+            "P0/SBRMI",
+        )]
     }
-
+    #[doc = " CPU temperature sensor"]
     #[allow(dead_code)]
     pub fn sbtsi_mid(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // CPU temperature sensor
-            I2cDevice::new(
-                task,
-                Controller::I2C3,
-                PortIndex(0),
-                None,
-                0x4c,
-                "P0/SBTSI",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C3,
+            PortIndex(0),
+            None,
+            0x4c,
+            "P0/SBTSI",
+        )]
     }
-
+    #[doc = " Southwest temperature sensor"]
+    #[doc = " South temperature sensor"]
+    #[doc = " Southeast temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_front(task: TaskId) -> [I2cDevice; 3] {
         [
-            // Southwest temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2224,7 +2003,6 @@ pub mod devices {
                 0x48,
                 "J194/U1",
             ),
-            // South temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2233,7 +2011,6 @@ pub mod devices {
                 0x49,
                 "J195/U1",
             ),
-            // Southeast temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -2244,11 +2021,12 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " Northeast temperature sensor"]
+    #[doc = " North temperature sensor"]
+    #[doc = " Northwest temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_rear(task: TaskId) -> [I2cDevice; 3] {
         [
-            // Northeast temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2257,7 +2035,6 @@ pub mod devices {
                 0x48,
                 "J197/U1",
             ),
-            // North temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2266,7 +2043,6 @@ pub mod devices {
                 0x49,
                 "J198/U1",
             ),
-            // Northwest temperature sensor
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2277,26 +2053,25 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " T6 temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp451_m2(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // T6 temperature sensor
-            I2cDevice::new(
-                task,
-                Controller::I2C2,
-                PortIndex(0),
-                Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
-                0x4c,
-                "U491",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C2,
+            PortIndex(0),
+            Some((drv_i2c_api::Mux::M1, drv_i2c_api::Segment::S4)),
+            0x4c,
+            "U491",
+        )]
     }
-
+    #[doc = " A2 3.3V rail"]
+    #[doc = " A0 3.3V rail"]
+    #[doc = " A2 5V rail"]
+    #[doc = " A2 1.8V rail"]
     #[allow(dead_code)]
     pub fn tps546b24a_mid(task: TaskId) -> [I2cDevice; 4] {
         [
-            // A2 3.3V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2305,7 +2080,6 @@ pub mod devices {
                 0x24,
                 "U522",
             ),
-            // A0 3.3V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2314,7 +2088,6 @@ pub mod devices {
                 0x26,
                 "U560",
             ),
-            // A2 5V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2323,7 +2096,6 @@ pub mod devices {
                 0x27,
                 "U524",
             ),
-            // A2 1.8V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2334,26 +2106,29 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " T6 power controller"]
     #[allow(dead_code)]
     pub fn tps546b24a_rear(task: TaskId) -> [I2cDevice; 1] {
-        [
-            // T6 power controller
-            I2cDevice::new(
-                task,
-                Controller::I2C4,
-                PortIndex(0),
-                None,
-                0x25,
-                "U565",
-            ),
-        ]
+        [I2cDevice::new(
+            task,
+            Controller::I2C4,
+            PortIndex(0),
+            None,
+            0x25,
+            "U565",
+        )]
     }
-
+    #[doc = " DIMM A0"]
+    #[doc = " DIMM A1"]
+    #[doc = " DIMM B0"]
+    #[doc = " DIMM B1"]
+    #[doc = " DIMM C0"]
+    #[doc = " DIMM C1"]
+    #[doc = " DIMM D0"]
+    #[doc = " DIMM D1"]
     #[allow(dead_code)]
     pub fn tse2004av_mid(task: TaskId) -> [I2cDevice; 8] {
         [
-            // DIMM A0
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2362,7 +2137,6 @@ pub mod devices {
                 0x18,
                 "M0",
             ),
-            // DIMM A1
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2371,7 +2145,6 @@ pub mod devices {
                 0x19,
                 "M8",
             ),
-            // DIMM B0
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2380,7 +2153,6 @@ pub mod devices {
                 0x1a,
                 "M1",
             ),
-            // DIMM B1
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2389,7 +2161,6 @@ pub mod devices {
                 0x1b,
                 "M9",
             ),
-            // DIMM C0
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2398,7 +2169,6 @@ pub mod devices {
                 0x1c,
                 "M2",
             ),
-            // DIMM C1
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2407,7 +2177,6 @@ pub mod devices {
                 0x1d,
                 "M10",
             ),
-            // DIMM D0
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2416,7 +2185,6 @@ pub mod devices {
                 0x1e,
                 "M3",
             ),
-            // DIMM D1
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -2427,11 +2195,17 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " DIMM E0"]
+    #[doc = " DIMM E1"]
+    #[doc = " DIMM F0"]
+    #[doc = " DIMM F1"]
+    #[doc = " DIMM G0"]
+    #[doc = " DIMM G1"]
+    #[doc = " DIMM H0"]
+    #[doc = " DIMM H1"]
     #[allow(dead_code)]
     pub fn tse2004av_rear(task: TaskId) -> [I2cDevice; 8] {
         [
-            // DIMM E0
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2440,7 +2214,6 @@ pub mod devices {
                 0x18,
                 "M4",
             ),
-            // DIMM E1
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2449,7 +2222,6 @@ pub mod devices {
                 0x19,
                 "M12",
             ),
-            // DIMM F0
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2458,7 +2230,6 @@ pub mod devices {
                 0x1a,
                 "M5",
             ),
-            // DIMM F1
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2467,7 +2238,6 @@ pub mod devices {
                 0x1b,
                 "M13",
             ),
-            // DIMM G0
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2476,7 +2246,6 @@ pub mod devices {
                 0x1c,
                 "M6",
             ),
-            // DIMM G1
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2485,7 +2254,6 @@ pub mod devices {
                 0x1d,
                 "M14",
             ),
-            // DIMM H0
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2494,7 +2262,6 @@ pub mod devices {
                 0x1e,
                 "M7",
             ),
-            // DIMM H1
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -2505,10 +2272,9 @@ pub mod devices {
             ),
         ]
     }
-
+    #[doc = " Fan VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_fan_vpd(task: TaskId) -> I2cDevice {
-        // Fan VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2518,10 +2284,9 @@ pub mod devices {
             "J180/U1",
         )
     }
-
+    #[doc = " Gimlet VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_local_vpd(task: TaskId) -> I2cDevice {
-        // Gimlet VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2531,10 +2296,9 @@ pub mod devices {
             "U615",
         )
     }
-
+    #[doc = " U.2 Sharkfin A VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_a_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin A VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2544,10 +2308,9 @@ pub mod devices {
             "J206/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin B VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_b_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin B VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2557,10 +2320,9 @@ pub mod devices {
             "J207/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin C VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_c_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin C VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2570,10 +2332,9 @@ pub mod devices {
             "J208/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin D VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_d_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin D VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2583,10 +2344,9 @@ pub mod devices {
             "J209/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin E VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_e_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin E VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2596,10 +2356,9 @@ pub mod devices {
             "J210/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin F VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_f_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin F VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2609,10 +2368,9 @@ pub mod devices {
             "J211/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin G VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_g_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin G VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2622,10 +2380,9 @@ pub mod devices {
             "J212/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin H VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_h_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin H VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2635,10 +2392,9 @@ pub mod devices {
             "J213/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin I VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_i_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin I VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2648,10 +2404,9 @@ pub mod devices {
             "J214/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin J VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_sharkfin_j_vpd(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin J VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2661,22 +2416,19 @@ pub mod devices {
             "J215/U7",
         )
     }
-
+    #[doc = " Intermediate bus converter"]
     #[allow(dead_code)]
     pub fn bmr491_ibc(task: TaskId) -> I2cDevice {
-        // Intermediate bus converter
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x67, "U431")
     }
-
+    #[doc = " M.2 hot plug controller"]
     #[allow(dead_code)]
     pub fn max5970_m2(task: TaskId) -> I2cDevice {
-        // M.2 hot plug controller
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x3a, "U275")
     }
-
+    #[doc = " U.2 Sharkfin A hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_a_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin A hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2686,10 +2438,9 @@ pub mod devices {
             "J206/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin B hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_b_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin B hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2699,10 +2450,9 @@ pub mod devices {
             "J207/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin C hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_c_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin C hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2712,10 +2462,9 @@ pub mod devices {
             "J208/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin D hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_d_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin D hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2725,10 +2474,9 @@ pub mod devices {
             "J209/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin E hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_e_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin E hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2738,10 +2486,9 @@ pub mod devices {
             "J210/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin F hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_f_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin F hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2751,10 +2498,9 @@ pub mod devices {
             "J211/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin G hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_g_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin G hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2764,10 +2510,9 @@ pub mod devices {
             "J212/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin H hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_h_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin H hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2777,10 +2522,9 @@ pub mod devices {
             "J213/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin I hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_i_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin I hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2790,10 +2534,9 @@ pub mod devices {
             "J214/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin J hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_sharkfin_j_hsc(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin J hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2803,10 +2546,9 @@ pub mod devices {
             "J215/U8",
         )
     }
-
+    #[doc = " M.2 A NVMe Basic Management Command"]
     #[allow(dead_code)]
     pub fn nvme_bmc_m2_a(task: TaskId) -> I2cDevice {
-        // M.2 A NVMe Basic Management Command
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2816,10 +2558,9 @@ pub mod devices {
             "P1",
         )
     }
-
+    #[doc = " M.2 B NVMe Basic Management Command"]
     #[allow(dead_code)]
     pub fn nvme_bmc_m2_b(task: TaskId) -> I2cDevice {
-        // M.2 B NVMe Basic Management Command
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2829,10 +2570,9 @@ pub mod devices {
             "P2",
         )
     }
-
+    #[doc = " U.2 A NVMe Basic Management Command"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n0(task: TaskId) -> I2cDevice {
-        // U.2 A NVMe Basic Management Command
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2842,10 +2582,9 @@ pub mod devices {
             "J206/J1",
         )
     }
-
+    #[doc = " U.2 B NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n1(task: TaskId) -> I2cDevice {
-        // U.2 B NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2855,10 +2594,9 @@ pub mod devices {
             "J207/J1",
         )
     }
-
+    #[doc = " U.2 C NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n2(task: TaskId) -> I2cDevice {
-        // U.2 C NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2868,10 +2606,9 @@ pub mod devices {
             "J208/J1",
         )
     }
-
+    #[doc = " U.2 D NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n3(task: TaskId) -> I2cDevice {
-        // U.2 D NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2881,10 +2618,9 @@ pub mod devices {
             "J209/J1",
         )
     }
-
+    #[doc = " U.2 E NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n4(task: TaskId) -> I2cDevice {
-        // U.2 E NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2894,10 +2630,9 @@ pub mod devices {
             "J210/J1",
         )
     }
-
+    #[doc = " U.2 F NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n5(task: TaskId) -> I2cDevice {
-        // U.2 F NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2907,10 +2642,9 @@ pub mod devices {
             "J211/J1",
         )
     }
-
+    #[doc = " U.2 G NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n6(task: TaskId) -> I2cDevice {
-        // U.2 G NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2920,10 +2654,9 @@ pub mod devices {
             "J212/J1",
         )
     }
-
+    #[doc = " U.2 H NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n7(task: TaskId) -> I2cDevice {
-        // U.2 H NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2933,10 +2666,9 @@ pub mod devices {
             "J213/J1",
         )
     }
-
+    #[doc = " U.2 I NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n8(task: TaskId) -> I2cDevice {
-        // U.2 I NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2946,10 +2678,9 @@ pub mod devices {
             "J214/J1",
         )
     }
-
+    #[doc = " U.2 J NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_u2_n9(task: TaskId) -> I2cDevice {
-        // U.2 J NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -2959,10 +2690,9 @@ pub mod devices {
             "J215/J1",
         )
     }
-
+    #[doc = " CPU via SB-RMI"]
     #[allow(dead_code)]
     pub fn sbrmi_rmi(task: TaskId) -> I2cDevice {
-        // CPU via SB-RMI
         I2cDevice::new(
             task,
             Controller::I2C3,
@@ -2972,10 +2702,9 @@ pub mod devices {
             "P0/SBRMI",
         )
     }
-
+    #[doc = " CPU temperature sensor"]
     #[allow(dead_code)]
     pub fn sbtsi_cpu(task: TaskId) -> I2cDevice {
-        // CPU temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C3,
@@ -2985,10 +2714,9 @@ pub mod devices {
             "P0/SBTSI",
         )
     }
-
+    #[doc = " North temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_north(task: TaskId) -> I2cDevice {
-        // North temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C4,
@@ -2998,10 +2726,9 @@ pub mod devices {
             "J198/U1",
         )
     }
-
+    #[doc = " Northeast temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_northeast(task: TaskId) -> I2cDevice {
-        // Northeast temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C4,
@@ -3011,10 +2738,9 @@ pub mod devices {
             "J197/U1",
         )
     }
-
+    #[doc = " Northwest temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_northwest(task: TaskId) -> I2cDevice {
-        // Northwest temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C4,
@@ -3024,10 +2750,9 @@ pub mod devices {
             "J199/U1",
         )
     }
-
+    #[doc = " South temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_south(task: TaskId) -> I2cDevice {
-        // South temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3037,10 +2762,9 @@ pub mod devices {
             "J195/U1",
         )
     }
-
+    #[doc = " Southeast temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_southeast(task: TaskId) -> I2cDevice {
-        // Southeast temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3050,10 +2774,9 @@ pub mod devices {
             "J196/U1",
         )
     }
-
+    #[doc = " Southwest temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_southwest(task: TaskId) -> I2cDevice {
-        // Southwest temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3063,10 +2786,9 @@ pub mod devices {
             "J194/U1",
         )
     }
-
+    #[doc = " T6 temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp451_t6(task: TaskId) -> I2cDevice {
-        // T6 temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3076,148 +2798,124 @@ pub mod devices {
             "U491",
         )
     }
-
+    #[doc = " T6 power controller"]
     #[allow(dead_code)]
     pub fn tps546b24a_v0p96_nic(task: TaskId) -> I2cDevice {
-        // T6 power controller
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x25, "U565")
     }
-
+    #[doc = " A2 1.8V rail"]
     #[allow(dead_code)]
     pub fn tps546b24a_v1p8_sys_a2(task: TaskId) -> I2cDevice {
-        // A2 1.8V rail
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x29, "U561")
     }
-
+    #[doc = " A2 3.3V rail"]
     #[allow(dead_code)]
     pub fn tps546b24a_v3p3_sp_a2(task: TaskId) -> I2cDevice {
-        // A2 3.3V rail
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x24, "U522")
     }
-
+    #[doc = " A0 3.3V rail"]
     #[allow(dead_code)]
     pub fn tps546b24a_v3p3_sys_a0(task: TaskId) -> I2cDevice {
-        // A0 3.3V rail
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x26, "U560")
     }
-
+    #[doc = " A2 5V rail"]
     #[allow(dead_code)]
     pub fn tps546b24a_v5p0_sys_a2(task: TaskId) -> I2cDevice {
-        // A2 5V rail
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x27, "U524")
     }
-
+    #[doc = " DIMM A0"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_a0(task: TaskId) -> I2cDevice {
-        // DIMM A0
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x18, "M0")
     }
-
+    #[doc = " DIMM A1"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_a1(task: TaskId) -> I2cDevice {
-        // DIMM A1
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x19, "M8")
     }
-
+    #[doc = " DIMM B0"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_b0(task: TaskId) -> I2cDevice {
-        // DIMM B0
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1a, "M1")
     }
-
+    #[doc = " DIMM B1"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_b1(task: TaskId) -> I2cDevice {
-        // DIMM B1
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1b, "M9")
     }
-
+    #[doc = " DIMM C0"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_c0(task: TaskId) -> I2cDevice {
-        // DIMM C0
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1c, "M2")
     }
-
+    #[doc = " DIMM C1"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_c1(task: TaskId) -> I2cDevice {
-        // DIMM C1
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1d, "M10")
     }
-
+    #[doc = " DIMM D0"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_d0(task: TaskId) -> I2cDevice {
-        // DIMM D0
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1e, "M3")
     }
-
+    #[doc = " DIMM D1"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_d1(task: TaskId) -> I2cDevice {
-        // DIMM D1
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1f, "M11")
     }
-
+    #[doc = " DIMM E0"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_e0(task: TaskId) -> I2cDevice {
-        // DIMM E0
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x18, "M4")
     }
-
+    #[doc = " DIMM E1"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_e1(task: TaskId) -> I2cDevice {
-        // DIMM E1
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x19, "M12")
     }
-
+    #[doc = " DIMM F0"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_f0(task: TaskId) -> I2cDevice {
-        // DIMM F0
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1a, "M5")
     }
-
+    #[doc = " DIMM F1"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_f1(task: TaskId) -> I2cDevice {
-        // DIMM F1
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1b, "M13")
     }
-
+    #[doc = " DIMM G0"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_g0(task: TaskId) -> I2cDevice {
-        // DIMM G0
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1c, "M6")
     }
-
+    #[doc = " DIMM G1"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_g1(task: TaskId) -> I2cDevice {
-        // DIMM G1
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1d, "M14")
     }
-
+    #[doc = " DIMM H0"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_h0(task: TaskId) -> I2cDevice {
-        // DIMM H0
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1e, "M7")
     }
-
+    #[doc = " DIMM H1"]
     #[allow(dead_code)]
     pub fn tse2004av_dimm_h1(task: TaskId) -> I2cDevice {
-        // DIMM H1
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1f, "M15")
     }
-
+    #[doc = " Fan hot swap controller"]
     #[allow(dead_code)]
     pub fn adm127x_u419(task: TaskId) -> I2cDevice {
-        // Fan hot swap controller
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x10, "U419")
     }
-
+    #[doc = " Sled hot swap controller"]
     #[allow(dead_code)]
     pub fn adm127x_u452(task: TaskId) -> I2cDevice {
-        // Sled hot swap controller
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x14, "U452")
     }
-
+    #[doc = " Gimlet VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_u615(task: TaskId) -> I2cDevice {
-        // Gimlet VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3227,10 +2925,9 @@ pub mod devices {
             "U615",
         )
     }
-
+    #[doc = " Fan VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j180_u1(task: TaskId) -> I2cDevice {
-        // Fan VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3240,10 +2937,9 @@ pub mod devices {
             "J180/U1",
         )
     }
-
+    #[doc = " U.2 Sharkfin A VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j206_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin A VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3253,10 +2949,9 @@ pub mod devices {
             "J206/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin B VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j207_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin B VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3266,10 +2961,9 @@ pub mod devices {
             "J207/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin C VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j208_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin C VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3279,10 +2973,9 @@ pub mod devices {
             "J208/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin D VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j209_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin D VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3292,10 +2985,9 @@ pub mod devices {
             "J209/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin E VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j210_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin E VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3305,10 +2997,9 @@ pub mod devices {
             "J210/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin F VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j211_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin F VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3318,10 +3009,9 @@ pub mod devices {
             "J211/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin G VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j212_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin G VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3331,10 +3021,9 @@ pub mod devices {
             "J212/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin H VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j213_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin H VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3344,10 +3033,9 @@ pub mod devices {
             "J213/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin I VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j214_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin I VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3357,10 +3045,9 @@ pub mod devices {
             "J214/U7",
         )
     }
-
+    #[doc = " U.2 Sharkfin J VPD"]
     #[allow(dead_code)]
     pub fn at24csw080_j215_u7(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin J VPD
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3370,40 +3057,34 @@ pub mod devices {
             "J215/U7",
         )
     }
-
+    #[doc = " Intermediate bus converter"]
     #[allow(dead_code)]
     pub fn bmr491_u431(task: TaskId) -> I2cDevice {
-        // Intermediate bus converter
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x67, "U431")
     }
-
+    #[doc = " Clock generator"]
     #[allow(dead_code)]
     pub fn idt8a34003_u446(task: TaskId) -> I2cDevice {
-        // Clock generator
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x58, "U446")
     }
-
+    #[doc = " DIMM/SP3 1.8V A0 power controller"]
     #[allow(dead_code)]
     pub fn isl68224_u352(task: TaskId) -> I2cDevice {
-        // DIMM/SP3 1.8V A0 power controller
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5c, "U352")
     }
-
+    #[doc = " Fan controller"]
     #[allow(dead_code)]
     pub fn max31790_u321(task: TaskId) -> I2cDevice {
-        // Fan controller
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x20, "U321")
     }
-
+    #[doc = " M.2 hot plug controller"]
     #[allow(dead_code)]
     pub fn max5970_u275(task: TaskId) -> I2cDevice {
-        // M.2 hot plug controller
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x3a, "U275")
     }
-
+    #[doc = " U.2 Sharkfin A hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j206_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin A hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3413,10 +3094,9 @@ pub mod devices {
             "J206/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin B hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j207_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin B hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3426,10 +3106,9 @@ pub mod devices {
             "J207/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin C hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j208_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin C hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3439,10 +3118,9 @@ pub mod devices {
             "J208/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin D hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j209_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin D hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3452,10 +3130,9 @@ pub mod devices {
             "J209/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin E hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j210_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin E hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3465,10 +3142,9 @@ pub mod devices {
             "J210/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin F hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j211_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin F hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3478,10 +3154,9 @@ pub mod devices {
             "J211/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin G hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j212_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin G hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3491,10 +3166,9 @@ pub mod devices {
             "J212/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin H hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j213_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin H hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3504,10 +3178,9 @@ pub mod devices {
             "J213/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin I hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j214_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin I hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3517,10 +3190,9 @@ pub mod devices {
             "J214/U8",
         )
     }
-
+    #[doc = " U.2 Sharkfin J hot swap controller"]
     #[allow(dead_code)]
     pub fn max5970_j215_u8(task: TaskId) -> I2cDevice {
-        // U.2 Sharkfin J hot swap controller
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3530,10 +3202,9 @@ pub mod devices {
             "J215/U8",
         )
     }
-
+    #[doc = " M.2 A NVMe Basic Management Command"]
     #[allow(dead_code)]
     pub fn nvme_bmc_p1(task: TaskId) -> I2cDevice {
-        // M.2 A NVMe Basic Management Command
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3543,10 +3214,9 @@ pub mod devices {
             "P1",
         )
     }
-
+    #[doc = " M.2 B NVMe Basic Management Command"]
     #[allow(dead_code)]
     pub fn nvme_bmc_p2(task: TaskId) -> I2cDevice {
-        // M.2 B NVMe Basic Management Command
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3556,10 +3226,9 @@ pub mod devices {
             "P2",
         )
     }
-
+    #[doc = " U.2 A NVMe Basic Management Command"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j206_j1(task: TaskId) -> I2cDevice {
-        // U.2 A NVMe Basic Management Command
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3569,10 +3238,9 @@ pub mod devices {
             "J206/J1",
         )
     }
-
+    #[doc = " U.2 B NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j207_j1(task: TaskId) -> I2cDevice {
-        // U.2 B NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3582,10 +3250,9 @@ pub mod devices {
             "J207/J1",
         )
     }
-
+    #[doc = " U.2 C NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j208_j1(task: TaskId) -> I2cDevice {
-        // U.2 C NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3595,10 +3262,9 @@ pub mod devices {
             "J208/J1",
         )
     }
-
+    #[doc = " U.2 D NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j209_j1(task: TaskId) -> I2cDevice {
-        // U.2 D NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3608,10 +3274,9 @@ pub mod devices {
             "J209/J1",
         )
     }
-
+    #[doc = " U.2 E NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j210_j1(task: TaskId) -> I2cDevice {
-        // U.2 E NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3621,10 +3286,9 @@ pub mod devices {
             "J210/J1",
         )
     }
-
+    #[doc = " U.2 F NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j211_j1(task: TaskId) -> I2cDevice {
-        // U.2 F NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3634,10 +3298,9 @@ pub mod devices {
             "J211/J1",
         )
     }
-
+    #[doc = " U.2 G NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j212_j1(task: TaskId) -> I2cDevice {
-        // U.2 G NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3647,10 +3310,9 @@ pub mod devices {
             "J212/J1",
         )
     }
-
+    #[doc = " U.2 H NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j213_j1(task: TaskId) -> I2cDevice {
-        // U.2 H NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3660,10 +3322,9 @@ pub mod devices {
             "J213/J1",
         )
     }
-
+    #[doc = " U.2 I NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j214_j1(task: TaskId) -> I2cDevice {
-        // U.2 I NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3673,10 +3334,9 @@ pub mod devices {
             "J214/J1",
         )
     }
-
+    #[doc = " U.2 J NVMe Basic Management Control"]
     #[allow(dead_code)]
     pub fn nvme_bmc_j215_j1(task: TaskId) -> I2cDevice {
-        // U.2 J NVMe Basic Management Control
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3686,46 +3346,39 @@ pub mod devices {
             "J215/J1",
         )
     }
-
+    #[doc = " U.2 ABCD mux"]
     #[allow(dead_code)]
     pub fn pca9545_u336(task: TaskId) -> I2cDevice {
-        // U.2 ABCD mux
         I2cDevice::new(task, Controller::I2C2, PortIndex(1), None, 0x70, "U336")
     }
-
+    #[doc = " U.2 IJ/FRUID mux"]
     #[allow(dead_code)]
     pub fn pca9545_u337(task: TaskId) -> I2cDevice {
-        // U.2 IJ/FRUID mux
         I2cDevice::new(task, Controller::I2C2, PortIndex(1), None, 0x72, "U337")
     }
-
+    #[doc = " U.2 EFGH mux"]
     #[allow(dead_code)]
     pub fn pca9545_u339(task: TaskId) -> I2cDevice {
-        // U.2 EFGH mux
         I2cDevice::new(task, Controller::I2C2, PortIndex(1), None, 0x71, "U339")
     }
-
+    #[doc = " M.2 mux"]
     #[allow(dead_code)]
     pub fn pca9545_u422(task: TaskId) -> I2cDevice {
-        // M.2 mux
         I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x73, "U422")
     }
-
+    #[doc = " CPU power controller"]
     #[allow(dead_code)]
     pub fn raa229618_u350(task: TaskId) -> I2cDevice {
-        // CPU power controller
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5a, "U350")
     }
-
+    #[doc = " SoC power controller"]
     #[allow(dead_code)]
     pub fn raa229618_u351(task: TaskId) -> I2cDevice {
-        // SoC power controller
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x5b, "U351")
     }
-
+    #[doc = " CPU via SB-RMI"]
     #[allow(dead_code)]
     pub fn sbrmi_p0_sbrmi(task: TaskId) -> I2cDevice {
-        // CPU via SB-RMI
         I2cDevice::new(
             task,
             Controller::I2C3,
@@ -3735,10 +3388,9 @@ pub mod devices {
             "P0/SBRMI",
         )
     }
-
+    #[doc = " CPU temperature sensor"]
     #[allow(dead_code)]
     pub fn sbtsi_p0_sbtsi(task: TaskId) -> I2cDevice {
-        // CPU temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C3,
@@ -3748,10 +3400,9 @@ pub mod devices {
             "P0/SBTSI",
         )
     }
-
+    #[doc = " Southwest temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_j194_u1(task: TaskId) -> I2cDevice {
-        // Southwest temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3761,10 +3412,9 @@ pub mod devices {
             "J194/U1",
         )
     }
-
+    #[doc = " South temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_j195_u1(task: TaskId) -> I2cDevice {
-        // South temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3774,10 +3424,9 @@ pub mod devices {
             "J195/U1",
         )
     }
-
+    #[doc = " Southeast temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_j196_u1(task: TaskId) -> I2cDevice {
-        // Southeast temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3787,10 +3436,9 @@ pub mod devices {
             "J196/U1",
         )
     }
-
+    #[doc = " Northeast temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_j197_u1(task: TaskId) -> I2cDevice {
-        // Northeast temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C4,
@@ -3800,10 +3448,9 @@ pub mod devices {
             "J197/U1",
         )
     }
-
+    #[doc = " North temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_j198_u1(task: TaskId) -> I2cDevice {
-        // North temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C4,
@@ -3813,10 +3460,9 @@ pub mod devices {
             "J198/U1",
         )
     }
-
+    #[doc = " Northwest temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp117_j199_u1(task: TaskId) -> I2cDevice {
-        // Northwest temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C4,
@@ -3826,10 +3472,9 @@ pub mod devices {
             "J199/U1",
         )
     }
-
+    #[doc = " T6 temperature sensor"]
     #[allow(dead_code)]
     pub fn tmp451_u491(task: TaskId) -> I2cDevice {
-        // T6 temperature sensor
         I2cDevice::new(
             task,
             Controller::I2C2,
@@ -3839,145 +3484,121 @@ pub mod devices {
             "U491",
         )
     }
-
+    #[doc = " A2 3.3V rail"]
     #[allow(dead_code)]
     pub fn tps546b24a_u522(task: TaskId) -> I2cDevice {
-        // A2 3.3V rail
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x24, "U522")
     }
-
+    #[doc = " A2 5V rail"]
     #[allow(dead_code)]
     pub fn tps546b24a_u524(task: TaskId) -> I2cDevice {
-        // A2 5V rail
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x27, "U524")
     }
-
+    #[doc = " A0 3.3V rail"]
     #[allow(dead_code)]
     pub fn tps546b24a_u560(task: TaskId) -> I2cDevice {
-        // A0 3.3V rail
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x26, "U560")
     }
-
+    #[doc = " A2 1.8V rail"]
     #[allow(dead_code)]
     pub fn tps546b24a_u561(task: TaskId) -> I2cDevice {
-        // A2 1.8V rail
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x29, "U561")
     }
-
+    #[doc = " T6 power controller"]
     #[allow(dead_code)]
     pub fn tps546b24a_u565(task: TaskId) -> I2cDevice {
-        // T6 power controller
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x25, "U565")
     }
-
+    #[doc = " DIMM A0"]
     #[allow(dead_code)]
     pub fn tse2004av_m0(task: TaskId) -> I2cDevice {
-        // DIMM A0
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x18, "M0")
     }
-
+    #[doc = " DIMM B0"]
     #[allow(dead_code)]
     pub fn tse2004av_m1(task: TaskId) -> I2cDevice {
-        // DIMM B0
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1a, "M1")
     }
-
+    #[doc = " DIMM C1"]
     #[allow(dead_code)]
     pub fn tse2004av_m10(task: TaskId) -> I2cDevice {
-        // DIMM C1
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1d, "M10")
     }
-
+    #[doc = " DIMM D1"]
     #[allow(dead_code)]
     pub fn tse2004av_m11(task: TaskId) -> I2cDevice {
-        // DIMM D1
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1f, "M11")
     }
-
+    #[doc = " DIMM E1"]
     #[allow(dead_code)]
     pub fn tse2004av_m12(task: TaskId) -> I2cDevice {
-        // DIMM E1
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x19, "M12")
     }
-
+    #[doc = " DIMM F1"]
     #[allow(dead_code)]
     pub fn tse2004av_m13(task: TaskId) -> I2cDevice {
-        // DIMM F1
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1b, "M13")
     }
-
+    #[doc = " DIMM G1"]
     #[allow(dead_code)]
     pub fn tse2004av_m14(task: TaskId) -> I2cDevice {
-        // DIMM G1
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1d, "M14")
     }
-
+    #[doc = " DIMM H1"]
     #[allow(dead_code)]
     pub fn tse2004av_m15(task: TaskId) -> I2cDevice {
-        // DIMM H1
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1f, "M15")
     }
-
+    #[doc = " DIMM C0"]
     #[allow(dead_code)]
     pub fn tse2004av_m2(task: TaskId) -> I2cDevice {
-        // DIMM C0
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1c, "M2")
     }
-
+    #[doc = " DIMM D0"]
     #[allow(dead_code)]
     pub fn tse2004av_m3(task: TaskId) -> I2cDevice {
-        // DIMM D0
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1e, "M3")
     }
-
+    #[doc = " DIMM E0"]
     #[allow(dead_code)]
     pub fn tse2004av_m4(task: TaskId) -> I2cDevice {
-        // DIMM E0
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x18, "M4")
     }
-
+    #[doc = " DIMM F0"]
     #[allow(dead_code)]
     pub fn tse2004av_m5(task: TaskId) -> I2cDevice {
-        // DIMM F0
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1a, "M5")
     }
-
+    #[doc = " DIMM G0"]
     #[allow(dead_code)]
     pub fn tse2004av_m6(task: TaskId) -> I2cDevice {
-        // DIMM G0
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1c, "M6")
     }
-
+    #[doc = " DIMM H0"]
     #[allow(dead_code)]
     pub fn tse2004av_m7(task: TaskId) -> I2cDevice {
-        // DIMM H0
         I2cDevice::new(task, Controller::I2C4, PortIndex(0), None, 0x1e, "M7")
     }
-
+    #[doc = " DIMM A1"]
     #[allow(dead_code)]
     pub fn tse2004av_m8(task: TaskId) -> I2cDevice {
-        // DIMM A1
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x19, "M8")
     }
-
+    #[doc = " DIMM B1"]
     #[allow(dead_code)]
     pub fn tse2004av_m9(task: TaskId) -> I2cDevice {
-        // DIMM B1
         I2cDevice::new(task, Controller::I2C3, PortIndex(0), None, 0x1b, "M9")
     }
 }
-
 #[allow(dead_code)]
 pub const MAX_COMPONENT_ID_LEN: usize = 8;
-
 pub mod pmbus {
     use drv_i2c_api::{Controller, I2cDevice, PortIndex};
     use userlib::TaskId;
-
+    #[doc = " T6 power controller"]
     #[allow(dead_code)]
     pub fn v0p96_nic_vdd_a0hp(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // T6 power controller
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -3989,15 +3610,13 @@ pub mod pmbus {
             None,
         )
     }
-
     #[allow(dead_code)]
     pub const TPS546B24A_V0P96_NIC_VDD_A0HP_PHASES: Option<&'static [u8]> =
         None;
-
+    #[doc = " Intermediate bus converter"]
     #[allow(dead_code)]
     pub fn v12_sys_a2(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // Intermediate bus converter
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -4009,14 +3628,12 @@ pub mod pmbus {
             None,
         )
     }
-
     #[allow(dead_code)]
     pub const BMR491_V12_SYS_A2_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin A hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2a_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin A hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4028,14 +3645,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2A_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin B hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2b_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin B hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4047,14 +3662,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2B_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin C hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2c_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin C hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4066,14 +3679,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2C_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin D hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2d_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin D hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4085,14 +3696,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2D_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin E hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2e_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin E hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4104,14 +3713,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2E_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin F hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2f_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin F hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4123,14 +3730,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2F_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin G hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2g_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin G hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4142,14 +3747,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2G_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin H hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2h_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin H hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4161,14 +3764,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2H_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin I hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2i_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin I hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4180,14 +3781,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2I_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin J hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2j_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin J hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4199,14 +3798,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V12_U2J_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " DIMM/SP3 1.8V A0 power controller"]
     #[allow(dead_code)]
     pub fn v1p8_sp3(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // DIMM/SP3 1.8V A0 power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4218,14 +3815,12 @@ pub mod pmbus {
             Some(2),
         )
     }
-
     #[allow(dead_code)]
     pub const ISL68224_V1P8_SP3_PHASES: Option<&'static [u8]> = Some(&[2]);
-
+    #[doc = " A2 1.8V rail"]
     #[allow(dead_code)]
     pub fn v1p8_sys_a2(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // A2 1.8V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4237,14 +3832,12 @@ pub mod pmbus {
             None,
         )
     }
-
     #[allow(dead_code)]
     pub const TPS546B24A_V1P8_SYS_A2_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " M.2 hot plug controller"]
     #[allow(dead_code)]
     pub fn v3p3_m2a_a0hp(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // M.2 hot plug controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4256,14 +3849,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_M2A_A0HP_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " M.2 hot plug controller"]
     #[allow(dead_code)]
     pub fn v3p3_m2b_a0hp(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // M.2 hot plug controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4275,14 +3866,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_M2B_A0HP_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " A2 3.3V rail"]
     #[allow(dead_code)]
     pub fn v3p3_sp_a2(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // A2 3.3V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4294,14 +3883,12 @@ pub mod pmbus {
             None,
         )
     }
-
     #[allow(dead_code)]
     pub const TPS546B24A_V3P3_SP_A2_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " A0 3.3V rail"]
     #[allow(dead_code)]
     pub fn v3p3_sys_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // A0 3.3V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4313,14 +3900,12 @@ pub mod pmbus {
             None,
         )
     }
-
     #[allow(dead_code)]
     pub const TPS546B24A_V3P3_SYS_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin A hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2a_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin A hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4332,14 +3917,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2A_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin B hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2b_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin B hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4351,14 +3934,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2B_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin C hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2c_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin C hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4370,14 +3951,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2C_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin D hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2d_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin D hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4389,14 +3968,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2D_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin E hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2e_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin E hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4408,14 +3985,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2E_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin F hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2f_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin F hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4427,14 +4002,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2F_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin G hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2g_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin G hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4446,14 +4019,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2G_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin H hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2h_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin H hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4465,14 +4036,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2H_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin I hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2i_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin I hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4484,14 +4053,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2I_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " U.2 Sharkfin J hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2j_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin J hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4503,14 +4070,12 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const MAX5970_V3P3_U2J_A0_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " Fan hot swap controller"]
     #[allow(dead_code)]
     pub fn v54_fan(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // Fan hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -4522,14 +4087,12 @@ pub mod pmbus {
             None,
         )
     }
-
     #[allow(dead_code)]
     pub const ADM127X_V54_FAN_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " Sled hot swap controller"]
     #[allow(dead_code)]
     pub fn v54_hs_output(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // Sled hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C4,
@@ -4541,14 +4104,12 @@ pub mod pmbus {
             None,
         )
     }
-
     #[allow(dead_code)]
     pub const ADM127X_V54_HS_OUTPUT_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " A2 5V rail"]
     #[allow(dead_code)]
     pub fn v5_sys_a2(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // A2 5V rail
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4560,14 +4121,12 @@ pub mod pmbus {
             None,
         )
     }
-
     #[allow(dead_code)]
     pub const TPS546B24A_V5_SYS_A2_PHASES: Option<&'static [u8]> = None;
-
+    #[doc = " SoC power controller"]
     #[allow(dead_code)]
     pub fn vddcr_soc(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // SoC power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4579,15 +4138,13 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const RAA229618_VDDCR_SOC_PHASES: Option<&'static [u8]> =
         Some(&[16, 17, 18, 19]);
-
+    #[doc = " CPU power controller"]
     #[allow(dead_code)]
     pub fn vdd_mem_abcd(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // CPU power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4599,15 +4156,13 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const RAA229618_VDD_MEM_ABCD_PHASES: Option<&'static [u8]> =
         Some(&[0, 1, 2, 3]);
-
+    #[doc = " SoC power controller"]
     #[allow(dead_code)]
     pub fn vdd_mem_efgh(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // SoC power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4619,15 +4174,13 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const RAA229618_VDD_MEM_EFGH_PHASES: Option<&'static [u8]> =
         Some(&[0, 1, 2, 3]);
-
+    #[doc = " CPU power controller"]
     #[allow(dead_code)]
     pub fn vdd_vcore(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // CPU power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4639,15 +4192,13 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const RAA229618_VDD_VCORE_PHASES: Option<&'static [u8]> =
         Some(&[12, 13, 14, 15, 16, 17, 18, 19]);
-
+    #[doc = " DIMM/SP3 1.8V A0 power controller"]
     #[allow(dead_code)]
     pub fn vpp_abcd(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // DIMM/SP3 1.8V A0 power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4659,14 +4210,12 @@ pub mod pmbus {
             Some(0),
         )
     }
-
     #[allow(dead_code)]
     pub const ISL68224_VPP_ABCD_PHASES: Option<&'static [u8]> = Some(&[0]);
-
+    #[doc = " DIMM/SP3 1.8V A0 power controller"]
     #[allow(dead_code)]
     pub fn vpp_efgh(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // DIMM/SP3 1.8V A0 power controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4678,19 +4227,16 @@ pub mod pmbus {
             Some(1),
         )
     }
-
     #[allow(dead_code)]
     pub const ISL68224_VPP_EFGH_PHASES: Option<&'static [u8]> = Some(&[1]);
 }
-
 pub mod power {
     use drv_i2c_api::{Controller, I2cDevice, PortIndex};
     use userlib::TaskId;
-
+    #[doc = " U.2 Sharkfin A hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2a_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin A hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4702,11 +4248,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " U.2 Sharkfin B hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2b_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin B hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4718,11 +4263,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " U.2 Sharkfin C hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2c_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin C hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4734,11 +4278,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " U.2 Sharkfin D hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2d_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin D hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4750,11 +4293,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " U.2 Sharkfin E hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2e_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin E hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4766,11 +4308,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " U.2 Sharkfin F hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2f_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin F hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4782,11 +4323,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " U.2 Sharkfin G hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2g_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin G hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4798,11 +4338,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " U.2 Sharkfin H hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2h_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin H hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4814,11 +4353,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " U.2 Sharkfin I hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2i_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin I hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4830,11 +4368,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " U.2 Sharkfin J hot swap controller"]
     #[allow(dead_code)]
     pub fn v12_u2j_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin J hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4846,11 +4383,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " M.2 hot plug controller"]
     #[allow(dead_code)]
     pub fn v3p3_m2a_a0hp(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // M.2 hot plug controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4862,11 +4398,10 @@ pub mod power {
             Some(0),
         )
     }
-
+    #[doc = " M.2 hot plug controller"]
     #[allow(dead_code)]
     pub fn v3p3_m2b_a0hp(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // M.2 hot plug controller
             I2cDevice::new(
                 task,
                 Controller::I2C3,
@@ -4878,11 +4413,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin A hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2a_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin A hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4894,11 +4428,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin B hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2b_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin B hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4910,11 +4443,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin C hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2c_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin C hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4926,11 +4458,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin D hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2d_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin D hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4942,11 +4473,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin E hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2e_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin E hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4958,11 +4488,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin F hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2f_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin F hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4974,11 +4503,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin G hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2g_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin G hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -4990,11 +4518,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin H hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2h_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin H hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -5006,11 +4533,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin I hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2i_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin I hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,
@@ -5022,11 +4548,10 @@ pub mod power {
             Some(1),
         )
     }
-
+    #[doc = " U.2 Sharkfin J hot swap controller"]
     #[allow(dead_code)]
     pub fn v3p3_u2j_a0(task: TaskId) -> (I2cDevice, Option<u8>) {
         (
-            // U.2 Sharkfin J hot swap controller
             I2cDevice::new(
                 task,
                 Controller::I2C2,

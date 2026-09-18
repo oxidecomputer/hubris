@@ -7,9 +7,16 @@
 //! These are snapshots of individual sections, generated from tiny manifests.
 
 use build_i2c::analysis::{AnalysisSettings, ControllerRole};
-use build_i2c::{Codegen, CodegenTarget, analysis, load};
+use build_i2c::{Codegen, CodegenTarget, analysis, codegen, load};
 use insta::assert_snapshot;
+use proc_macro2::TokenStream;
 use std::collections::HashSet;
+
+/// Renders a token stream as formatted source, for readable snapshots.
+fn pretty(tokens: TokenStream) -> String {
+    let file = syn::parse2(tokens).expect("generated code should parse");
+    prettyplease::unparse(&file)
+}
 
 const CONTROLLERS: &str = r#"
 [i2c]
@@ -81,7 +88,7 @@ impl Fixture {
 
     fn section<'a>(
         &'a self,
-        f: impl Fn(&Codegen<'a>, &mut String) -> anyhow::Result<()>,
+        f: impl Fn(&Codegen<'a>) -> anyhow::Result<TokenStream>,
     ) -> String {
         self.section_for(CodegenTarget::Stm32H753, f)
     }
@@ -89,11 +96,9 @@ impl Fixture {
     fn section_for<'a>(
         &'a self,
         target: CodegenTarget,
-        f: impl Fn(&Codegen<'a>, &mut String) -> anyhow::Result<()>,
+        f: impl Fn(&Codegen<'a>) -> anyhow::Result<TokenStream>,
     ) -> String {
-        let mut out = String::new();
-        f(&self.codegen(target), &mut out).unwrap();
-        out
+        pretty(f(&self.codegen(target)).unwrap())
     }
 }
 
@@ -330,11 +335,10 @@ description = "device {i}"
 }
 
 #[test]
-fn header_and_footer() {
+fn module_wrapper() {
     let f = Fixture::new(CONTROLLERS);
-    let mut out = f.section(Codegen::generate_header);
-    out.push_str(&f.section(Codegen::generate_footer));
-    assert_snapshot!(out);
+    let ports = f.codegen(CodegenTarget::None).generate_ports().unwrap();
+    assert_snapshot!(pretty(codegen::i2c_config_module(ports)));
 }
 
 #[test]

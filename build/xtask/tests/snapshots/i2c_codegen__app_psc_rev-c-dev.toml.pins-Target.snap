@@ -2,10 +2,8 @@
 source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
-
 #[allow(unused_imports)]
 use drv_stm32xx_i2c::{I2cGpio, I2cPins};
-
 pub fn pins() -> [I2cPins; 0] {
     []
 }

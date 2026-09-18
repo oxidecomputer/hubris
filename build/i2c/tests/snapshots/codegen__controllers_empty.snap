@@ -2,14 +2,9 @@
 source: build/i2c/tests/codegen.rs
 expression: "f.section(Codegen::generate_controllers)"
 ---
-
-    #[allow(dead_code)]
-    pub const NCONTROLLERS: usize = 0;
-
-    use drv_stm32xx_i2c::I2cController;
-
-    pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {
-
-        [
-        ]
-    }
+#[allow(dead_code)]
+pub const NCONTROLLERS: usize = 0;
+use drv_stm32xx_i2c::I2cController;
+pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {
+    []
+}

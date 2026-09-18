@@ -437,8 +437,12 @@ dependencies = [
  "indexmap 1.9.1",
  "insta",
  "multimap",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
  "rangemap",
  "serde",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -8168,6 +8172,7 @@ dependencies = [
  "multimap",
  "ordered-toml",
  "path-slash 0.1.4",
+ "proc-macro2",
  "rangemap",
  "rats-corim",
  "regex",

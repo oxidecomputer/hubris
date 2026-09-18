@@ -2,91 +2,63 @@
 source: build/i2c/tests/codegen.rs
 expression: "f.section(Codegen::generate_devices)"
 ---
-
-    pub mod devices {
-        #[allow(unused_imports)]
-        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
-        #[allow(unused_imports)]
-        use userlib::TaskId;
-
-        #[allow(dead_code)]
-        #[allow(clippy::match_single_binding)]
-        pub fn device_by_index(
-            task: TaskId,
-            index: usize,
-        ) -> Option<I2cDevice> {
-            match index {0 => Some(
-                    // a temperature sensor
-                    I2cDevice::new(task,
+pub mod devices {
+    #[allow(unused_imports)]
+    use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+    #[allow(unused_imports)]
+    use userlib::TaskId;
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
+    #[allow(unused_doc_comments)]
+    pub fn device_by_index(task: TaskId, index: usize) -> Option<I2cDevice> {
+        match index {
+            /// a temperature sensor
+            0 => {
+                Some(
+                    I2cDevice::new(
+                        task,
                         Controller::I2C2,
                         PortIndex(0),
                         None,
                         0x48,
                         "U1",
-                    )),
-
-                _ => None,
-            }
-        }
-
-        #[allow(dead_code)]
-        #[allow(clippy::match_single_binding)]
-        pub fn lookup_controller(index: usize) -> Option<Controller> {
-            match index {
-                0..=0 => Some(Controller::I2C2),
-                _ => None
-            }
-        }
-
-        #[allow(dead_code)]
-        #[allow(clippy::match_single_binding)]
-        pub fn lookup_port(index: usize) -> Option<PortIndex> {
-            match index {
-                0..=0 => Some(PortIndex(0)),
-                _ => None
-            }
-        }
-
-        #[allow(dead_code)]
-        pub fn tmp117(task: TaskId) -> [I2cDevice; 1] {
-            [
-                // a temperature sensor
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x48,
-                    "U1",
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn tmp117_bus1(task: TaskId) -> [I2cDevice; 1] {
-            [
-                // a temperature sensor
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x48,
-                    "U1",
-                ),
-            ]
-        }
-
-        #[allow(dead_code)]
-        pub fn tmp117_u1(task: TaskId) -> I2cDevice {
-                // a temperature sensor
-                I2cDevice::new(task,
-                    Controller::I2C2,
-                    PortIndex(0),
-                    None,
-                    0x48,
-                    "U1",
+                    ),
                 )
+            }
+            _ => None,
         }
     }
-
-        #[allow(dead_code)]
-        pub const MAX_COMPONENT_ID_LEN: usize = 2;
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
+    pub fn lookup_controller(index: usize) -> Option<Controller> {
+        match index {
+            0..=0 => Some(Controller::I2C2),
+            _ => None,
+        }
+    }
+    #[allow(dead_code)]
+    #[allow(clippy::match_single_binding)]
+    pub fn lookup_port(index: usize) -> Option<PortIndex> {
+        match index {
+            0..=0 => Some(PortIndex(0)),
+            _ => None,
+        }
+    }
+    /// a temperature sensor
+    #[allow(dead_code)]
+    pub fn tmp117(task: TaskId) -> [I2cDevice; 1] {
+        [I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x48, "U1")]
+    }
+    /// a temperature sensor
+    #[allow(dead_code)]
+    pub fn tmp117_bus1(task: TaskId) -> [I2cDevice; 1] {
+        [I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x48, "U1")]
+    }
+    /// a temperature sensor
+    #[allow(dead_code)]
+    pub fn tmp117_u1(task: TaskId) -> I2cDevice {
+        I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x48, "U1")
+    }
+}
+#[allow(dead_code)]
+pub const MAX_COMPONENT_ID_LEN: usize = 2;

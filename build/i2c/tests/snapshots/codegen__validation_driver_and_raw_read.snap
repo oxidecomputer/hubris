@@ -2,53 +2,43 @@
 source: build/i2c/tests/codegen.rs
 expression: "f.section(Codegen::generate_validation)"
 ---
-
-    pub mod validation {
-        #[allow(unused_imports)]
-        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
-        #[allow(unused_imports)]
-        use drv_i2c_devices::Validate;
-        use userlib::TaskId;
-
-        #[allow(dead_code)]
-        pub enum I2cValidation {
-            RawReadOk,
-            Good,
-            Bad,
-        }
-
-        #[allow(unused_variables)]
-        #[allow(clippy::match_single_binding)]
-        pub fn validate(
-            task: TaskId,
-            index: usize,
-        ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {
-            match index {
-                0 => {
-                    if drv_i2c_devices::tmp117::Tmp117::validate(&
-                        // a device with a driver
-                        I2cDevice::new(task,
-                            Controller::I2C2,
-                            PortIndex(0),
-                            None,
-                            0x48,
-                        ))? {
-                        Ok(I2cValidation::Good)
-                    } else {
-                        Ok(I2cValidation::Bad)
-                    }
+pub mod validation {
+    #[allow(unused_imports)]
+    use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+    #[allow(unused_imports)]
+    use drv_i2c_devices::Validate;
+    use userlib::TaskId;
+    #[allow(dead_code)]
+    pub enum I2cValidation {
+        RawReadOk,
+        Good,
+        Bad,
+    }
+    #[allow(unused_variables)]
+    #[allow(clippy::match_single_binding)]
+    #[allow(unused_doc_comments)]
+    pub fn validate(
+        task: TaskId,
+        index: usize,
+    ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {
+        match index {
+            /// a device with a driver
+            0 => {
+                if drv_i2c_devices::tmp117::Tmp117::validate(
+                    &I2cDevice::new(task, Controller::I2C2, PortIndex(0), None, 0x48),
+                )? {
+                    Ok(I2cValidation::Good)
+                } else {
+                    Ok(I2cValidation::Bad)
                 }
-                1 => {
-                    // a device without a driver
-                    I2cDevice::new(task,
-                        Controller::I2C2,
-                        PortIndex(1),
-                        None,
-                        0x20,
-                    ).read::<u8>()?;
-                    Ok(I2cValidation::RawReadOk)
-                }
-                _ => Err(drv_i2c_api::ResponseCode::BadArg)
             }
+            /// a device without a driver
+            1 => {
+                I2cDevice::new(task, Controller::I2C2, PortIndex(1), None, 0x20)
+                    .read::<u8>()?;
+                Ok(I2cValidation::RawReadOk)
+            }
+            _ => Err(drv_i2c_api::ResponseCode::BadArg),
         }
     }
+}

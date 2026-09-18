@@ -2,62 +2,49 @@
 source: build/i2c/tests/codegen.rs
 expression: "f.section(Codegen::generate_sensors)"
 ---
-
-    pub mod sensors {
-        #[allow(unused_imports)]
-        use super::super::SensorId;
-
-        #[allow(dead_code)]
-        pub const NUM_SENSORS: usize = 4;
-
-        #[allow(non_camel_case_types, dead_code)]
-        pub struct Sensors_tmp117 {
-            pub temperature: SensorId,
-        }
-        #[allow(dead_code)]
-        pub const TMP117_NORTH_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
-            temperature: SensorId::new(0),
-        };
-
-        #[allow(non_camel_case_types, dead_code)]
-        pub struct Sensors_max31790 {
-            pub speed: [SensorId; 3],
-        }
-        #[allow(dead_code)]
-        pub const MAX31790_U42_SENSORS: Sensors_max31790 = Sensors_max31790 {
-            speed: [SensorId::new(1), SensorId::new(2), SensorId::new(3)],
-        };
-
-        #[allow(dead_code)]
-        pub const NUM_MAX31790_SPEED_SENSORS: usize = 3;
-
-        #[allow(dead_code)]
-        pub const MAX31790_SPEED_SENSORS: [SensorId; 3] = [ 
-            SensorId::new(1),
-            SensorId::new(2),
-            SensorId::new(3),
-        ];
-
-        #[allow(dead_code)]
-        pub const NUM_TMP117_TEMPERATURE_SENSORS: usize = 1;
-
-        #[allow(dead_code)]
-        pub const TMP117_TEMPERATURE_SENSOR: SensorId = SensorId::new(0);
-
-        #[allow(dead_code)]
-        pub const NUM_TMP117_NORTH_TEMPERATURE_SENSORS: usize = 1;
-
-        #[allow(dead_code)]
-        pub const TMP117_NORTH_TEMPERATURE_SENSOR: SensorId = SensorId::new(0);
-
-        #[allow(dead_code)]
-        pub const NUM_MAX31790_U42_SPEED_SENSORS: usize = 3;
-
-        #[allow(dead_code)]
-        pub const MAX31790_U42_SPEED_SENSORS: [SensorId; 3] = [ 
-            SensorId::new(1),
-            SensorId::new(2),
-            SensorId::new(3),
-        ];
-
+pub mod sensors {
+    #[allow(unused_imports)]
+    use super::super::SensorId;
+    #[allow(dead_code)]
+    pub const NUM_SENSORS: usize = 4;
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_tmp117 {
+        pub temperature: SensorId,
     }
+    #[allow(dead_code)]
+    pub const TMP117_NORTH_SENSORS: Sensors_tmp117 = Sensors_tmp117 {
+        temperature: SensorId::new(0),
+    };
+    #[allow(non_camel_case_types, dead_code)]
+    pub struct Sensors_max31790 {
+        pub speed: [SensorId; 3],
+    }
+    #[allow(dead_code)]
+    pub const MAX31790_U42_SENSORS: Sensors_max31790 = Sensors_max31790 {
+        speed: [SensorId::new(1), SensorId::new(2), SensorId::new(3)],
+    };
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_SPEED_SENSORS: usize = 3;
+    #[allow(dead_code)]
+    pub const MAX31790_SPEED_SENSORS: [SensorId; 3] = [
+        SensorId::new(1),
+        SensorId::new(2),
+        SensorId::new(3),
+    ];
+    #[allow(dead_code)]
+    pub const NUM_TMP117_TEMPERATURE_SENSORS: usize = 1;
+    #[allow(dead_code)]
+    pub const TMP117_TEMPERATURE_SENSOR: SensorId = SensorId::new(0);
+    #[allow(dead_code)]
+    pub const NUM_TMP117_NORTH_TEMPERATURE_SENSORS: usize = 1;
+    #[allow(dead_code)]
+    pub const TMP117_NORTH_TEMPERATURE_SENSOR: SensorId = SensorId::new(0);
+    #[allow(dead_code)]
+    pub const NUM_MAX31790_U42_SPEED_SENSORS: usize = 3;
+    #[allow(dead_code)]
+    pub const MAX31790_U42_SPEED_SENSORS: [SensorId; 3] = [
+        SensorId::new(1),
+        SensorId::new(2),
+        SensorId::new(3),
+    ];
+}

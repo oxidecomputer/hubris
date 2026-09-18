@@ -3,22 +3,27 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Stage 3: code generation.
+//!
+//! Each section is produced as a [`TokenStream`] via [`quote!`]; the caller
+//! assembles the sections into the `i2c_config` module (see
+//! [`i2c_config_module`]) and renders it to a string.
 
 use crate::CodegenTarget;
 use crate::analysis::{Device, DeviceSensor, Report, Validation};
 use crate::load::{I2cDevice, I2cSensors, Sensor};
 use anyhow::{Result, bail};
 use convert_case::{Case, Casing};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
+use quote::{format_ident, quote};
 use rangemap::RangeSet;
 use std::collections::BTreeMap;
-use std::fmt::Write;
 use std::sync::Arc;
 
 /// Code generation for a single analyzed configuration.
 ///
 /// Every method here is a pure function of the [`Report`] (plus the
 /// code-generation-only settings in this struct): none of them validate
-/// anything, and none of them panic.
+/// anything.
 pub struct Codegen<'a> {
     /// The analyzed configuration.
     pub report: &'a Report,
@@ -36,148 +41,165 @@ enum PowerDevices {
     NonPMBus,
 }
 
+/// Wraps generated sections in the `i2c_config` module that tasks
+/// `include!`.
+pub fn i2c_config_module(body: TokenStream) -> TokenStream {
+    quote! {
+        pub(crate) mod i2c_config {
+            #body
+        }
+    }
+}
+
+/// Builds an identifier from a string.
+///
+/// The manifest is the source of every name used here (device names, bus
+/// names, rail names, ...), and those names are only ever valid if they form
+/// legal identifiers; a bad one is reported by `Ident::new`.
+fn ident(s: &str) -> Ident {
+    Ident::new(s, Span::call_site())
+}
+
+/// A device description as a doc attribute value.
+///
+/// The leading space matches what `/// text` desugars to.
+fn doc(description: &str) -> String {
+    format!(" {description}")
+}
+
+/// An unsuffixed `usize` literal (`3`, not `3usize`).
+fn usize_lit(n: usize) -> Literal {
+    Literal::usize_unsuffixed(n)
+}
+
+/// An unsuffixed `u8` literal (`3`, not `3u8`).
+fn u8_lit(n: u8) -> Literal {
+    Literal::u8_unsuffixed(n)
+}
+
+/// An unsuffixed hexadecimal literal (`0x48`), as used for I2C addresses.
+fn hex_lit(n: u8) -> Literal {
+    format!("{n:#x}")
+        .parse()
+        .expect("a formatted hex integer is always a valid literal")
+}
+
 impl Codegen<'_> {
-    pub fn generate_header(&self, output: &mut String) -> Result<()> {
-        writeln!(output, "pub(crate) mod i2c_config {{")?;
-        Ok(())
-    }
+    pub fn generate_controllers(&self) -> Result<TokenStream> {
+        let ncontrollers = usize_lit(self.report.controllers.len());
 
-    pub fn generate_footer(&self, output: &mut String) -> Result<()> {
-        writeln!(output, "}}")?;
-        Ok(())
-    }
-
-    pub fn generate_controllers(&self, output: &mut String) -> Result<()> {
-        writeln!(
-            output,
-            r##"
-    #[allow(dead_code)]
-    pub const NCONTROLLERS: usize = {ncontrollers};
-
-    use drv_stm32xx_i2c::I2cController;
-
-    pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {{"##,
-            ncontrollers = self.report.controllers.len()
-        )?;
-
-        if !self.report.controllers.is_empty() {
-            writeln!(
-                output,
-                r##"
-        use drv_stm32xx_sys_api::Peripheral;
-        use drv_i2c_api::Controller;"##
-            )?;
-
-            let text = match self.codegen_target {
-                CodegenTarget::None => "",
-                CodegenTarget::Stm32H743 => "use stm32h7::stm32h743 as device;",
-                CodegenTarget::Stm32H753 => "use stm32h7::stm32h753 as device;",
-                CodegenTarget::Stm32G031 => "use stm32g0::stm32g031 as device;",
-                CodegenTarget::Stm32G030 => "use stm32g0::stm32g030 as device;",
+        let imports = if self.report.controllers.is_empty() {
+            quote!()
+        } else {
+            let device = match self.codegen_target {
+                CodegenTarget::None => quote!(),
+                CodegenTarget::Stm32H743 => {
+                    quote!(
+                        use stm32h7::stm32h743 as device;
+                    )
+                }
+                CodegenTarget::Stm32H753 => {
+                    quote!(
+                        use stm32h7::stm32h753 as device;
+                    )
+                }
+                CodegenTarget::Stm32G031 => {
+                    quote!(
+                        use stm32g0::stm32g031 as device;
+                    )
+                }
+                CodegenTarget::Stm32G030 => {
+                    quote!(
+                        use stm32g0::stm32g030 as device;
+                    )
+                }
             };
-            writeln!(output, "{text}")?;
-        }
-
-        write!(
-            output,
-            r##"
-        ["##
-        )?;
-
-        for c in &self.report.controllers {
-            write!(
-                output,
-                r##"
-            I2cController {{
-                controller: Controller::I2C{controller},
-                peripheral: Peripheral::I2c{controller},
-                notification: crate::notifications::I2C{controller}_IRQ_MASK,
-                registers: unsafe {{ &*device::I2C{controller}::ptr() }},
-            }},"##,
-                controller = c.controller,
-            )?;
-        }
-
-        writeln!(
-            output,
-            r##"
-        ]
-    }}"##
-        )?;
-
-        Ok(())
-    }
-
-    pub fn generate_pins(&self, output: &mut String) -> Result<()> {
-        let mut len = 0;
-
-        for c in &self.report.controllers {
-            len += c.ports.len();
-        }
-
-        writeln!(
-            output,
-            r##"
-    #[allow(unused_imports)]
-    use drv_stm32xx_i2c::{{I2cPins, I2cGpio}};
-
-    pub fn pins() -> [I2cPins; {len}] {{"##,
-        )?;
-
-        if len > 0 {
-            writeln!(
-                output,
-                r##"
-        use drv_i2c_api::{{Controller, PortIndex}};
-        use drv_stm32xx_sys_api::{{self as gpio_api, Alternate}};"##
-            )?;
-        }
-
-        write!(
-            output,
-            r##"
-        ["##
-        )?;
-
-        for c in &self.report.controllers {
-            for (index, (p, port)) in c.ports.iter().enumerate() {
-                writeln!(
-                    output,
-                    r##"
-            I2cPins {{
-                controller: Controller::I2C{controller},
-                port: PortIndex({index}),
-                scl: gpio_api::Port::{scl}.pin({scl_pin}),
-                sda: gpio_api::Port::{sda}.pin({sda_pin}),
-                function: Alternate::AF{af},
-            }},"##,
-                    controller = c.controller,
-                    scl = match port.scl.gpio_port {
-                        Some(ref port) => port,
-                        None => p,
-                    },
-                    scl_pin = port.scl.pin,
-                    sda = match port.sda.gpio_port {
-                        Some(ref port) => port,
-                        None => p,
-                    },
-                    sda_pin = port.sda.pin,
-                    af = port.af
-                )?;
+            quote! {
+                use drv_stm32xx_sys_api::Peripheral;
+                use drv_i2c_api::Controller;
+                #device
             }
-        }
+        };
 
-        writeln!(
-            output,
-            r##"
-        ]
-    }}"##
-        )?;
+        let controllers = self.report.controllers.iter().map(|c| {
+            let controller = format_ident!("I2C{}", c.controller);
+            let peripheral = format_ident!("I2c{}", c.controller);
+            let irq_mask = format_ident!("I2C{}_IRQ_MASK", c.controller);
+            quote! {
+                I2cController {
+                    controller: Controller::#controller,
+                    peripheral: Peripheral::#peripheral,
+                    notification: crate::notifications::#irq_mask,
+                    registers: unsafe { &*device::#controller::ptr() },
+                }
+            }
+        });
 
-        Ok(())
+        Ok(quote! {
+            #[allow(dead_code)]
+            pub const NCONTROLLERS: usize = #ncontrollers;
+
+            use drv_stm32xx_i2c::I2cController;
+
+            pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {
+                #imports
+                [ #(#controllers),* ]
+            }
+        })
     }
 
-    pub fn generate_muxes(&self, output: &mut String) -> Result<()> {
+    pub fn generate_pins(&self) -> Result<TokenStream> {
+        let len = self
+            .report
+            .controllers
+            .iter()
+            .map(|c| c.ports.len())
+            .sum::<usize>();
+
+        let imports = if len > 0 {
+            quote! {
+                use drv_i2c_api::{Controller, PortIndex};
+                use drv_stm32xx_sys_api::{self as gpio_api, Alternate};
+            }
+        } else {
+            quote!()
+        };
+
+        let pins = self.report.controllers.iter().flat_map(|c| {
+            c.ports.iter().enumerate().map(move |(index, (p, port))| {
+                let controller = format_ident!("I2C{}", c.controller);
+                let index = usize_lit(index);
+                let scl = ident(port.scl.gpio_port.as_deref().unwrap_or(p));
+                let scl_pin = u8_lit(port.scl.pin);
+                let sda = ident(port.sda.gpio_port.as_deref().unwrap_or(p));
+                let sda_pin = u8_lit(port.sda.pin);
+                let af = format_ident!("AF{}", port.af);
+                quote! {
+                    I2cPins {
+                        controller: Controller::#controller,
+                        port: PortIndex(#index),
+                        scl: gpio_api::Port::#scl.pin(#scl_pin),
+                        sda: gpio_api::Port::#sda.pin(#sda_pin),
+                        function: Alternate::#af,
+                    }
+                }
+            })
+        });
+
+        let len = usize_lit(len);
+
+        Ok(quote! {
+            #[allow(unused_imports)]
+            use drv_stm32xx_i2c::{I2cPins, I2cGpio};
+
+            pub fn pins() -> [I2cPins; #len] {
+                #imports
+                [ #(#pins),* ]
+            }
+        })
+    }
+
+    pub fn generate_muxes(&self) -> Result<TokenStream> {
         let mut nmuxedbuses = 0;
         let mut len = 0;
 
@@ -191,136 +213,140 @@ impl Codegen<'_> {
             }
         }
 
-        write!(
-            output,
-            r##"
-    #[allow(dead_code)]
-    pub const NMUXEDBUSES: usize = {nmuxedbuses};
+        let imports = if len > 0 {
+            quote! {
+                use drv_i2c_api::{Controller, PortIndex, Mux};
 
-    use drv_stm32xx_i2c::I2cMux;
+                #[allow(unused_imports)]
+                use drv_stm32xx_sys_api::{self as gpio_api, Alternate};
+            }
+        } else {
+            quote!()
+        };
 
-    pub fn muxes() -> [I2cMux<'static>; {len}] {{"##,
-        )?;
-
-        if len > 0 {
-            writeln!(
-                output,
-                r##"
-        use drv_i2c_api::{{Controller, PortIndex, Mux}};
-
-        #[allow(unused_imports)]
-        use drv_stm32xx_sys_api::{{self as gpio_api, Alternate}};"##
-            )?;
-        }
-
-        write!(
-            output,
-            r##"
-        ["##
-        )?;
-
-        for c in &self.report.controllers {
-            for (index, port) in c.ports.values().enumerate() {
-                for (mindex, mux) in port.muxes.iter().enumerate() {
-                    let nreset = mux
-                        .nreset
-                        .as_ref()
-                        .map(|enable| {
-                            format!(
-                                r##"Some(I2cGpio {{
-                    gpio_pins: gpio_api::Port::{gpio_port}.pin({gpio_pin}),
-                }})"##,
-                                gpio_port = enable.port,
-                                gpio_pin = enable.pin,
-                            )
-                        })
-                        .unwrap_or_else(|| "None".to_string());
-
-                    let driver_struct = format!(
+        let muxes = self.report.controllers.iter().flat_map(|c| {
+            c.ports.values().enumerate().flat_map(move |(index, port)| {
+                port.muxes.iter().enumerate().map(move |(mindex, mux)| {
+                    let controller = format_ident!("I2C{}", c.controller);
+                    let i2c_port = usize_lit(index);
+                    let id = format_ident!("M{}", mindex + 1);
+                    let driver = ident(&mux.driver);
+                    let driver_struct = ident(&format!(
                         "{}{}",
                         mux.driver[..1].to_uppercase(),
                         &mux.driver[1..]
-                    );
+                    ));
+                    let nreset = match &mux.nreset {
+                        Some(enable) => {
+                            let gpio_port = ident(&enable.port);
+                            let gpio_pin = u8_lit(enable.pin);
+                            quote! {
+                                Some(I2cGpio {
+                                    gpio_pins: gpio_api::Port::#gpio_port.pin(#gpio_pin),
+                                })
+                            }
+                        }
+                        None => quote!(None),
+                    };
+                    let address = hex_lit(mux.address);
 
-                    write!(
-                        output,
-                        r##"
-            I2cMux {{
-                controller: Controller::I2C{controller},
-                port: PortIndex({i2c_port}),
-                id: Mux::M{mindex},
-                driver: &drv_stm32xx_i2c::{driver}::{driver_struct},
-                nreset: {nreset},
-                address: {address:#x},
-            }},"##,
-                        controller = c.controller,
-                        i2c_port = index,
-                        mindex = mindex + 1,
-                        driver = mux.driver,
-                        driver_struct = driver_struct,
-                        address = mux.address,
-                    )?;
-                }
+                    quote! {
+                        I2cMux {
+                            controller: Controller::#controller,
+                            port: PortIndex(#i2c_port),
+                            id: Mux::#id,
+                            driver: &drv_stm32xx_i2c::#driver::#driver_struct,
+                            nreset: #nreset,
+                            address: #address,
+                        }
+                    }
+                })
+            })
+        });
+
+        let nmuxedbuses = usize_lit(nmuxedbuses);
+        let len = usize_lit(len);
+
+        Ok(quote! {
+            #[allow(dead_code)]
+            pub const NMUXEDBUSES: usize = #nmuxedbuses;
+
+            use drv_stm32xx_i2c::I2cMux;
+
+            pub fn muxes() -> [I2cMux<'static>; #len] {
+                #imports
+                [ #(#muxes),* ]
             }
-        }
-
-        writeln!(
-            output,
-            r##"
-        ]
-    }}"##
-        )?;
-
-        Ok(())
+        })
     }
 
-    fn generate_device(&self, d: &Device, indent: usize) -> String {
-        let controller = d.controller;
-        let port = d.port;
+    /// The expression constructing an `I2cDevice` handle for `d`.
+    ///
+    /// This expects `task: TaskId` to be in scope, along with `I2cDevice`,
+    /// `Controller` and `PortIndex` from `drv_i2c_api`.
+    fn device_expr(&self, d: &Device) -> TokenStream {
+        let controller = format_ident!("I2C{}", d.controller);
+        let port = usize_lit(d.port);
 
         let segment = match d.segment {
-            Some((mux, segment)) => format!(
-                "Some((drv_i2c_api::Mux::M{mux}, drv_i2c_api::Segment::S{segment}))",
-            ),
-            None => "None".to_owned(),
+            Some((mux, segment)) => {
+                let mux = format_ident!("M{mux}");
+                let segment = format_ident!("S{segment}");
+                quote!(Some((drv_i2c_api::Mux::#mux, drv_i2c_api::Segment::#segment)))
+            }
+            None => quote!(None),
         };
 
-        let indent = format!("{:indent$}", "", indent = indent);
+        let address = hex_lit(d.config.address);
 
-        let component_id = match &d.component_id {
-            Some(id) => format!("\n{indent}    {id:?},"),
-            None => String::new(),
-        };
+        let component_id = d.component_id.as_ref().map(|id| quote!(, #id));
 
-        format!(
-            r##"
-{indent}// {description}
-{indent}I2cDevice::new(task,
-{indent}    Controller::I2C{controller},
-{indent}    PortIndex({port}),
-{indent}    {segment},
-{indent}    {address:#x},{component_id}
-{indent})"##,
-            description = d.config.description,
-            controller = controller,
-            port = port,
-            segment = segment,
-            address = d.config.address,
-            indent = indent,
-        )
+        quote! {
+            I2cDevice::new(
+                task,
+                Controller::#controller,
+                PortIndex(#port),
+                #segment,
+                #address
+                #component_id
+            )
+        }
     }
 
-    pub fn generate_devices(&self, output: &mut String) -> Result<()> {
-        write!(
-            output,
-            r##"
-    pub mod devices {{
-        #[allow(unused_imports)]
-        use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
-        #[allow(unused_imports)]
-        use userlib::TaskId;
-"##
-        )?;
+    /// A function returning an array of every device in `indices`.
+    fn device_array_fn(&self, name: &str, indices: &[usize]) -> TokenStream {
+        let name = ident(name);
+        let len = usize_lit(indices.len());
+        let devices = indices.iter().map(|&i| &self.report.devices[i]);
+        let docs = devices.clone().map(|d| doc(&d.config.description));
+        let exprs = devices.map(|d| self.device_expr(d));
+
+        quote! {
+            #(#[doc = #docs])*
+            #[allow(dead_code)]
+            pub fn #name(task: TaskId) -> [I2cDevice; #len] {
+                [ #(#exprs),* ]
+            }
+        }
+    }
+
+    /// A function returning the single device at `index`.
+    fn device_fn(&self, name: &str, index: usize) -> TokenStream {
+        let name = ident(name);
+        let device = &self.report.devices[index];
+        let doc = doc(&device.config.description);
+        let expr = self.device_expr(device);
+
+        quote! {
+            #[doc = #doc]
+            #[allow(dead_code)]
+            pub fn #name(task: TaskId) -> I2cDevice {
+                #expr
+            }
+        }
+    }
+
+    pub fn generate_devices(&self) -> Result<TokenStream> {
         //
         // Generate a function that looks up an `I2cDevice` based on its index
         // in the order returned by `device_descriptions()`.
@@ -335,181 +361,125 @@ impl Codegen<'_> {
             // If we are generating a `device_by_index` function that has no
             // devices in it, this argument will be unused, so suppress clippy
             // warnings about it.
-            "_task"
+            ident("_task")
         } else {
-            "task"
+            ident("task")
         };
-        write!(
-            output,
-            r##"
-        #[allow(dead_code)]
-        #[allow(clippy::match_single_binding)]
-        pub fn device_by_index(
-            {task_arg}: TaskId,
-            index: usize,
-        ) -> Option<I2cDevice> {{
-            match index {{"##,
-        )?;
 
-        for (index, device) in self.report.devices.iter().enumerate() {
-            let out = self.generate_device(device, 20);
-            writeln!(output, "{index} => Some({out}),")?;
-        }
+        let by_index =
+            self.report.devices.iter().enumerate().map(|(index, d)| {
+                let index = usize_lit(index);
+                let doc = doc(&d.config.description);
+                let expr = self.device_expr(d);
+                quote! {
+                    #[doc = #doc]
+                    #index => Some(#expr),
+                }
+            });
 
-        write!(
-            output,
-            r##"
-                _ => None,
-            }}
-        }}
+        let by_controller = match_arms(&self.report.by_controller, |c| {
+            let c = format_ident!("I2C{c}");
+            quote!(Some(Controller::#c))
+        });
 
-        #[allow(dead_code)]
-        #[allow(clippy::match_single_binding)]
-        pub fn lookup_controller(index: usize) -> Option<Controller> {{
-            match index {{"##
-        )?;
+        let by_port = match_arms(&self.report.by_port, |p| {
+            let p = usize_lit(*p);
+            quote!(Some(PortIndex(#p)))
+        });
 
-        match_arms(output, &self.report.by_controller, |c| {
-            format!("Some(Controller::I2C{c})")
-        })?;
+        let by_device = self
+            .report
+            .by_device
+            .iter()
+            .map(|(device, indices)| self.device_array_fn(device, indices));
 
-        write!(
-            output,
-            r##"
-                _ => None
-            }}
-        }}
-"##
-        )?;
+        let by_bus =
+            self.report.by_bus.iter().map(|((device, bus), indices)| {
+                self.device_array_fn(&format!("{device}_{bus}"), indices)
+            });
 
-        write!(
-            output,
-            r##"
-        #[allow(dead_code)]
-        #[allow(clippy::match_single_binding)]
-        pub fn lookup_port(index: usize) -> Option<PortIndex> {{
-            match index {{"##
-        )?;
+        let by_name =
+            self.report.by_name.iter().map(|((device, name), index)| {
+                self.device_fn(
+                    &format!("{device}_{}", name.to_lowercase()),
+                    *index,
+                )
+            });
 
-        match_arms(output, &self.report.by_port, |p| {
-            format!("Some(PortIndex({p}))")
-        })?;
+        let by_refdes =
+            self.report
+                .by_refdes
+                .iter()
+                .map(|((device, refdes), index)| {
+                    self.device_fn(
+                        &format!("{device}_{}", refdes.to_lower_ident()),
+                        *index,
+                    )
+                });
 
-        write!(
-            output,
-            r##"
-                _ => None
-            }}
-        }}
-"##
-        )?;
+        let max_component_id_len = self.report.component_ids.then(|| {
+            let len = usize_lit(self.report.max_component_id_len);
+            quote! {
+                #[allow(dead_code)]
+                pub const MAX_COMPONENT_ID_LEN: usize = #len;
+            }
+        });
 
-        for (device, indices) in &self.report.by_device {
-            write!(
-                output,
-                r##"
-        #[allow(dead_code)]
-        pub fn {}(task: TaskId) -> [I2cDevice; {}] {{
-            ["##,
-                device,
-                indices.len()
-            )?;
+        let pmbus = self.generate_power(PowerDevices::PMBus);
+        let power = self.generate_power(PowerDevices::NonPMBus);
 
-            for &i in indices {
-                let out = self.generate_device(&self.report.devices[i], 16);
-                write!(output, "{out},")?;
+        Ok(quote! {
+            pub mod devices {
+                #[allow(unused_imports)]
+                use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+                #[allow(unused_imports)]
+                use userlib::TaskId;
+
+                #[allow(dead_code)]
+                #[allow(clippy::match_single_binding)]
+                #[allow(unused_doc_comments)]
+                pub fn device_by_index(
+                    #task_arg: TaskId,
+                    index: usize,
+                ) -> Option<I2cDevice> {
+                    match index {
+                        #(#by_index)*
+                        _ => None,
+                    }
+                }
+
+                #[allow(dead_code)]
+                #[allow(clippy::match_single_binding)]
+                pub fn lookup_controller(index: usize) -> Option<Controller> {
+                    match index {
+                        #by_controller
+                        _ => None
+                    }
+                }
+
+                #[allow(dead_code)]
+                #[allow(clippy::match_single_binding)]
+                pub fn lookup_port(index: usize) -> Option<PortIndex> {
+                    match index {
+                        #by_port
+                        _ => None
+                    }
+                }
+
+                #(#by_device)*
+                #(#by_bus)*
+                #(#by_name)*
+                #(#by_refdes)*
             }
 
-            writeln!(
-                output,
-                r##"
-            ]
-        }}"##
-            )?;
-        }
+            #max_component_id_len
 
-        for ((device, bus), indices) in &self.report.by_bus {
-            write!(
-                output,
-                r##"
-        #[allow(dead_code)]
-        pub fn {}_{}(task: TaskId) -> [I2cDevice; {}] {{
-            ["##,
-                device,
-                bus,
-                indices.len()
-            )?;
-
-            for &i in indices {
-                let out = self.generate_device(&self.report.devices[i], 16);
-                write!(output, "{out},")?;
-            }
-            writeln!(
-                output,
-                r##"
-            ]
-        }}"##
-            )?;
-        }
-
-        for ((device, name), index) in &self.report.by_name {
-            write!(
-                output,
-                r##"
-        #[allow(dead_code)]
-        pub fn {}_{}(task: TaskId) -> I2cDevice {{"##,
-                device,
-                name.to_lowercase()
-            )?;
-
-            let out = self.generate_device(&self.report.devices[*index], 16);
-            write!(output, "{out}")?;
-
-            writeln!(
-                output,
-                r##"
-        }}"##
-            )?;
-        }
-
-        for ((device, refdes), index) in &self.report.by_refdes {
-            let name = refdes.to_lower_ident();
-            write!(
-                output,
-                r##"
-        #[allow(dead_code)]
-        pub fn {device}_{name}(task: TaskId) -> I2cDevice {{"##,
-            )?;
-
-            let out = self.generate_device(&self.report.devices[*index], 16);
-            write!(output, "{out}")?;
-
-            writeln!(
-                output,
-                r##"
-        }}"##
-            )?;
-        }
-
-        writeln!(output, "    }}")?;
-
-        if self.report.component_ids {
-            let max_component_id_len = self.report.max_component_id_len;
-            writeln!(
-                output,
-                r##"
-        #[allow(dead_code)]
-        pub const MAX_COMPONENT_ID_LEN: usize = {max_component_id_len};"##,
-            )?;
-        }
-
-        self.generate_power(PowerDevices::PMBus, output)?;
-        self.generate_power(PowerDevices::NonPMBus, output)?;
-
-        Ok(())
+            #pmbus
+            #power
+        })
     }
 
-    pub fn generate_validation(&self, output: &mut String) -> Result<()> {
+    pub fn generate_validation(&self) -> Result<TokenStream> {
         let Some(validation) = &self.report.validation else {
             bail!(
                 "internal error: validation code generation was requested, \
@@ -517,153 +487,142 @@ impl Codegen<'_> {
             );
         };
 
-        write!(
-            output,
-            r##"
-    pub mod validation {{
-        #[allow(unused_imports)]
-        use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
-        #[allow(unused_imports)]
-        use drv_i2c_devices::Validate;
-        use userlib::TaskId;
-
-        #[allow(dead_code)]
-        pub enum I2cValidation {{
-            RawReadOk,
-            Good,
-            Bad,
-        }}
-
-        #[allow(unused_variables)]
-        #[allow(clippy::match_single_binding)]
-        pub fn validate(
-            task: TaskId,
-            index: usize,
-        ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {{
-            match index {{"##
-        )?;
-
         // The ordering / index values of this `match` must match the ordering
         // returned by `device_descriptions()`: if we change the ordering here,
         // it must be updated there as well.
-        for (index, device) in self.report.devices.iter().enumerate() {
-            match &validation[index] {
-                Validation::Driver(driver) => {
-                    let out = self.generate_device(device, 24);
+        let arms = self.report.devices.iter().enumerate().map(|(index, d)| {
+            let doc = doc(&d.config.description);
+            let expr = self.device_expr(d);
+            let strategy = &validation[index];
+            let index = usize_lit(index);
 
-                    write!(
-                        output,
-                        r##"
-                {index} => {{
-                    if drv_i2c_devices::{device}::{driver}::validate(&{out})? {{
-                        Ok(I2cValidation::Good)
-                    }} else {{
-                        Ok(I2cValidation::Bad)
-                    }}
-                }}"##,
-                        device = device.config.device,
-                    )?;
+            match strategy {
+                Validation::Driver(driver) => {
+                    let module = ident(&d.config.device);
+                    let driver = ident(driver);
+                    quote! {
+                        #[doc = #doc]
+                        #index => {
+                            if drv_i2c_devices::#module::#driver::validate(&#expr)? {
+                                Ok(I2cValidation::Good)
+                            } else {
+                                Ok(I2cValidation::Bad)
+                            }
+                        }
+                    }
                 }
-                Validation::RawRead => {
-                    let out = self.generate_device(device, 20);
-                    write!(
-                        output,
-                        r##"
-                {index} => {{{out}.read::<u8>()?;
-                    Ok(I2cValidation::RawReadOk)
-                }}"##,
-                    )?;
+                Validation::RawRead => quote! {
+                    #[doc = #doc]
+                    #index => {
+                        #expr.read::<u8>()?;
+                        Ok(I2cValidation::RawReadOk)
+                    }
+                },
+            }
+        });
+
+        Ok(quote! {
+            pub mod validation {
+                #[allow(unused_imports)]
+                use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+                #[allow(unused_imports)]
+                use drv_i2c_devices::Validate;
+                use userlib::TaskId;
+
+                #[allow(dead_code)]
+                pub enum I2cValidation {
+                    RawReadOk,
+                    Good,
+                    Bad,
+                }
+
+                #[allow(unused_variables)]
+                #[allow(clippy::match_single_binding)]
+                #[allow(unused_doc_comments)]
+                pub fn validate(
+                    task: TaskId,
+                    index: usize,
+                ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {
+                    match index {
+                        #(#arms)*
+                        _ => Err(drv_i2c_api::ResponseCode::BadArg)
+                    }
                 }
             }
-        }
-
-        writeln!(
-            output,
-            r##"
-                _ => Err(drv_i2c_api::ResponseCode::BadArg)
-            }}
-        }}
-    }}"##
-        )?;
-
-        Ok(())
+        })
     }
 
-    fn generate_power(
-        &self,
-        which: PowerDevices,
-        output: &mut String,
-    ) -> Result<()> {
+    fn generate_power(&self, which: PowerDevices) -> TokenStream {
         let rails = match which {
             PowerDevices::PMBus => &self.report.pmbus_rails,
             PowerDevices::NonPMBus => &self.report.power_rails,
         };
 
-        if !rails.is_empty() {
-            write!(
-                output,
-                r##"
-    pub mod {} {{
-        use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
-        use userlib::TaskId;
-"##,
-                match which {
-                    PowerDevices::PMBus => "pmbus",
-                    PowerDevices::NonPMBus => "power",
-                }
-            )?;
-
-            for entry in rails {
-                let rail = &entry.rail;
-                let index = &entry.bank;
-                let device = &self.report.devices[entry.device];
-
-                // ---
-                // Accessor, returns `(I2cDevice, Option<u8>)`
-
-                write!(
-                    output,
-                    r##"
-        #[allow(dead_code)]
-        pub fn {}(task: TaskId)"##,
-                    rail.to_lowercase(),
-                )?;
-                write!(output, " -> (I2cDevice, Option<u8>) {{")?;
-
-                let out = self.generate_device(device, 16);
-                if let Some(idx) = index {
-                    writeln!(output, "({out}, Some({idx}))\n        }}")?;
-                } else {
-                    writeln!(output, "({out}, None)\n        }}")?;
-                }
-
-                if which == PowerDevices::PMBus {
-                    let phases = match &entry.phases {
-                        Some(phases) => {
-                            let p = phases
-                                .iter()
-                                .map(|p| p.to_string())
-                                .collect::<Vec<_>>()
-                                .join(", ");
-
-                            format!("Some(&[{p}])")
-                        }
-                        None => "None".to_string(),
-                    };
-
-                    writeln!(
-                        output,
-                        r##"
-        #[allow(dead_code)]
-        pub const {}_{rail}_PHASES: Option<&'static [u8]> = {phases};"##,
-                        device.config.device.to_uppercase()
-                    )?;
-                }
-            }
-
-            writeln!(output, "    }}")?;
+        if rails.is_empty() {
+            return quote!();
         }
-        Ok(())
+
+        let module = match which {
+            PowerDevices::PMBus => ident("pmbus"),
+            PowerDevices::NonPMBus => ident("power"),
+        };
+
+        let items = rails.iter().map(|entry| {
+            let rail = &entry.rail;
+            let device = &self.report.devices[entry.device];
+
+            // Accessor, returns `(I2cDevice, Option<u8>)`
+            let name = ident(&rail.to_lowercase());
+            let doc = doc(&device.config.description);
+            let expr = self.device_expr(device);
+            let bank = match entry.bank {
+                Some(idx) => {
+                    let idx = usize_lit(idx);
+                    quote!(Some(#idx))
+                }
+                None => quote!(None),
+            };
+
+            let accessor = quote! {
+                #[doc = #doc]
+                #[allow(dead_code)]
+                pub fn #name(task: TaskId) -> (I2cDevice, Option<u8>) {
+                    (#expr, #bank)
+                }
+            };
+
+            let phases = (which == PowerDevices::PMBus).then(|| {
+                let phases = match &entry.phases {
+                    Some(phases) => {
+                        let phases = phases.iter().map(|&p| u8_lit(p));
+                        quote!(Some(&[#(#phases),*]))
+                    }
+                    None => quote!(None),
+                };
+                let name = ident(&format!(
+                    "{}_{rail}_PHASES",
+                    device.config.device.to_uppercase()
+                ));
+                quote! {
+                    #[allow(dead_code)]
+                    pub const #name: Option<&'static [u8]> = #phases;
+                }
+            });
+
+            quote! {
+                #accessor
+                #phases
+            }
+        });
+
+        quote! {
+            pub mod #module {
+                use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+                use userlib::TaskId;
+
+                #(#items)*
+            }
+        }
     }
 
     fn emit_sensor(
@@ -671,49 +630,44 @@ impl Codegen<'_> {
         device: &str,
         label: &str,
         ids: &[usize],
-        output: &mut String,
-    ) -> Result<()> {
+    ) -> TokenStream {
         let device = device.to_uppercase();
         let n_sensors = ids.len();
-        writeln!(
-            output,
-            r##"
-        #[allow(dead_code)]
-        pub const NUM_{device}_{label}_SENSORS: usize = {n_sensors};"##,
-        )?;
 
-        if ids.len() == 1 {
-            writeln!(
-                output,
-                r##"
-        #[allow(dead_code)]
-        pub const {device}_{label}_SENSOR: SensorId = SensorId::new({});"##,
-                ids[0]
-            )?;
-        } else {
-            writeln!(
-                output,
-                r##"
-        #[allow(dead_code)]
-        pub const {device}_{label}_SENSORS: [SensorId; {n_sensors}] = [ "##,
-            )?;
+        let count = ident(&format!("NUM_{device}_{label}_SENSORS"));
+        let n = usize_lit(n_sensors);
 
-            for id in ids {
-                writeln!(output, "            SensorId::new({id}),",)?;
+        let sensors = if let [id] = ids {
+            let name = ident(&format!("{device}_{label}_SENSOR"));
+            let id = usize_lit(*id);
+            quote! {
+                #[allow(dead_code)]
+                pub const #name: SensorId = SensorId::new(#id);
             }
+        } else {
+            let name = ident(&format!("{device}_{label}_SENSORS"));
+            let ids = ids.iter().map(|&id| usize_lit(id));
+            quote! {
+                #[allow(dead_code)]
+                pub const #name: [SensorId; #n] = [ #(SensorId::new(#ids)),* ];
+            }
+        };
 
-            writeln!(output, "        ];")?;
+        quote! {
+            #[allow(dead_code)]
+            pub const #count: usize = #n;
+
+            #sensors
         }
-
-        Ok(())
     }
 
     fn declare_sensor_struct(
         &self,
         d: &I2cDevice,
         struct_name: &str,
-        output: &mut String,
-    ) -> Result<()> {
+    ) -> TokenStream {
+        let name = ident(&format!("Sensors_{struct_name}"));
+
         // Manually unpack the field so that changes to the sensor types
         // will require changes here as well.
         if let Some(I2cSensors {
@@ -727,65 +681,67 @@ impl Codegen<'_> {
             names: _,
         }) = &d.sensors
         {
-            writeln!(
-                output,
-                "\n        #[allow(non_camel_case_types, dead_code)]
-        pub struct Sensors_{struct_name} {{",
-            )?;
-            let mut f = |name, count| match count {
-                0 => Ok(()),
-                1 => writeln!(output, "            pub {name}: SensorId,"),
-                _ => writeln!(
-                    output,
-                    "            pub {name}: [SensorId; {count}],"
-                ),
-            };
-            f("temperature", *temperature)?;
-            f("power", *power)?;
-            f("current", *current)?;
-            f("voltage", *voltage)?;
-            f("input_current", *input_current)?;
-            f("input_voltage", *input_voltage)?;
-            f("speed", *speed)?;
-            writeln!(output, "        }}")?;
+            let fields = [
+                ("temperature", *temperature),
+                ("power", *power),
+                ("current", *current),
+                ("voltage", *voltage),
+                ("input_current", *input_current),
+                ("input_voltage", *input_voltage),
+                ("speed", *speed),
+            ]
+            .into_iter()
+            .filter_map(|(field, count)| {
+                let field = ident(field);
+                match count {
+                    0 => None,
+                    1 => Some(quote!(pub #field: SensorId,)),
+                    _ => {
+                        let count = usize_lit(count);
+                        Some(quote!(pub #field: [SensorId; #count],))
+                    }
+                }
+            });
+
+            quote! {
+                #[allow(non_camel_case_types, dead_code)]
+                pub struct #name {
+                    #(#fields)*
+                }
+            }
         } else {
-            writeln!(
-                output,
-                "\n        #[allow(dead_code, non_camel_case_types)]
-        type Sensors_{struct_name} = ();",
-            )?;
+            quote! {
+                #[allow(dead_code, non_camel_case_types)]
+                type #name = ();
+            }
         }
-        Ok(())
     }
 
     fn emit_sensor_struct(
         &self,
         d: &I2cDevice,
-        label: String,
+        label: &str,
         name: &str,
         sensors: &[Arc<DeviceSensor>],
-        output: &mut String,
-    ) -> Result<()> {
-        write!(
-            output,
-            "        #[allow(dead_code)]
-        pub const {}_{label}_SENSORS: Sensors_{name} = ",
-            d.device.to_uppercase(),
-        )?;
+    ) -> TokenStream {
+        let const_name =
+            ident(&format!("{}_{label}_SENSORS", d.device.to_uppercase()));
+        let ty = ident(&format!("Sensors_{name}"));
 
         let mut sensors_by_kind: BTreeMap<Sensor, Vec<usize>> = BTreeMap::new();
         for s in sensors {
             sensors_by_kind.entry(s.kind).or_default().push(s.id);
         }
+
         if sensors_by_kind.is_empty() {
-            writeln!(output, "();")?;
-            return Ok(());
+            return quote! {
+                #[allow(dead_code)]
+                pub const #const_name: #ty = ();
+            };
         }
 
-        writeln!(output, "Sensors_{name} {{")?;
-
-        for (kind, values) in sensors_by_kind {
-            let field = match kind {
+        let fields = sensors_by_kind.into_iter().map(|(kind, values)| {
+            let field = ident(match kind {
                 Sensor::Temperature => "temperature",
                 Sensor::Power => "power",
                 Sensor::Current => "current",
@@ -794,133 +750,123 @@ impl Codegen<'_> {
                 Sensor::InputVoltage => "input_voltage",
                 Sensor::Speed => "speed",
                 Sensor::Pwm => "pwm",
-            };
-            if values.len() == 1 {
-                writeln!(
-                    output,
-                    "            {field}: SensorId::new({}),",
-                    values[0]
-                )?;
+            });
+            let value = if let [v] = values.as_slice() {
+                let v = usize_lit(*v);
+                quote!(SensorId::new(#v))
             } else {
-                write!(output, "            {field}: [")?;
-                for (i, v) in values.iter().enumerate() {
-                    if i > 0 {
-                        write!(output, ", ")?;
-                    }
-                    write!(output, "SensorId::new({v})")?;
-                }
-                writeln!(output, "],")?;
-            }
-        }
+                let values = values.iter().map(|&v| usize_lit(v));
+                quote!([ #(SensorId::new(#values)),* ])
+            };
+            quote!(#field: #value,)
+        });
 
-        writeln!(output, "        }};")?;
-        Ok(())
+        quote! {
+            #[allow(dead_code)]
+            pub const #const_name: #ty = #ty {
+                #(#fields)*
+            };
+        }
     }
 
-    pub fn generate_sensors(&self, output: &mut String) -> Result<()> {
+    pub fn generate_sensors(&self) -> Result<TokenStream> {
         let s = &self.report.sensors;
+        let total = usize_lit(s.total_sensors);
 
-        write!(
-            output,
-            r##"
-    pub mod sensors {{
-        #[allow(unused_imports)]
-        use super::super::SensorId;
-
-        #[allow(dead_code)]
-        pub const NUM_SENSORS: usize = {};
-"##,
-            s.total_sensors
-        )?;
-
-        for (i, d) in self.report.devices.iter().enumerate() {
+        let structs = self.report.devices.iter().enumerate().map(|(i, d)| {
             let info = &self.report.sensor_structs[i];
 
-            if info.declare {
-                self.declare_sensor_struct(&d.config, &info.name, output)?;
-            }
+            let declaration = info
+                .declare
+                .then(|| self.declare_sensor_struct(&d.config, &info.name));
 
             let sensors = s.device_sensors[i].as_slice();
 
-            for label in &info.labels {
-                self.emit_sensor_struct(
-                    &d.config,
-                    label.clone(),
-                    &info.name,
-                    sensors,
-                    output,
-                )?;
+            let consts = info.labels.iter().map(|label| {
+                self.emit_sensor_struct(&d.config, label, &info.name, sensors)
+            });
+
+            quote! {
+                #declaration
+                #(#consts)*
             }
-        }
+        });
 
-        for (k, ids) in s.by_device.iter() {
-            self.emit_sensor(&k.device, &format!("{}", k.kind), ids, output)?;
-        }
+        let by_device = s.by_device.iter().map(|(k, ids)| {
+            self.emit_sensor(&k.device, &k.kind.to_string(), ids)
+        });
 
-        for (k, ids) in s.by_name.iter() {
+        let by_name = s.by_name.iter().map(|(k, ids)| {
             let label = format!("{}_{}", k.name.to_uppercase(), k.kind);
-            self.emit_sensor(&k.device, &label, ids, output)?;
-        }
+            self.emit_sensor(&k.device, &label, ids)
+        });
 
-        for (k, ids) in s.by_refdes.iter() {
-            let refdes = k.refdes.to_upper_ident();
-            let label = format!("{refdes}_{}", k.kind);
-            self.emit_sensor(&k.device, &label, ids, output)?;
-        }
+        let by_refdes = s.by_refdes.iter().map(|(k, ids)| {
+            let label = format!("{}_{}", k.refdes.to_upper_ident(), k.kind);
+            self.emit_sensor(&k.device, &label, ids)
+        });
 
-        writeln!(output, "\n    }}")?;
-        Ok(())
+        Ok(quote! {
+            pub mod sensors {
+                #[allow(unused_imports)]
+                use super::super::SensorId;
+
+                #[allow(dead_code)]
+                pub const NUM_SENSORS: usize = #total;
+
+                #(#structs)*
+                #(#by_device)*
+                #(#by_name)*
+                #(#by_refdes)*
+            }
+        })
     }
 
-    pub fn generate_ports(&self, output: &mut String) -> Result<()> {
-        writeln!(
-            output,
-            r##"
-    pub mod ports {{"##
-        )?;
+    pub fn generate_ports(&self) -> Result<TokenStream> {
+        let ports =
+            self.report.ports.iter().map(|((controller, port), index)| {
+                let name = ident(&format!(
+                    "i2c{controller}_{}",
+                    port.to_case(Case::Snake)
+                ));
+                let index = usize_lit(*index);
+                quote! {
+                    #[allow(dead_code)]
+                    pub const fn #name() -> drv_i2c_api::PortIndex {
+                        drv_i2c_api::PortIndex(#index)
+                    }
+                }
+            });
 
-        for ((controller, port), index) in &self.report.ports {
-            writeln!(
-                output,
-                r##"
-        #[allow(dead_code)]
-        pub const fn i2c{controller}_{port}() -> drv_i2c_api::PortIndex {{
-            drv_i2c_api::PortIndex({index})
-        }}"##,
-                controller = controller,
-                port = port.to_case(Case::Snake),
-                index = index,
-            )?;
-        }
-
-        writeln!(output, "    }}")?;
-        Ok(())
+        Ok(quote! {
+            pub mod ports {
+                #(#ports)*
+            }
+        })
     }
 }
 
+/// Generates `match` arms mapping each group of device indices to a result,
+/// coalescing runs of consecutive indices into ranges (`0..=2 | 5..=5`).
 fn match_arms<C>(
-    out: &mut impl Write,
     source: &[(C, Vec<usize>)],
-    fmt: impl Fn(&C) -> String,
-) -> Result<()> {
-    for (controller, indices) in source {
-        let indices = indices
+    result: impl Fn(&C) -> TokenStream,
+) -> TokenStream {
+    let arms = source.iter().map(|(key, indices)| {
+        let ranges = indices
             .iter()
             .map(|&i| i..i + 1)
             .collect::<RangeSet<usize>>();
-        let s = indices
-            .iter()
-            .map(|range| format!("{}..={}", range.start, range.end - 1))
-            .collect::<Vec<_>>()
-            .join("\n                | ");
+        let patterns = ranges.iter().map(|range| {
+            let start = usize_lit(range.start);
+            let end = usize_lit(range.end - 1);
+            quote!(#start..=#end)
+        });
+        let result = result(key);
+        quote! {
+            #(#patterns)|* => #result,
+        }
+    });
 
-        let result = fmt(controller);
-
-        write!(
-            out,
-            r##"
-                {s} => {result},"##,
-        )?;
-    }
-    Ok(())
+    quote!(#(#arms)*)
 }

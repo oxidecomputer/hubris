@@ -27,9 +27,10 @@ use std::path::Path;
 use anyhow::Result;
 use build_i2c::{Codegen, CodegenSettings, Disposition};
 use insta::assert_snapshot;
+use proc_macro2::TokenStream;
 use tempfile::{TempDir, tempdir};
 
-type GenFn = fn(&Codegen<'_>, &mut String) -> Result<()>;
+type GenFn = fn(&Codegen<'_>) -> Result<TokenStream>;
 
 //
 // Thin wrappers around the code generation methods: a method of
@@ -39,8 +40,8 @@ type GenFn = fn(&Codegen<'_>, &mut String) -> Result<()>;
 macro_rules! gen_fns {
     ($($name:ident),* $(,)?) => {
         $(
-            fn $name(g: &Codegen<'_>, out: &mut String) -> Result<()> {
-                g.$name(out)
+            fn $name(g: &Codegen<'_>) -> Result<TokenStream> {
+                g.$name()
             }
         )*
     };
@@ -195,8 +196,6 @@ fn snapshot_file(
     let dest = format!("{name}.snap");
     let temp_out = tempdir.path().join(Path::new(&dest));
 
-    let mut out = String::new();
-
     // Load and analyze the manifest...
     let report = xtask::i2c_codegen::setup_report(manifest, &settings).unwrap();
     let g = Codegen {
@@ -204,7 +203,7 @@ fn snapshot_file(
         codegen_target: settings.codegen_target,
     };
     // Do code generation with the given function
-    (f)(&g, &mut out).unwrap();
+    let out = (f)(&g).unwrap().to_string();
     // Write and format the file...
     xtask::i2c_codegen::write_file(&out, &temp_out, true).unwrap();
 

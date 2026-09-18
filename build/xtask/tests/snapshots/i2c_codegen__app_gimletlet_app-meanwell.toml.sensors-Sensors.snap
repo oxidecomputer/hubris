@@ -2,11 +2,9 @@
 source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
-
 pub mod sensors {
     #[allow(unused_imports)]
     use super::super::SensorId;
-
     #[allow(dead_code)]
     pub const NUM_SENSORS: usize = 0;
 }

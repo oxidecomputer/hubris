@@ -227,22 +227,19 @@ pub fn codegen(
         codegen_target: settings.codegen_target,
     };
 
-    let mut output = String::new();
-    g.generate_header(&mut output)?;
-
+    let mut body = proc_macro2::TokenStream::new();
     for section in &settings.sections {
-        match section {
-            Section::Controllers => g.generate_controllers(&mut output)?,
-            Section::Pins => g.generate_pins(&mut output)?,
-            Section::Ports => g.generate_ports(&mut output)?,
-            Section::Muxes => g.generate_muxes(&mut output)?,
-            Section::Devices => g.generate_devices(&mut output)?,
-            Section::Sensors => g.generate_sensors(&mut output)?,
-            Section::Validation => g.generate_validation(&mut output)?,
-        }
+        body.extend(match section {
+            Section::Controllers => g.generate_controllers()?,
+            Section::Pins => g.generate_pins()?,
+            Section::Ports => g.generate_ports()?,
+            Section::Muxes => g.generate_muxes()?,
+            Section::Devices => g.generate_devices()?,
+            Section::Sensors => g.generate_sensors()?,
+            Section::Validation => g.generate_validation()?,
+        });
     }
-
-    g.generate_footer(&mut output)?;
+    let output = codegen::i2c_config_module(body).to_string();
 
     let sensors = if settings.has(Section::Sensors) {
         Some(report.sensors)

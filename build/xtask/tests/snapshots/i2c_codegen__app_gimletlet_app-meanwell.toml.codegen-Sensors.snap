@@ -3,15 +3,14 @@ source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
 pub(crate) mod i2c_config {
-
     pub mod devices {
         #[allow(unused_imports)]
         use drv_i2c_api::{Controller, I2cDevice, PortIndex};
         #[allow(unused_imports)]
         use userlib::TaskId;
-
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
+        #[allow(unused_doc_comments)]
         pub fn device_by_index(
             _task: TaskId,
             index: usize,
@@ -20,7 +19,6 @@ pub(crate) mod i2c_config {
                 _ => None,
             }
         }
-
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
         pub fn lookup_controller(index: usize) -> Option<Controller> {
@@ -28,7 +26,6 @@ pub(crate) mod i2c_config {
                 _ => None,
             }
         }
-
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
         pub fn lookup_port(index: usize) -> Option<PortIndex> {
@@ -37,11 +34,9 @@ pub(crate) mod i2c_config {
             }
         }
     }
-
     pub mod sensors {
         #[allow(unused_imports)]
         use super::super::SensorId;
-
         #[allow(dead_code)]
         pub const NUM_SENSORS: usize = 0;
     }

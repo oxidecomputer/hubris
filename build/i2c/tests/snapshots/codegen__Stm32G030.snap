@@ -2,4 +2,4 @@
 source: build/i2c/tests/codegen.rs
 expression: line
 ---
-use stm32g0::stm32g030 as device;
+    use stm32g0::stm32g030 as device;

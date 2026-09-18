@@ -2,234 +2,231 @@
 source: build/xtask/tests/i2c-codegen.rs
 expression: contents
 ---
-
 pub mod validation {
     #[allow(unused_imports)]
     use drv_i2c_api::{Controller, I2cDevice, PortIndex};
     #[allow(unused_imports)]
     use drv_i2c_devices::Validate;
     use userlib::TaskId;
-
     #[allow(dead_code)]
     pub enum I2cValidation {
         RawReadOk,
         Good,
         Bad,
     }
-
     #[allow(unused_variables)]
     #[allow(clippy::match_single_binding)]
+    #[allow(unused_doc_comments)]
     pub fn validate(
         task: TaskId,
         index: usize,
     ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {
         match index {
+            #[doc = " Onboard temperature sensor"]
             0 => {
-                if drv_i2c_devices::tmp117::Tmp117::validate(&
-                        // Onboard temperature sensor
-                        I2cDevice::new(task,
-                            Controller::I2C4,
-                            PortIndex(0),
-                            None,
-                            0x48,
-                        ))?
-                {
+                if drv_i2c_devices::tmp117::Tmp117::validate(&I2cDevice::new(
+                    task,
+                    Controller::I2C4,
+                    PortIndex(0),
+                    None,
+                    0x48,
+                ))? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " FRU ID EEPROM"]
             1 => {
                 if drv_i2c_devices::at24csw080::At24Csw080::validate(
-                    &
-                        // FRU ID EEPROM
-                        I2cDevice::new(task,
-                            Controller::I2C2,
-                            PortIndex(0),
-                            None,
-                            0x50,
-                        ),
+                    &I2cDevice::new(
+                        task,
+                        Controller::I2C2,
+                        PortIndex(0),
+                        None,
+                        0x50,
+                    ),
                 )? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 0 EEPROM"]
             2 => {
-                if drv_i2c_devices::m24c02::M24C02::validate(&
-                        // PSU 0 EEPROM
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x50,
-                        ))?
-                {
+                if drv_i2c_devices::m24c02::M24C02::validate(&I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x50,
+                ))? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 0 MCU"]
             3 => {
-                if drv_i2c_devices::mwocp67::Mwocp67::validate(&
-                        // PSU 0 MCU
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x58,
-                        ))?
-                {
+                if drv_i2c_devices::mwocp67::Mwocp67::validate(
+                    &I2cDevice::new(
+                        task,
+                        Controller::I2C3,
+                        PortIndex(0),
+                        None,
+                        0x58,
+                    ),
+                )? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 1 EEPROM"]
             4 => {
-                if drv_i2c_devices::m24c02::M24C02::validate(&
-                        // PSU 1 EEPROM
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x51,
-                        ))?
-                {
+                if drv_i2c_devices::m24c02::M24C02::validate(&I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x51,
+                ))? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 1 MCU"]
             5 => {
-                if drv_i2c_devices::mwocp67::Mwocp67::validate(&
-                        // PSU 1 MCU
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x59,
-                        ))?
-                {
+                if drv_i2c_devices::mwocp67::Mwocp67::validate(
+                    &I2cDevice::new(
+                        task,
+                        Controller::I2C3,
+                        PortIndex(0),
+                        None,
+                        0x59,
+                    ),
+                )? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 2 EEPROM"]
             6 => {
-                if drv_i2c_devices::m24c02::M24C02::validate(&
-                        // PSU 2 EEPROM
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x52,
-                        ))?
-                {
+                if drv_i2c_devices::m24c02::M24C02::validate(&I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x52,
+                ))? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 2 MCU"]
             7 => {
-                if drv_i2c_devices::mwocp67::Mwocp67::validate(&
-                        // PSU 2 MCU
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x5a,
-                        ))?
-                {
+                if drv_i2c_devices::mwocp67::Mwocp67::validate(
+                    &I2cDevice::new(
+                        task,
+                        Controller::I2C3,
+                        PortIndex(0),
+                        None,
+                        0x5a,
+                    ),
+                )? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 3 EEPROM"]
             8 => {
-                if drv_i2c_devices::m24c02::M24C02::validate(&
-                        // PSU 3 EEPROM
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x53,
-                        ))?
-                {
+                if drv_i2c_devices::m24c02::M24C02::validate(&I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x53,
+                ))? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 3 MCU"]
             9 => {
-                if drv_i2c_devices::mwocp67::Mwocp67::validate(&
-                        // PSU 3 MCU
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x5b,
-                        ))?
-                {
+                if drv_i2c_devices::mwocp67::Mwocp67::validate(
+                    &I2cDevice::new(
+                        task,
+                        Controller::I2C3,
+                        PortIndex(0),
+                        None,
+                        0x5b,
+                    ),
+                )? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 4 EEPROM"]
             10 => {
-                if drv_i2c_devices::m24c02::M24C02::validate(&
-                        // PSU 4 EEPROM
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x54,
-                        ))?
-                {
+                if drv_i2c_devices::m24c02::M24C02::validate(&I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x54,
+                ))? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 4 MCU"]
             11 => {
-                if drv_i2c_devices::mwocp67::Mwocp67::validate(&
-                        // PSU 4 MCU
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x5c,
-                        ))?
-                {
+                if drv_i2c_devices::mwocp67::Mwocp67::validate(
+                    &I2cDevice::new(
+                        task,
+                        Controller::I2C3,
+                        PortIndex(0),
+                        None,
+                        0x5c,
+                    ),
+                )? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 5 EEPROM"]
             12 => {
-                if drv_i2c_devices::m24c02::M24C02::validate(&
-                        // PSU 5 EEPROM
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x55,
-                        ))?
-                {
+                if drv_i2c_devices::m24c02::M24C02::validate(&I2cDevice::new(
+                    task,
+                    Controller::I2C3,
+                    PortIndex(0),
+                    None,
+                    0x55,
+                ))? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
                 }
             }
+            #[doc = " PSU 5 MCU"]
             13 => {
-                if drv_i2c_devices::mwocp67::Mwocp67::validate(&
-                        // PSU 5 MCU
-                        I2cDevice::new(task,
-                            Controller::I2C3,
-                            PortIndex(0),
-                            None,
-                            0x5d,
-                        ))?
-                {
+                if drv_i2c_devices::mwocp67::Mwocp67::validate(
+                    &I2cDevice::new(
+                        task,
+                        Controller::I2C3,
+                        PortIndex(0),
+                        None,
+                        0x5d,
+                    ),
+                )? {
                     Ok(I2cValidation::Good)
                 } else {
                     Ok(I2cValidation::Bad)
