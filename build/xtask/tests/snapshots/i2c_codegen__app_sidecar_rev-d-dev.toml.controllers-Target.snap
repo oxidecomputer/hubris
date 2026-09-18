@@ -1,0 +1,13 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+
+#[allow(dead_code)]
+pub const NCONTROLLERS: usize = 0;
+
+use drv_stm32xx_i2c::I2cController;
+
+pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {
+    []
+}

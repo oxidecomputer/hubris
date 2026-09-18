@@ -1,0 +1,5 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: "format!(\"ERROR: {e:#}\")"
+---
+ERROR: found 0 I2C controller(s); expected exactly one

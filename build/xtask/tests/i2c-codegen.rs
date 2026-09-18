@@ -25,7 +25,9 @@
 use std::path::Path;
 
 use anyhow::Result;
-use build_i2c::{ConfigGenerator, Disposition, I2cSensorsDescription};
+use build_i2c::{
+    CodegenSettings, ConfigGenerator, Disposition, I2cSensorsDescription,
+};
 use insta::assert_snapshot;
 use tempfile::{TempDir, tempdir};
 
@@ -80,6 +82,25 @@ fn snapshot() {
             Disposition::Validation,
             ConfigGenerator::generate_validation,
         ),
+        (
+            "controllers",
+            Disposition::Target,
+            ConfigGenerator::generate_controllers,
+        ),
+        ("pins", Disposition::Target, ConfigGenerator::generate_pins),
+        (
+            "ports",
+            Disposition::Target,
+            ConfigGenerator::generate_ports,
+        ),
+    ];
+
+    let all_dispositions = [
+        Disposition::Initiator,
+        Disposition::Target,
+        Disposition::Devices,
+        Disposition::Sensors,
+        Disposition::Validation,
     ];
 
     // oh no, loading manifests doesn't work if we aren't at the base of the
@@ -93,7 +114,63 @@ fn snapshot() {
         for (case, disp, f) in funcs {
             let name = manifest.to_string_lossy().replace("/", "_");
             let name = format!("{name}.{case}-{disp:?}");
-            snapshot_file::<()>(manifest, &tempdir, disp, &name, *f);
+            snapshot_file::<()>(manifest, &tempdir, (*disp).into(), &name, *f);
+        }
+
+        // Device generation with component IDs enabled (normally selected by
+        // the `component-id` cargo feature).
+        {
+            let name = manifest.to_string_lossy().replace("/", "_");
+            let name = format!("{name}.devices-Sensors-component-ids");
+            let mut settings: CodegenSettings = Disposition::Sensors.into();
+            settings.component_ids = true;
+            snapshot_file::<()>(
+                manifest,
+                &tempdir,
+                settings,
+                &name,
+                ConfigGenerator::generate_devices,
+            );
+        }
+
+        // The full, assembled output of `codegen()` for every disposition.
+        // Some combinations are errors (e.g. `Target` with no target
+        // controller), in which case we snapshot the error text instead.
+        for disp in all_dispositions {
+            let name = manifest.to_string_lossy().replace("/", "_");
+            let name = format!("{name}.codegen-{disp:?}");
+            let g = xtask::i2c_codegen::setup_generator(manifest, disp.into())
+                .unwrap();
+            match g.codegen() {
+                Ok(outputs) => {
+                    let dest = format!("{name}.snap");
+                    let temp_out = tempdir.path().join(Path::new(&dest));
+                    xtask::i2c_codegen::write_file(
+                        &outputs.code,
+                        &temp_out,
+                        true,
+                    )
+                    .unwrap();
+                    let contents = std::fs::read_to_string(temp_out).unwrap();
+                    assert_snapshot!(name, contents);
+                }
+                Err(e) => {
+                    assert_snapshot!(name, format!("ERROR: {e:#}"));
+                }
+            }
+        }
+
+        // The device descriptions consumed by other build scripts.
+        {
+            let name = manifest.to_string_lossy().replace("/", "_");
+            let name = format!("{name}.device-descriptions");
+            let g = xtask::i2c_codegen::setup_generator(
+                manifest,
+                Disposition::Validation.into(),
+            )
+            .unwrap();
+            let descs: Vec<_> = g.device_descriptions().collect();
+            assert_snapshot!(name, format!("{descs:#?}"));
         }
 
         // Handle `generate_sensors` separately because it returns data in
@@ -106,7 +183,7 @@ fn snapshot() {
         let desc = snapshot_file::<I2cSensorsDescription>(
             manifest,
             &tempdir,
-            &disp,
+            disp.into(),
             &name,
             ConfigGenerator::generate_sensors,
         );
@@ -120,7 +197,7 @@ fn snapshot() {
 fn snapshot_file<T>(
     manifest: &Path,
     tempdir: &TempDir,
-    disp: &Disposition,
+    settings: CodegenSettings,
     name: &str,
     f: GenFn<T>,
 ) -> T {
@@ -130,8 +207,7 @@ fn snapshot_file<T>(
     let mut out = String::new();
 
     // Create the generator...
-    let g =
-        xtask::i2c_codegen::setup_generator(manifest, (*disp).into()).unwrap();
+    let g = xtask::i2c_codegen::setup_generator(manifest, settings).unwrap();
     // Do code generation with the given function
     let t = (f)(&g, &mut out).unwrap();
     // Write and format the file...

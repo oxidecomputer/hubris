@@ -1,0 +1,995 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: "format!(\"{descs:#?}\")"
+---
+[
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "Onboard temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U29",
+                    ),
+                ),
+                name: Some(
+                    "onboard",
+                ),
+                kind: Temperature,
+                id: 0,
+            },
+        ],
+        device_id: Some(
+            "U29",
+        ),
+        name: Some(
+            "onboard",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "FRU ID EEPROM",
+        sensors: [],
+        device_id: Some(
+            "U27",
+        ),
+        name: Some(
+            "local_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "m24c02",
+        description: "PSU 0 EEPROM",
+        sensors: [],
+        device_id: Some(
+            "PSU0/ID",
+        ),
+        name: Some(
+            "psu0eeprom",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "mwocp67",
+        description: "PSU 0 MCU",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Temperature,
+                id: 1,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Temperature,
+                id: 2,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Temperature,
+                id: 3,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Temperature,
+                id: 4,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Temperature,
+                id: 5,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU0",
+                ),
+                kind: Current,
+                id: 6,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU0",
+                ),
+                kind: Voltage,
+                id: 7,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU0",
+                ),
+                kind: InputCurrent,
+                id: 8,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU0",
+                ),
+                kind: InputVoltage,
+                id: 9,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU0",
+                    ),
+                ),
+                name: Some(
+                    "psu0mcu",
+                ),
+                kind: Speed,
+                id: 10,
+            },
+        ],
+        device_id: Some(
+            "PSU0",
+        ),
+        name: Some(
+            "psu0mcu",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V50_PSU0",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "m24c02",
+        description: "PSU 1 EEPROM",
+        sensors: [],
+        device_id: Some(
+            "PSU1/ID",
+        ),
+        name: Some(
+            "psu1eeprom",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "mwocp67",
+        description: "PSU 1 MCU",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Temperature,
+                id: 11,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Temperature,
+                id: 12,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Temperature,
+                id: 13,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Temperature,
+                id: 14,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Temperature,
+                id: 15,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU1",
+                ),
+                kind: Current,
+                id: 16,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU1",
+                ),
+                kind: Voltage,
+                id: 17,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU1",
+                ),
+                kind: InputCurrent,
+                id: 18,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU1",
+                ),
+                kind: InputVoltage,
+                id: 19,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU1",
+                    ),
+                ),
+                name: Some(
+                    "psu1mcu",
+                ),
+                kind: Speed,
+                id: 20,
+            },
+        ],
+        device_id: Some(
+            "PSU1",
+        ),
+        name: Some(
+            "psu1mcu",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V50_PSU1",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "m24c02",
+        description: "PSU 2 EEPROM",
+        sensors: [],
+        device_id: Some(
+            "PSU2/ID",
+        ),
+        name: Some(
+            "psu2eeprom",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "mwocp67",
+        description: "PSU 2 MCU",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Temperature,
+                id: 21,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Temperature,
+                id: 22,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Temperature,
+                id: 23,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Temperature,
+                id: 24,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Temperature,
+                id: 25,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU2",
+                ),
+                kind: Current,
+                id: 26,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU2",
+                ),
+                kind: Voltage,
+                id: 27,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU2",
+                ),
+                kind: InputCurrent,
+                id: 28,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU2",
+                ),
+                kind: InputVoltage,
+                id: 29,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU2",
+                    ),
+                ),
+                name: Some(
+                    "psu2mcu",
+                ),
+                kind: Speed,
+                id: 30,
+            },
+        ],
+        device_id: Some(
+            "PSU2",
+        ),
+        name: Some(
+            "psu2mcu",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V50_PSU2",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "m24c02",
+        description: "PSU 3 EEPROM",
+        sensors: [],
+        device_id: Some(
+            "PSU3/ID",
+        ),
+        name: Some(
+            "psu3eeprom",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "mwocp67",
+        description: "PSU 3 MCU",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Temperature,
+                id: 31,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Temperature,
+                id: 32,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Temperature,
+                id: 33,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Temperature,
+                id: 34,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Temperature,
+                id: 35,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU3",
+                ),
+                kind: Current,
+                id: 36,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU3",
+                ),
+                kind: Voltage,
+                id: 37,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU3",
+                ),
+                kind: InputCurrent,
+                id: 38,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU3",
+                ),
+                kind: InputVoltage,
+                id: 39,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU3",
+                    ),
+                ),
+                name: Some(
+                    "psu3mcu",
+                ),
+                kind: Speed,
+                id: 40,
+            },
+        ],
+        device_id: Some(
+            "PSU3",
+        ),
+        name: Some(
+            "psu3mcu",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V50_PSU3",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "m24c02",
+        description: "PSU 4 EEPROM",
+        sensors: [],
+        device_id: Some(
+            "PSU4/ID",
+        ),
+        name: Some(
+            "psu4eeprom",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "mwocp67",
+        description: "PSU 4 MCU",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Temperature,
+                id: 41,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Temperature,
+                id: 42,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Temperature,
+                id: 43,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Temperature,
+                id: 44,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Temperature,
+                id: 45,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU4",
+                ),
+                kind: Current,
+                id: 46,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU4",
+                ),
+                kind: Voltage,
+                id: 47,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU4",
+                ),
+                kind: InputCurrent,
+                id: 48,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU4",
+                ),
+                kind: InputVoltage,
+                id: 49,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU4",
+                    ),
+                ),
+                name: Some(
+                    "psu4mcu",
+                ),
+                kind: Speed,
+                id: 50,
+            },
+        ],
+        device_id: Some(
+            "PSU4",
+        ),
+        name: Some(
+            "psu4mcu",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V50_PSU4",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "m24c02",
+        description: "PSU 5 EEPROM",
+        sensors: [],
+        device_id: Some(
+            "PSU5/ID",
+        ),
+        name: Some(
+            "psu5eeprom",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "mwocp67",
+        description: "PSU 5 MCU",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Temperature,
+                id: 51,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Temperature,
+                id: 52,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Temperature,
+                id: 53,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Temperature,
+                id: 54,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Temperature,
+                id: 55,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU5",
+                ),
+                kind: Current,
+                id: 56,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU5",
+                ),
+                kind: Voltage,
+                id: 57,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU5",
+                ),
+                kind: InputCurrent,
+                id: 58,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "V50_PSU5",
+                ),
+                kind: InputVoltage,
+                id: 59,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "PSU5",
+                    ),
+                ),
+                name: Some(
+                    "psu5mcu",
+                ),
+                kind: Speed,
+                id: 60,
+            },
+        ],
+        device_id: Some(
+            "PSU5",
+        ),
+        name: Some(
+            "psu5mcu",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V50_PSU5",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+]

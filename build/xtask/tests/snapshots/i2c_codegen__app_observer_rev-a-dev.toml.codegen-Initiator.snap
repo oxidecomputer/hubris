@@ -1,0 +1,96 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+pub(crate) mod i2c_config {
+
+    #[allow(dead_code)]
+    pub const NCONTROLLERS: usize = 3;
+
+    use drv_stm32xx_i2c::I2cController;
+
+    pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {
+        use drv_i2c_api::Controller;
+        use drv_stm32xx_sys_api::Peripheral;
+
+        [
+            I2cController {
+                controller: Controller::I2C2,
+                peripheral: Peripheral::I2c2,
+                notification: crate::notifications::I2C2_IRQ_MASK,
+                registers: unsafe { &*device::I2C2::ptr() },
+            },
+            I2cController {
+                controller: Controller::I2C3,
+                peripheral: Peripheral::I2c3,
+                notification: crate::notifications::I2C3_IRQ_MASK,
+                registers: unsafe { &*device::I2C3::ptr() },
+            },
+            I2cController {
+                controller: Controller::I2C4,
+                peripheral: Peripheral::I2c4,
+                notification: crate::notifications::I2C4_IRQ_MASK,
+                registers: unsafe { &*device::I2C4::ptr() },
+            },
+        ]
+    }
+
+    #[allow(unused_imports)]
+    use drv_stm32xx_i2c::{I2cGpio, I2cPins};
+
+    pub fn pins() -> [I2cPins; 3] {
+        use drv_i2c_api::{Controller, PortIndex};
+        use drv_stm32xx_sys_api::{self as gpio_api, Alternate};
+
+        [
+            I2cPins {
+                controller: Controller::I2C2,
+                port: PortIndex(0),
+                scl: gpio_api::Port::F.pin(1),
+                sda: gpio_api::Port::F.pin(0),
+                function: Alternate::AF4,
+            },
+            I2cPins {
+                controller: Controller::I2C3,
+                port: PortIndex(0),
+                scl: gpio_api::Port::H.pin(7),
+                sda: gpio_api::Port::H.pin(8),
+                function: Alternate::AF4,
+            },
+            I2cPins {
+                controller: Controller::I2C4,
+                port: PortIndex(0),
+                scl: gpio_api::Port::F.pin(14),
+                sda: gpio_api::Port::F.pin(15),
+                function: Alternate::AF4,
+            },
+        ]
+    }
+
+    pub mod ports {
+
+        #[allow(dead_code)]
+        pub const fn i2c2_f() -> drv_i2c_api::PortIndex {
+            drv_i2c_api::PortIndex(0)
+        }
+
+        #[allow(dead_code)]
+        pub const fn i2c3_h() -> drv_i2c_api::PortIndex {
+            drv_i2c_api::PortIndex(0)
+        }
+
+        #[allow(dead_code)]
+        pub const fn i2c4_f() -> drv_i2c_api::PortIndex {
+            drv_i2c_api::PortIndex(0)
+        }
+    }
+
+    #[allow(dead_code)]
+    pub const NMUXEDBUSES: usize = 0;
+
+    use drv_stm32xx_i2c::I2cMux;
+
+    pub fn muxes() -> [I2cMux<'static>; 0] {
+        []
+    }
+}

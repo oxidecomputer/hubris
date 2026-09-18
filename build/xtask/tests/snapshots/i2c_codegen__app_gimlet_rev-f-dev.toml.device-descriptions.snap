@@ -1,0 +1,3059 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: "format!(\"{descs:#?}\")"
+---
+[
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "Southwest temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J194",
+                            "U1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "Southwest",
+                ),
+                kind: Temperature,
+                id: 0,
+            },
+        ],
+        device_id: Some(
+            "J194/U1",
+        ),
+        name: Some(
+            "Southwest",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "South temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J195",
+                            "U1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "South",
+                ),
+                kind: Temperature,
+                id: 1,
+            },
+        ],
+        device_id: Some(
+            "J195/U1",
+        ),
+        name: Some(
+            "South",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "Southeast temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J196",
+                            "U1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "Southeast",
+                ),
+                kind: Temperature,
+                id: 2,
+            },
+        ],
+        device_id: Some(
+            "J196/U1",
+        ),
+        name: Some(
+            "Southeast",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "pca9545",
+        description: "U.2 ABCD mux",
+        sensors: [],
+        device_id: Some(
+            "U336",
+        ),
+        name: None,
+        validate_with_raw_read: true,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "pca9545",
+        description: "U.2 EFGH mux",
+        sensors: [],
+        device_id: Some(
+            "U339",
+        ),
+        name: None,
+        validate_with_raw_read: true,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "pca9545",
+        description: "U.2 IJ/FRUID mux",
+        sensors: [],
+        device_id: Some(
+            "U337",
+        ),
+        name: None,
+        validate_with_raw_read: true,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin A VPD",
+        sensors: [],
+        device_id: Some(
+            "J206/U7",
+        ),
+        name: Some(
+            "sharkfin_a_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin A hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J206",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2A_A0",
+                ),
+                kind: Current,
+                id: 3,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J206",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2A_A0",
+                ),
+                kind: Current,
+                id: 4,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J206",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2A_A0",
+                ),
+                kind: Voltage,
+                id: 5,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J206",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2A_A0",
+                ),
+                kind: Voltage,
+                id: 6,
+            },
+        ],
+        device_id: Some(
+            "J206/U8",
+        ),
+        name: Some(
+            "sharkfin_a_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 A NVMe Basic Management Command",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J206",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N0",
+                ),
+                kind: Temperature,
+                id: 7,
+            },
+        ],
+        device_id: Some(
+            "J206/J1",
+        ),
+        name: Some(
+            "U2_N0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin B VPD",
+        sensors: [],
+        device_id: Some(
+            "J207/U7",
+        ),
+        name: Some(
+            "sharkfin_b_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin B hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J207",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2B_A0",
+                ),
+                kind: Current,
+                id: 8,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J207",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2B_A0",
+                ),
+                kind: Current,
+                id: 9,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J207",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2B_A0",
+                ),
+                kind: Voltage,
+                id: 10,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J207",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2B_A0",
+                ),
+                kind: Voltage,
+                id: 11,
+            },
+        ],
+        device_id: Some(
+            "J207/U8",
+        ),
+        name: Some(
+            "sharkfin_b_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 B NVMe Basic Management Control",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J207",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N1",
+                ),
+                kind: Temperature,
+                id: 12,
+            },
+        ],
+        device_id: Some(
+            "J207/J1",
+        ),
+        name: Some(
+            "U2_N1",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin C VPD",
+        sensors: [],
+        device_id: Some(
+            "J208/U7",
+        ),
+        name: Some(
+            "sharkfin_c_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin C hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J208",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2C_A0",
+                ),
+                kind: Current,
+                id: 13,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J208",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2C_A0",
+                ),
+                kind: Current,
+                id: 14,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J208",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2C_A0",
+                ),
+                kind: Voltage,
+                id: 15,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J208",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2C_A0",
+                ),
+                kind: Voltage,
+                id: 16,
+            },
+        ],
+        device_id: Some(
+            "J208/U8",
+        ),
+        name: Some(
+            "sharkfin_c_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 C NVMe Basic Management Control",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J208",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N2",
+                ),
+                kind: Temperature,
+                id: 17,
+            },
+        ],
+        device_id: Some(
+            "J208/J1",
+        ),
+        name: Some(
+            "U2_N2",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin D VPD",
+        sensors: [],
+        device_id: Some(
+            "J209/U7",
+        ),
+        name: Some(
+            "sharkfin_d_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin D hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J209",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2D_A0",
+                ),
+                kind: Current,
+                id: 18,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J209",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2D_A0",
+                ),
+                kind: Current,
+                id: 19,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J209",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2D_A0",
+                ),
+                kind: Voltage,
+                id: 20,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J209",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2D_A0",
+                ),
+                kind: Voltage,
+                id: 21,
+            },
+        ],
+        device_id: Some(
+            "J209/U8",
+        ),
+        name: Some(
+            "sharkfin_d_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 D NVMe Basic Management Control",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J209",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N3",
+                ),
+                kind: Temperature,
+                id: 22,
+            },
+        ],
+        device_id: Some(
+            "J209/J1",
+        ),
+        name: Some(
+            "U2_N3",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin E VPD",
+        sensors: [],
+        device_id: Some(
+            "J210/U7",
+        ),
+        name: Some(
+            "sharkfin_e_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin E hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J210",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2E_A0",
+                ),
+                kind: Current,
+                id: 23,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J210",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2E_A0",
+                ),
+                kind: Current,
+                id: 24,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J210",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2E_A0",
+                ),
+                kind: Voltage,
+                id: 25,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J210",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2E_A0",
+                ),
+                kind: Voltage,
+                id: 26,
+            },
+        ],
+        device_id: Some(
+            "J210/U8",
+        ),
+        name: Some(
+            "sharkfin_e_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 E NVMe Basic Management Control",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J210",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N4",
+                ),
+                kind: Temperature,
+                id: 27,
+            },
+        ],
+        device_id: Some(
+            "J210/J1",
+        ),
+        name: Some(
+            "U2_N4",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin F VPD",
+        sensors: [],
+        device_id: Some(
+            "J211/U7",
+        ),
+        name: Some(
+            "sharkfin_f_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin F hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J211",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2F_A0",
+                ),
+                kind: Current,
+                id: 28,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J211",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2F_A0",
+                ),
+                kind: Current,
+                id: 29,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J211",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2F_A0",
+                ),
+                kind: Voltage,
+                id: 30,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J211",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2F_A0",
+                ),
+                kind: Voltage,
+                id: 31,
+            },
+        ],
+        device_id: Some(
+            "J211/U8",
+        ),
+        name: Some(
+            "sharkfin_f_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 F NVMe Basic Management Control",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J211",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N5",
+                ),
+                kind: Temperature,
+                id: 32,
+            },
+        ],
+        device_id: Some(
+            "J211/J1",
+        ),
+        name: Some(
+            "U2_N5",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin G VPD",
+        sensors: [],
+        device_id: Some(
+            "J212/U7",
+        ),
+        name: Some(
+            "sharkfin_g_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin G hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J212",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2G_A0",
+                ),
+                kind: Current,
+                id: 33,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J212",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2G_A0",
+                ),
+                kind: Current,
+                id: 34,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J212",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2G_A0",
+                ),
+                kind: Voltage,
+                id: 35,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J212",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2G_A0",
+                ),
+                kind: Voltage,
+                id: 36,
+            },
+        ],
+        device_id: Some(
+            "J212/U8",
+        ),
+        name: Some(
+            "sharkfin_g_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 G NVMe Basic Management Control",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J212",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N6",
+                ),
+                kind: Temperature,
+                id: 37,
+            },
+        ],
+        device_id: Some(
+            "J212/J1",
+        ),
+        name: Some(
+            "U2_N6",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin H VPD",
+        sensors: [],
+        device_id: Some(
+            "J213/U7",
+        ),
+        name: Some(
+            "sharkfin_h_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin H hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J213",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2H_A0",
+                ),
+                kind: Current,
+                id: 38,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J213",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2H_A0",
+                ),
+                kind: Current,
+                id: 39,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J213",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2H_A0",
+                ),
+                kind: Voltage,
+                id: 40,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J213",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2H_A0",
+                ),
+                kind: Voltage,
+                id: 41,
+            },
+        ],
+        device_id: Some(
+            "J213/U8",
+        ),
+        name: Some(
+            "sharkfin_h_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 H NVMe Basic Management Control",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J213",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N7",
+                ),
+                kind: Temperature,
+                id: 42,
+            },
+        ],
+        device_id: Some(
+            "J213/J1",
+        ),
+        name: Some(
+            "U2_N7",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin I VPD",
+        sensors: [],
+        device_id: Some(
+            "J214/U7",
+        ),
+        name: Some(
+            "sharkfin_i_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin I hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J214",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2I_A0",
+                ),
+                kind: Current,
+                id: 43,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J214",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2I_A0",
+                ),
+                kind: Current,
+                id: 44,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J214",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2I_A0",
+                ),
+                kind: Voltage,
+                id: 45,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J214",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2I_A0",
+                ),
+                kind: Voltage,
+                id: 46,
+            },
+        ],
+        device_id: Some(
+            "J214/U8",
+        ),
+        name: Some(
+            "sharkfin_i_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 I NVMe Basic Management Control",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J214",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N8",
+                ),
+                kind: Temperature,
+                id: 47,
+            },
+        ],
+        device_id: Some(
+            "J214/J1",
+        ),
+        name: Some(
+            "U2_N8",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "U.2 Sharkfin J VPD",
+        sensors: [],
+        device_id: Some(
+            "J215/U7",
+        ),
+        name: Some(
+            "sharkfin_j_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "U.2 Sharkfin J hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J215",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2J_A0",
+                ),
+                kind: Current,
+                id: 48,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J215",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2J_A0",
+                ),
+                kind: Current,
+                id: 49,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J215",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V12_U2J_A0",
+                ),
+                kind: Voltage,
+                id: 50,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J215",
+                            "U8",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_U2J_A0",
+                ),
+                kind: Voltage,
+                id: 51,
+            },
+        ],
+        device_id: Some(
+            "J215/U8",
+        ),
+        name: Some(
+            "sharkfin_j_hsc",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "U.2 J NVMe Basic Management Control",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J215",
+                            "J1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "U2_N9",
+                ),
+                kind: Temperature,
+                id: 52,
+            },
+        ],
+        device_id: Some(
+            "J215/J1",
+        ),
+        name: Some(
+            "U2_N9",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "Gimlet VPD",
+        sensors: [],
+        device_id: Some(
+            "U615",
+        ),
+        name: Some(
+            "local_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "pca9545",
+        description: "M.2 mux",
+        sensors: [],
+        device_id: Some(
+            "U422",
+        ),
+        name: None,
+        validate_with_raw_read: true,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "Fan VPD",
+        sensors: [],
+        device_id: Some(
+            "J180/U1",
+        ),
+        name: Some(
+            "fan_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: Some(
+            SledFanTray,
+        ),
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp451",
+        description: "T6 temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U491",
+                    ),
+                ),
+                name: Some(
+                    "t6",
+                ),
+                kind: Temperature,
+                id: 53,
+            },
+        ],
+        device_id: Some(
+            "U491",
+        ),
+        name: Some(
+            "t6",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "A2 3.3V rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U522",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SP_A2",
+                ),
+                kind: Temperature,
+                id: 54,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U522",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SP_A2",
+                ),
+                kind: Current,
+                id: 55,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U522",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SP_A2",
+                ),
+                kind: Voltage,
+                id: 56,
+            },
+        ],
+        device_id: Some(
+            "U522",
+        ),
+        name: Some(
+            "v3p3_sp_a2",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V3P3_SP_A2",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "A0 3.3V rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U560",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SYS_A0",
+                ),
+                kind: Temperature,
+                id: 57,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U560",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SYS_A0",
+                ),
+                kind: Current,
+                id: 58,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U560",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SYS_A0",
+                ),
+                kind: Voltage,
+                id: 59,
+            },
+        ],
+        device_id: Some(
+            "U560",
+        ),
+        name: Some(
+            "v3p3_sys_a0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V3P3_SYS_A0",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "A2 5V rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U524",
+                    ),
+                ),
+                name: Some(
+                    "V5_SYS_A2",
+                ),
+                kind: Temperature,
+                id: 60,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U524",
+                    ),
+                ),
+                name: Some(
+                    "V5_SYS_A2",
+                ),
+                kind: Current,
+                id: 61,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U524",
+                    ),
+                ),
+                name: Some(
+                    "V5_SYS_A2",
+                ),
+                kind: Voltage,
+                id: 62,
+            },
+        ],
+        device_id: Some(
+            "U524",
+        ),
+        name: Some(
+            "v5p0_sys_a2",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V5_SYS_A2",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "A2 1.8V rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U561",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_SYS_A2",
+                ),
+                kind: Temperature,
+                id: 63,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U561",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_SYS_A2",
+                ),
+                kind: Current,
+                id: 64,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U561",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_SYS_A2",
+                ),
+                kind: Voltage,
+                id: 65,
+            },
+        ],
+        device_id: Some(
+            "U561",
+        ),
+        name: Some(
+            "v1p8_sys_a2",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V1P8_SYS_A2",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "max5970",
+        description: "M.2 hot plug controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U275",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_M2A_A0HP",
+                ),
+                kind: Current,
+                id: 66,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U275",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_M2B_A0HP",
+                ),
+                kind: Current,
+                id: 67,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U275",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_M2A_A0HP",
+                ),
+                kind: Voltage,
+                id: 68,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U275",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_M2B_A0HP",
+                ),
+                kind: Voltage,
+                id: 69,
+            },
+        ],
+        device_id: Some(
+            "U275",
+        ),
+        name: Some(
+            "m2",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "sbrmi",
+        description: "CPU via SB-RMI",
+        sensors: [],
+        device_id: Some(
+            "P0/SBRMI",
+        ),
+        name: Some(
+            "RMI",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "sbtsi",
+        description: "CPU temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "P0",
+                            "SBTSI",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "CPU",
+                ),
+                kind: Temperature,
+                id: 70,
+            },
+        ],
+        device_id: Some(
+            "P0/SBTSI",
+        ),
+        name: Some(
+            "CPU",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "idt8a34003",
+        description: "Clock generator",
+        sensors: [],
+        device_id: Some(
+            "U446",
+        ),
+        name: None,
+        validate_with_raw_read: true,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "raa229618",
+        description: "CPU power controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U350",
+                    ),
+                ),
+                name: Some(
+                    "VDD_VCORE",
+                ),
+                kind: Temperature,
+                id: 71,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U350",
+                    ),
+                ),
+                name: Some(
+                    "VDD_MEM_ABCD",
+                ),
+                kind: Temperature,
+                id: 72,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U350",
+                    ),
+                ),
+                name: Some(
+                    "VDD_VCORE",
+                ),
+                kind: Power,
+                id: 73,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U350",
+                    ),
+                ),
+                name: Some(
+                    "VDD_MEM_ABCD",
+                ),
+                kind: Power,
+                id: 74,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U350",
+                    ),
+                ),
+                name: Some(
+                    "VDD_VCORE",
+                ),
+                kind: Current,
+                id: 75,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U350",
+                    ),
+                ),
+                name: Some(
+                    "VDD_MEM_ABCD",
+                ),
+                kind: Current,
+                id: 76,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U350",
+                    ),
+                ),
+                name: Some(
+                    "VDD_VCORE",
+                ),
+                kind: Voltage,
+                id: 77,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U350",
+                    ),
+                ),
+                name: Some(
+                    "VDD_MEM_ABCD",
+                ),
+                kind: Voltage,
+                id: 78,
+            },
+        ],
+        device_id: Some(
+            "U350",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "VDD_VCORE",
+                        phases: [
+                            12,
+                            13,
+                            14,
+                            15,
+                            16,
+                            17,
+                            18,
+                            19,
+                        ],
+                    },
+                    PmbusRailDescription {
+                        name: "VDD_MEM_ABCD",
+                        phases: [
+                            0,
+                            1,
+                            2,
+                            3,
+                        ],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "raa229618",
+        description: "SoC power controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U351",
+                    ),
+                ),
+                name: Some(
+                    "VDDCR_SOC",
+                ),
+                kind: Temperature,
+                id: 79,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U351",
+                    ),
+                ),
+                name: Some(
+                    "VDD_MEM_EFGH",
+                ),
+                kind: Temperature,
+                id: 80,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U351",
+                    ),
+                ),
+                name: Some(
+                    "VDDCR_SOC",
+                ),
+                kind: Power,
+                id: 81,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U351",
+                    ),
+                ),
+                name: Some(
+                    "VDD_MEM_EFGH",
+                ),
+                kind: Power,
+                id: 82,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U351",
+                    ),
+                ),
+                name: Some(
+                    "VDDCR_SOC",
+                ),
+                kind: Current,
+                id: 83,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U351",
+                    ),
+                ),
+                name: Some(
+                    "VDD_MEM_EFGH",
+                ),
+                kind: Current,
+                id: 84,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U351",
+                    ),
+                ),
+                name: Some(
+                    "VDDCR_SOC",
+                ),
+                kind: Voltage,
+                id: 85,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U351",
+                    ),
+                ),
+                name: Some(
+                    "VDD_MEM_EFGH",
+                ),
+                kind: Voltage,
+                id: 86,
+            },
+        ],
+        device_id: Some(
+            "U351",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "VDDCR_SOC",
+                        phases: [
+                            16,
+                            17,
+                            18,
+                            19,
+                        ],
+                    },
+                    PmbusRailDescription {
+                        name: "VDD_MEM_EFGH",
+                        phases: [
+                            0,
+                            1,
+                            2,
+                            3,
+                        ],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "isl68224",
+        description: "DIMM/SP3 1.8V A0 power controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U352",
+                    ),
+                ),
+                name: Some(
+                    "VPP_ABCD",
+                ),
+                kind: Temperature,
+                id: 87,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U352",
+                    ),
+                ),
+                name: Some(
+                    "VPP_EFGH",
+                ),
+                kind: Temperature,
+                id: 88,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U352",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_SP3",
+                ),
+                kind: Temperature,
+                id: 89,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U352",
+                    ),
+                ),
+                name: Some(
+                    "VPP_ABCD",
+                ),
+                kind: Current,
+                id: 90,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U352",
+                    ),
+                ),
+                name: Some(
+                    "VPP_EFGH",
+                ),
+                kind: Current,
+                id: 91,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U352",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_SP3",
+                ),
+                kind: Current,
+                id: 92,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U352",
+                    ),
+                ),
+                name: Some(
+                    "VPP_ABCD",
+                ),
+                kind: Voltage,
+                id: 93,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U352",
+                    ),
+                ),
+                name: Some(
+                    "VPP_EFGH",
+                ),
+                kind: Voltage,
+                id: 94,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U352",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_SP3",
+                ),
+                kind: Voltage,
+                id: 95,
+            },
+        ],
+        device_id: Some(
+            "U352",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "VPP_ABCD",
+                        phases: [
+                            0,
+                        ],
+                    },
+                    PmbusRailDescription {
+                        name: "VPP_EFGH",
+                        phases: [
+                            1,
+                        ],
+                    },
+                    PmbusRailDescription {
+                        name: "V1P8_SP3",
+                        phases: [
+                            2,
+                        ],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "adm127x",
+        description: "Fan hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U419",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN",
+                ),
+                kind: Temperature,
+                id: 96,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U419",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN",
+                ),
+                kind: Current,
+                id: 97,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U419",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN",
+                ),
+                kind: Voltage,
+                id: 98,
+            },
+        ],
+        device_id: Some(
+            "U419",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V54_FAN",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "adm127x",
+        description: "Sled hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U452",
+                    ),
+                ),
+                name: Some(
+                    "V54_HS_OUTPUT",
+                ),
+                kind: Temperature,
+                id: 99,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U452",
+                    ),
+                ),
+                name: Some(
+                    "V54_HS_OUTPUT",
+                ),
+                kind: Current,
+                id: 100,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U452",
+                    ),
+                ),
+                name: Some(
+                    "V54_HS_OUTPUT",
+                ),
+                kind: Voltage,
+                id: 101,
+            },
+        ],
+        device_id: Some(
+            "U452",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V54_HS_OUTPUT",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "max31790",
+        description: "Fan controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U321",
+                    ),
+                ),
+                name: Some(
+                    "Southeast",
+                ),
+                kind: Speed,
+                id: 102,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U321",
+                    ),
+                ),
+                name: Some(
+                    "Northeast",
+                ),
+                kind: Speed,
+                id: 103,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U321",
+                    ),
+                ),
+                name: Some(
+                    "South",
+                ),
+                kind: Speed,
+                id: 104,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U321",
+                    ),
+                ),
+                name: Some(
+                    "North",
+                ),
+                kind: Speed,
+                id: 105,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U321",
+                    ),
+                ),
+                name: Some(
+                    "Southwest",
+                ),
+                kind: Speed,
+                id: 106,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U321",
+                    ),
+                ),
+                name: Some(
+                    "Northwest",
+                ),
+                kind: Speed,
+                id: 107,
+            },
+        ],
+        device_id: Some(
+            "U321",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "T6 power controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U565",
+                    ),
+                ),
+                name: Some(
+                    "V0P96_NIC_VDD_A0HP",
+                ),
+                kind: Temperature,
+                id: 108,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U565",
+                    ),
+                ),
+                name: Some(
+                    "V0P96_NIC_VDD_A0HP",
+                ),
+                kind: Current,
+                id: 109,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U565",
+                    ),
+                ),
+                name: Some(
+                    "V0P96_NIC_VDD_A0HP",
+                ),
+                kind: Voltage,
+                id: 110,
+            },
+        ],
+        device_id: Some(
+            "U565",
+        ),
+        name: Some(
+            "v0p96_nic",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V0P96_NIC_VDD_A0HP",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "Northeast temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J197",
+                            "U1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "Northeast",
+                ),
+                kind: Temperature,
+                id: 111,
+            },
+        ],
+        device_id: Some(
+            "J197/U1",
+        ),
+        name: Some(
+            "Northeast",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "North temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J198",
+                            "U1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "North",
+                ),
+                kind: Temperature,
+                id: 112,
+            },
+        ],
+        device_id: Some(
+            "J198/U1",
+        ),
+        name: Some(
+            "North",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "Northwest temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J199",
+                            "U1",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "Northwest",
+                ),
+                kind: Temperature,
+                id: 113,
+            },
+        ],
+        device_id: Some(
+            "J199/U1",
+        ),
+        name: Some(
+            "Northwest",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "bmr491",
+        description: "Intermediate bus converter",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U431",
+                    ),
+                ),
+                name: Some(
+                    "V12_SYS_A2",
+                ),
+                kind: Temperature,
+                id: 114,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U431",
+                    ),
+                ),
+                name: Some(
+                    "V12_SYS_A2",
+                ),
+                kind: Current,
+                id: 115,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U431",
+                    ),
+                ),
+                name: Some(
+                    "V12_SYS_A2",
+                ),
+                kind: Voltage,
+                id: 116,
+            },
+        ],
+        device_id: Some(
+            "U431",
+        ),
+        name: Some(
+            "IBC",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V12_SYS_A2",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM A0",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M0",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_A0",
+                ),
+                kind: Temperature,
+                id: 117,
+            },
+        ],
+        device_id: Some(
+            "M0",
+        ),
+        name: Some(
+            "DIMM_A0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM A1",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M8",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_A1",
+                ),
+                kind: Temperature,
+                id: 118,
+            },
+        ],
+        device_id: Some(
+            "M8",
+        ),
+        name: Some(
+            "DIMM_A1",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM B0",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M1",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_B0",
+                ),
+                kind: Temperature,
+                id: 119,
+            },
+        ],
+        device_id: Some(
+            "M1",
+        ),
+        name: Some(
+            "DIMM_B0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM B1",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M9",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_B1",
+                ),
+                kind: Temperature,
+                id: 120,
+            },
+        ],
+        device_id: Some(
+            "M9",
+        ),
+        name: Some(
+            "DIMM_B1",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM C0",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M2",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_C0",
+                ),
+                kind: Temperature,
+                id: 121,
+            },
+        ],
+        device_id: Some(
+            "M2",
+        ),
+        name: Some(
+            "DIMM_C0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM C1",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M10",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_C1",
+                ),
+                kind: Temperature,
+                id: 122,
+            },
+        ],
+        device_id: Some(
+            "M10",
+        ),
+        name: Some(
+            "DIMM_C1",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM D0",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M3",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_D0",
+                ),
+                kind: Temperature,
+                id: 123,
+            },
+        ],
+        device_id: Some(
+            "M3",
+        ),
+        name: Some(
+            "DIMM_D0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM D1",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M11",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_D1",
+                ),
+                kind: Temperature,
+                id: 124,
+            },
+        ],
+        device_id: Some(
+            "M11",
+        ),
+        name: Some(
+            "DIMM_D1",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM E0",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M4",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_E0",
+                ),
+                kind: Temperature,
+                id: 125,
+            },
+        ],
+        device_id: Some(
+            "M4",
+        ),
+        name: Some(
+            "DIMM_E0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM E1",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M12",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_E1",
+                ),
+                kind: Temperature,
+                id: 126,
+            },
+        ],
+        device_id: Some(
+            "M12",
+        ),
+        name: Some(
+            "DIMM_E1",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM F0",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M5",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_F0",
+                ),
+                kind: Temperature,
+                id: 127,
+            },
+        ],
+        device_id: Some(
+            "M5",
+        ),
+        name: Some(
+            "DIMM_F0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM F1",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M13",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_F1",
+                ),
+                kind: Temperature,
+                id: 128,
+            },
+        ],
+        device_id: Some(
+            "M13",
+        ),
+        name: Some(
+            "DIMM_F1",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM G0",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M6",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_G0",
+                ),
+                kind: Temperature,
+                id: 129,
+            },
+        ],
+        device_id: Some(
+            "M6",
+        ),
+        name: Some(
+            "DIMM_G0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM G1",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M14",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_G1",
+                ),
+                kind: Temperature,
+                id: 130,
+            },
+        ],
+        device_id: Some(
+            "M14",
+        ),
+        name: Some(
+            "DIMM_G1",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM H0",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M7",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_H0",
+                ),
+                kind: Temperature,
+                id: 131,
+            },
+        ],
+        device_id: Some(
+            "M7",
+        ),
+        name: Some(
+            "DIMM_H0",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tse2004av",
+        description: "DIMM H1",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "M15",
+                    ),
+                ),
+                name: Some(
+                    "DIMM_H1",
+                ),
+                kind: Temperature,
+                id: 132,
+            },
+        ],
+        device_id: Some(
+            "M15",
+        ),
+        name: Some(
+            "DIMM_H1",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "M.2 A NVMe Basic Management Command",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "P1",
+                    ),
+                ),
+                name: Some(
+                    "M2_A",
+                ),
+                kind: Temperature,
+                id: 133,
+            },
+        ],
+        device_id: Some(
+            "P1",
+        ),
+        name: Some(
+            "M2_A",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "nvme_bmc",
+        description: "M.2 B NVMe Basic Management Command",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "P2",
+                    ),
+                ),
+                name: Some(
+                    "M2_B",
+                ),
+                kind: Temperature,
+                id: 134,
+            },
+        ],
+        device_id: Some(
+            "P2",
+        ),
+        name: Some(
+            "M2_B",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+]

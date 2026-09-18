@@ -2079,6 +2079,7 @@ pub fn codegen_to_file(
     Ok(outputs)
 }
 
+#[derive(Debug)]
 pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
@@ -2118,73 +2119,88 @@ impl I2cDeviceDescription {
 ///
 pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     let g = ConfigGenerator::new(Disposition::Validation.into());
-    let sensors = g.sensors_description();
+    g.device_descriptions()
+}
 
-    assert_eq!(sensors.device_sensors.len(), g.devices.len());
+impl ConfigGenerator {
+    /// Returns a list of I2C device descriptions for this configuration.
+    ///
+    /// See [`device_descriptions`] for details.
+    pub fn device_descriptions(
+        self,
+    ) -> impl Iterator<Item = I2cDeviceDescription> {
+        let g = self;
+        let sensors = g.sensors_description();
 
-    // Matches the ordering of the `match` produced by `generate_validation()`
-    // above; if we change the order here, it must change there as well.
-    g.devices.into_iter().zip(sensors.device_sensors).map(
-        |(device, sensors)| {
-            let device_id = device.refdes.as_ref().map(Refdes::to_component_id);
-            let pmbus = device.power.as_ref().and_then(|power| {
-                if !power.pmbus {
-                    return None;
-                }
+        assert_eq!(sensors.device_sensors.len(), g.devices.len());
 
-                let rails = match (power.rails.as_ref(), power.phases.as_ref())
-                {
-                    (Some(rails), Some(phases)) => {
-                        assert_eq!(
-                            rails.len(),
-                            phases.len(),
-                            "invalid config: PMBus device {device_id:?}'s \
+        // Matches the ordering of the `match` produced by `generate_validation()`
+        // above; if we change the order here, it must change there as well.
+        g.devices.into_iter().zip(sensors.device_sensors).map(
+            |(device, sensors)| {
+                let device_id =
+                    device.refdes.as_ref().map(Refdes::to_component_id);
+                let pmbus = device.power.as_ref().and_then(|power| {
+                    if !power.pmbus {
+                        return None;
+                    }
+
+                    let rails = match (
+                        power.rails.as_ref(),
+                        power.phases.as_ref(),
+                    ) {
+                        (Some(rails), Some(phases)) => {
+                            assert_eq!(
+                                rails.len(),
+                                phases.len(),
+                                "invalid config: PMBus device {device_id:?}'s \
                              `power.rails` and  `power.phases` lists are not \
                              the same length"
-                        );
-                        rails
+                            );
+                            rails
+                                .iter()
+                                .cloned()
+                                .zip(phases.iter().cloned())
+                                .map(|(name, phases)| PmbusRailDescription {
+                                    name,
+                                    phases,
+                                })
+                                .collect()
+                        }
+                        (Some(rails), None) => rails
                             .iter()
                             .cloned()
-                            .zip(phases.iter().cloned())
-                            .map(|(name, phases)| PmbusRailDescription {
+                            .map(|name| PmbusRailDescription {
                                 name,
-                                phases,
+                                phases: Vec::new(),
                             })
-                            .collect()
-                    }
-                    (Some(rails), None) => rails
-                        .iter()
-                        .cloned()
-                        .map(|name| PmbusRailDescription {
-                            name,
-                            phases: Vec::new(),
-                        })
-                        .collect(),
-                    (None, Some(_)) => {
-                        panic!(
-                            "invalid config: PMBus device {device_id:?} \
+                            .collect(),
+                        (None, Some(_)) => {
+                            panic!(
+                                "invalid config: PMBus device {device_id:?} \
                             defines a `power.phases` list, but not a \
                             `power.rails` list"
-                        );
-                    }
-                    (None, None) => Vec::new(),
-                };
+                            );
+                        }
+                        (None, None) => Vec::new(),
+                    };
 
-                Some(PmbusDeviceDescription { rails })
-            });
+                    Some(PmbusDeviceDescription { rails })
+                });
 
-            I2cDeviceDescription {
-                device: device.device,
-                description: device.description,
-                sensors,
-                device_id,
-                name: device.name,
-                validate_with_raw_read: device.validate_with_raw_read,
-                eeprom_vpd: device.eeprom_vpd,
-                pmbus,
-            }
-        },
-    )
+                I2cDeviceDescription {
+                    device: device.device,
+                    description: device.description,
+                    sensors,
+                    device_id,
+                    name: device.name,
+                    validate_with_raw_read: device.validate_with_raw_read,
+                    eeprom_vpd: device.eeprom_vpd,
+                    pmbus,
+                }
+            },
+        )
+    }
 }
 
 fn match_arms<'a, C>(

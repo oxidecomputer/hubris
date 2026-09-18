@@ -1,0 +1,1643 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: "format!(\"{descs:#?}\")"
+---
+[
+    I2cDeviceDescription {
+        device: "adm127x",
+        description: "Fan 1 hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U6",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN1",
+                ),
+                kind: Temperature,
+                id: 0,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U6",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN1",
+                ),
+                kind: Current,
+                id: 1,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U6",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN1",
+                ),
+                kind: Voltage,
+                id: 2,
+            },
+        ],
+        device_id: Some(
+            "U6",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V54_FAN1",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "max31790",
+        description: "Fan 0/1 controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U66",
+                    ),
+                ),
+                name: Some(
+                    "ESE_fan0",
+                ),
+                kind: Speed,
+                id: 3,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U66",
+                    ),
+                ),
+                name: Some(
+                    "ENE_fan0",
+                ),
+                kind: Speed,
+                id: 4,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U66",
+                    ),
+                ),
+                name: Some(
+                    "SE_fan1",
+                ),
+                kind: Speed,
+                id: 5,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U66",
+                    ),
+                ),
+                name: Some(
+                    "NE_fan1",
+                ),
+                kind: Speed,
+                id: 6,
+            },
+        ],
+        device_id: Some(
+            "U66",
+        ),
+        name: Some(
+            "East",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "North-northeast temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "J69",
+                    ),
+                ),
+                name: Some(
+                    "NNE",
+                ),
+                kind: Temperature,
+                id: 7,
+            },
+        ],
+        device_id: Some(
+            "J69",
+        ),
+        name: Some(
+            "NNE",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "raa229618",
+        description: "TF2 VDD rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U31",
+                    ),
+                ),
+                name: Some(
+                    "V0P8_TF2_VDD_CORE",
+                ),
+                kind: Temperature,
+                id: 8,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U31",
+                    ),
+                ),
+                name: Some(
+                    "V0P8_TF2_VDD_CORE",
+                ),
+                kind: Current,
+                id: 9,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U31",
+                    ),
+                ),
+                name: Some(
+                    "V0P8_TF2_VDD_CORE",
+                ),
+                kind: Voltage,
+                id: 10,
+            },
+        ],
+        device_id: Some(
+            "U31",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V0P8_TF2_VDD_CORE",
+                        phases: [
+                            0,
+                            1,
+                            2,
+                            3,
+                            4,
+                            5,
+                            6,
+                            7,
+                            8,
+                            9,
+                            10,
+                            11,
+                            12,
+                            13,
+                            14,
+                            15,
+                            16,
+                            17,
+                            18,
+                            19,
+                        ],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "pca9545",
+        description: "Northeast fan mux",
+        sensors: [],
+        device_id: Some(
+            "U92",
+        ),
+        name: None,
+        validate_with_raw_read: true,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "adm127x",
+        description: "Fan 0 hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U4",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN0",
+                ),
+                kind: Temperature,
+                id: 11,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U4",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN0",
+                ),
+                kind: Current,
+                id: 12,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U4",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN0",
+                ),
+                kind: Voltage,
+                id: 13,
+            },
+        ],
+        device_id: Some(
+            "U4",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V54_FAN0",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "V3P3_SYS rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U19",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SYS",
+                ),
+                kind: Temperature,
+                id: 14,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U19",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SYS",
+                ),
+                kind: Current,
+                id: 15,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U19",
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SYS",
+                ),
+                kind: Voltage,
+                id: 16,
+            },
+        ],
+        device_id: Some(
+            "U19",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V3P3_SYS",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "Northeast temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "J70",
+                    ),
+                ),
+                name: Some(
+                    "Northeast",
+                ),
+                kind: Temperature,
+                id: 17,
+            },
+        ],
+        device_id: Some(
+            "J70",
+        ),
+        name: Some(
+            "Northeast",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "adm127x",
+        description: "54V hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U2",
+                    ),
+                ),
+                name: Some(
+                    "V54_HSC",
+                ),
+                kind: Temperature,
+                id: 18,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U2",
+                    ),
+                ),
+                name: Some(
+                    "V54_HSC",
+                ),
+                kind: Current,
+                id: 19,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U2",
+                    ),
+                ),
+                name: Some(
+                    "V54_HSC",
+                ),
+                kind: Voltage,
+                id: 20,
+            },
+        ],
+        device_id: Some(
+            "U2",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V54_HSC",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "V5P0_SYS rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U18",
+                    ),
+                ),
+                name: Some(
+                    "V5P0_SYS",
+                ),
+                kind: Temperature,
+                id: 21,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U18",
+                    ),
+                ),
+                name: Some(
+                    "V5P0_SYS",
+                ),
+                kind: Current,
+                id: 22,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U18",
+                    ),
+                ),
+                name: Some(
+                    "V5P0_SYS",
+                ),
+                kind: Voltage,
+                id: 23,
+            },
+        ],
+        device_id: Some(
+            "U18",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V5P0_SYS",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "North-northwest temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "J68",
+                    ),
+                ),
+                name: Some(
+                    "NNW",
+                ),
+                kind: Temperature,
+                id: 24,
+            },
+        ],
+        device_id: Some(
+            "J68",
+        ),
+        name: Some(
+            "NNW",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp451",
+        description: "TF2 temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U64",
+                    ),
+                ),
+                name: Some(
+                    "tf2",
+                ),
+                kind: Temperature,
+                id: 25,
+            },
+        ],
+        device_id: Some(
+            "U64",
+        ),
+        name: Some(
+            "tf2",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "raa229618",
+        description: "TF2 VDDA rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U32",
+                    ),
+                ),
+                name: Some(
+                    "V0P9_TF2_VDDT",
+                ),
+                kind: Temperature,
+                id: 26,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U32",
+                    ),
+                ),
+                name: Some(
+                    "V1P5_TF2_VDDA",
+                ),
+                kind: Temperature,
+                id: 27,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U32",
+                    ),
+                ),
+                name: Some(
+                    "V0P9_TF2_VDDT",
+                ),
+                kind: Current,
+                id: 28,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U32",
+                    ),
+                ),
+                name: Some(
+                    "V1P5_TF2_VDDA",
+                ),
+                kind: Current,
+                id: 29,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U32",
+                    ),
+                ),
+                name: Some(
+                    "V0P9_TF2_VDDT",
+                ),
+                kind: Voltage,
+                id: 30,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U32",
+                    ),
+                ),
+                name: Some(
+                    "V1P5_TF2_VDDA",
+                ),
+                kind: Voltage,
+                id: 31,
+            },
+        ],
+        device_id: Some(
+            "U32",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V0P9_TF2_VDDT",
+                        phases: [
+                            2,
+                            6,
+                            7,
+                        ],
+                    },
+                    PmbusRailDescription {
+                        name: "V1P5_TF2_VDDA",
+                        phases: [
+                            0,
+                            1,
+                        ],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "bmr491",
+        description: "Intermediate bus converter",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U12",
+                    ),
+                ),
+                name: Some(
+                    "V12P0_SYS",
+                ),
+                kind: Temperature,
+                id: 32,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U12",
+                    ),
+                ),
+                name: Some(
+                    "V12P0_SYS",
+                ),
+                kind: Power,
+                id: 33,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U12",
+                    ),
+                ),
+                name: Some(
+                    "V12P0_SYS",
+                ),
+                kind: Current,
+                id: 34,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U12",
+                    ),
+                ),
+                name: Some(
+                    "V12P0_SYS",
+                ),
+                kind: Voltage,
+                id: 35,
+            },
+        ],
+        device_id: Some(
+            "U12",
+        ),
+        name: Some(
+            "IBC",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V12P0_SYS",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "adm127x",
+        description: "Fan 2 hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U8",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN2",
+                ),
+                kind: Temperature,
+                id: 36,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U8",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN2",
+                ),
+                kind: Current,
+                id: 37,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U8",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN2",
+                ),
+                kind: Voltage,
+                id: 38,
+            },
+        ],
+        device_id: Some(
+            "U8",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V54_FAN2",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "adm127x",
+        description: "Fan 3 hot swap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U10",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN3",
+                ),
+                kind: Temperature,
+                id: 39,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U10",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN3",
+                ),
+                kind: Current,
+                id: 40,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U10",
+                    ),
+                ),
+                name: Some(
+                    "V54_FAN3",
+                ),
+                kind: Voltage,
+                id: 41,
+            },
+        ],
+        device_id: Some(
+            "U10",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V54_FAN3",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "Northwest temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "J67",
+                    ),
+                ),
+                name: Some(
+                    "Northwest",
+                ),
+                kind: Temperature,
+                id: 42,
+            },
+        ],
+        device_id: Some(
+            "J67",
+        ),
+        name: Some(
+            "Northwest",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "max31790",
+        description: "Fan 2/3 controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U78",
+                    ),
+                ),
+                name: Some(
+                    "SW_fan2",
+                ),
+                kind: Speed,
+                id: 43,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U78",
+                    ),
+                ),
+                name: Some(
+                    "NW_fan2",
+                ),
+                kind: Speed,
+                id: 44,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U78",
+                    ),
+                ),
+                name: Some(
+                    "WSW_fan3",
+                ),
+                kind: Speed,
+                id: 45,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U78",
+                    ),
+                ),
+                name: Some(
+                    "WNW_fan3",
+                ),
+                kind: Speed,
+                id: 46,
+            },
+        ],
+        device_id: Some(
+            "U78",
+        ),
+        name: Some(
+            "West",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "pca9545",
+        description: "Northwest fan mux",
+        sensors: [],
+        device_id: Some(
+            "U90",
+        ),
+        name: None,
+        validate_with_raw_read: true,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "isl68224",
+        description: "VDD[A]18 rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U33",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_TF2_VDD",
+                ),
+                kind: Temperature,
+                id: 47,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U33",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_TF2_VDDA",
+                ),
+                kind: Temperature,
+                id: 48,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U33",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_TF2_VDD",
+                ),
+                kind: Current,
+                id: 49,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U33",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_TF2_VDDA",
+                ),
+                kind: Current,
+                id: 50,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U33",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_TF2_VDD",
+                ),
+                kind: Voltage,
+                id: 51,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U33",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_TF2_VDDA",
+                ),
+                kind: Voltage,
+                id: 52,
+            },
+        ],
+        device_id: Some(
+            "U33",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V1P8_TF2_VDD",
+                        phases: [
+                            1,
+                        ],
+                    },
+                    PmbusRailDescription {
+                        name: "V1P8_TF2_VDDA",
+                        phases: [
+                            0,
+                        ],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "ltc4282",
+        description: "Front I/O hotswap controller",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U647",
+                    ),
+                ),
+                name: Some(
+                    "V12P0_FRONT_IO",
+                ),
+                kind: Current,
+                id: 53,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U647",
+                    ),
+                ),
+                name: Some(
+                    "V12P0_FRONT_IO",
+                ),
+                kind: Voltage,
+                id: 54,
+            },
+        ],
+        device_id: Some(
+            "U647",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "idt8a34001",
+        description: "Clock generator",
+        sensors: [],
+        device_id: Some(
+            "U38",
+        ),
+        name: None,
+        validate_with_raw_read: true,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "South temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "J71",
+                    ),
+                ),
+                name: Some(
+                    "South",
+                ),
+                kind: Temperature,
+                id: 55,
+            },
+        ],
+        device_id: Some(
+            "J71",
+        ),
+        name: Some(
+            "South",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "Southeast temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "J73",
+                    ),
+                ),
+                name: Some(
+                    "Southeast",
+                ),
+                kind: Temperature,
+                id: 56,
+            },
+        ],
+        device_id: Some(
+            "J73",
+        ),
+        name: Some(
+            "Southeast",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tmp117",
+        description: "Southwest temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "J72",
+                    ),
+                ),
+                name: Some(
+                    "Southwest",
+                ),
+                kind: Temperature,
+                id: 57,
+            },
+        ],
+        device_id: Some(
+            "J72",
+        ),
+        name: Some(
+            "Southwest",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "V1P0_MGMT rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U21",
+                    ),
+                ),
+                name: Some(
+                    "V1P0_MGMT",
+                ),
+                kind: Temperature,
+                id: 58,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U21",
+                    ),
+                ),
+                name: Some(
+                    "V1P0_MGMT",
+                ),
+                kind: Current,
+                id: 59,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U21",
+                    ),
+                ),
+                name: Some(
+                    "V1P0_MGMT",
+                ),
+                kind: Voltage,
+                id: 60,
+            },
+        ],
+        device_id: Some(
+            "U21",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V1P0_MGMT",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "V1P8_SYS rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U20",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_SYS",
+                ),
+                kind: Temperature,
+                id: 61,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U20",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_SYS",
+                ),
+                kind: Current,
+                id: 62,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U20",
+                    ),
+                ),
+                name: Some(
+                    "V1P8_SYS",
+                ),
+                kind: Voltage,
+                id: 63,
+            },
+        ],
+        device_id: Some(
+            "U20",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V1P8_SYS",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tmp451",
+        description: "VSC7448 temperature sensor",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Component(
+                        "U65",
+                    ),
+                ),
+                name: Some(
+                    "vsc7448",
+                ),
+                kind: Temperature,
+                id: 64,
+            },
+        ],
+        device_id: Some(
+            "U65",
+        ),
+        name: Some(
+            "vsc7448",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "Mainboard FRUID",
+        sensors: [],
+        device_id: Some(
+            "U91",
+        ),
+        name: Some(
+            "local_vpd",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "Fan 0 FRUID",
+        sensors: [],
+        device_id: Some(
+            "J75/U1",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "Fan 1 FRUID",
+        sensors: [],
+        device_id: Some(
+            "J74/U1",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "Fan 2 FRUID",
+        sensors: [],
+        device_id: Some(
+            "J77/U1",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "Fan 3 FRUID",
+        sensors: [],
+        device_id: Some(
+            "J76/U1",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "at24csw080",
+        description: "Front IO board FRUID",
+        sensors: [],
+        device_id: Some(
+            "J61/U3",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "pca9538",
+        description: "Front IO GPIO expander",
+        sensors: [],
+        device_id: Some(
+            "J61/U4",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "pca9956b",
+        description: "Front IO LED driver (left)",
+        sensors: [],
+        device_id: Some(
+            "J61/U5",
+        ),
+        name: Some(
+            "front_leds_left",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "pca9956b",
+        description: "Front IO LED driver (right)",
+        sensors: [],
+        device_id: Some(
+            "J61/U6",
+        ),
+        name: Some(
+            "front_leds_right",
+        ),
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: None,
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "Front IO V3P3_SYS_A2 rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J61",
+                            "U7",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SYS_A2",
+                ),
+                kind: Temperature,
+                id: 65,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J61",
+                            "U7",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SYS_A2",
+                ),
+                kind: Current,
+                id: 66,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J61",
+                            "U7",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_SYS_A2",
+                ),
+                kind: Voltage,
+                id: 67,
+            },
+        ],
+        device_id: Some(
+            "J61/U7",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V3P3_SYS_A2",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "Front IO V3P3_QSFP0_A0 rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J61",
+                            "U15",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_QSFP0_A0",
+                ),
+                kind: Temperature,
+                id: 68,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J61",
+                            "U15",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_QSFP0_A0",
+                ),
+                kind: Current,
+                id: 69,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J61",
+                            "U15",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_QSFP0_A0",
+                ),
+                kind: Voltage,
+                id: 70,
+            },
+        ],
+        device_id: Some(
+            "J61/U15",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V3P3_QSFP0_A0",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+    I2cDeviceDescription {
+        device: "tps546b24a",
+        description: "Front IO V3P3_QSFP1_A0 rail",
+        sensors: [
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J61",
+                            "U18",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_QSFP1_A0",
+                ),
+                kind: Temperature,
+                id: 71,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J61",
+                            "U18",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_QSFP1_A0",
+                ),
+                kind: Current,
+                id: 72,
+            },
+            DeviceSensor {
+                refdes: Some(
+                    Path(
+                        [
+                            "J61",
+                            "U18",
+                        ],
+                    ),
+                ),
+                name: Some(
+                    "V3P3_QSFP1_A0",
+                ),
+                kind: Voltage,
+                id: 73,
+            },
+        ],
+        device_id: Some(
+            "J61/U18",
+        ),
+        name: None,
+        validate_with_raw_read: false,
+        eeprom_vpd: None,
+        pmbus: Some(
+            PmbusDeviceDescription {
+                rails: [
+                    PmbusRailDescription {
+                        name: "V3P3_QSFP1_A0",
+                        phases: [],
+                    },
+                ],
+            },
+        ),
+    },
+]

@@ -1,0 +1,32 @@
+---
+source: build/xtask/tests/i2c-codegen.rs
+expression: contents
+---
+
+pub mod ports {
+
+    #[allow(dead_code)]
+    pub const fn i2c1_b() -> drv_i2c_api::PortIndex {
+        drv_i2c_api::PortIndex(0)
+    }
+
+    #[allow(dead_code)]
+    pub const fn i2c3_h() -> drv_i2c_api::PortIndex {
+        drv_i2c_api::PortIndex(0)
+    }
+
+    #[allow(dead_code)]
+    pub const fn i2c4_f() -> drv_i2c_api::PortIndex {
+        drv_i2c_api::PortIndex(0)
+    }
+
+    #[allow(dead_code)]
+    pub const fn i2c2_b() -> drv_i2c_api::PortIndex {
+        drv_i2c_api::PortIndex(0)
+    }
+
+    #[allow(dead_code)]
+    pub const fn i2c2_f() -> drv_i2c_api::PortIndex {
+        drv_i2c_api::PortIndex(1)
+    }
+}
