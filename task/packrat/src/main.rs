@@ -82,24 +82,29 @@ mod gimlet;
 #[cfg(feature = "grapefruit")]
 mod grapefruit;
 
-#[cfg(feature = "cosmo")]
-mod cosmo;
+#[cfg(any(feature = "cosmo", feature = "metro"))]
+mod cosmo_metro;
 
 mod spd_data;
 
 #[cfg(feature = "gimlet")]
 use gimlet::SpdData;
 
-#[cfg(feature = "cosmo")]
-use cosmo::SpdData;
+#[cfg(any(feature = "cosmo", feature = "metro"))]
+use cosmo_metro::SpdData;
 
 #[cfg(feature = "ereport")]
 mod ereport;
 
-#[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+#[cfg(any(
+    feature = "gimlet",
+    feature = "grapefruit",
+    feature = "cosmo",
+    feature = "metro"
+))]
 mod host;
 
-#[cfg(not(any(feature = "gimlet", feature = "cosmo")))]
+#[cfg(not(any(feature = "gimlet", feature = "cosmo", feature = "metro")))]
 type SpdData = spd_data::SpdData<0, 0>; // dummy type
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -111,7 +116,8 @@ enum Trace {
         not(any(
             feature = "gimlet",
             feature = "grapefruit",
-            feature = "cosmo"
+            feature = "cosmo",
+            feature = "metro",
         )),
         allow(dead_code)
     )]
@@ -173,13 +179,14 @@ fn main() -> ! {
         #[cfg(any(
             feature = "gimlet",
             feature = "grapefruit",
-            feature = "cosmo"
+            feature = "cosmo",
+            feature = "metro",
         ))]
         host_info: host::HostCrashDebuggingInfo,
         #[cfg(feature = "gimlet")]
         gimlet_bufs: gimlet::StaticBufs,
-        #[cfg(feature = "cosmo")]
-        cosmo_bufs: cosmo::StaticBufs,
+        #[cfg(any(feature = "cosmo", feature = "metro"))]
+        sp5_bufs: cosmo_metro::StaticBufs,
         #[cfg(feature = "ereport")]
         ereport_bufs: ereport::EreportBufs,
     }
@@ -189,13 +196,14 @@ fn main() -> ! {
         #[cfg(any(
             feature = "gimlet",
             feature = "grapefruit",
-            feature = "cosmo"
+            feature = "cosmo",
+            feature = "metro",
         ))]
         ref mut host_info,
         #[cfg(feature = "gimlet")]
         ref mut gimlet_bufs,
-        #[cfg(feature = "cosmo")]
-        ref mut cosmo_bufs,
+        #[cfg(any(feature = "cosmo", feature = "metro"))]
+        ref mut sp5_bufs,
         #[cfg(feature = "ereport")]
         ref mut ereport_bufs,
     } = {
@@ -206,13 +214,14 @@ fn main() -> ! {
                 #[cfg(any(
                     feature = "gimlet",
                     feature = "grapefruit",
-                    feature = "cosmo"
+                    feature = "cosmo",
+                    feature = "metro",
                 ))]
                 host_info: host::HostCrashDebuggingInfo::new(),
                 #[cfg(feature = "gimlet")]
                 gimlet_bufs: gimlet::StaticBufs::new(),
-                #[cfg(feature = "cosmo")]
-                cosmo_bufs: cosmo::StaticBufs::new(),
+                #[cfg(any(feature = "cosmo", feature = "metro"))]
+                sp5_bufs: cosmo_metro::StaticBufs::new(),
                 #[cfg(feature = "ereport")]
                 ereport_bufs: ereport::EreportBufs::new(),
             });
@@ -226,15 +235,16 @@ fn main() -> ! {
         #[cfg(any(
             feature = "gimlet",
             feature = "grapefruit",
-            feature = "cosmo"
+            feature = "cosmo",
+            feature = "metro",
         ))]
         host_info,
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::new(gimlet_bufs),
         #[cfg(feature = "grapefruit")]
         grapefruit_data: grapefruit::GrapefruitData::new(),
-        #[cfg(feature = "cosmo")]
-        cosmo_data: cosmo::CosmoData::new(cosmo_bufs),
+        #[cfg(any(feature = "cosmo", feature = "metro"))]
+        sp5_data: cosmo_metro::CosmoData::new(sp5_bufs),
         #[cfg(feature = "ereport")]
         ereport_store: ereport::EreportStore::new(ereport_bufs),
     };
@@ -249,14 +259,19 @@ struct ServerImpl {
     mac_address_block: &'static mut Option<MacAddressBlock>,
     identity: &'static mut Option<OxideIdentity>,
     restart_id: Option<ereport_messages::RestartId>,
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    #[cfg(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo",
+        feature = "metro"
+    ))]
     host_info: &'static mut host::HostCrashDebuggingInfo,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
     #[cfg(feature = "grapefruit")]
     grapefruit_data: grapefruit::GrapefruitData,
-    #[cfg(feature = "cosmo")]
-    cosmo_data: cosmo::CosmoData,
+    #[cfg(any(feature = "cosmo", feature = "metro"))]
+    sp5_data: cosmo_metro::CosmoData,
     #[cfg(feature = "ereport")]
     ereport_store: ereport::EreportStore,
 }
@@ -309,18 +324,18 @@ impl ServerImpl {
     }
 }
 
-#[cfg(feature = "cosmo")]
+#[cfg(any(feature = "cosmo", feature = "metro"))]
 impl ServerImpl {
     fn spd(&self) -> Option<&SpdData> {
-        Some(self.cosmo_data.spd())
+        Some(self.sp5_data.spd())
     }
 
     fn spd_mut(&mut self) -> Option<&mut SpdData> {
-        Some(self.cosmo_data.spd_mut())
+        Some(self.sp5_data.spd_mut())
     }
 }
 
-#[cfg(not(any(feature = "cosmo", feature = "gimlet")))]
+#[cfg(not(any(feature = "cosmo", feature = "gimlet", feature = "metro")))]
 impl ServerImpl {
     fn spd(&self) -> Option<&SpdData> {
         None
@@ -379,18 +394,19 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Ok(self.grapefruit_data.host_startup_options())
     }
 
-    #[cfg(feature = "cosmo")]
+    #[cfg(any(feature = "cosmo", feature = "metro"))]
     fn get_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Ok(self.cosmo_data.host_startup_options())
+        Ok(self.sp5_data.host_startup_options())
     }
 
     #[cfg(not(any(
         feature = "gimlet",
         feature = "grapefruit",
-        feature = "cosmo"
+        feature = "cosmo",
+        feature = "metro",
     )))]
     fn get_next_boot_host_startup_options(
         &mut self,
@@ -429,7 +445,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Ok(())
     }
 
-    #[cfg(feature = "cosmo")]
+    #[cfg(any(feature = "cosmo", feature = "metro"))]
     fn set_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,
@@ -438,15 +454,15 @@ impl idl::InOrderPackratImpl for ServerImpl {
         ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
             host_startup_options
         ));
-        self.cosmo_data
-            .set_host_startup_options(host_startup_options);
+        self.sp5_data.set_host_startup_options(host_startup_options);
         Ok(())
     }
 
     #[cfg(not(any(
         feature = "gimlet",
         feature = "cosmo",
-        feature = "grapefruit"
+        feature = "grapefruit",
+        feature = "metro",
     )))]
     fn set_next_boot_host_startup_options(
         &mut self,
@@ -603,7 +619,8 @@ impl idl::InOrderPackratImpl for ServerImpl {
     #[cfg(not(any(
         feature = "gimlet",
         feature = "grapefruit",
-        feature = "cosmo"
+        feature = "cosmo",
+        feature = "metro",
     )))]
     fn write_host_bootfail(
         &mut self,
@@ -618,7 +635,12 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
 
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    #[cfg(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo",
+        feature = "metro"
+    ))]
     fn write_host_bootfail(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -669,7 +691,8 @@ impl idl::InOrderPackratImpl for ServerImpl {
     #[cfg(not(any(
         feature = "gimlet",
         feature = "grapefruit",
-        feature = "cosmo"
+        feature = "cosmo",
+        feature = "metro",
     )))]
     fn read_host_bootfail_fragment(
         &mut self,
@@ -684,7 +707,12 @@ impl idl::InOrderPackratImpl for ServerImpl {
     }
 
     /// Attempt to obtain the requested host info.
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    #[cfg(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo",
+        feature = "metro"
+    ))]
     fn read_host_bootfail_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -702,7 +730,8 @@ impl idl::InOrderPackratImpl for ServerImpl {
     #[cfg(not(any(
         feature = "gimlet",
         feature = "grapefruit",
-        feature = "cosmo"
+        feature = "cosmo",
+        feature = "metro",
     )))]
     fn write_host_panic(
         &mut self,
@@ -716,7 +745,12 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
 
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    #[cfg(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo",
+        feature = "metro"
+    ))]
     fn write_host_panic(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -766,7 +800,8 @@ impl idl::InOrderPackratImpl for ServerImpl {
     #[cfg(not(any(
         feature = "gimlet",
         feature = "grapefruit",
-        feature = "cosmo"
+        feature = "cosmo",
+        feature = "metro",
     )))]
     fn read_host_panic_fragment(
         &mut self,
@@ -780,7 +815,12 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Err(HostInfoReadError::NoHostInfo.into())
     }
 
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    #[cfg(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo",
+        feature = "metro"
+    ))]
     fn read_host_panic_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -795,7 +835,12 @@ impl idl::InOrderPackratImpl for ServerImpl {
 }
 
 impl ServerImpl {
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    #[cfg(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo",
+        feature = "metro"
+    ))]
     fn host_panic_helper(
         &self,
         req: Option<&HostInfoRequest>,
@@ -849,7 +894,12 @@ impl ServerImpl {
         })
     }
 
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    #[cfg(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo",
+        feature = "metro"
+    ))]
     fn host_bootfail_helper(
         &self,
         request: Option<&HostInfoRequest>,
