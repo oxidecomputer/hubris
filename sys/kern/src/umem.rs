@@ -306,8 +306,8 @@ impl<T> core::fmt::Debug for USlice<T> {
 impl<'a> From<&'a abi::ULease> for USlice<u8> {
     fn from(lease: &'a abi::ULease) -> Self {
         Self {
-            base_address: lease.base_address as usize,
-            length: lease.length as usize,
+            base_address: lease.base_address.as_usize(),
+            length: lease.length,
             _marker: PhantomData,
         }
     }

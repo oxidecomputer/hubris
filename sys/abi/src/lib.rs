@@ -181,6 +181,77 @@ pub struct Interrupt {
     pub owner: InterruptOwner,
 }
 
+/// An address in a task's address space, as exchanged between a task and the
+/// kernel.
+///
+/// This is an integer rather than a raw pointer, for two reasons. First, the
+/// kernel never dereferences one of these directly: it validates the address
+/// against the task's memory regions and only then copies through it. Second,
+/// the kernel reads structures containing addresses (such as lease tables) out
+/// of task memory using `FromBytes`, and a raw pointer can't be `FromBytes`
+/// because only a null pointer is a valid bit pattern for one.
+///
+/// The width of this type follows the target's pointer width, so on the 32-bit
+/// ARM targets Hubris runs on it is layout-identical to a `u32`.
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    FromBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
+#[repr(transparent)]
+pub struct Addr(usize);
+
+impl Addr {
+    /// Wraps a raw address.
+    #[inline]
+    pub const fn new(address: usize) -> Self {
+        Self(address)
+    }
+
+    /// Records the address of `ptr`.
+    #[inline]
+    pub fn from_ptr<T>(ptr: *const T) -> Self {
+        Self(ptr as usize)
+    }
+
+    /// Returns the address as an integer.
+    #[inline]
+    pub const fn as_usize(self) -> usize {
+        self.0
+    }
+
+    /// Returns the address as a pointer to `T`. Whether the result is valid to
+    /// dereference depends entirely on where the address came from.
+    #[inline]
+    pub const fn as_ptr<T>(self) -> *const T {
+        self.0 as *const T
+    }
+
+    /// Advances the address by `offset` bytes, or returns `None` if the result
+    /// would wrap around the end of the address space.
+    #[inline]
+    pub const fn checked_add(self, offset: usize) -> Option<Self> {
+        match self.0.checked_add(offset) {
+            Some(address) => Some(Self(address)),
+            None => None,
+        }
+    }
+}
+
+impl core::fmt::Debug for Addr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
 /// Structure describing a lease in task memory.
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
@@ -193,10 +264,19 @@ pub struct ULease {
     /// Base address of leased memory. This is equivalent to the base address
     /// field in `USlice`, but isn't represented as a `USlice` because we leave
     /// the internal memory representation of `USlice` out of the ABI.
-    pub base_address: u32,
+    pub base_address: Addr,
     /// Length of leased memory, in bytes.
-    pub length: u32,
+    pub length: usize,
 }
+
+// The kernel decodes lease tables straight out of task memory, so the layout
+// of `ULease` is part of the ABI: three pointer-sized words, with no padding
+// on 32-bit targets.
+const _: () = assert!(
+    core::mem::size_of::<ULease>() == 3 * core::mem::size_of::<usize>()
+);
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<ULease>() == 12);
 
 #[derive(
     Copy, Clone, Debug, FromBytes, Immutable, KnownLayout, PartialEq, Eq,
