@@ -1,0 +1,18 @@
+---
+source: build/i2c/tests/codegen.rs
+expression: "f.section(Codegen::generate_sensors)"
+---
+
+    pub mod sensors {
+        #[allow(unused_imports)]
+        use super::super::SensorId;
+
+        #[allow(dead_code)]
+        pub const NUM_SENSORS: usize = 0;
+
+        #[allow(dead_code, non_camel_case_types)]
+        type Sensors_tmp117 = ();
+        #[allow(dead_code)]
+        pub const TMP117_NORTH_SENSORS: Sensors_tmp117 = ();
+
+    }

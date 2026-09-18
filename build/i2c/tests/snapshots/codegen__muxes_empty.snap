@@ -1,0 +1,14 @@
+---
+source: build/i2c/tests/codegen.rs
+expression: "f.section(Codegen::generate_muxes)"
+---
+
+    #[allow(dead_code)]
+    pub const NMUXEDBUSES: usize = 0;
+
+    use drv_stm32xx_i2c::I2cMux;
+
+    pub fn muxes() -> [I2cMux<'static>; 0] {
+        [
+        ]
+    }

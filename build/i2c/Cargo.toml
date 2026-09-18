@@ -16,6 +16,9 @@ serde = { workspace = true }
 rangemap.workspace = true
 clap = { workspace = true, optional = true }
 
+[dev-dependencies]
+insta = { workspace = true }
+
 [features]
 h743 = []
 h753 = []

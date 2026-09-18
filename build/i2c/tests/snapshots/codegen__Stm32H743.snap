@@ -1,0 +1,5 @@
+---
+source: build/i2c/tests/codegen.rs
+expression: line
+---
+use stm32h7::stm32h743 as device;

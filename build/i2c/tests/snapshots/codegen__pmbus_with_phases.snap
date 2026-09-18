@@ -1,0 +1,107 @@
+---
+source: build/i2c/tests/codegen.rs
+expression: "f.section(Codegen::generate_devices)"
+---
+
+    pub mod devices {
+        #[allow(unused_imports)]
+        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+        #[allow(unused_imports)]
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn device_by_index(
+            task: TaskId,
+            index: usize,
+        ) -> Option<I2cDevice> {
+            match index {0 => Some(
+                    // a power controller
+                    I2cDevice::new(task,
+                        Controller::I2C2,
+                        PortIndex(0),
+                        None,
+                        0x35,
+                    )),
+
+                _ => None,
+            }
+        }
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn lookup_controller(index: usize) -> Option<Controller> {
+            match index {
+                0..=0 => Some(Controller::I2C2),
+                _ => None
+            }
+        }
+
+        #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
+        pub fn lookup_port(index: usize) -> Option<PortIndex> {
+            match index {
+                0..=0 => Some(PortIndex(0)),
+                _ => None
+            }
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // a power controller
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x35,
+                ),
+            ]
+        }
+
+        #[allow(dead_code)]
+        pub fn raa229618_bus1(task: TaskId) -> [I2cDevice; 1] {
+            [
+                // a power controller
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x35,
+                ),
+            ]
+        }
+    }
+
+    pub mod pmbus {
+        use drv_i2c_api::{I2cDevice, Controller, PortIndex};
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        pub fn v1p8(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // a power controller
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x35,
+                ), Some(0))
+        }
+
+        #[allow(dead_code)]
+        pub const RAA229618_V1P8_PHASES: Option<&'static [u8]> = Some(&[0, 1]);
+
+        #[allow(dead_code)]
+        pub fn vdd(task: TaskId) -> (I2cDevice, Option<u8>) {(
+                // a power controller
+                I2cDevice::new(task,
+                    Controller::I2C2,
+                    PortIndex(0),
+                    None,
+                    0x35,
+                ), Some(1))
+        }
+
+        #[allow(dead_code)]
+        pub const RAA229618_VDD_PHASES: Option<&'static [u8]> = Some(&[2, 3]);
+    }
