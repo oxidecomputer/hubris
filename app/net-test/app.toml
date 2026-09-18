@@ -1,0 +1,57 @@
+# The network stack under simulation, reachable from the host.
+#
+# The real kernel, jefe and udpecho run as host processes (see `cargo xtask
+# host-run`), with task-host-net in place of the net task: its sockets are
+# real UDP sockets on this machine. The socket table below uses the real
+# port numbers, and the net task's port-offset moves them out of the
+# privileged range, so the echo socket is reachable at port 10007:
+#
+#   cargo xtask host-run --realtime app/net-test/app.toml
+#   echo hello | nc -u -w1 ::1 10007
+name = "net-test"
+target = "host"
+board = "host"
+chip = "../../chips/host"
+stacksize = 1024
+
+[kernel]
+name = "net-test"
+requires = {flash = 0, ram = 0}
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 0, ram = 0}
+start = true
+notifications = ["fault", "timer"]
+
+[tasks.net]
+name = "task-host-net"
+priority = 2
+max-sizes = {flash = 0, ram = 0}
+start = true
+notifications = ["wake-timer"]
+
+[tasks.net.config]
+port-offset = 10000
+
+[tasks.udpecho]
+name = "task-udpecho"
+priority = 3
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = ["net"]
+notifications = ["socket"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 4
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = "socket"}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }

@@ -2,15 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
 use task_net_api::*;
 use userlib::{sys_recv_notification, task_slot};
 
 task_slot!(NET, net);
 
-#[unsafe(export_name = "main")]
+#[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {
     let net = NET.get_task_id();
     let net = Net::from(net);
