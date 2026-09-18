@@ -6484,6 +6484,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-fake-i2c"
+version = "0.1.0"
+dependencies = [
+ "drv-i2c-api",
+ "num-traits",
+ "userlib",
+]
+
+[[package]]
 name = "task-framulator"
 version = "0.1.0"
 dependencies = [
@@ -7453,6 +7462,13 @@ name = "textwrap"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
+
+[[package]]
+name = "thermal-test"
+version = "0.1.0"
+dependencies = [
+ "kern",
+]
 
 [[package]]
 name = "thiserror"

@@ -1,0 +1,82 @@
+# The thermal control loop under simulation.
+#
+# The real kernel, jefe, sensor and thermal run as host processes (see
+# `cargo xtask host-run`); the I2C driver is a fake serving one simulated
+# LM75-class temperature sensor, and packrat is a stub. thermal's `host` BSP
+# has that one input and no fans.
+name = "thermal-test"
+target = "host"
+board = "host"
+chip = "../../chips/host"
+stacksize = 1024
+
+[kernel]
+name = "thermal-test"
+requires = {flash = 0, ram = 0}
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 0, ram = 0}
+start = true
+notifications = ["fault", "timer"]
+
+[tasks.packrat]
+name = "task-stub"
+priority = 1
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+[tasks.i2c_driver]
+name = "task-fake-i2c"
+priority = 2
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+[tasks.sensor]
+name = "task-sensor"
+priority = 4
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+[tasks.thermal]
+name = "task-thermal"
+priority = 5
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = ["i2c_driver", "sensor", "packrat"]
+notifications = ["timer"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 6
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+[config]
+
+[[config.i2c.controllers]]
+controller = 1
+
+[config.i2c.controllers.ports.B]
+name = "i2c1"
+sda.pin = 8
+scl.pin = 9
+af = 4
+
+[[config.i2c.devices]]
+bus = "i2c1"
+address = 0x48
+device = "pct2075"
+name = "lm75_a"
+sensors = { temperature = 1 }
+description = "Simulated LM75 temperature sensor"
+refdes = "U1"
+
+# The control loop's own output, reported to the sensor task as a PWM.
+[[config.sensor.devices]]
+name = "fan_ctrl"
+device = "thermal_loop"
+description = "Thermal loop"
+sensors.pwm = 1
+refdes = "U2"
