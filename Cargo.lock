@@ -3680,6 +3680,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "host-fixture"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 3.2.23",
+ "hostcall",
+]
+
+[[package]]
 name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
