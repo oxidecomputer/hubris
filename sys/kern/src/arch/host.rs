@@ -113,6 +113,11 @@ pub struct HostConfig {
     /// jumping virtual time to the next deadline.
     #[serde(default)]
     pub realtime: bool,
+    /// Enums generated per application, which interfaces refer to by name
+    /// (such as the net API's `SocketName`): type name to variant names,
+    /// for decoding traffic in the trace.
+    #[serde(default)]
+    pub enums: BTreeMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -223,7 +228,15 @@ fn decoders() -> &'static [Option<Decoder>] {
             .map(|task| {
                 let path = task.interface.as_ref()?;
                 match Decoder::load(std::path::Path::new(path)) {
-                    Ok(decoder) => Some(decoder),
+                    Ok(mut decoder) => {
+                        for (name, variants) in &config().enums {
+                            decoder.registry_mut().insert(
+                                name,
+                                idol_trace::TypeDef::Enum(variants.clone()),
+                            );
+                        }
+                        Some(decoder)
+                    }
                     Err(e) => {
                         eprintln!(
                             "kernel: not decoding traffic to {}: {e:#}",

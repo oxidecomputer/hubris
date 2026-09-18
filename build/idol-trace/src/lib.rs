@@ -37,6 +37,11 @@ pub enum TypeDef {
     Struct(Vec<(String, String)>),
     /// An error enum used as a reply code: `(code, variant)` pairs.
     ErrorCodes(Vec<(u32, String)>),
+    /// An enum whose variants may carry a value: `(variant, type)` pairs,
+    /// encoded as the variant index followed by the value.
+    Tagged(Vec<(String, Option<String>)>),
+    /// Sixteen bytes shown as an IPv6 address.
+    Ipv6Address,
 }
 
 /// Named types the decoder knows about.
@@ -69,6 +74,25 @@ impl TypeRegistry {
             TypeDef::Struct(vec![
                 ("timestamp".into(), "u64".into()),
                 ("value".into(), "f32".into()),
+            ]),
+        );
+        // Net API. `SocketName` is generated per application from its
+        // `[config.net.sockets]`; register it with `TypeDef::Enum`.
+        r.insert(
+            "LargePayloadBehavior",
+            TypeDef::Enum(vec!["Discard".into()]),
+        );
+        r.insert("Ipv6Address", TypeDef::Ipv6Address);
+        r.insert(
+            "Address",
+            TypeDef::Tagged(vec![("Ipv6".into(), Some("Ipv6Address".into()))]),
+        );
+        r.insert(
+            "UdpMetadata",
+            TypeDef::Struct(vec![
+                ("addr".into(), "Address".into()),
+                ("port".into(), "u16".into()),
+                ("size".into(), "u32".into()),
             ]),
         );
         r.insert(
@@ -115,6 +139,8 @@ pub enum Value {
     Array(Vec<Value>),
     Option(Option<Box<Value>>),
     Result(Result<Box<Value>, Box<Value>>),
+    /// A value with its own textual form, such as an address.
+    Text(String),
     /// Bytes that could not be decoded.
     Raw(Vec<u8>),
 }
@@ -187,6 +213,7 @@ impl fmt::Display for Value {
             Value::Option(Some(v)) => write!(f, "Some({v})"),
             Value::Result(Ok(v)) => write!(f, "Ok({v})"),
             Value::Result(Err(e)) => write!(f, "Err({e})"),
+            Value::Text(text) => write!(f, "{text}"),
             Value::Raw(bytes) => {
                 write!(f, "<{} bytes:", bytes.len())?;
                 for b in bytes {
@@ -605,6 +632,33 @@ impl Decoder {
                 Some(TypeDef::ErrorCodes(_)) => {
                     bail!("{other} is an error code, not a value")
                 }
+                Some(TypeDef::Tagged(variants)) => {
+                    let index = take(input, 1)?[0];
+                    let (name, ty) =
+                        variants.get(usize::from(index)).ok_or_else(|| {
+                            anyhow!("{other} has no variant {index}")
+                        })?;
+                    let variant = format!("{other}::{name}");
+                    match ty {
+                        None => Value::Variant {
+                            ty: other.to_string(),
+                            index,
+                            name: name.clone(),
+                        },
+                        Some(ty) => Value::Newtype(
+                            variant,
+                            Box::new(self.decode(
+                                &TypeExpr::parse(ty)?,
+                                encoding,
+                                input,
+                            )?),
+                        ),
+                    }
+                }
+                Some(TypeDef::Ipv6Address) => {
+                    let octets: [u8; 16] = take(input, 16)?.try_into()?;
+                    Value::Text(std::net::Ipv6Addr::from(octets).to_string())
+                }
                 None => bail!("unknown type {other}; add it to the registry"),
             },
         })
@@ -661,6 +715,36 @@ mod tests {
             "post(id: SensorId(3), value: 31.5, timestamp: 1000)"
         );
         assert_eq!(d.describe_reply(op, 0, &[]), "()");
+    }
+
+    #[test]
+    fn decodes_net_traffic() {
+        let mut d = Decoder::load(Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../idl/net.idol"
+        )))
+        .unwrap();
+        d.registry_mut().insert(
+            "SocketName",
+            TypeDef::Enum(vec!["broadcast".into(), "echo".into()]),
+        );
+        let recv = d.ops.iter().position(|o| o.name == "recv_packet").unwrap()
+            as u16
+            + 1;
+        assert_eq!(
+            d.describe_request(recv, &[1, 0]),
+            "recv_packet(socket: SocketName::echo, \
+             large_payload_behavior: LargePayloadBehavior::Discard)"
+        );
+        let mut meta = vec![0u8];
+        meta.extend(std::net::Ipv6Addr::LOCALHOST.octets());
+        meta.extend(4321u16.to_le_bytes());
+        meta.extend(15u32.to_le_bytes());
+        assert_eq!(
+            d.describe_reply(recv, 0, &meta),
+            "Ok(UdpMetadata { addr: Address::Ipv6(::1), port: 4321, size: 15 })"
+        );
+        assert_eq!(d.describe_reply(recv, 1, &[]), "Err(RecvError(1))");
     }
 
     #[test]

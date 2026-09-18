@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::config::BuildConfig;
 use crate::dist::PackageConfig;
@@ -111,6 +111,44 @@ struct HostConfig {
     tasks: Vec<HostTask>,
     stop_at: Option<u64>,
     realtime: bool,
+    enums: BTreeMap<String, Vec<String>>,
+}
+
+/// The part of `[config]` that names application-generated enums.
+#[derive(Deserialize)]
+struct EnumSources {
+    net: Option<NetSockets>,
+}
+
+#[derive(Deserialize)]
+struct NetSockets {
+    /// Sorted by name, which is the order build-net numbers `SocketName`.
+    #[serde(default)]
+    sockets: BTreeMap<String, toml::Value>,
+}
+
+/// Enums that interfaces name but each application generates, so the
+/// kernel's trace can decode them.
+fn generated_enums(
+    toml: &crate::config::Config,
+) -> Result<BTreeMap<String, Vec<String>>> {
+    let mut enums = BTreeMap::new();
+    let sources = toml
+        .config
+        .as_ref()
+        .map(|config| {
+            toml::Value::try_from(config)?
+                .try_into::<EnumSources>()
+                .context("reading [config] for generated enums")
+        })
+        .transpose()?;
+    if let Some(EnumSources { net: Some(net) }) = sources {
+        enums.insert(
+            "SocketName".to_string(),
+            net.sockets.into_keys().collect(),
+        );
+    }
+    Ok(enums)
 }
 
 #[derive(Serialize)]
@@ -225,6 +263,7 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
         tasks: host_tasks,
         stop_at: flags.stop_at,
         realtime: flags.realtime,
+        enums: generated_enums(toml)?,
     };
     std::fs::write(
         &config_path,
