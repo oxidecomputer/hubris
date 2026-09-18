@@ -8,10 +8,13 @@ panic-messages = ["userlib/panic-messages"]
 no-ipc-counters = ["idol/no-counters"]
 
 [dependencies]
-cortex-m = { workspace = true }
 
 drv-user-leds-api = { path = "../../drv/user-leds-api" }
 userlib = { path = "../../sys/userlib" }
+
+# Only on the real target; the crate doesn't build for the host.
+[target.'cfg(target_os = "none")'.dependencies]
+cortex-m = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

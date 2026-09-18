@@ -38,6 +38,23 @@ enum Xtask {
         caboose_args: CabooseArgs,
     },
 
+    /// Builds one or more tasks for the host machine, configured as they
+    /// would be for the given app, so they can be run under a test fixture
+    /// (see `build/host-fixture`). Prints the path of each executable.
+    HostBuild {
+        /// Request verbosity from tools we shell out to.
+        #[clap(short)]
+        verbose: bool,
+        /// Build with the release profile instead of dev.
+        #[clap(long)]
+        release: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+        /// Name of task(s) to build.
+        #[clap(min_values = 1)]
+        tasks: Vec<String>,
+    },
+
     /// Builds one or more cross-compiled binary as it would appear in the
     /// output of `dist`, but without all the other binaries or the final build
     /// archive. This is useful for iterating on a single task.
@@ -342,6 +359,21 @@ fn run(xtask: Xtask) -> Result<()> {
                     Some(tasks),
                     CabooseArgs::default(),
                 )?;
+            }
+        }
+        Xtask::HostBuild {
+            verbose,
+            release,
+            cfg,
+            tasks,
+        } => {
+            let exes = host::build(
+                &cfg,
+                &tasks,
+                host::HostBuildFlags { verbose, release },
+            )?;
+            for exe in exes {
+                println!("{}", exe.display());
             }
         }
         Xtask::Flash {
