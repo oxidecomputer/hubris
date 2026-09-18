@@ -73,9 +73,13 @@ enum Xtask {
         /// (comma-separated names); implies --trace.
         #[clap(long, value_name = "TASKS")]
         trace_only: Option<String>,
-        /// Stop once virtual time would pass this many ticks.
+        /// Stop once time would pass this many ticks (milliseconds).
         #[clap(long)]
         stop_at: Option<u64>,
+        /// Run at the wall clock's pace, one tick per millisecond, instead
+        /// of jumping virtual time to each deadline as fast as possible.
+        #[clap(long)]
+        realtime: bool,
         /// Build everything and write the run configuration, but don't run.
         #[clap(long)]
         no_run: bool,
@@ -410,6 +414,7 @@ fn run(xtask: Xtask) -> Result<()> {
             trace,
             trace_only,
             stop_at,
+            realtime,
             no_run,
             cfg,
         } => {
@@ -422,6 +427,7 @@ fn run(xtask: Xtask) -> Result<()> {
                         None => trace.then(|| "all".to_string()),
                     },
                     stop_at,
+                    realtime,
                     no_run,
                 },
             )?;

@@ -31,11 +31,13 @@
 //! kernel-side memory. Results the portable code writes back through
 //! `ArchState` are captured and sent to the task when it is next resumed.
 //!
-//! Time is virtual. When the scheduler picks the idle task, the clock jumps
-//! to the earliest pending timer deadline and the timers are processed. A
-//! run therefore has no real-time dependence at all, and ends when every task
-//! is blocked with no timer pending (or when the configured stop time is
-//! reached).
+//! Time is virtual by default. When the scheduler picks the idle task, the
+//! clock jumps to the earliest pending timer deadline and the timers are
+//! processed. A run therefore has no real-time dependence at all, and ends
+//! when every task is blocked with no timer pending (or when the configured
+//! stop time is reached). In real-time mode the clock is instead the wall
+//! clock in milliseconds since start, and going idle sleeps until the next
+//! deadline, so the run proceeds at the pace the hardware would.
 //!
 //! Memory protection does not apply (the kernel never touches task memory),
 //! interrupts exist only as software-pended notifications, and a task process
@@ -62,6 +64,7 @@ use std::io::BufReader;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::time::{Duration, Instant};
 
 use abi::{
     Addr, FaultInfo, FaultSource, InterruptNum, IrqStatus, LeaseAttributes,
@@ -106,6 +109,10 @@ pub struct HostConfig {
     /// Stop the run once virtual time would advance past this tick.
     #[serde(default)]
     pub stop_at: Option<u64>,
+    /// Run against the wall clock (one tick per millisecond) instead of
+    /// jumping virtual time to the next deadline.
+    #[serde(default)]
+    pub realtime: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -181,7 +188,7 @@ fn traced(participants: &[usize]) -> bool {
 macro_rules! trace {
     ($($arg:tt)*) => {
         if tracing() {
-            eprintln!("[kernel t={}] {}", TICKS.load(Ordering::Relaxed),
+            eprintln!("[kernel t={}] {}", u64::from(now()),
                 format_args!($($arg)*));
         }
     };
@@ -191,7 +198,7 @@ macro_rules! trace {
 macro_rules! trace_task {
     ($participants:expr, $($arg:tt)*) => {
         if traced($participants) {
-            eprintln!("[kernel t={}] {}", TICKS.load(Ordering::Relaxed),
+            eprintln!("[kernel t={}] {}", u64::from(now()),
                 format_args!($($arg)*));
         }
     };
@@ -1277,8 +1284,11 @@ fn encode_response(call: &Call) -> Vec<u8> {
 static CURRENT_TASK_PTR: AtomicPtr<Task> =
     AtomicPtr::new(core::ptr::null_mut());
 
-/// Virtual time, in ticks.
+/// Virtual time, in ticks (unused in real-time mode).
 static TICKS: AtomicU64 = AtomicU64::new(0);
+
+/// When the kernel started, for real-time mode.
+static START: OnceLock<Instant> = OnceLock::new();
 
 /// Software interrupts pended by `pend_software_irq`, delivered at the next
 /// scheduling point.
@@ -1422,14 +1432,20 @@ fn idle_step(idle_index: usize) {
             && u64::from(target) > stop
         {
             finish(format_args!(
-                "virtual time reached the configured stop at {stop} ticks"
+                "time reached the configured stop at {stop} ticks"
             ))
         }
-        TICKS.store(target.into(), Ordering::Relaxed);
+        if config().realtime {
+            // Wait for the deadline to actually arrive.
+            let wait = u64::from(target).saturating_sub(u64::from(now()));
+            std::thread::sleep(Duration::from_millis(wait));
+        } else {
+            TICKS.store(target.into(), Ordering::Relaxed);
+        }
         // Not attributable to a task: shown only when tracing everything.
-        trace_task!(&[], "idle: advanced time to the next deadline");
+        trace_task!(&[], "idle: waited for the next deadline");
         crate::profiling::event_timer_isr_enter();
-        let _ = task::process_timers(tasks, target);
+        let _ = task::process_timers(tasks, now());
         crate::profiling::event_timer_isr_exit();
         let next = task::select(idle_index, tasks);
         // Safety: `next` is in the task table.
@@ -1488,9 +1504,11 @@ pub const fn compute_region_extension_data(
 }
 
 /// Loads the run configuration, so a misconfigured run fails before any task
-/// starts. The tick divisor is meaningless with virtual time.
+/// starts, and starts the clock. The tick divisor is meaningless here: a
+/// tick is a millisecond, virtual or real.
 pub unsafe fn set_clock_freq(_tick_divisor: u32) {
     let _ = config();
+    let _ = START.get_or_init(Instant::now);
 }
 
 pub fn reinitialize(task: &mut Task) {
@@ -1523,7 +1541,12 @@ pub unsafe fn set_current_task(task: &mut Task) {
 }
 
 pub fn now() -> Timestamp {
-    Timestamp::from(TICKS.load(Ordering::Relaxed))
+    if config().realtime {
+        let start = START.get_or_init(Instant::now);
+        Timestamp::from(start.elapsed().as_millis() as u64)
+    } else {
+        Timestamp::from(TICKS.load(Ordering::Relaxed))
+    }
 }
 
 pub fn disable_irq(

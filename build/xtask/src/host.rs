@@ -110,6 +110,7 @@ const IDLE_TASK: &str = "idle";
 struct HostConfig {
     tasks: Vec<HostTask>,
     stop_at: Option<u64>,
+    realtime: bool,
 }
 
 #[derive(Serialize)]
@@ -125,8 +126,10 @@ pub struct HostRunFlags {
     pub build: HostBuildFlags,
     /// Value for `HUBRIS_HOST_TRACE`: `all`, or the tasks to trace.
     pub trace: Option<String>,
-    /// Stop when virtual time would pass this tick.
+    /// Stop when time would pass this tick.
     pub stop_at: Option<u64>,
+    /// Run at the wall clock's pace instead of as fast as possible.
+    pub realtime: bool,
     /// Build everything but don't launch the kernel.
     pub no_run: bool,
 }
@@ -221,6 +224,7 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
     let host_config = HostConfig {
         tasks: host_tasks,
         stop_at: flags.stop_at,
+        realtime: flags.realtime,
     };
     std::fs::write(
         &config_path,
