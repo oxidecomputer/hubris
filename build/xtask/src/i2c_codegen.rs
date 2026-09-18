@@ -3,15 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::Result;
-use build_i2c::{CodegenSettings, ConfigGenerator, Disposition};
+use build_i2c::{CodegenSettings, Disposition, I2cConfig, Report};
 use std::{fs::File, io::Write, path::Path};
 
 use crate::config::Config;
 
-pub fn setup_generator(
-    cfg: &Path,
-    settings: CodegenSettings,
-) -> Result<ConfigGenerator> {
+/// Load the I2C section of an application manifest.
+pub fn load_config(cfg: &Path) -> Result<I2cConfig> {
     let cfg = Config::from_file(cfg)?;
 
     // This is a little roundabout of a process, but roughly approximates what
@@ -24,9 +22,12 @@ pub fn setup_generator(
     // ...and now that it's a string, parse the contents back as *i2c*'s
     // different notion of what a manifest toml looks like (mostly just the
     // i2c config section).
-    let i2c_cfg: build_i2c::Config = build_util::toml_from_str(&config)?;
-    let g = ConfigGenerator::new_with_config(settings, i2c_cfg.i2c);
-    Ok(g)
+    build_i2c::load::parse(&config)
+}
+
+/// Load and analyze the I2C section of an application manifest.
+pub fn setup_report(cfg: &Path, settings: &CodegenSettings) -> Result<Report> {
+    settings.analyze(load_config(cfg)?)
 }
 
 pub fn write_file(code: &str, output: &Path, fmt: bool) -> Result<()> {
@@ -50,10 +51,12 @@ pub fn run(
     output: Option<&Path>,
     fmt: bool,
 ) -> Result<()> {
-    let g = setup_generator(cfg, disp.into())?;
+    let settings: CodegenSettings = disp.into();
+    let report = setup_report(cfg, &settings)?;
 
     // Do the codegen into a string
-    let build_i2c::CodegenOutputs { code, .. } = g.codegen()?;
+    let build_i2c::CodegenOutputs { code, .. } =
+        build_i2c::codegen(report, &settings)?;
 
     if let Some(p) = output {
         write_file(&code, p, fmt)?;

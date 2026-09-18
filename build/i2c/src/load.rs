@@ -38,8 +38,8 @@ pub struct Config {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct I2cConfig {
-    pub(crate) controllers: Vec<I2cController>,
-    pub(crate) devices: Option<Vec<I2cDevice>>,
+    pub controllers: Vec<I2cController>,
+    pub devices: Option<Vec<I2cDevice>>,
 }
 
 //
@@ -58,11 +58,11 @@ pub struct I2cConfig {
 //
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub(crate) struct I2cController {
-    pub(crate) controller: u8,
-    pub(crate) ports: BTreeMap<String, I2cPort>,
+pub struct I2cController {
+    pub controller: u8,
+    pub ports: BTreeMap<String, I2cPort>,
     #[serde(default)]
-    pub(crate) target: bool,
+    pub target: bool,
 }
 
 //
@@ -79,55 +79,55 @@ pub(crate) struct I2cController {
 #[derive(Clone, Debug, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
-pub(crate) struct I2cDevice {
+pub struct I2cDevice {
     /// device part name
-    pub(crate) device: String,
+    pub device: String,
 
     /// device name
-    pub(crate) name: Option<String>,
+    pub name: Option<String>,
 
     /// I2C controller, if bus not named
-    pub(crate) controller: Option<u8>,
+    pub controller: Option<u8>,
 
     /// I2C bus name, if controller not specified
-    pub(crate) bus: Option<String>,
+    pub bus: Option<String>,
 
     /// I2C port, if required
-    pub(crate) port: Option<String>,
+    pub port: Option<String>,
 
     /// Disambiguation between sensor configurations
-    pub(crate) flavor: Option<String>,
+    pub flavor: Option<String>,
 
     /// I2C address
-    pub(crate) address: u8,
+    pub address: u8,
 
     /// I2C mux, if any
-    pub(crate) mux: Option<u8>,
+    pub mux: Option<u8>,
 
     /// I2C segment, if any
-    pub(crate) segment: Option<u8>,
+    pub segment: Option<u8>,
 
     /// description of device
-    pub(crate) description: String,
+    pub description: String,
 
     /// if this is an EEPROM, configures the format for VPD read from this
     /// EEPROM.
     ///
     /// providing a value for this is valid only if `device = "at24csw080"`.
-    pub(crate) eeprom_vpd: Option<EepromVpd>,
+    pub eeprom_vpd: Option<EepromVpd>,
 
     /// reference designator, if any
-    pub(crate) refdes: Option<Refdes>,
+    pub refdes: Option<Refdes>,
 
     /// power information, if any
-    pub(crate) power: Option<I2cPower>,
+    pub power: Option<I2cPower>,
 
     /// sensor information, if any
-    pub(crate) sensors: Option<I2cSensors>,
+    pub sensors: Option<I2cSensors>,
 
     /// device is removable
     #[serde(default)]
-    pub(crate) removable: bool,
+    pub removable: bool,
 
     /// We typically expect that each device will have a driver in
     /// `drv-i2c-devices` that implements the `Validate` trait, doing some
@@ -140,7 +140,7 @@ pub(crate) struct I2cDevice {
     /// so this fallback implementation may be incorrect or cause unwanted side
     /// effects on some devices.
     #[serde(default)]
-    pub(crate) validate_with_raw_read: bool,
+    pub validate_with_raw_read: bool,
 }
 
 impl I2cDevice {
@@ -157,7 +157,7 @@ impl I2cDevice {
     ///
     /// If the `sensors` array is `None`, then we fall back to the default case
     /// of all sensors being one-to-one associated with rails.
-    pub(crate) fn power_for_kind(&self, kind: Sensor) -> Option<&I2cPower> {
+    pub fn power_for_kind(&self, kind: Sensor) -> Option<&I2cPower> {
         self.power.as_ref().filter(|power| {
             power.sensors.as_ref().is_none_or(|s| s.contains(&kind))
         })
@@ -166,51 +166,51 @@ impl I2cDevice {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub(crate) struct I2cPort {
-    pub(crate) name: Option<String>,
+pub struct I2cPort {
+    pub name: Option<String>,
     #[allow(dead_code)]
-    pub(crate) description: Option<String>,
-    pub(crate) scl: I2cPin,
-    pub(crate) sda: I2cPin,
-    pub(crate) af: u8,
+    pub description: Option<String>,
+    pub scl: I2cPin,
+    pub sda: I2cPin,
+    pub af: u8,
     #[serde(default)]
-    pub(crate) muxes: Vec<I2cMux>,
+    pub muxes: Vec<I2cMux>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct I2cPin {
-    pub(crate) gpio_port: Option<String>,
-    pub(crate) pin: u8,
+pub struct I2cPin {
+    pub gpio_port: Option<String>,
+    pub pin: u8,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct I2cGpio {
-    pub(crate) port: String,
-    pub(crate) pin: u8,
+pub struct I2cGpio {
+    pub port: String,
+    pub pin: u8,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub(crate) struct I2cMux {
-    pub(crate) driver: String,
-    pub(crate) address: u8,
+pub struct I2cMux {
+    pub driver: String,
+    pub address: u8,
     #[serde(alias = "enable")]
-    pub(crate) nreset: Option<I2cGpio>,
+    pub nreset: Option<I2cGpio>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialOrd, PartialEq, Eq, Ord)]
 #[allow(dead_code)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub(crate) struct I2cPower {
-    pub(crate) rails: Option<Vec<String>>,
+pub struct I2cPower {
+    pub rails: Option<Vec<String>>,
 
     /// Optional phases, which must be the same length as `rails` if present
-    pub(crate) phases: Option<Vec<Vec<u8>>>,
+    pub phases: Option<Vec<Vec<u8>>>,
 
     #[serde(default = "I2cPower::default_pmbus")]
-    pub(crate) pmbus: bool,
+    pub pmbus: bool,
 
     /// Lists which sensor types have a one-to-one association with power rails
     ///
@@ -218,7 +218,7 @@ pub(crate) struct I2cPower {
     /// rails.  Otherwise, *only* the listed sensor types are associated with
     /// rails (which is the case in systems with independent temperature sensors
     /// and power rails).
-    pub(crate) sensors: Option<Vec<Sensor>>,
+    pub sensors: Option<Vec<Sensor>>,
 }
 
 impl I2cPower {
@@ -230,29 +230,29 @@ impl I2cPower {
 #[derive(Clone, Debug, Deserialize, PartialOrd, PartialEq, Eq, Ord)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
-pub(crate) struct I2cSensors {
+pub struct I2cSensors {
     #[serde(default)]
-    pub(crate) temperature: usize,
+    pub temperature: usize,
 
     #[serde(default)]
-    pub(crate) power: usize,
+    pub power: usize,
 
     #[serde(default)]
-    pub(crate) current: usize,
+    pub current: usize,
 
     #[serde(default)]
-    pub(crate) voltage: usize,
+    pub voltage: usize,
 
     #[serde(default)]
-    pub(crate) input_current: usize,
+    pub input_current: usize,
 
     #[serde(default)]
-    pub(crate) input_voltage: usize,
+    pub input_voltage: usize,
 
     #[serde(default)]
-    pub(crate) speed: usize,
+    pub speed: usize,
 
-    pub(crate) names: Option<Vec<String>>,
+    pub names: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialOrd, PartialEq, Eq, Ord)]
@@ -267,7 +267,7 @@ impl I2cSensors {
     ///
     /// "Compatible" means that they have the same number of sensors in each
     /// category, meaning they can be represented by the same `struct`.
-    pub(crate) fn is_compatible_with(&self, other: &Self) -> bool {
+    pub fn is_compatible_with(&self, other: &Self) -> bool {
         // Manually unpack the struct, so that any new sensor types have to be
         // updated here!
         let &Self {
@@ -348,11 +348,11 @@ impl Refdes {
         self.join_with_case(str::make_ascii_uppercase, "/")
     }
 
-    pub(crate) fn to_upper_ident(&self) -> String {
+    pub fn to_upper_ident(&self) -> String {
         self.join_with_case(str::make_ascii_uppercase, "_")
     }
 
-    pub(crate) fn to_lower_ident(&self) -> String {
+    pub fn to_lower_ident(&self) -> String {
         self.join_with_case(str::make_ascii_lowercase, "_")
     }
 

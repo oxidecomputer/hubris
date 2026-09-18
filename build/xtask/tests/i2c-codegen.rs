@@ -25,13 +25,36 @@
 use std::path::Path;
 
 use anyhow::Result;
-use build_i2c::{
-    CodegenSettings, ConfigGenerator, Disposition, I2cSensorsDescription,
-};
+use build_i2c::{Codegen, CodegenSettings, Disposition};
 use insta::assert_snapshot;
 use tempfile::{TempDir, tempdir};
 
-type GenFn<T> = fn(&ConfigGenerator, &mut String) -> Result<T>;
+type GenFn = fn(&Codegen<'_>, &mut String) -> Result<()>;
+
+//
+// Thin wrappers around the code generation methods: a method of
+// `Codegen<'a>` can't be named as a function pointer that is generic over
+// `'a`, but a free function can.
+//
+macro_rules! gen_fns {
+    ($($name:ident),* $(,)?) => {
+        $(
+            fn $name(g: &Codegen<'_>, out: &mut String) -> Result<()> {
+                g.$name(out)
+            }
+        )*
+    };
+}
+
+gen_fns!(
+    generate_controllers,
+    generate_devices,
+    generate_muxes,
+    generate_pins,
+    generate_ports,
+    generate_sensors,
+    generate_validation,
+);
 
 #[test]
 fn snapshot() {
@@ -46,53 +69,19 @@ fn snapshot() {
         Path::new("app/gimletlet/app-meanwell.toml"),
     ];
 
-    // TODO: Some analysis and generation is gated in either `new_with_config`
-    // or in the generate functions themselves to only work with certain
-    // dispositions. We should probably reconsider this at some point, and make
-    // snapshotting just per-function and not require a manual statement of
-    // disposition here.
-    let funcs: &[(&str, Disposition, GenFn<()>)] = &[
-        (
-            "controllers",
-            Disposition::Initiator,
-            ConfigGenerator::generate_controllers,
-        ),
-        (
-            "devices",
-            Disposition::Sensors,
-            ConfigGenerator::generate_devices,
-        ),
-        (
-            "muxes",
-            Disposition::Sensors,
-            ConfigGenerator::generate_muxes,
-        ),
-        (
-            "pins",
-            Disposition::Initiator,
-            ConfigGenerator::generate_pins,
-        ),
-        (
-            "ports",
-            Disposition::Sensors,
-            ConfigGenerator::generate_ports,
-        ),
-        (
-            "validation",
-            Disposition::Validation,
-            ConfigGenerator::generate_validation,
-        ),
-        (
-            "controllers",
-            Disposition::Target,
-            ConfigGenerator::generate_controllers,
-        ),
-        ("pins", Disposition::Target, ConfigGenerator::generate_pins),
-        (
-            "ports",
-            Disposition::Target,
-            ConfigGenerator::generate_ports,
-        ),
+    // Note that the disposition named here only selects the analysis settings
+    // (controller role, component IDs, validation drivers); each entry emits
+    // exactly one section of the generated code.
+    let funcs: &[(&str, Disposition, GenFn)] = &[
+        ("controllers", Disposition::Initiator, generate_controllers),
+        ("devices", Disposition::Sensors, generate_devices),
+        ("muxes", Disposition::Sensors, generate_muxes),
+        ("pins", Disposition::Initiator, generate_pins),
+        ("ports", Disposition::Sensors, generate_ports),
+        ("validation", Disposition::Validation, generate_validation),
+        ("controllers", Disposition::Target, generate_controllers),
+        ("pins", Disposition::Target, generate_pins),
+        ("ports", Disposition::Target, generate_ports),
     ];
 
     let all_dispositions = [
@@ -114,7 +103,7 @@ fn snapshot() {
         for (case, disp, f) in funcs {
             let name = manifest.to_string_lossy().replace("/", "_");
             let name = format!("{name}.{case}-{disp:?}");
-            snapshot_file::<()>(manifest, &tempdir, (*disp).into(), &name, *f);
+            snapshot_file(manifest, &tempdir, (*disp).into(), &name, *f);
         }
 
         // Device generation with component IDs enabled (normally selected by
@@ -124,12 +113,12 @@ fn snapshot() {
             let name = format!("{name}.devices-Sensors-component-ids");
             let mut settings: CodegenSettings = Disposition::Sensors.into();
             settings.component_ids = true;
-            snapshot_file::<()>(
+            snapshot_file(
                 manifest,
                 &tempdir,
                 settings,
                 &name,
-                ConfigGenerator::generate_devices,
+                generate_devices,
             );
         }
 
@@ -139,9 +128,10 @@ fn snapshot() {
         for disp in all_dispositions {
             let name = manifest.to_string_lossy().replace("/", "_");
             let name = format!("{name}.codegen-{disp:?}");
-            let g = xtask::i2c_codegen::setup_generator(manifest, disp.into())
-                .unwrap();
-            match g.codegen() {
+            let settings: CodegenSettings = disp.into();
+            let report =
+                xtask::i2c_codegen::setup_report(manifest, &settings).unwrap();
+            match build_i2c::codegen(report, &settings) {
                 Ok(outputs) => {
                     let dest = format!("{name}.snap");
                     let temp_out = tempdir.path().join(Path::new(&dest));
@@ -164,57 +154,61 @@ fn snapshot() {
         {
             let name = manifest.to_string_lossy().replace("/", "_");
             let name = format!("{name}.device-descriptions");
-            let g = xtask::i2c_codegen::setup_generator(
-                manifest,
-                Disposition::Validation.into(),
-            )
-            .unwrap();
-            let descs: Vec<_> = g.device_descriptions().collect();
+            let settings: CodegenSettings = Disposition::Validation.into();
+            let report =
+                xtask::i2c_codegen::setup_report(manifest, &settings).unwrap();
+            let descs: Vec<_> = report.device_descriptions().collect();
             assert_snapshot!(name, format!("{descs:#?}"));
         }
 
-        // Handle `generate_sensors` separately because it returns data in
-        // addition to the generated code.
+        // Handle sensors separately because the analysis produces a
+        // description in addition to the generated code.
         let disp = Disposition::Sensors;
         let case = "sensors";
         let name = manifest.to_string_lossy().replace("/", "_");
         let name = format!("{name}.{case}-{disp:?}");
 
-        let desc = snapshot_file::<I2cSensorsDescription>(
+        let settings: CodegenSettings = disp.into();
+        snapshot_file(
             manifest,
             &tempdir,
-            disp.into(),
+            settings.clone(),
             &name,
-            ConfigGenerator::generate_sensors,
+            generate_sensors,
         );
 
         // Now snapshot the generated description
+        let report =
+            xtask::i2c_codegen::setup_report(manifest, &settings).unwrap();
         let name = format!("{name}-desc");
-        assert_snapshot!(name, desc.to_string());
+        assert_snapshot!(name, report.sensors.to_string());
     }
 }
 
-fn snapshot_file<T>(
+fn snapshot_file(
     manifest: &Path,
     tempdir: &TempDir,
     settings: CodegenSettings,
     name: &str,
-    f: GenFn<T>,
-) -> T {
+    f: GenFn,
+) {
     let dest = format!("{name}.snap");
     let temp_out = tempdir.path().join(Path::new(&dest));
 
     let mut out = String::new();
 
-    // Create the generator...
-    let g = xtask::i2c_codegen::setup_generator(manifest, settings).unwrap();
+    // Load and analyze the manifest...
+    let report = xtask::i2c_codegen::setup_report(manifest, &settings).unwrap();
+    let g = Codegen {
+        report: &report,
+        codegen_target: settings.codegen_target,
+    };
     // Do code generation with the given function
-    let t = (f)(&g, &mut out).unwrap();
+    (f)(&g, &mut out).unwrap();
     // Write and format the file...
     xtask::i2c_codegen::write_file(&out, &temp_out, true).unwrap();
 
     // ...then read it back
     let contents = std::fs::read_to_string(temp_out).unwrap();
     assert_snapshot!(name, contents);
-    t
 }
