@@ -3680,6 +3680,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "host-demo"
+version = "0.1.0"
+dependencies = [
+ "kern",
+]
+
+[[package]]
 name = "host-fixture"
 version = "0.1.0"
 dependencies = [
@@ -4099,10 +4106,12 @@ dependencies = [
  "call_rustfmt",
  "cfg-if",
  "cortex-m",
+ "hostcall",
  "indexmap 1.9.1",
  "kerncore",
  "phash",
  "phash-gen",
+ "postcard 1.1.3",
  "proc-macro2",
  "quote",
  "ron 0.8.0",
@@ -7016,6 +7025,13 @@ dependencies = [
  "ringbuf",
  "serde",
  "sha3 0.11.0",
+ "userlib",
+]
+
+[[package]]
+name = "task-stub"
+version = "0.1.0"
+dependencies = [
  "userlib",
 ]
 

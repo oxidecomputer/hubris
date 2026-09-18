@@ -60,6 +60,10 @@ fn process_config() -> Result<Generated> {
         ron::de::from_str(&build_util::env_var("HUBRIS_KCONFIG")?)
             .context("parsing kconfig from HUBRIS_KCONFIG")?;
 
+    if build_util::target_os() != "none" {
+        return host_config(&kconfig);
+    }
+
     // The kconfig data structure keeps things somewhat abstract to give us, the
     // kernel, more freedom about our internal implementation choices. However,
     // this means we have to do some preprocessing before it's useful.
@@ -196,6 +200,16 @@ fn process_config() -> Result<Generated> {
         .map(|(_k, region)| fmt_region(&region))
         .collect();
 
+    let irq_code = generate_irq_code(&kconfig)?;
+
+    Ok(Generated {
+        tasks: task_descs,
+        regions: region_descs,
+        irq_code,
+    })
+}
+
+fn generate_irq_code(kconfig: &KernelConfig) -> Result<TokenStream> {
     // Now, we generate two mappings:
     //  irq num => abi::Interrupt
     //  (task, notifications) => abi::InterruptSet
@@ -226,10 +240,12 @@ fn process_config() -> Result<Generated> {
     let task_irq_map = per_task_irqs.into_iter().collect::<Vec<_>>();
 
     let target = build_util::target();
-    let irq_code = if target.starts_with("thumbv6m") {
+    let host = build_util::target_os() != "none";
+    let irq_code = if target.starts_with("thumbv6m") || host {
         // On ARMv6-M we have no hardware division, which the perfect hash table
         // relies on (to get efficient integer remainder). Fall back to a good
-        // old sorted list with binary search instead.
+        // old sorted list with binary search instead. (The host kernel takes
+        // the same path; it has no interrupt fast path to optimize.)
         //
         // This means our dispatch time for interrupts on ARMv6-M is O(log N)
         // instead of O(1), but these parts also tend to have few interrupts,
@@ -327,10 +343,80 @@ fn process_config() -> Result<Generated> {
         panic!("Don't know the target {target}");
     };
 
+    Ok(irq_code)
+}
+
+/// Descriptors for a kernel running as a host process.
+///
+/// Tasks are separate processes there, and the kernel never touches their
+/// memory: the buffers it works on are its own. So every task gets a single
+/// region covering the whole address space (above the null region), and entry
+/// points and stacks are meaningless. The kconfig's own regions are ignored.
+fn host_config(kconfig: &KernelConfig) -> Result<Generated> {
+    let all_access = quote::quote! {
+        unsafe {
+            RegionAttributes::from_bits_unchecked(
+                RegionAttributes::READ.bits()
+                    | RegionAttributes::WRITE.bits()
+                    | RegionAttributes::EXECUTE.bits()
+            )
+        }
+    };
+    let regions = vec![
+        quote::quote! {
+            RegionDesc {
+                base: 0usize,
+                size: 32usize,
+                attributes: RegionAttributes::empty(),
+                arch_data: crate::arch::compute_region_extension_data(
+                    0usize, 32usize, RegionAttributes::empty(),
+                ),
+            }
+        },
+        quote::quote! {
+            RegionDesc {
+                base: 32usize,
+                size: usize::MAX - 32,
+                attributes: #all_access,
+                arch_data: crate::arch::compute_region_extension_data(
+                    32usize, usize::MAX - 32, #all_access,
+                ),
+            }
+        },
+    ];
+
+    let mut tasks = vec![];
+    for (i, task) in kconfig.tasks.iter().enumerate() {
+        let index = u16::try_from(i).expect("over 2**16 tasks??");
+        let priority = task.priority;
+        let flags = if task.start_at_boot {
+            quote::quote! { TaskFlags::START_AT_BOOT }
+        } else {
+            quote::quote! { TaskFlags::empty() }
+        };
+        // Sorted by base address, as the kernel requires: the null region
+        // fills the unused slots.
+        tasks.push(quote::quote! {
+            TaskDesc {
+                regions: [
+                    &HUBRIS_REGION_DESCS[0], &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[0], &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[0], &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[0], &HUBRIS_REGION_DESCS[1],
+                ],
+                entry_point: 0u32,
+                initial_stack: 0u32,
+                priority: #priority,
+                index: #index,
+                flags: #flags,
+            }
+        });
+    }
+
     Ok(Generated {
-        tasks: task_descs,
-        regions: region_descs,
-        irq_code,
+        tasks,
+        regions,
+        irq_code: generate_irq_code(kconfig)?,
     })
 }
 

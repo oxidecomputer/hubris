@@ -7,17 +7,26 @@ edition = "2024"
 bitflags = { workspace = true }
 byteorder = { workspace = true }
 cfg-if = { workspace = true }
-cortex-m = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
 abi = { path = "../abi" }
-armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
 phash = { path = "../../lib/phash" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 kerncore.path = "../kerncore"
+
+[target.'cfg(target_os = "none")'.dependencies]
+cortex-m = { workspace = true }
+armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
+
+# The host architecture: tasks are child processes speaking the hostcall
+# protocol, and the run is described by a RON configuration file.
+[target.'cfg(not(target_os = "none"))'.dependencies]
+hostcall = { path = "../hostcall" }
+postcard = { workspace = true, features = ["use-std"] }
+ron = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }

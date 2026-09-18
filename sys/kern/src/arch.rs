@@ -19,8 +19,13 @@ cfg_if::cfg_if! {
     // Note: cfg_if! is slightly touchy about ordering and expression
     // complexity; this chain seems to be the best compromise.
 
-    if #[cfg(not(target_pointer_width = "32"))] {
-        compile_error!("non-32-bit targets not supported (even for simulation)");
+    if #[cfg(not(target_os = "none"))] {
+        // Not a Hubris target at all: the kernel is being built to run as a
+        // host process for testing, with tasks as child processes.
+        pub mod host;
+        pub use host::*;
+    } else if #[cfg(not(target_pointer_width = "32"))] {
+        compile_error!("non-32-bit targets not supported");
     } else if #[cfg(target_arch = "arm")] {
         #[macro_use]
         pub mod arm_m;

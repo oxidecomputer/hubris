@@ -81,6 +81,14 @@ fn die_impl(msg: &dyn Display) -> ! {
     let mut writer = Eulogist { dest: buf };
     write!(writer, "{msg}").ok();
 
+    // A kernel running as a host process has somewhere to report to.
+    #[cfg(not(target_os = "none"))]
+    {
+        eprintln!("kernel died: {msg}");
+        std::process::exit(4);
+    }
+
+    #[allow(unreachable_code)]
     loop {
         // Platform-independent NOP
         core::sync::atomic::fence(Ordering::SeqCst);
@@ -107,13 +115,13 @@ impl Write for Eulogist {
     }
 }
 
-#[cfg(not(feature = "nano"))]
+#[cfg(all(not(feature = "nano"), target_os = "none"))]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     die(info)
 }
 
-#[cfg(feature = "nano")]
+#[cfg(all(feature = "nano", target_os = "none"))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     unsafe {
