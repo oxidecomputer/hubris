@@ -1,0 +1,128 @@
+---
+source: build/xtask/tests/i2c-stages.rs
+expression: out
+---
+Report {
+    role: Initiator,
+    component_ids: false,
+    controllers: [
+        I2cController {
+            controller: 2,
+            ports: {
+                "F": I2cPort {
+                    name: Some(
+                        "i2c2",
+                    ),
+                    description: None,
+                    scl: I2cPin {
+                        gpio_port: None,
+                        pin: 1,
+                    },
+                    sda: I2cPin {
+                        gpio_port: None,
+                        pin: 0,
+                    },
+                    af: 4,
+                    muxes: [],
+                },
+            },
+            target: false,
+        },
+        I2cController {
+            controller: 3,
+            ports: {
+                "C": I2cPort {
+                    name: Some(
+                        "i2c3",
+                    ),
+                    description: None,
+                    scl: I2cPin {
+                        gpio_port: Some(
+                            "A",
+                        ),
+                        pin: 8,
+                    },
+                    sda: I2cPin {
+                        gpio_port: Some(
+                            "C",
+                        ),
+                        pin: 9,
+                    },
+                    af: 4,
+                    muxes: [],
+                },
+            },
+            target: false,
+        },
+        I2cController {
+            controller: 4,
+            ports: {
+                "F": I2cPort {
+                    name: Some(
+                        "i2c4",
+                    ),
+                    description: None,
+                    scl: I2cPin {
+                        gpio_port: None,
+                        pin: 14,
+                    },
+                    sda: I2cPin {
+                        gpio_port: None,
+                        pin: 15,
+                    },
+                    af: 4,
+                    muxes: [],
+                },
+            },
+            target: false,
+        },
+    ],
+    ports: {
+        (
+            2,
+            "F",
+        ): 0,
+        (
+            3,
+            "C",
+        ): 0,
+        (
+            4,
+            "F",
+        ): 0,
+    },
+    buses: {
+        "i2c2": (
+            2,
+            0,
+        ),
+        "i2c3": (
+            3,
+            0,
+        ),
+        "i2c4": (
+            4,
+            0,
+        ),
+    },
+    devices: [],
+    by_device: [],
+    by_bus: [],
+    by_name: [],
+    by_refdes: [],
+    by_controller: [],
+    by_port: [],
+    max_component_id_len: 0,
+    pmbus_rails: [],
+    power_rails: [],
+    sensors: I2cSensorsDescription {
+        by_device: {},
+        by_refdes: {},
+        by_name: {},
+        by_id: {},
+        device_sensors: [],
+        total_sensors: 0,
+    },
+    sensor_structs: [],
+    validation: None,
+}

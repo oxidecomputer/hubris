@@ -2,11 +2,24 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use build_i2c::{CodegenSettings, Disposition, I2cConfig, Report};
 use std::{fs::File, io::Write, path::Path};
 
 use crate::config::Config;
+
+/// Which stage of the I2C pipeline to run (and dump the result of).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum Stage {
+    /// Load the manifest and dump the parsed I2C configuration.
+    Load,
+
+    /// Load and analyze the manifest, and dump the resulting report.
+    Analysis,
+
+    /// Load, analyze, and generate code (the default).
+    Codegen,
+}
 
 /// Load the I2C section of an application manifest.
 pub fn load_config(cfg: &Path) -> Result<I2cConfig> {
@@ -44,24 +57,48 @@ pub fn write_file(code: &str, output: &Path, fmt: bool) -> Result<()> {
     Ok(())
 }
 
-/// Do I2C code generation
+/// Runs the I2C pipeline up to `stage` and returns a textual dump of that
+/// stage's result: the parsed configuration, the analysis report, or the
+/// generated code.
+pub fn run_stage(
+    cfg: &Path,
+    disp: Disposition,
+    stage: Stage,
+) -> Result<String> {
+    let config = load_config(cfg)?;
+    if stage == Stage::Load {
+        return Ok(format!("{config:#?}"));
+    }
+
+    let settings: CodegenSettings = disp.into();
+    let report = settings.analyze(config)?;
+    if stage == Stage::Analysis {
+        return Ok(format!("{report:#?}"));
+    }
+
+    let build_i2c::CodegenOutputs { code, .. } =
+        build_i2c::codegen(report, &settings)?;
+    Ok(code)
+}
+
+/// Do I2C code generation (or dump an earlier stage of the pipeline).
 pub fn run(
     cfg: &Path,
     disp: Disposition,
+    stage: Stage,
     output: Option<&Path>,
     fmt: bool,
 ) -> Result<()> {
-    let settings: CodegenSettings = disp.into();
-    let report = setup_report(cfg, &settings)?;
+    if fmt && stage != Stage::Codegen {
+        bail!("--fmt only applies to the codegen stage");
+    }
 
-    // Do the codegen into a string
-    let build_i2c::CodegenOutputs { code, .. } =
-        build_i2c::codegen(report, &settings)?;
+    let text = run_stage(cfg, disp, stage)?;
 
     if let Some(p) = output {
-        write_file(&code, p, fmt)?;
+        write_file(&text, p, fmt)?;
     } else {
-        println!("{code}");
+        println!("{text}");
     }
 
     Ok(())

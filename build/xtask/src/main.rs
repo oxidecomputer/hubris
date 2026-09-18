@@ -259,6 +259,10 @@ enum Xtask {
         #[clap(short, long, value_enum)]
         disposition: Disposition,
 
+        /// Pipeline stage to run and dump the result of.
+        #[clap(short, long, value_enum, default_value_t = i2c_codegen::Stage::Codegen)]
+        stage: i2c_codegen::Stage,
+
         /// File to write to. STDOUT is used if `output` not provided.
         #[clap(long)]
         output: Option<PathBuf>,
@@ -554,9 +558,12 @@ fn run(xtask: Xtask) -> Result<()> {
         Xtask::I2cCodegen {
             cfg,
             disposition,
+            stage,
             output,
             fmt,
-        } => i2c_codegen::run(&cfg, disposition, output.as_deref(), fmt)?,
+        } => {
+            i2c_codegen::run(&cfg, disposition, stage, output.as_deref(), fmt)?
+        }
     }
 
     Ok(())
