@@ -11,8 +11,13 @@
 //! by a target-specific implementation in the `arch` module and re-exported
 //! here. The types they exchange, and the convenience wrappers built on top of
 //! them, live in this file and are shared by every implementation.
+//!
+//! On a Hubris target (`target_os = "none"`) the syscalls trap into the
+//! kernel. On any other target the crate uses `std`, and the syscalls are
+//! forwarded over stdio to a fixture process, so that a task can be compiled
+//! for and run on the host for testing. See the `hostcall` crate.
 
-#![no_std]
+#![cfg_attr(target_os = "none", no_std)]
 #![forbid(clippy::wildcard_imports)]
 
 #[macro_use]
@@ -31,9 +36,10 @@ pub mod kipc;
 pub mod task_slot;
 pub use userlib_units as units;
 
-#[cfg(feature = "critical-section")]
+#[cfg(all(feature = "critical-section", target_os = "none"))]
 pub mod critical_section;
 
+#[cfg(target_os = "none")]
 #[doc(hidden)]
 pub use arch::_start;
 pub use arch::{
@@ -66,7 +72,7 @@ impl<'a> Lease<'a> {
         Self {
             _kern_rep: abi::ULease {
                 attributes: LeaseAttributes::READ | LeaseAttributes::WRITE,
-                base_address: abi::Addr::from_ptr(x.as_ptr()),
+                base_address: abi::Addr::from_ptr(x.as_mut_ptr()),
                 length: x.len(),
             },
             _marker: PhantomData,
@@ -77,7 +83,7 @@ impl<'a> Lease<'a> {
         Self {
             _kern_rep: abi::ULease {
                 attributes: LeaseAttributes::WRITE,
-                base_address: abi::Addr::from_ptr(x.as_ptr()),
+                base_address: abi::Addr::from_ptr(x.as_mut_ptr()),
                 length: x.len(),
             },
             _marker: PhantomData,

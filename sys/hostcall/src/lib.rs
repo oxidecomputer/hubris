@@ -37,6 +37,9 @@ use postcard_schema_ng::Schema;
 use serde::{Deserialize, Serialize};
 
 pub use io::{Client, HeapStorage, IoError, Server, StreamIo};
+/// The RPC crate the backends are built on, re-exported so users can name its
+/// `Response` and error types without depending on it themselves.
+pub use nprpc;
 
 /// Task id the kernel uses for itself; notifications arrive from it.
 pub const KERNEL_TASK_ID: u16 = !0;

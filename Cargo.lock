@@ -7733,6 +7733,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "critical-section",
+ "hostcall",
  "num-derive",
  "num-traits",
  "paste",

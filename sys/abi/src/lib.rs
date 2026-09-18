@@ -235,6 +235,14 @@ impl Addr {
         self.0 as *const T
     }
 
+    /// Returns the address as a mutable pointer to `T`. Whether the result is
+    /// valid to write through depends entirely on where the address came
+    /// from.
+    #[inline]
+    pub const fn as_mut_ptr<T>(self) -> *mut T {
+        self.0 as *mut T
+    }
+
     /// Advances the address by `offset` bytes, or returns `None` if the result
     /// would wrap around the end of the address space.
     #[inline]

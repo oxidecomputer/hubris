@@ -14,6 +14,7 @@ cfg_if::cfg_if! {
         mod thumb;
         pub use thumb::*;
     } else {
-        compile_error!("userlib has no syscall implementation for this target");
+        mod host;
+        pub use host::*;
     }
 }

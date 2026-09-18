@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use abi::{Generation, TaskId};
+#[cfg(target_os = "none")]
 use volatile_const::VolatileConst;
 
 /// Placeholder for post-compilation linking of tasks.
@@ -14,9 +15,11 @@ use volatile_const::VolatileConst;
 /// are used to create compile-time placeholders that are filled in with a
 /// task's identifying information by a post-compile process.  These
 /// placeholders can then be converted into TaskId at runtime.
+#[cfg(target_os = "none")]
 #[repr(C)]
 pub struct TaskSlot(VolatileConst<u16>);
 
+#[cfg(target_os = "none")]
 impl TaskSlot {
     /// A TaskSlot that has not been resolved by a later processing step.
     ///
@@ -51,6 +54,7 @@ impl TaskSlot {
 /// slot's placeholder in the task's binary. While not part of the kernel/task
 /// ABI, these entries are part of the task's ABI that is used by the build
 /// system.
+#[cfg(target_os = "none")]
 #[repr(C)]
 #[repr(packed)]
 pub struct TaskSlotTableEntry<const N: usize> {
@@ -59,6 +63,7 @@ pub struct TaskSlotTableEntry<const N: usize> {
     slot_name: [u8; N],
 }
 
+#[cfg(target_os = "none")]
 impl<const N: usize> TaskSlotTableEntry<N> {
     pub const fn for_task_slot(
         slot_name: &'static [u8; N],
@@ -92,4 +97,38 @@ impl<const N: usize> TaskSlotTableEntry<N> {
 // addresses are allocated to the contents and the section is not loaded into
 // the process space.  As such, instances of TaskSlotTableEntry will never exist
 // at runtime.
+#[cfg(target_os = "none")]
 unsafe impl<const N: usize> Sync for TaskSlotTableEntry<N> {}
+
+/// Host version of the task slot: there is no post-link step, so the slot
+/// keeps its name and asks the fixture for the task index the first time it
+/// is used.
+#[cfg(not(target_os = "none"))]
+pub struct TaskSlot {
+    name: &'static str,
+    index: std::sync::OnceLock<u16>,
+}
+
+#[cfg(not(target_os = "none"))]
+impl TaskSlot {
+    pub const fn named(name: &'static str) -> Self {
+        Self {
+            name,
+            index: std::sync::OnceLock::new(),
+        }
+    }
+
+    pub fn get_task_id(&self) -> TaskId {
+        let task_index = self.get_task_index();
+
+        let prototype =
+            TaskId::for_index_and_gen(task_index.into(), Generation::default());
+        crate::sys_refresh_task_id(prototype)
+    }
+
+    pub fn get_task_index(&self) -> u16 {
+        *self
+            .index
+            .get_or_init(|| crate::arch::resolve_task_slot(self.name))
+    }
+}

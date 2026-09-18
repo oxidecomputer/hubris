@@ -3,19 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // On a native (host) target this sets no cfgs; the crate then builds
+    // its host syscall implementation, for running tasks under a fixture.
     build_util::expose_m_profile()?;
-
-    // Do an architecture check.
-    if build_util::target_os() != "none" {
-        eprintln!("***********************************************");
-        eprintln!("Hi!");
-        eprintln!("You appear to be building this natively,");
-        eprintln!("i.e. for your workstation. This won't work.");
-        eprintln!("Please specify --target=some-triple, e.g.");
-        eprintln!("--target=thumbv7em-none-eabihf");
-        eprintln!("***********************************************");
-        panic!()
-    }
-
     Ok(())
 }

@@ -4,7 +4,7 @@
 
 //! [`nprpc`] `Io`, `Storage`, and `Backend` implementations over byte streams.
 
-use std::io::{BufRead, BufReader, StdinLock, StdoutLock, Write};
+use std::io::{BufRead, BufReader, Stdin, Stdout, Write};
 use std::process::Child;
 
 use nprpc::io::server::{RawIoFrame, ServerIoError};
@@ -159,11 +159,11 @@ impl<R: BufRead, W: Write> Client<R, W> {
     }
 }
 
-impl Client<StdinLock<'static>, StdoutLock<'static>> {
-    /// A client over the process's own stdin and stdout, which it locks for
-    /// its lifetime. Nothing else in the process may print to stdout.
+impl Client<BufReader<Stdin>, Stdout> {
+    /// A client over the process's own stdin and stdout. Nothing else in the
+    /// process may read stdin or print to stdout while it exists.
     pub fn stdio() -> Self {
-        Self::new(std::io::stdin().lock(), std::io::stdout().lock())
+        Self::new(BufReader::new(std::io::stdin()), std::io::stdout())
     }
 }
 

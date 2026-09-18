@@ -62,6 +62,10 @@ pub fn has_feature(s: &str) -> bool {
 ///
 /// This will set one of `cfg(armv6m)`, `cfg(armv7m)`, or `cfg(armv8m)`
 /// depending on the value of the `TARGET` environment variable.
+///
+/// When building for a non-ARM target, such as a task compiled for the host
+/// to run under a test fixture, none of the cfgs are set (but they are still
+/// registered as known, so `#[cfg(armv7m)]` remains valid).
 pub fn expose_m_profile() -> Result<()> {
     let target = crate::target();
 
@@ -76,7 +80,7 @@ pub fn expose_m_profile() -> Result<()> {
         println!("cargo::rustc-cfg=armv7m");
     } else if target.starts_with("thumbv8m") {
         println!("cargo::rustc-cfg=armv8m");
-    } else {
+    } else if target.starts_with("thumb") || target.starts_with("arm") {
         bail!("Don't know the target {target}");
     }
     Ok(())
