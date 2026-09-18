@@ -1,0 +1,20 @@
+[package]
+name = "task-sensor-probe"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+task-sensor-api = { path = "../sensor-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[[bin]]
+name = "task-sensor-probe"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

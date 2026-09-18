@@ -2,8 +2,9 @@
 #
 # The real kernel, jefe, sensor and thermal run as host processes (see
 # `cargo xtask host-run`); the I2C driver is a fake serving one simulated
-# LM75-class temperature sensor, and packrat is a stub. thermal's `host` BSP
-# has that one input and no fans.
+# LM75-class temperature sensor, packrat is a stub, and a probe task reads
+# the sensors back once a second. thermal's `host` BSP has that one input
+# and no fans.
 name = "thermal-test"
 target = "host"
 board = "host"
@@ -47,9 +48,19 @@ start = true
 task-slots = ["i2c_driver", "sensor", "packrat"]
 notifications = ["timer"]
 
+# Reads every sensor once a second, so retrievals show up in a trace of
+# the sensor task next to the posts.
+[tasks.sensor_probe]
+name = "task-sensor-probe"
+priority = 6
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = ["sensor"]
+notifications = ["timer"]
+
 [tasks.idle]
 name = "task-idle"
-priority = 6
+priority = 7
 max-sizes = {flash = 0, ram = 0}
 start = true
 
