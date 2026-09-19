@@ -12,7 +12,7 @@ use abi::{
 };
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
-use crate::arch::Arch as _;
+use crate::arch::{Arch, Current};
 use crate::descs::{
     Priority, REGIONS_PER_TASK, RegionAttributes, RegionDesc, TaskDesc,
     TaskFlags,
@@ -32,7 +32,7 @@ use crate::umem::USlice;
 #[derive(Debug)]
 pub struct Task {
     /// Saved machine state of the user program.
-    save: crate::arch::SavedState,
+    save: <Current as Arch>::SavedState,
     // NOTE: it is critical that the above field appear first!
     /// Current priority of the task.
     priority: Priority,
@@ -68,7 +68,7 @@ impl Task {
 
             generation: 0,
             notifications: 0,
-            save: crate::arch::SavedState::default(),
+            save: <Current as Arch>::SavedState::default(),
             timer: crate::task::TimerState::default(),
         }
     }
@@ -372,12 +372,12 @@ impl Task {
     }
 
     /// Returns a reference to the saved machine state for the task.
-    pub fn save(&self) -> &crate::arch::SavedState {
+    pub fn save(&self) -> &<Current as Arch>::SavedState {
         &self.save
     }
 
     /// Returns a mutable reference to the saved machine state for the task.
-    pub fn save_mut(&mut self) -> &mut crate::arch::SavedState {
+    pub fn save_mut(&mut self) -> &mut <Current as Arch>::SavedState {
         &mut self.save
     }
 
@@ -388,7 +388,9 @@ impl Task {
     ///
     /// SAFETY: `this` must point to a valid instance of `Self`, e.g. not null
     /// (or dangling) and where `this.save` does not wrap around.
-    pub unsafe fn save_ptr(this: *mut Self) -> *mut crate::arch::SavedState {
+    pub unsafe fn save_ptr(
+        this: *mut Self,
+    ) -> *mut <Current as Arch>::SavedState {
         unsafe { &raw mut (*this).save }
     }
 
