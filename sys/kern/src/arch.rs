@@ -4,27 +4,21 @@
 
 //! Architecture-specific support.
 //!
-//! In practice, this works by
-//!
-//! - Conditionally defining a nested module (below).
-//! - `pub use`-ing its contents
-//!
-//! Thus, all architecture-specific types and functions show up right here in
-//! the `arch` module, magically tailored for the current target.
-//!
 //! The operations every architecture must provide are defined by the [`Arch`]
-//! trait. The remaining names each architecture support module must define
-//! are:
+//! trait. In practice, this works by each architecture
 //!
-//! - `SavedState`, implementing [`crate::task::ArchState`].
-//! - `RegionDescExt` and `compute_region_extension_data`, which build the
-//!   architecture's precomputed memory protection data. These are free items
-//!   rather than trait members because the region table is built in `const`
-//!   context, and trait methods can't be `const fn`.
+//! - Implementing the [`Arch`] trait on a ZST struct type.
+//! - Conditionally defining a nested module (below).
+//! - `pub use`-ing the [`Arch`] trait impl under the name `Current` within
+//!   the conditional code below.
+//!
+//! The rest of the kernel (ideally) ONLY uses the `arch::Current` type and
+//! its associated types and methods to perform behavior, allowing for
+//! arch-independent operation.
 
 use abi::{InterruptNum, IrqStatus, UsageError};
 
-use crate::task::Task;
+use crate::task::{ArchState, Task};
 use crate::time::Timestamp;
 
 cfg_if::cfg_if! {
@@ -34,9 +28,7 @@ cfg_if::cfg_if! {
     if #[cfg(not(target_pointer_width = "32"))] {
         compile_error!("non-32-bit targets not supported (even for simulation)");
     } else if #[cfg(target_arch = "arm")] {
-        #[macro_use]
         pub mod arm_m;
-        pub use arm_m::*;
 
         /// The architecture the kernel is being built for.
         pub use arm_m::ArmM as Current;
@@ -48,9 +40,21 @@ cfg_if::cfg_if! {
 /// Operations the architecture-independent kernel needs from the
 /// architecture it runs on.
 ///
-/// Implemented by a zero-sized type in each architecture support module, and
-/// reached through [`Current`].
+/// See [crate::arch] for how this is intended to work
 pub trait Arch {
+    /// Architecture specific saved state for each Task
+    type SavedState: ArchState;
+
+    /// Architecture-specific data for memory regions, which can be used when
+    /// operating on tasks.
+    ///
+    /// Each [`Task`] contains a `&[RegionData]`, and `RegionData` contains a
+    /// `RegionDescExt`.
+    ///
+    /// For example: used for storing pre-computed MPU information for Cortex-M
+    /// processors to speed task switching.
+    type RegionDescExt;
+
     /// Records the kernel tick divisor, which is the clock frequency in kHz,
     /// before anything else in the kernel runs.
     ///

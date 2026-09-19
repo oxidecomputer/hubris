@@ -111,7 +111,7 @@ static CLOCK_FREQ_KHZ: AtomicU32 = AtomicU32::new(0);
 /// ARMvx-M volatile registers that must be saved across context switches.
 #[repr(C)]
 #[derive(Debug, Default)]
-pub struct SavedState {
+pub struct ArmMSavedState {
     // NOTE: the following fields must be kept contiguous!
     r4: u32,
     r5: u32,
@@ -162,7 +162,7 @@ pub struct SavedState {
 
 /// Map the volatile registers to (architecture-independent) syscall argument
 /// and return slots.
-impl task::ArchState for SavedState {
+impl task::ArchState for ArmMSavedState {
     fn stack_pointer(&self) -> u32 {
         self.psp
     }
@@ -273,6 +273,9 @@ const EXC_RETURN_CONST: u32 = 0xFFFFFFED;
 pub struct ArmM;
 
 impl Arch for ArmM {
+    type SavedState = ArmMSavedState;
+    type RegionDescExt = ArmMRegionDescExt;
+
     // Because debuggers need to know the clock frequency to set the SWO clock
     // scaler that enables ITM, and because ITM is particularly useful when
     // debugging boot failures, this should be set as early in boot as it can
@@ -282,7 +285,7 @@ impl Arch for ArmM {
     }
 
     fn reinitialize(task: &mut task::Task) {
-        *task.save_mut() = SavedState::default();
+        *task.save_mut() = ArmMSavedState::default();
         let initial_stack = task.descriptor().initial_stack as usize;
 
         // Modern ARMvX-M machines require 8-byte stack alignment. Make sure
@@ -845,7 +848,7 @@ impl Arch for ArmM {
 #[cfg(any(armv6m, armv7m))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct RegionDescExt {
+pub struct ArmMRegionDescExt {
     rbar: u32,
     rasr: u32,
 }
@@ -855,7 +858,7 @@ pub const fn compute_region_extension_data(
     base: usize,
     size: usize,
     attributes: RegionAttributes,
-) -> RegionDescExt {
+) -> ArmMRegionDescExt {
     let base = base as u32;
     let size = size as u32;
     // This platform requires 32-byte alignment of all regions.
@@ -934,7 +937,7 @@ pub const fn compute_region_extension_data(
 
     // Build the RBAR contents without the VALID bit or region number.
     let rbar = base;
-    RegionDescExt { rasr, rbar }
+    ArmMRegionDescExt { rasr, rbar }
 }
 
 /// ARMv8-M specific MPU accelerator data.
@@ -945,7 +948,7 @@ pub const fn compute_region_extension_data(
 #[cfg(armv8m)]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct RegionDescExt {
+pub struct ArmMRegionDescExt {
     /// Contents of the RBAR register.
     rbar: u32,
 
@@ -961,7 +964,7 @@ pub const fn compute_region_extension_data(
     base: usize,
     size: usize,
     ratts: RegionAttributes,
-) -> RegionDescExt {
+) -> ArmMRegionDescExt {
     let base = base as u32;
     let size = size as u32;
     // This MPU requires that all regions are 32-byte aligned...in part
@@ -1008,7 +1011,7 @@ pub const fn compute_region_extension_data(
         | ap << 1
         | (sh as u32) << 3  // sharability
         | base;
-    RegionDescExt { rlar, rbar, mair }
+    ArmMRegionDescExt { rlar, rbar, mair }
 }
 
 // Handler that gets linked into the vector table for the Supervisor Call (SVC)
