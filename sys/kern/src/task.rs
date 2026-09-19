@@ -7,8 +7,8 @@
 use core::ops::Range;
 
 use abi::{
-    FaultInfo, FaultSource, Generation, ReplyFaultReason, SchedState, TaskId,
-    TaskState, ULease, UsageError,
+    Addr, FaultInfo, FaultSource, Generation, ReplyFaultReason, SchedState,
+    TaskId, TaskState, ULease, UsageError,
 };
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
@@ -104,7 +104,7 @@ impl Task {
             unsafe { Ok(slice.assume_readable()) }
         } else {
             Err(FaultInfo::MemoryAccess {
-                address: Some(slice.base_addr() as u32),
+                address: Some(Addr::new(slice.base_addr())),
                 source: FaultSource::Kernel,
             })
         }
@@ -140,7 +140,7 @@ impl Task {
             unsafe { Ok(slice.assume_readable_raw()) }
         } else {
             Err(FaultInfo::MemoryAccess {
-                address: Some(slice.base_addr() as u32),
+                address: Some(Addr::new(slice.base_addr())),
                 source: FaultSource::Kernel,
             })
         }
@@ -178,7 +178,7 @@ impl Task {
             unsafe { Ok(slice.assume_writable()) }
         } else {
             Err(FaultInfo::MemoryAccess {
-                address: Some(slice.base_addr() as u32),
+                address: Some(Addr::new(slice.base_addr())),
                 source: FaultSource::Kernel,
             })
         }

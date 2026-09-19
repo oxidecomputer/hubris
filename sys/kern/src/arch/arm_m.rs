@@ -82,7 +82,7 @@ use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
 #[cfg(any(armv7m, armv8m))]
-use abi::FaultSource;
+use abi::{Addr, FaultSource};
 use abi::{FaultInfo, InterruptNum, UsageError};
 #[cfg(armv8m)]
 use armv8_m_mpu::{disable_mpu, enable_mpu};
@@ -393,10 +393,12 @@ pub struct RegionDescExt {
 
 #[cfg(any(armv6m, armv7m))]
 pub const fn compute_region_extension_data(
-    base: u32,
-    size: u32,
+    base: usize,
+    size: usize,
     attributes: RegionAttributes,
 ) -> RegionDescExt {
+    let base = base as u32;
+    let size = size as u32;
     // This platform requires 32-byte alignment of all regions.
     if base & 0x1F != 0 {
         panic!();
@@ -543,10 +545,12 @@ pub struct RegionDescExt {
 
 #[cfg(armv8m)]
 pub const fn compute_region_extension_data(
-    base: u32,
-    size: u32,
+    base: usize,
+    size: usize,
     ratts: RegionAttributes,
 ) -> RegionDescExt {
+    let base = base as u32;
+    let size = size as u32;
     // This MPU requires that all regions are 32-byte aligned...in part
     // because it stuffs extra stuff into the bottom five bits.
     if base & 0x1F != 0 {
@@ -1779,14 +1783,19 @@ unsafe extern "C" fn handle_fault(
                 // fact that the user's stack pointer is so trashed that we
                 // can't store through it.  (In particular, we seem to have no
                 // way at getting at our faulted PC.)
-                (FaultInfo::StackOverflow { address: psp }, true)
+                (
+                    FaultInfo::StackOverflow {
+                        address: Addr::new(psp as usize),
+                    },
+                    true,
+                )
             } else if cfsr.contains(Cfsr::IACCVIOL) {
                 (FaultInfo::IllegalText, false)
             } else {
                 (
                     FaultInfo::MemoryAccess {
                         address: if cfsr.contains(Cfsr::MMARVALID) {
-                            Some(scb.mmfar.read())
+                            Some(Addr::new(scb.mmfar.read() as usize))
                         } else {
                             None
                         },
@@ -1800,7 +1809,7 @@ unsafe extern "C" fn handle_fault(
         FaultType::BusFault => (
             FaultInfo::BusError {
                 address: if cfsr.contains(Cfsr::BFARVALID) {
-                    Some(scb.bfar.read())
+                    Some(Addr::new(scb.bfar.read() as usize))
                 } else {
                     None
                 },

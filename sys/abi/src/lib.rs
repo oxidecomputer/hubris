@@ -209,6 +209,74 @@ pub struct Interrupt {
 #[repr(transparent)]
 pub struct Addr(usize);
 
+impl serde::Serialize for Addr {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // This is icky! However, kipc uses `ssmarshal` for serialization, which
+        // makes the serialization of addresses a kipc binary concern, and we
+        // don't want to use `usize` as our wire format as serde treats that
+        // as a u64 in all cases, and we've always serialized addresses as u32s.
+        #[cfg(target_pointer_width = "32")]
+        {
+            serializer.serialize_u32(self.0 as u32)
+        }
+        #[cfg(target_pointer_width = "64")]
+        {
+            serializer.serialize_u64(self.0 as u64)
+        }
+    }
+}
+
+struct AddrVisitor;
+impl serde::de::Visitor<'_> for AddrVisitor {
+    type Value = Addr;
+
+    fn expecting(
+        &self,
+        formatter: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
+        write!(formatter, "an address")
+    }
+
+    #[cfg(target_pointer_width = "32")]
+    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Addr(v as usize))
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Addr(v as usize))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Addr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // This is icky! However, kipc uses `ssmarshal` for serialization, which
+        // makes the serialization of addresses a kipc binary concern, and we
+        // don't want to use `usize` as our wire format as serde treats that
+        // as a u64 in all cases, and we've always serialized addresses as u32s.
+        #[cfg(target_pointer_width = "32")]
+        {
+            deserializer.deserialize_u32(AddrVisitor)
+        }
+        #[cfg(target_pointer_width = "64")]
+        {
+            deserializer.deserialize_u64(AddrVisitor)
+        }
+    }
+}
+
 impl Addr {
     /// Wraps a raw address.
     #[inline]
@@ -421,16 +489,16 @@ pub enum FaultInfo {
         /// Problematic address that the task accessed, or asked the kernel to
         /// access. This is `Option` because there are cases of processor
         /// protection faults that don't provide a precise address.
-        address: Option<u32>,
+        address: Option<Addr>,
         /// Origin of the fault.
         source: FaultSource,
     },
     /// A task has overflowed its stack. We can always determine the bad
     /// stack address, but we can't determine the PC
-    StackOverflow { address: u32 },
+    StackOverflow { address: Addr },
     /// A task has induced a bus error
     BusError {
-        address: Option<u32>,
+        address: Option<Addr>,
         source: FaultSource,
     },
     /// Divide-by-zero
