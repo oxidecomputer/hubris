@@ -181,6 +181,92 @@ pub struct Interrupt {
     pub owner: InterruptOwner,
 }
 
+/// An address in a task's address space, as exchanged between a task and the
+/// kernel.
+///
+/// Ideally, this would be some kind of opaque pointer, like `*const/*mut ()`,
+/// however that doesn't play nice with `FromBytes`.
+///
+/// We use this type to signify "yes we believe the contained value is
+/// pointer-ish". The kernel will still need to perform validation before using
+/// the contained value as such.
+///
+/// We use a `usize` so the contents are sized appropriately for the target
+/// architecture, as a pointer would be.
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    FromBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
+#[repr(transparent)]
+pub struct Addr(usize);
+
+impl Addr {
+    /// Wraps a raw address.
+    #[inline]
+    pub const fn new(address: usize) -> Self {
+        Self(address)
+    }
+
+    /// Records the address of `ptr`.
+    #[inline]
+    pub fn from_ptr<T>(ptr: *const T) -> Self {
+        Self(ptr as usize)
+    }
+
+    /// Returns the address as an integer.
+    #[inline]
+    pub const fn as_usize(self) -> usize {
+        self.0
+    }
+
+    /// Returns the address as a pointer to `T`. This is an unchecked
+    /// cast.
+    ///
+    /// Safe as the caller is responsible for making sure the `Addr` type and
+    /// pointee is correct prior to access.
+    #[inline]
+    pub const fn as_ptr<T>(self) -> *const T {
+        self.0 as *const T
+    }
+
+    /// Returns the address as a mutable pointer to `T`. This is an unchecked
+    /// cast.
+    ///
+    /// Safe as the caller is responsible for making sure the `Addr` type and
+    /// pointee is correct prior to access.
+    #[inline]
+    pub const fn as_mut_ptr<T>(self) -> *mut T {
+        self.0 as *mut T
+    }
+
+    /// Advances the address by `offset` bytes, or returns `None` if the result
+    /// would wrap around the end of the address space.
+    ///
+    /// TODO(AJM): give this a name like "byte_add" or something.
+    #[inline]
+    pub const fn checked_add(self, offset: usize) -> Option<Self> {
+        match self.0.checked_add(offset) {
+            Some(address) => Some(Self(address)),
+            None => None,
+        }
+    }
+}
+
+impl core::fmt::Debug for Addr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
 /// Structure describing a lease in task memory.
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
@@ -193,9 +279,9 @@ pub struct ULease {
     /// Base address of leased memory. This is equivalent to the base address
     /// field in `USlice`, but isn't represented as a `USlice` because we leave
     /// the internal memory representation of `USlice` out of the ABI.
-    pub base_address: u32,
+    pub base_address: Addr,
     /// Length of leased memory, in bytes.
-    pub length: u32,
+    pub length: usize,
 }
 
 // The `ULease` type is fundamental to the ABI! We very much want to ensure
