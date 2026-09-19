@@ -85,6 +85,7 @@ use hostcall::{
 use idol_trace::Decoder;
 use serde::{Deserialize, Serialize};
 
+use crate::arch::Arch;
 use crate::atomic::AtomicExt;
 use crate::descs::RegionAttributes;
 use crate::startup::with_task_table;
@@ -193,7 +194,7 @@ fn traced(participants: &[usize]) -> bool {
 macro_rules! trace {
     ($($arg:tt)*) => {
         if tracing() {
-            eprintln!("[kernel t={}] {}", u64::from(now()),
+            eprintln!("[kernel t={}] {}", u64::from(Host::now()),
                 format_args!($($arg)*));
         }
     };
@@ -203,7 +204,7 @@ macro_rules! trace {
 macro_rules! trace_task {
     ($participants:expr, $($arg:tt)*) => {
         if traced($participants) {
-            eprintln!("[kernel t={}] {}", u64::from(now()),
+            eprintln!("[kernel t={}] {}", u64::from(Host::now()),
                 format_args!($($arg)*));
         }
     };
@@ -1440,7 +1441,7 @@ fn idle_step(idle_index: usize) {
         let Some(deadline) = next_deadline else {
             finish("every task is blocked and no timer is pending")
         };
-        let target = deadline.max(now());
+        let target = deadline.max(Host::now());
         if let Some(stop) = config().stop_at
             && u64::from(target) > stop
         {
@@ -1450,7 +1451,7 @@ fn idle_step(idle_index: usize) {
         }
         if config().realtime {
             // Wait for the deadline to actually arrive.
-            let wait = u64::from(target).saturating_sub(u64::from(now()));
+            let wait = u64::from(target).saturating_sub(u64::from(Host::now()));
             std::thread::sleep(Duration::from_millis(wait));
         } else {
             TICKS.store(target.into(), Ordering::Relaxed);
@@ -1458,7 +1459,7 @@ fn idle_step(idle_index: usize) {
         // Not attributable to a task: shown only when tracing everything.
         trace_task!(&[], "idle: waited for the next deadline");
         crate::profiling::event_timer_isr_enter();
-        let _ = task::process_timers(tasks, now());
+        let _ = task::process_timers(tasks, Host::now());
         crate::profiling::event_timer_isr_exit();
         let next = task::select(idle_index, tasks);
         // Safety: `next` is in the task table.
@@ -1486,7 +1487,7 @@ fn deliver_pending_irqs() -> bool {
             };
             // As on hardware, an interrupt is masked once delivered until the
             // task re-enables it.
-            disable_irq(irq.0, false).ok();
+            Host::disable_irq(irq.0, false).ok();
             woke |= tasks[owner.task as usize]
                 .post(NotificationSet(owner.notification));
         }
@@ -1516,99 +1517,104 @@ pub const fn compute_region_extension_data(
     RegionDescExt
 }
 
-/// Loads the run configuration, so a misconfigured run fails before any task
-/// starts, and starts the clock. The tick divisor is meaningless here: a
-/// tick is a millisecond, virtual or real.
-pub unsafe fn set_clock_freq(_tick_divisor: u32) {
-    let _ = config();
-    let _ = START.get_or_init(Instant::now);
-}
+/// The host implementation of the kernel's architecture interface.
+pub struct Host;
 
-pub fn reinitialize(task: &mut Task) {
-    *task.save_mut() = SavedState::default();
-    spawn_task(usize::from(task.descriptor().index));
-}
-
-/// Nothing to do: the kernel never dereferences task addresses, and task
-/// processes are isolated by the host already.
-pub fn apply_memory_protection(_task: &Task) {}
-
-pub fn start_first_task(_tick_divisor: u32, task: &mut Task) -> ! {
-    // Safety: `task` is in the task table, per `start_kernel`.
-    unsafe { set_current_task(task) };
-    loop {
-        step();
+impl Arch for Host {
+    /// Loads the run configuration, so a misconfigured run fails before any task
+    /// starts, and starts the clock. The tick divisor is meaningless here: a
+    /// tick is a millisecond, virtual or real.
+    unsafe fn set_clock_freq(_tick_divisor: u32) {
+        let _ = config();
+        let _ = START.get_or_init(Instant::now);
     }
-}
 
-/// Records `task` as the one to resume next.
-///
-/// # Safety
-///
-/// `task` must be an entry of the task table, and the caller must not keep
-/// using the reference once the kernel returns to the scheduler loop.
-pub unsafe fn set_current_task(task: &mut Task) {
-    let task: *mut Task = task;
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
-    crate::profiling::event_context_switch(task as usize);
-}
-
-pub fn now() -> Timestamp {
-    if config().realtime {
-        let start = START.get_or_init(Instant::now);
-        Timestamp::from(start.elapsed().as_millis() as u64)
-    } else {
-        Timestamp::from(TICKS.load(Ordering::Relaxed))
+    fn reinitialize(task: &mut Task) {
+        *task.save_mut() = SavedState::default();
+        spawn_task(usize::from(task.descriptor().index));
     }
-}
 
-pub fn disable_irq(
-    n: u32,
-    _also_clear_pending: bool,
-) -> Result<(), UsageError> {
-    ENABLED_IRQS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .remove(&n);
-    Ok(())
-}
+    /// Nothing to do: the kernel never dereferences task addresses, and task
+    /// processes are isolated by the host already.
+    fn apply_memory_protection(_task: &Task) {}
 
-pub fn enable_irq(n: u32, _also_clear_pending: bool) -> Result<(), UsageError> {
-    ENABLED_IRQS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(n);
-    Ok(())
-}
-
-pub fn irq_status(n: u32) -> Result<IrqStatus, UsageError> {
-    let mut status = IrqStatus::empty();
-    let enabled = ENABLED_IRQS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .contains(&n);
-    status.set(IrqStatus::ENABLED, enabled);
-    let pending = PENDING_IRQS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .contains(&InterruptNum(n));
-    status.set(IrqStatus::PENDING, pending);
-    Ok(status)
-}
-
-pub fn pend_software_irq(irq: InterruptNum) -> Result<(), UsageError> {
-    if crate::startup::HUBRIS_IRQ_TASK_LOOKUP.get(irq).is_none() {
-        return Err(UsageError::NoIrq);
+    fn start_first_task(_tick_divisor: u32, task: &mut Task) -> ! {
+        // Safety: `task` is in the task table, per `start_kernel`.
+        unsafe { Self::set_current_task(task) };
+        loop {
+            step();
+        }
     }
-    PENDING_IRQS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .push(irq);
-    Ok(())
-}
 
-pub fn reset() -> ! {
-    finish("the supervisor asked for a system reset")
+    /// Records `task` as the one to resume next.
+    ///
+    /// # Safety
+    ///
+    /// `task` must be an entry of the task table, and the caller must not keep
+    /// using the reference once the kernel returns to the scheduler loop.
+    unsafe fn set_current_task(task: &mut Task) {
+        let task: *mut Task = task;
+        CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+        crate::profiling::event_context_switch(task as usize);
+    }
+
+    fn now() -> Timestamp {
+        if config().realtime {
+            let start = START.get_or_init(Instant::now);
+            Timestamp::from(start.elapsed().as_millis() as u64)
+        } else {
+            Timestamp::from(TICKS.load(Ordering::Relaxed))
+        }
+    }
+
+    fn disable_irq(
+        n: u32,
+        _also_clear_pending: bool,
+    ) -> Result<(), UsageError> {
+        ENABLED_IRQS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&n);
+        Ok(())
+    }
+
+    fn enable_irq(n: u32, _also_clear_pending: bool) -> Result<(), UsageError> {
+        ENABLED_IRQS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(n);
+        Ok(())
+    }
+
+    fn irq_status(n: u32) -> Result<IrqStatus, UsageError> {
+        let mut status = IrqStatus::empty();
+        let enabled = ENABLED_IRQS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains(&n);
+        status.set(IrqStatus::ENABLED, enabled);
+        let pending = PENDING_IRQS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains(&InterruptNum(n));
+        status.set(IrqStatus::PENDING, pending);
+        Ok(status)
+    }
+
+    fn pend_software_irq(irq: InterruptNum) -> Result<(), UsageError> {
+        if crate::startup::HUBRIS_IRQ_TASK_LOOKUP.get(irq).is_none() {
+            return Err(UsageError::NoIrq);
+        }
+        PENDING_IRQS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(irq);
+        Ok(())
+    }
+
+    fn reset() -> ! {
+        finish("the supervisor asked for a system reset")
+    }
 }
 
 impl AtomicExt for AtomicBool {
