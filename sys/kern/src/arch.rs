@@ -37,6 +37,9 @@ cfg_if::cfg_if! {
         #[macro_use]
         pub mod arm_m;
         pub use arm_m::*;
+
+        /// The architecture the kernel is being built for.
+        pub use arm_m::ArmM as Current;
     } else {
         compile_error!("support for this architecture not implemented");
     }
@@ -45,7 +48,8 @@ cfg_if::cfg_if! {
 /// Operations the architecture-independent kernel needs from the
 /// architecture it runs on.
 ///
-/// Implemented by a zero-sized type in each architecture support module.
+/// Implemented by a zero-sized type in each architecture support module, and
+/// reached through [`Current`].
 pub trait Arch {
     /// Records the kernel tick divisor, which is the clock frequency in kHz,
     /// before anything else in the kernel runs.

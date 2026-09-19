@@ -75,6 +75,7 @@ use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
+use crate::arch::Arch;
 use crate::atomic::AtomicExt;
 use crate::descs::RegionAttributes;
 use crate::startup::with_task_table;
@@ -268,417 +269,429 @@ const INITIAL_FPSCR: u32 = 0;
 /// that support it) (and that bit 6 and bit 0 can always be set).
 const EXC_RETURN_CONST: u32 = 0xFFFFFFED;
 
-// Because debuggers need to know the clock frequency to set the SWO clock
-// scaler that enables ITM, and because ITM is particularly useful when
-// debugging boot failures, this should be set as early in boot as it can
-// be.
-pub unsafe fn set_clock_freq(tick_divisor: u32) {
-    CLOCK_FREQ_KHZ.store(tick_divisor, Ordering::Relaxed);
-}
+/// The ARM-M implementation of the kernel's architecture interface.
+pub struct ArmM;
 
-pub fn reinitialize(task: &mut task::Task) {
-    *task.save_mut() = SavedState::default();
-    let initial_stack = task.descriptor().initial_stack as usize;
+impl Arch for ArmM {
+    // Because debuggers need to know the clock frequency to set the SWO clock
+    // scaler that enables ITM, and because ITM is particularly useful when
+    // debugging boot failures, this should be set as early in boot as it can
+    // be.
+    unsafe fn set_clock_freq(tick_divisor: u32) {
+        CLOCK_FREQ_KHZ.store(tick_divisor, Ordering::Relaxed);
+    }
 
-    // Modern ARMvX-M machines require 8-byte stack alignment. Make sure that's
-    // still true. Note that this carries the risk of panic on task re-init if
-    // the task table is corrupted -- this is deliberate.
-    uassert!(initial_stack & 0x7 == 0);
+    fn reinitialize(task: &mut task::Task) {
+        *task.save_mut() = SavedState::default();
+        let initial_stack = task.descriptor().initial_stack as usize;
 
-    // The remaining state is stored on the stack.
-    // Use checked operations to get a reference to the exception frame.
-    let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
-    // The subtract below can overflow if the task table is corrupt -- let's
-    // make that failure a little easier to read:
-    uassert!(initial_stack >= frame_size);
-    // Ok. Generate a uslice for the task's starting stack frame.
-    let mut frame_uslice: USlice<ExtendedExceptionFrame> =
-        USlice::from_raw(initial_stack - frame_size, 1).unwrap_lite();
+        // Modern ARMvX-M machines require 8-byte stack alignment. Make sure
+        // that's still true. Note that this carries the risk of panic on task
+        // re-init if the task table is corrupted -- this is deliberate.
+        uassert!(initial_stack & 0x7 == 0);
 
-    // Before we set our frame, find the region that contains the top word of
-    // the stack -- one word below the initial stack pointer -- and zap the
-    // region from the base to the stack pointer with a distinct (and storied)
-    // pattern.
-    //
-    // Note that if the initial stack pointer is zero, we use saturating
-    // arithmetic and get zero for the top word, which is outside any region and
-    // causes this to be skipped. (Not that we expect zero, but we're the kernel
-    // and we don't trust tasks.)
-    if let Some((index, mut region)) =
-        task.region_table().iter().enumerate().find(|(_i, region)| {
-            region.contains(initial_stack.saturating_sub(4))
-        })
-    {
-        // The stack may span multiple contiguous regions; iterate backwards
-        // through the sorted region list until we either hit the front or find
-        // a region which is discontiguous.
-        let mut okay = true;
-        for i in (0..index).rev() {
-            let prev_region = &task.region_table()[i];
+        // The remaining state is stored on the stack.
+        // Use checked operations to get a reference to the exception frame.
+        let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
+        // The subtract below can overflow if the task table is corrupt -- let's
+        // make that failure a little easier to read:
+        uassert!(initial_stack >= frame_size);
+        // Ok. Generate a uslice for the task's starting stack frame.
+        let mut frame_uslice: USlice<ExtendedExceptionFrame> =
+            USlice::from_raw(initial_stack - frame_size, 1).unwrap_lite();
 
-            // If the region table is corrupt such that a region descriptor
-            // overflows a u32, then bail out.
-            let Some(prev_region_end) =
-                prev_region.base.checked_add(prev_region.size)
-            else {
-                okay = false;
-                break;
-            };
-
-            // If these regions are contiguous, then keep going
-            if prev_region_end == region.base {
-                region = prev_region;
-            } else {
-                // We have found a discontiguous region, so we can break out of
-                // the loop (leaving `region` set to its previous value).
-                break;
-            }
-        }
-
-        // If the slice doesn't fit in the region, this will fail. Should this
-        // occur, don't crash the entire system, since this is a diagnostic tool
-        // -- just skip filling the stack.
-        if okay
-            && let Some(region_size) =
-                (initial_stack - frame_size).checked_sub(region.base)
-            && let Ok(mut uslice) =
-                USlice::<u32>::from_raw(region.base, region_size >> 2)
+        // Before we set our frame, find the region that contains the top word
+        // of the stack -- one word below the initial stack pointer -- and zap
+        // the region from the base to the stack pointer with a distinct (and
+        // storied) pattern.
+        //
+        // Note that if the initial stack pointer is zero, we use saturating
+        // arithmetic and get zero for the top word, which is outside any region
+        // and causes this to be skipped. (Not that we expect zero, but we're
+        // the kernel and we don't trust tasks.)
+        if let Some((index, mut region)) =
+            task.region_table().iter().enumerate().find(|(_i, region)| {
+                region.contains(initial_stack.saturating_sub(4))
+            })
         {
-            // This one, we're unwrapping rather than tolerating failure. This
-            // is because try_write failing would indicate an invalid region
-            // descriptor for the task (read-only stack area) which would bite
-            // us later.
-            let zap = task.try_write(&mut uslice).unwrap_lite();
-            for word in zap.iter_mut() {
-                *word = 0xbaddcafe;
+            // The stack may span multiple contiguous regions; iterate backwards
+            // through the sorted region list until we either hit the front or
+            // find a region which is discontiguous.
+            let mut okay = true;
+            for i in (0..index).rev() {
+                let prev_region = &task.region_table()[i];
+
+                // If the region table is corrupt such that a region descriptor
+                // overflows the address space, then bail out.
+                let Some(prev_region_end) =
+                    prev_region.base.checked_add(prev_region.size)
+                else {
+                    okay = false;
+                    break;
+                };
+
+                // If these regions are contiguous, then keep going
+                if prev_region_end == region.base {
+                    region = prev_region;
+                } else {
+                    // We have found a discontiguous region, so we can break out
+                    // of the loop (leaving `region` set to its previous value).
+                    break;
+                }
             }
-        }
-    }
 
-    let descriptor = task.descriptor();
-    let frame = &mut task.try_write(&mut frame_uslice).unwrap_lite()[0];
-
-    // Conservatively/defensively zero the entire frame.
-    *frame = ExtendedExceptionFrame::default();
-    // Now fill in the bits we actually care about.
-    frame.base.pc = descriptor.entry_point | 1; // for thumb
-    frame.base.xpsr = INITIAL_PSR;
-    frame.base.lr = 0xFFFF_FFFF; // trap on return from main
-    #[cfg(any(armv7m, armv8m))]
-    {
-        frame.fpscr = INITIAL_FPSCR;
-    }
-
-    // Set the initial stack pointer, *not* to the stack top, but to the base of
-    // this frame.
-    let frame: *const ExtendedExceptionFrame = frame;
-    task.save_mut().psp = frame as u32;
-
-    // Finally, record the EXC_RETURN we'll use to enter the task.
-    task.save_mut().exc_return = EXC_RETURN_CONST;
-}
-
-
-
-#[cfg(any(armv6m, armv7m))]
-pub fn apply_memory_protection(task: &task::Task) {
-    // We are manufacturing authority to interact with the MPU here, because we
-    // can't thread a cortex-specific peripheral through an
-    // architecture-independent API. This approach might bear revisiting later.
-    let mpu = unsafe {
-        // At least by not taking a &mut we're confident we're not violating
-        // aliasing....
-        &*cortex_m::peripheral::MPU::PTR
-    };
-
-    // Turn off the MPU.
-    //
-    // Safety: this has no actual memory safety implications, except for
-    // potentially exposing the kernel to a NULL dereference that succeeds.
-    unsafe {
-        mpu.ctrl.write(0);
-    }
-
-    for (i, region) in task.region_table().iter().enumerate() {
-        let data = region.arch_data;
-        // With the MPU off, there are no particular constraints on the order in
-        // which we write these fields.
-        //
-        // Safety: we're messing with memory protection, so from the API's point
-        // of view this is very unsafe. But we're loading values generated by
-        // our (trusted) build script, which only affect tasks and not us. So
-        // this should be safe by default.
-        unsafe {
-            // Select a region.
-            mpu.rnr.write(i as u32);
-            // Set region base address.
-            mpu.rbar.write(data.rbar);
-            // Configure the region.
-            mpu.rasr.write(data.rasr);
-        }
-    }
-
-    // Turn MPU back on.
-    //
-    // Safety: same as above, has no safety implications really.
-    unsafe {
-        mpu.ctrl.write(0b101);
-    }
-}
-
-#[cfg(armv8m)]
-pub fn apply_memory_protection(task: &task::Task) {
-    let mpu = unsafe {
-        // At least by not taking a &mut we're confident we're not violating
-        // aliasing....
-        &*cortex_m::peripheral::MPU::PTR
-    };
-
-    // Disable the MPU before making changes. This is critical to correctness of
-    // this function!
-    //
-    // Because regions consist of several registers, there is no order in which
-    // we can update those registers with the MPU _enabled_ that doesn't risk a
-    // race condition. MPU updates that load the RBAR from one region and the
-    // RLAR from another have caused real crashes.
-    //
-    // Disabling and re-enabling the MPU is very inexpensive (single-digit
-    // cycles) so don't sweat it -- do the correct thing.
-    unsafe {
-        disable_mpu(mpu);
-    }
-
-    // We'll collect the MAIR register contents here. Indices 0-3 correspond to
-    // MAIR0's bytes (in LE order); 4-7 are MAIR1.
-    let mut mairs = [0; 8];
-
-    for (i, region) in task.region_table().iter().enumerate() {
-        let rnr = i as u32;
-
-        let ext = &region.arch_data;
-
-        mairs[i] = ext.mair;
-
-        // Set the attridx field of the RLAR to just choose the attributes with
-        // the same index as the region. This lets us treat MAIR as an array
-        // corresponding to the regions.
-        //
-        // We unfortunately can't do this at compile time, because regions can
-        // be shared, and may not be used in the same table position in all
-        // tasks.
-        let rlar = ext.rlar | (i as u32) << 1; // AttrIdx
-
-        unsafe {
-            mpu.rnr.write(rnr);
-            mpu.rbar.write(ext.rbar);
-            mpu.rlar.write(rlar);
-        }
-    }
-
-    unsafe {
-        // Load the MAIR registers.
-        mpu.mair[0].write(u32::from_le_bytes(mairs[..4].try_into().unwrap()));
-        mpu.mair[1].write(u32::from_le_bytes(mairs[4..].try_into().unwrap()));
-        enable_mpu(mpu, true);
-    }
-}
-
-pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
-    // Enable faults and set fault/exception priorities to reasonable settings.
-    // Our goal here is to keep the kernel non-preemptive, which means the
-    // kernel entry points (SVCall, PendSV, SysTick, interrupt handlers) must be
-    // at one priority level. Fault handlers need to be higher priority,
-    // however, so that we can detect faults in the kernel.
-    //
-    // Safety: this is actually fairly safe. We're purely lowering priorities
-    // from their defaults, so it can't cause any surprise preemption or
-    // anything. But these operations are `unsafe` in the `cortex_m` crate.
-    unsafe {
-        let scb = &*cortex_m::peripheral::SCB::PTR;
-        // Faults on, on the processors that distinguish faults. This
-        // distinguishes the following faults from HardFault:
-        //
-        // - ARMv7+: MEMFAULT, BUSFAULT, USGFAULT
-        // - ARMv8: SECUREFAULT
-        cfg_if::cfg_if! {
-            if #[cfg(armv7m)] {
-                scb.shcsr.modify(|x| x | 0b111 << 16);
-            } else if #[cfg(armv8m)] {
-                scb.shcsr.modify(|x| x | 0b1111 << 16);
-            } else if #[cfg(armv6m)] {
-                // This facility is missing.
-            } else {
-                compile_error!("missing fault setup for ARM profile");
+            // If the slice doesn't fit in the region, this will fail. Should
+            // this occur, don't crash the entire system, since this is a
+            // diagnostic tool -- just skip filling the stack.
+            if okay
+                && let Some(region_size) = (initial_stack - frame_size)
+                    .checked_sub(region.base)
+                && let Ok(mut uslice) = USlice::<u32>::from_raw(
+                    region.base,
+                    region_size >> 2,
+                )
+            {
+                // This one, we're unwrapping rather than tolerating failure.
+                // This is because try_write failing would indicate an invalid
+                // region descriptor for the task (read-only stack area) which
+                // would bite us later.
+                let zap = task.try_write(&mut uslice).unwrap_lite();
+                for word in zap.iter_mut() {
+                    *word = 0xbaddcafe;
+                }
             }
         }
 
-        // Set fault and standard exception priorities.
-        cfg_if::cfg_if! {
-            if #[cfg(armv6m)] {
-                // ARMv6 only has 4 priority levels and no configurable fault
-                // priorities. Set priorities of SVCall, SysTick and PendSV to 3
-                // (the lowest configurable).
-                scb.shpr[0].modify(|x| x | 0b11 << 30);
-                scb.shpr[1].modify(|x| x | 0b11 << 22 | 0b11 << 30);
-            } else if #[cfg(any(armv7m, armv8m))] {
-                // Set priority of Usage, Bus, MemManage to 0 (highest
-                // configurable).
-                scb.shpr[0].write(0x00);
-                scb.shpr[1].write(0x00);
-                scb.shpr[2].write(0x00);
-                // Set priority of SVCall to 0xFF (lowest configurable).
-                scb.shpr[7].write(0xFF);
-                // SysTick and PendSV also to 0xFF
-                scb.shpr[10].write(0xFF);
-                scb.shpr[11].write(0xFF);
-            } else {
-                compile_error!("missing fault priorities for ARM profile");
-            }
-        }
+        let descriptor = task.descriptor();
+        let frame = &mut task.try_write(&mut frame_uslice).unwrap_lite()[0];
 
+        // Conservatively/defensively zero the entire frame.
+        *frame = ExtendedExceptionFrame::default();
+        // Now fill in the bits we actually care about.
+        frame.base.pc = descriptor.entry_point | 1; // for thumb
+        frame.base.xpsr = INITIAL_PSR;
+        frame.base.lr = 0xFFFF_FFFF; // trap on return from main
         #[cfg(any(armv7m, armv8m))]
         {
-            // ARM's default disposition is that division by zero doesn't
-            // actually fail, but rather returns 0. (!)  It's unclear how
-            // placating this kind of programmatic sloppiness doesn't ultimately
-            // end in tears; we explicitly configure ourselves to trap on any
-            // divide by zero.
-            const DIV_0_TRP: u32 = 1 << 4;
-            scb.ccr.modify(|x| x | DIV_0_TRP);
+            frame.fpscr = INITIAL_FPSCR;
         }
 
-        // Configure the priority of all external interrupts so that they can't
-        // preempt the kernel.
-        let nvic = &*cortex_m::peripheral::NVIC::PTR;
+        // Set the initial stack pointer, *not* to the stack top, but to the
+        // base of this frame.
+        let frame: *const ExtendedExceptionFrame = frame;
+        task.save_mut().psp = frame as u32;
 
-        cfg_if::cfg_if! {
-            if #[cfg(armv6m)] {
-                // On ARMv6 there are 8 IPR registers, each containing 4
-                // interrupt priorities.  Only 2 bits, stored at bits[7:6], are
-                // used for the priority level, giving a range of 0-192 in steps
-                // of 64.  Writes to the other bits are ignored, so we just set
-                // everything high, i.e.  the lowest priority.  For more
-                // information see:
-                //
-                // ARMv6-M Architecture Reference Manual section B3.4.7
-                //
-                // Do not believe what the docs for the `cortex_m` crate suggest
-                // -- the IPR registers on ARMv6M are 32-bits wide.
-                for i in 0..8 {
-                    nvic.ipr[i].write(0xFFFF_FFFF);
-                }
-            } else if #[cfg(any(armv7m, armv8m))] {
-                // How many IRQs have we got on ARMv7+? This information is
-                // stored in a separate area of the address space, away from the
-                // NVIC
-                let icb = &*cortex_m::peripheral::ICB::PTR;
-                let ictr = icb.ictr.read();
-                // This gives interrupt count in blocks of 32, minus 1, so there
-                // are always at least 32 interrupts.
-                let irq_block_count = (ictr as usize & 0xF) + 1;
-                let irq_count = irq_block_count * 32;
-                // Blindly poke all the interrupts to 0xFF. IPR registers on
-                // ARMv7/8 are modeled as `u8` by `cortex_m`, unlike on ARMv6.
-                // We're explicit with the `u8` suffix below to ensure that we
-                // notice if this changes.
-                for i in 0..irq_count {
-                    nvic.ipr[i].write(0xFFu8);
-                }
-            } else {
-                compile_error!("missing IRQ priorities for ARM profile");
+        // Finally, record the EXC_RETURN we'll use to enter the task.
+        task.save_mut().exc_return = EXC_RETURN_CONST;
+    }
+
+    #[cfg(any(armv6m, armv7m))]
+    fn apply_memory_protection(task: &task::Task) {
+        // We are manufacturing authority to interact with the MPU here, because
+        // we can't thread a cortex-specific peripheral through an
+        // architecture-independent API. This approach might bear revisiting
+        // later.
+        let mpu = unsafe {
+            // At least by not taking a &mut we're confident we're not violating
+            // aliasing....
+            &*cortex_m::peripheral::MPU::PTR
+        };
+
+        // Turn off the MPU.
+        //
+        // Safety: this has no actual memory safety implications, except for
+        // potentially exposing the kernel to a NULL dereference that succeeds.
+        unsafe {
+            mpu.ctrl.write(0);
+        }
+
+        for (i, region) in task.region_table().iter().enumerate() {
+            let data = region.arch_data;
+            // With the MPU off, there are no particular constraints on the
+            // order in which we write these fields.
+            //
+            // Safety: we're messing with memory protection, so from the API's
+            // point of view this is very unsafe. But we're loading values
+            // generated by our (trusted) build script, which only affect tasks
+            // and not us. So this should be safe by default.
+            unsafe {
+                // Select a region.
+                mpu.rnr.write(i as u32);
+                // Set region base address.
+                mpu.rbar.write(data.rbar);
+                // Configure the region.
+                mpu.rasr.write(data.rasr);
             }
         }
+
+        // Turn MPU back on.
+        //
+        // Safety: same as above, has no safety implications really.
+        unsafe {
+            mpu.ctrl.write(0b101);
+        }
     }
 
-    // We are manufacturing authority to interact with the MPU here, because we
-    // can't thread a cortex-specific peripheral through an
-    // architecture-independent API. This approach might bear revisiting later.
-    let mpu = unsafe {
-        // At least by not taking a &mut we're confident we're not violating
-        // aliasing....
-        &*cortex_m::peripheral::MPU::PTR
-    };
-
-    const ENABLE: u32 = 0b001;
-    const PRIVDEFENA: u32 = 0b100;
-    // Safety: this has no memory safety implications. The worst it can do is
-    // cause us to fault, which is safe. The register API doesn't know this.
-    unsafe {
-        mpu.ctrl.write(ENABLE | PRIVDEFENA);
-    }
-
-    unsafe extern "C" {
-        // Exposed by the linker script.
-        static _stack_base: u32;
-    }
-
-    // Safety: this is setting the Main stack pointer (i.e. kernel/interrupt
-    // stack pointer) limit register. There are two potential outcomes from
-    // this:
-    // 1. We proceed without issue because we have not yet overflowed our stack.
-    // 2. We take an immediate fault.
-    //
-    // Both these outcomes are safe, even if the second one is annoying.
     #[cfg(armv8m)]
-    unsafe {
-        cortex_m::register::msplim::write((&raw const _stack_base) as u32);
-    }
+    fn apply_memory_protection(task: &task::Task) {
+        let mpu = unsafe {
+            // At least by not taking a &mut we're confident we're not violating
+            // aliasing....
+            &*cortex_m::peripheral::MPU::PTR
+        };
 
-    // Safety: this is setting the Process (task) stack pointer, which has no
-    // effect _assuming_ this code is running on the Main (kernel) stack.
-    unsafe {
-        cortex_m::register::psp::write(task.save().psp);
-    }
+        // Disable the MPU before making changes. This is critical to
+        // correctness of this function!
+        //
+        // Because regions consist of several registers, there is no order in
+        // which we can update those registers with the MPU _enabled_ that
+        // doesn't risk a race condition. MPU updates that load the RBAR from
+        // one region and the RLAR from another have caused real crashes.
+        //
+        // Disabling and re-enabling the MPU is very inexpensive (single-digit
+        // cycles) so don't sweat it -- do the correct thing.
+        unsafe {
+            disable_mpu(mpu);
+        }
 
-    // Relinquish our exclusive borrow of the relevant task, and use *pointer*
-    // method to obtain a pointer to the address we will need to restore initial
-    // state from. We do it this way to avoid invalidating the provenance by
-    // reborrowing the Task, AND we do not use a reference to `r4` specifically,
-    // which would only have the provenance of one `u32`, as we will be reading
-    // ALL of the SavedState in the assembly below.
-    //
-    // Note that we are restoring FROM the saved state, we are NOT writing TO
-    // the saved state, so a `*const u32` will do.
-    let task: *mut task::Task = task;
-    // SAFETY: `task` is pointer to a valid task object, therefore doing offset
-    // math on it is sound.
-    let r4_ptr: *const u32 = unsafe {
-        let save_ptr = task::Task::save_ptr(task);
-        &raw const (*save_ptr).r4
-    };
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+        // We'll collect the MAIR register contents here. Indices 0-3 correspond
+        // to MAIR0's bytes (in LE order); 4-7 are MAIR1.
+        let mut mairs = [0; 8];
 
-    // Finally, we enable systick counting. We don't do this until AFTER we
-    // have set CURRENT_TASK_PTR, as otherwise we could end up interrupting
-    // into systick, falling through to pendsv, and hit an assert that
-    // CURRENT_TASK_PTR is null.
-    //
-    // Safety: this, too, is safe in practice but unsafe in API.
-    unsafe {
-        // Configure the timer.
-        let syst = &*cortex_m::peripheral::SYST::PTR;
-        // Program reload value.
-        syst.rvr.write(tick_divisor - 1);
-        // Clear current value.
-        syst.cvr.write(0);
-        // Enable counter and interrupt.
-        syst.csr.modify(|v| v | 0b111);
-    }
+        for (i, region) in task.region_table().iter().enumerate() {
+            let rnr = i as u32;
 
-    // Run the final pre-kernel assembly sequence to set up the kernel
-    // environment!
-    //
-    // Our basic goal here is to flip into Handler mode (i.e. interrupt state)
-    // so that we can switch Thread mode (not-interrupt state) to unprivileged
-    // and running off the Process Stack Pointer. The easiest way to do this on
-    // ARM-M is by entering Handler mode by a trap. We use SVC, which we also
-    // use for system calls; the SVC entry sequence (also in this file) has code
-    // to detect this condition and do kernel startup rather than processing it
-    // as a syscall.
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+            let ext = &region.arch_data;
+
+            mairs[i] = ext.mair;
+
+            // Set the attridx field of the RLAR to just choose the attributes
+            // with the same index as the region. This lets us treat MAIR as an
+            // array corresponding to the regions.
+            //
+            // We unfortunately can't do this at compile time, because regions
+            // can be shared, and may not be used in the same table position in
+            // all tasks.
+            let rlar = ext.rlar | (i as u32) << 1; // AttrIdx
+
             unsafe {
-                arch::asm!("
+                mpu.rnr.write(rnr);
+                mpu.rbar.write(ext.rbar);
+                mpu.rlar.write(rlar);
+            }
+        }
+
+        unsafe {
+            // Load the MAIR registers.
+            mpu.mair[0]
+                .write(u32::from_le_bytes(mairs[..4].try_into().unwrap()));
+            mpu.mair[1]
+                .write(u32::from_le_bytes(mairs[4..].try_into().unwrap()));
+            enable_mpu(mpu, true);
+        }
+    }
+
+    fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
+        // Enable faults and set fault/exception priorities to reasonable
+        // settings. Our goal here is to keep the kernel non-preemptive, which
+        // means the kernel entry points (SVCall, PendSV, SysTick, interrupt
+        // handlers) must be at one priority level. Fault handlers need to be
+        // higher priority, however, so that we can detect faults in the kernel.
+        //
+        // Safety: this is actually fairly safe. We're purely lowering
+        // priorities from their defaults, so it can't cause any surprise
+        // preemption or anything. But these operations are `unsafe` in the
+        // `cortex_m` crate.
+        unsafe {
+            let scb = &*cortex_m::peripheral::SCB::PTR;
+            // Faults on, on the processors that distinguish faults. This
+            // distinguishes the following faults from HardFault:
+            //
+            // - ARMv7+: MEMFAULT, BUSFAULT, USGFAULT
+            // - ARMv8: SECUREFAULT
+            cfg_if::cfg_if! {
+                if #[cfg(armv7m)] {
+                    scb.shcsr.modify(|x| x | 0b111 << 16);
+                } else if #[cfg(armv8m)] {
+                    scb.shcsr.modify(|x| x | 0b1111 << 16);
+                } else if #[cfg(armv6m)] {
+                    // This facility is missing.
+                } else {
+                    compile_error!("missing fault setup for ARM profile");
+                }
+            }
+
+            // Set fault and standard exception priorities.
+            cfg_if::cfg_if! {
+                if #[cfg(armv6m)] {
+                    // ARMv6 only has 4 priority levels and no configurable
+                    // fault priorities. Set priorities of SVCall, SysTick and
+                    // PendSV to 3 (the lowest configurable).
+                    scb.shpr[0].modify(|x| x | 0b11 << 30);
+                    scb.shpr[1].modify(|x| x | 0b11 << 22 | 0b11 << 30);
+                } else if #[cfg(any(armv7m, armv8m))] {
+                    // Set priority of Usage, Bus, MemManage to 0 (highest
+                    // configurable).
+                    scb.shpr[0].write(0x00);
+                    scb.shpr[1].write(0x00);
+                    scb.shpr[2].write(0x00);
+                    // Set priority of SVCall to 0xFF (lowest configurable).
+                    scb.shpr[7].write(0xFF);
+                    // SysTick and PendSV also to 0xFF
+                    scb.shpr[10].write(0xFF);
+                    scb.shpr[11].write(0xFF);
+                } else {
+                    compile_error!("missing fault priorities for ARM profile");
+                }
+            }
+
+            #[cfg(any(armv7m, armv8m))]
+            {
+                // ARM's default disposition is that division by zero doesn't
+                // actually fail, but rather returns 0. (!)  It's unclear how
+                // placating this kind of programmatic sloppiness doesn't
+                // ultimately end in tears; we explicitly configure ourselves to
+                // trap on any divide by zero.
+                const DIV_0_TRP: u32 = 1 << 4;
+                scb.ccr.modify(|x| x | DIV_0_TRP);
+            }
+
+            // Configure the priority of all external interrupts so that they
+            // can't preempt the kernel.
+            let nvic = &*cortex_m::peripheral::NVIC::PTR;
+
+            cfg_if::cfg_if! {
+                if #[cfg(armv6m)] {
+                    // On ARMv6 there are 8 IPR registers, each containing 4
+                    // interrupt priorities.  Only 2 bits, stored at bits[7:6],
+                    // are used for the priority level, giving a range of 0-192
+                    // in steps of 64.  Writes to the other bits are ignored, so
+                    // we just set everything high, i.e.  the lowest priority.
+                    // For more information see:
+                    //
+                    // ARMv6-M Architecture Reference Manual section B3.4.7
+                    //
+                    // Do not believe what the docs for the `cortex_m` crate
+                    // suggest -- the IPR registers on ARMv6M are 32-bits wide.
+                    for i in 0..8 {
+                        nvic.ipr[i].write(0xFFFF_FFFF);
+                    }
+                } else if #[cfg(any(armv7m, armv8m))] {
+                    // How many IRQs have we got on ARMv7+? This information is
+                    // stored in a separate area of the address space, away from
+                    // the NVIC
+                    let icb = &*cortex_m::peripheral::ICB::PTR;
+                    let ictr = icb.ictr.read();
+                    // This gives interrupt count in blocks of 32, minus 1, so
+                    // there are always at least 32 interrupts.
+                    let irq_block_count = (ictr as usize & 0xF) + 1;
+                    let irq_count = irq_block_count * 32;
+                    // Blindly poke all the interrupts to 0xFF. IPR registers on
+                    // ARMv7/8 are modeled as `u8` by `cortex_m`, unlike on
+                    // ARMv6. We're explicit with the `u8` suffix below to
+                    // ensure that we notice if this changes.
+                    for i in 0..irq_count {
+                        nvic.ipr[i].write(0xFFu8);
+                    }
+                } else {
+                    compile_error!("missing IRQ priorities for ARM profile");
+                }
+            }
+        }
+
+        // We are manufacturing authority to interact with the MPU here, because
+        // we can't thread a cortex-specific peripheral through an
+        // architecture-independent API. This approach might bear revisiting
+        // later.
+        let mpu = unsafe {
+            // At least by not taking a &mut we're confident we're not violating
+            // aliasing....
+            &*cortex_m::peripheral::MPU::PTR
+        };
+
+        const ENABLE: u32 = 0b001;
+        const PRIVDEFENA: u32 = 0b100;
+        // Safety: this has no memory safety implications. The worst it can do
+        // is cause us to fault, which is safe. The register API doesn't know
+        // this.
+        unsafe {
+            mpu.ctrl.write(ENABLE | PRIVDEFENA);
+        }
+
+        unsafe extern "C" {
+            // Exposed by the linker script.
+            static _stack_base: u32;
+        }
+
+        // Safety: this is setting the Main stack pointer (i.e. kernel/interrupt
+        // stack pointer) limit register. There are two potential outcomes from
+        // this:
+        // 1. We proceed without issue because we have not yet overflowed our
+        //    stack.
+        // 2. We take an immediate fault.
+        //
+        // Both these outcomes are safe, even if the second one is annoying.
+        #[cfg(armv8m)]
+        unsafe {
+            cortex_m::register::msplim::write((&raw const _stack_base) as u32);
+        }
+
+        // Safety: this is setting the Process (task) stack pointer, which has
+        // no effect _assuming_ this code is running on the Main (kernel) stack.
+        unsafe {
+            cortex_m::register::psp::write(task.save().psp);
+        }
+
+        // Relinquish our exclusive borrow of the relevant task, and use
+        // *pointer* method to obtain a pointer to the address we will need to
+        // restore initial state from. We do it this way to avoid invalidating
+        // the provenance by reborrowing the Task, AND we do not use a reference
+        // to `r4` specifically, which would only have the provenance of one
+        // `u32`, as we will be reading ALL of the SavedState in the assembly
+        // below.
+        //
+        // Note that we are restoring FROM the saved state, we are NOT writing
+        // TO the saved state, so a `*const u32` will do.
+        let task: *mut task::Task = task;
+        // SAFETY: `task` is pointer to a valid task object, therefore doing
+        // offset math on it is sound.
+        let r4_ptr: *const u32 = unsafe {
+            let save_ptr = task::Task::save_ptr(task);
+            &raw const (*save_ptr).r4
+        };
+        CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+
+        // Finally, we enable systick counting. We don't do this until AFTER we
+        // have set CURRENT_TASK_PTR, as otherwise we could end up interrupting
+        // into systick, falling through to pendsv, and hit an assert that
+        // CURRENT_TASK_PTR is null.
+        //
+        // Safety: this, too, is safe in practice but unsafe in API.
+        unsafe {
+            // Configure the timer.
+            let syst = &*cortex_m::peripheral::SYST::PTR;
+            // Program reload value.
+            syst.rvr.write(tick_divisor - 1);
+            // Clear current value.
+            syst.cvr.write(0);
+            // Enable counter and interrupt.
+            syst.csr.modify(|v| v | 0b111);
+        }
+
+        // Run the final pre-kernel assembly sequence to set up the kernel
+        // environment!
+        //
+        // Our basic goal here is to flip into Handler mode (i.e. interrupt
+        // state) so that we can switch Thread mode (not-interrupt state) to
+        // unprivileged and running off the Process Stack Pointer. The easiest
+        // way to do this on ARM-M is by entering Handler mode by a trap. We use
+        // SVC, which we also use for system calls; the SVC entry sequence (also
+        // in this file) has code to detect this condition and do kernel startup
+        // rather than processing it as a syscall.
+        cfg_if::cfg_if! {
+            if #[cfg(armv6m)] {
+                unsafe {
+                    arch::asm!("
                     @ restore the callee-save registers
                     ldm r0!, {{r4-r7}}
                     ldm r0, {{r0-r3}}
@@ -690,136 +703,138 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
                     svc #0xFF
                     @ noreturn generates a UDF here in case that should return.
                     ",
-                    in("r0") r4_ptr,
-                    options(noreturn),
-                )
-            }
-        } else if #[cfg(any(armv7m, armv8m))] {
-            unsafe {
-                arch::asm!("
+                        in("r0") r4_ptr,
+                        options(noreturn),
+                    )
+                }
+            } else if #[cfg(any(armv7m, armv8m))] {
+                unsafe {
+                    arch::asm!("
                     @ Restore callee-save registers.
                     ldm {task}, {{r4-r11}}
                     @ Trap into the kernel.
                     svc #0xFF
                     @ noreturn generates a UDF here in case that should return.
                     ",
-                    task = in(reg) r4_ptr,
-                    options(noreturn),
-                )
+                        task = in(reg) r4_ptr,
+                        options(noreturn),
+                    )
+                }
+            } else {
+                compile_error!("missing kernel bootstrap sequence for \
+                    ARM profile");
             }
-        } else {
-            compile_error!("missing kernel bootstrap sequence for ARM profile");
         }
     }
-}
 
-/// Records the address of `task` as the current user task.
-///
-/// # Safety
-///
-/// This records a pointer that aliases `task`. As long as you don't read that
-/// pointer while you have access to `task`, and as long as the `task` being
-/// stored is actually in the task table, you'll be okay.
-pub unsafe fn set_current_task(task: &mut task::Task) {
-    let task: *mut task::Task = task;
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
-    crate::profiling::event_context_switch(task as usize);
-}
-
-/// Reads the tick counter.
-pub fn now() -> Timestamp {
-    // Recall that we expect the systick interrupt cannot preempt kernel code,
-    // so we're safe to read this in two nonatomic parts here.
-    Timestamp::from([
-        TICKS[0].load(Ordering::Relaxed),
-        TICKS[1].load(Ordering::Relaxed),
-    ])
-}
-
-pub fn disable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
-    // Disable the interrupt by poking the Interrupt Clear Enable Register.
-    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
-    let reg_num = (n / 32) as usize;
-    let bit_mask = 1 << (n % 32);
-    unsafe {
-        nvic.icer
-            .get(reg_num)
-            .ok_or(UsageError::NoIrq)?
-            .write(bit_mask);
+    /// Records the address of `task` as the current user task.
+    ///
+    /// # Safety
+    ///
+    /// This records a pointer that aliases `task`. As long as you don't read
+    /// that pointer while you have access to `task`, and as long as the `task`
+    /// being stored is actually in the task table, you'll be okay.
+    unsafe fn set_current_task(task: &mut task::Task) {
+        let task: *mut task::Task = task;
+        CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+        crate::profiling::event_context_switch(task as usize);
     }
-    if also_clear_pending {
+
+    /// Reads the tick counter.
+    fn now() -> Timestamp {
+        // Recall that we expect the systick interrupt cannot preempt kernel
+        // code, so we're safe to read this in two nonatomic parts here.
+        Timestamp::from([
+            TICKS[0].load(Ordering::Relaxed),
+            TICKS[1].load(Ordering::Relaxed),
+        ])
+    }
+
+    fn disable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
+        // Disable the interrupt by poking the Interrupt Clear Enable Register.
+        let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+        let reg_num = (n / 32) as usize;
+        let bit_mask = 1 << (n % 32);
         unsafe {
-            nvic.icpr
+            nvic.icer
                 .get(reg_num)
                 .ok_or(UsageError::NoIrq)?
                 .write(bit_mask);
         }
+        if also_clear_pending {
+            unsafe {
+                nvic.icpr
+                    .get(reg_num)
+                    .ok_or(UsageError::NoIrq)?
+                    .write(bit_mask);
+            }
+        }
+        Ok(())
     }
-    Ok(())
-}
 
-pub fn enable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
-    // Enable the interrupt by poking the Interrupt Set Enable Register.
-    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
-    let reg_num = (n / 32) as usize;
-    let bit_mask = 1 << (n % 32);
-    if also_clear_pending {
-        // Do this _before_ enabling.
+    fn enable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
+        // Enable the interrupt by poking the Interrupt Set Enable Register.
+        let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+        let reg_num = (n / 32) as usize;
+        let bit_mask = 1 << (n % 32);
+        if also_clear_pending {
+            // Do this _before_ enabling.
+            unsafe {
+                nvic.icpr
+                    .get(reg_num)
+                    .ok_or(UsageError::NoIrq)?
+                    .write(bit_mask);
+            }
+        }
         unsafe {
-            nvic.icpr
+            nvic.iser
                 .get(reg_num)
                 .ok_or(UsageError::NoIrq)?
                 .write(bit_mask);
         }
+        Ok(())
     }
-    unsafe {
-        nvic.iser
-            .get(reg_num)
-            .ok_or(UsageError::NoIrq)?
-            .write(bit_mask);
+
+    /// Looks up an interrupt in the NVIC and returns a cross-platform
+    /// representation of that interrupt's status.
+    fn irq_status(n: u32) -> Result<abi::IrqStatus, UsageError> {
+        let mut status = abi::IrqStatus::empty();
+
+        let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+        let reg_num = (n / 32) as usize;
+        let bit_mask = 1 << (n % 32);
+
+        // See if the interrupt is enabled by checking the bit in the Interrupt
+        // Set Enable Register.
+        let iser_reg = nvic.iser.get(reg_num).ok_or(UsageError::NoIrq)?;
+        let enabled = iser_reg.read() & bit_mask == bit_mask;
+        status.set(abi::IrqStatus::ENABLED, enabled);
+
+        // See if the interrupt is pending by checking the bit in the Interrupt
+        // Set Pending Register (ISPR).
+        let pending = nvic.ispr[reg_num].read() & bit_mask == bit_mask;
+        status.set(abi::IrqStatus::PENDING, pending);
+
+        Ok(status)
     }
-    Ok(())
-}
 
-/// Looks up an interrupt in the NVIC and returns a cross-platform
-/// representation of that interrupt's status.
-pub fn irq_status(n: u32) -> Result<abi::IrqStatus, UsageError> {
-    let mut status = abi::IrqStatus::empty();
+    fn pend_software_irq(
+        InterruptNum(n): InterruptNum,
+    ) -> Result<(), UsageError> {
+        let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+        let reg_num = (n / 32) as usize;
+        let bit_mask = 1 << (n % 32);
 
-    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
-    let reg_num = (n / 32) as usize;
-    let bit_mask = 1 << (n % 32);
+        // Pend the IRQ by poking the corresponding bit in the Interrupt Set
+        // Pending Register (ISPR).
+        let ispr_reg = nvic.ispr.get(reg_num).ok_or(UsageError::NoIrq)?;
+        unsafe { ispr_reg.write(bit_mask) };
+        Ok(())
+    }
 
-    // See if the interrupt is enabled by checking the bit in the Interrupt Set
-    // Enable Register.
-    let iser_reg = nvic.iser.get(reg_num).ok_or(UsageError::NoIrq)?;
-    let enabled = iser_reg.read() & bit_mask == bit_mask;
-    status.set(abi::IrqStatus::ENABLED, enabled);
-
-    // See if the interrupt is pending by checking the bit in the Interrupt
-    // Set Pending Register (ISPR).
-    let pending = nvic.ispr[reg_num].read() & bit_mask == bit_mask;
-    status.set(abi::IrqStatus::PENDING, pending);
-
-    Ok(status)
-}
-
-pub fn pend_software_irq(
-    InterruptNum(n): InterruptNum,
-) -> Result<(), UsageError> {
-    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
-    let reg_num = (n / 32) as usize;
-    let bit_mask = 1 << (n % 32);
-
-    // Pend the IRQ by poking the corresponding bit in the Interrupt Set Pending
-    // Register (ISPR).
-    let ispr_reg = nvic.ispr.get(reg_num).ok_or(UsageError::NoIrq)?;
-    unsafe { ispr_reg.write(bit_mask) };
-    Ok(())
-}
-
-pub fn reset() -> ! {
-    cortex_m::peripheral::SCB::sys_reset()
+    fn reset() -> ! {
+        cortex_m::peripheral::SCB::sys_reset()
+    }
 }
 
 /// PMSAv6/7-style precomputed region data.
@@ -1206,8 +1221,9 @@ pub unsafe extern "C" fn SysTick() {
         let now = Timestamp::from([t0, t1]);
         let switch = task::process_timers(tasks, now);
 
-        // If any timers fired, we need to defer a context switch, because the entry
-        // sequence to this ISR doesn't save state correctly for efficiency.
+        // If any timers fired, we need to defer a context switch, because the
+        // entry sequence to this ISR doesn't save state correctly for
+        // efficiency.
         if switch != task::NextTask::Same {
             pend_context_switch_from_isr();
         }
@@ -1380,7 +1396,7 @@ pub unsafe extern "C" fn DefaultHandler() {
                 // This can only fail if the IRQ number is out of range, which
                 // in this case would mean the hardware is conspiring against
                 // us. So ignore it to ensure we don't generate a bogus check.
-                disable_irq(irq_num, false).ok();
+                ArmM::disable_irq(irq_num, false).ok();
 
                 // Now, post the notification and return the
                 // scheduling hint.
@@ -1396,7 +1412,6 @@ pub unsafe extern "C" fn DefaultHandler() {
     }
     crate::profiling::event_isr_exit();
 }
-
 
 #[repr(u8)]
 #[allow(dead_code)]
