@@ -198,6 +198,21 @@ pub struct ULease {
     pub length: u32,
 }
 
+// The `ULease` type is fundamental to the ABI! We very much want to ensure
+// that it never breaks. This const assert checks that.
+#[cfg(target_pointer_width = "32")]
+const _ENSURE_32BIT_ABI_UNCHANGED: () = const {
+    use core::mem;
+    // The size is correct
+    assert!(mem::size_of::<ULease>() == 12);
+    // The align is correct
+    assert!(mem::align_of::<ULease>() == 4);
+    // The offset of all fields are unchanged
+    assert!(mem::offset_of!(ULease, attributes) == 0);
+    assert!(mem::offset_of!(ULease, base_address) == 4);
+    assert!(mem::offset_of!(ULease, length) == 8);
+};
+
 #[derive(
     Copy, Clone, Debug, FromBytes, Immutable, KnownLayout, PartialEq, Eq,
 )]

@@ -103,6 +103,36 @@ pub struct RegionDesc {
     pub attributes: RegionAttributes,
 }
 
+// The `RegionDesc` type is fundamental to the ABI! We very much want to ensure
+// that it never breaks. This const assert checks that.
+//
+// It's possible in the future we want `RegionDesc` to be arch-specific, but for
+// now ensure that all 32-bit targets share the same ABI qualities.
+#[cfg(target_pointer_width = "32")]
+const _ENSURE_REGION_DESC_32BIT_ABI_UNCHANGED: () = const {
+    use crate::arch::RegionDescExt;
+    use core::mem;
+    // Okay part of this is arch-specific, and we can't take that for granted.
+    let arch_data_size = mem::size_of::<RegionDescExt>();
+    let arch_data_align = mem::align_of::<RegionDescExt>();
+
+    // The size is correct
+    assert!(mem::size_of::<RegionDesc>() == arch_data_size + 12);
+    // The align is correct
+    let base_align = 4;
+    let act_align = mem::align_of::<RegionDesc>();
+
+    if arch_data_align > 4 {
+        assert!(act_align == arch_data_align);
+    } else {
+        assert!(act_align == base_align);
+    }
+    // The offset of all fields are unchanged
+    assert!(mem::offset_of!(RegionDesc, base) == arch_data_size);
+    assert!(mem::offset_of!(RegionDesc, size) == arch_data_size + 4);
+    assert!(mem::offset_of!(RegionDesc, attributes) == arch_data_size + 8);
+};
+
 impl RegionDesc {
     /// Tests whether `self` contains `addr`.
     pub fn contains(&self, addr: usize) -> bool {
