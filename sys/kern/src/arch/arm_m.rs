@@ -378,105 +378,7 @@ pub fn reinitialize(task: &mut task::Task) {
     task.save_mut().exc_return = EXC_RETURN_CONST;
 }
 
-/// PMSAv6/7-style precomputed region data.
-///
-/// This struct is `repr(C)` to preserve the order of its fields, which happens
-/// to match the order of registers in the MPU. While we don't bit-copy the
-/// struct directly, this does improve code generation in practice.
-#[cfg(any(armv6m, armv7m))]
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct RegionDescExt {
-    rbar: u32,
-    rasr: u32,
-}
 
-#[cfg(any(armv6m, armv7m))]
-pub const fn compute_region_extension_data(
-    base: usize,
-    size: usize,
-    attributes: RegionAttributes,
-) -> RegionDescExt {
-    let base = base as u32;
-    let size = size as u32;
-    // This platform requires 32-byte alignment of all regions.
-    if base & 0x1F != 0 {
-        panic!();
-    }
-
-    let ratts = attributes;
-    let xn = !ratts.contains(RegionAttributes::EXECUTE);
-    // These AP encodings are chosen such that we never deny *privileged*
-    // code (i.e. us) access to the memory.
-    let ap = if ratts.contains(RegionAttributes::WRITE) {
-        0b011
-    } else if ratts.contains(RegionAttributes::READ) {
-        0b010
-    } else {
-        0b001
-    };
-    // Set the TEX/SCB bits to configure memory type, caching policy, and
-    // shareability (with other cores or masters). See table B3-13 in the
-    // ARMv7-M ARM. (Settings are identical on v6-M but the sharability and
-    // TEX bits tend to be ignored.)
-    let (tex, scb) = if ratts.contains(RegionAttributes::DEVICE) {
-        // Device memory.
-        (0b000, 0b001)
-    } else if ratts.contains(RegionAttributes::DMA) {
-        // Conservative settings for normal memory assuming that DMA might
-        // be a problem:
-        // - Outer and inner non-cacheable.
-        // - Shared.
-        (0b001, 0b100)
-    } else {
-        // Aggressive settings for normal memory assume that it is used only
-        // by this processor:
-        // - Outer and inner write-back
-        // - Read and write allocate.
-        // - Not shared.
-        (0b001, 0b011)
-    };
-    // On v6/7-M the MPU expresses size of a region in log2 form _minus
-    // one._ So, the minimum allowed size of 32 bytes is represented as 4,
-    // because `2**(4 + 1) == 32`.
-    //
-    // We store sizes in the region table in an architecture-independent
-    // form (number of bytes) because it simplifies basically everything
-    // else but this routine. Here we must convert between the two -- and
-    // quickly, because this is called on every context switch.
-    //
-    // The image-generation tools check at build time that region sizes are
-    // powers of two. So, we can assume that the size has a single 1 bit. We
-    // can cheaply compute log2 of this by counting trailing zeroes, but
-    // ARMv7-M doesn't have a native instruction for that -- only leading
-    // zeroes. The equivalent using leading zeroes is
-    //
-    //   log2(N) = bits_in_word - 1 - clz(N)
-    //
-    // Because we want log2 _minus one_ we compute it as...
-    //
-    //   log2_m1(N) = bits_in_word - 2 - clz(N)
-    //
-    // If the size is zero or one, this subtraction will underflow. This
-    // should not occur in a valid image, but could occur due to runtime
-    // flash corruption. Any region size under 32 bytes is illegal on
-    // ARMv7-M anyway, so panicking is better than triggering possibly
-    // undefined hardware behavior.
-    //
-    // On ARMv6-M, there is no CLZ instruction either. This winds up
-    // generating decent intrinsic code for `leading_zeros` so we'll live
-    // with it.
-    let l2size = 30 - size.leading_zeros();
-
-    // Region attribute and size register; we enable the region by default
-    // because we load it with the MPU off.
-    let rasr =
-        (xn as u32) << 28 | ap << 24 | tex << 19 | scb << 16 | l2size << 1 | 1;
-
-    // Build the RBAR contents without the VALID bit or region number.
-    let rbar = base;
-    RegionDescExt { rasr, rbar }
-}
 
 #[cfg(any(armv6m, armv7m))]
 pub fn apply_memory_protection(task: &task::Task) {
@@ -522,80 +424,6 @@ pub fn apply_memory_protection(task: &task::Task) {
     unsafe {
         mpu.ctrl.write(0b101);
     }
-}
-
-/// ARMv8-M specific MPU accelerator data.
-///
-/// This is `repr(C)` only to make the field order match the register order in
-/// the hardware, which improves code generation. We do not actually rely on the
-/// in-memory representation of this struct otherwise.
-#[cfg(armv8m)]
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct RegionDescExt {
-    /// Contents of the RBAR register.
-    rbar: u32,
-
-    /// Contents of the RLAR register.
-    rlar: u32,
-
-    /// This region's portion of the four-byte MAIR register.
-    mair: u8,
-}
-
-#[cfg(armv8m)]
-pub const fn compute_region_extension_data(
-    base: usize,
-    size: usize,
-    ratts: RegionAttributes,
-) -> RegionDescExt {
-    let base = base as u32;
-    let size = size as u32;
-    // This MPU requires that all regions are 32-byte aligned...in part
-    // because it stuffs extra stuff into the bottom five bits.
-    if base & 0x1F != 0 {
-        panic!();
-    }
-
-    let xn = !ratts.contains(RegionAttributes::EXECUTE);
-    // ARMv8m has less granularity than ARMv7m for privilege
-    // vs non-privilege so there's no way to say that privilege
-    // can be read write but non-privilge can only be read only
-    // This _should_ be okay?
-    let ap = if ratts.contains(RegionAttributes::WRITE) {
-        0b01 // RW by any privilege level
-    } else if ratts.contains(RegionAttributes::READ) {
-        0b11 // Read only by any privilege level
-    } else {
-        0b00 // RW by privilege code only
-    };
-
-    let (mair, sh) = if ratts.contains(RegionAttributes::DEVICE) {
-        // Most restrictive: device memory, outer shared.
-        (0b00000000, 0b10)
-    } else if ratts.contains(RegionAttributes::DMA) {
-        // Outer/inner non-cacheable, outer shared.
-        (0b01000100, 0b10)
-    } else {
-        let rw = (ratts.contains(RegionAttributes::READ) as u8) << 1
-            | (ratts.contains(RegionAttributes::WRITE) as u8);
-        // write-back transient, not shared
-        (0b0100_0100 | rw | rw << 4, 0b00)
-    };
-
-    // RLAR = our upper bound. We're going ahead and setting the enable bit
-    // because we expect this to be loaded with the MPU _disabled._ Loading this
-    // with the MPU _enabled_ would involve momentary inconsistency between RLAR
-    // and RBAR, since the two cannot be written simultaneously, and that would
-    // be Bad.
-    let rlar = (base + size - 32) | 1; // upper bound | enable bit
-
-    // RBAR = the base
-    let rbar = (xn as u32)
-        | ap << 1
-        | (sh as u32) << 3  // sharability
-        | base;
-    RegionDescExt { rlar, rbar, mair }
 }
 
 #[cfg(armv8m)]
@@ -885,6 +713,289 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     }
 }
 
+/// Records the address of `task` as the current user task.
+///
+/// # Safety
+///
+/// This records a pointer that aliases `task`. As long as you don't read that
+/// pointer while you have access to `task`, and as long as the `task` being
+/// stored is actually in the task table, you'll be okay.
+pub unsafe fn set_current_task(task: &mut task::Task) {
+    let task: *mut task::Task = task;
+    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+    crate::profiling::event_context_switch(task as usize);
+}
+
+/// Reads the tick counter.
+pub fn now() -> Timestamp {
+    // Recall that we expect the systick interrupt cannot preempt kernel code,
+    // so we're safe to read this in two nonatomic parts here.
+    Timestamp::from([
+        TICKS[0].load(Ordering::Relaxed),
+        TICKS[1].load(Ordering::Relaxed),
+    ])
+}
+
+pub fn disable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
+    // Disable the interrupt by poking the Interrupt Clear Enable Register.
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+    unsafe {
+        nvic.icer
+            .get(reg_num)
+            .ok_or(UsageError::NoIrq)?
+            .write(bit_mask);
+    }
+    if also_clear_pending {
+        unsafe {
+            nvic.icpr
+                .get(reg_num)
+                .ok_or(UsageError::NoIrq)?
+                .write(bit_mask);
+        }
+    }
+    Ok(())
+}
+
+pub fn enable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
+    // Enable the interrupt by poking the Interrupt Set Enable Register.
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+    if also_clear_pending {
+        // Do this _before_ enabling.
+        unsafe {
+            nvic.icpr
+                .get(reg_num)
+                .ok_or(UsageError::NoIrq)?
+                .write(bit_mask);
+        }
+    }
+    unsafe {
+        nvic.iser
+            .get(reg_num)
+            .ok_or(UsageError::NoIrq)?
+            .write(bit_mask);
+    }
+    Ok(())
+}
+
+/// Looks up an interrupt in the NVIC and returns a cross-platform
+/// representation of that interrupt's status.
+pub fn irq_status(n: u32) -> Result<abi::IrqStatus, UsageError> {
+    let mut status = abi::IrqStatus::empty();
+
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+
+    // See if the interrupt is enabled by checking the bit in the Interrupt Set
+    // Enable Register.
+    let iser_reg = nvic.iser.get(reg_num).ok_or(UsageError::NoIrq)?;
+    let enabled = iser_reg.read() & bit_mask == bit_mask;
+    status.set(abi::IrqStatus::ENABLED, enabled);
+
+    // See if the interrupt is pending by checking the bit in the Interrupt
+    // Set Pending Register (ISPR).
+    let pending = nvic.ispr[reg_num].read() & bit_mask == bit_mask;
+    status.set(abi::IrqStatus::PENDING, pending);
+
+    Ok(status)
+}
+
+pub fn pend_software_irq(
+    InterruptNum(n): InterruptNum,
+) -> Result<(), UsageError> {
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+
+    // Pend the IRQ by poking the corresponding bit in the Interrupt Set Pending
+    // Register (ISPR).
+    let ispr_reg = nvic.ispr.get(reg_num).ok_or(UsageError::NoIrq)?;
+    unsafe { ispr_reg.write(bit_mask) };
+    Ok(())
+}
+
+pub fn reset() -> ! {
+    cortex_m::peripheral::SCB::sys_reset()
+}
+
+/// PMSAv6/7-style precomputed region data.
+///
+/// This struct is `repr(C)` to preserve the order of its fields, which happens
+/// to match the order of registers in the MPU. While we don't bit-copy the
+/// struct directly, this does improve code generation in practice.
+#[cfg(any(armv6m, armv7m))]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct RegionDescExt {
+    rbar: u32,
+    rasr: u32,
+}
+
+#[cfg(any(armv6m, armv7m))]
+pub const fn compute_region_extension_data(
+    base: usize,
+    size: usize,
+    attributes: RegionAttributes,
+) -> RegionDescExt {
+    let base = base as u32;
+    let size = size as u32;
+    // This platform requires 32-byte alignment of all regions.
+    if base & 0x1F != 0 {
+        panic!();
+    }
+
+    let ratts = attributes;
+    let xn = !ratts.contains(RegionAttributes::EXECUTE);
+    // These AP encodings are chosen such that we never deny *privileged*
+    // code (i.e. us) access to the memory.
+    let ap = if ratts.contains(RegionAttributes::WRITE) {
+        0b011
+    } else if ratts.contains(RegionAttributes::READ) {
+        0b010
+    } else {
+        0b001
+    };
+    // Set the TEX/SCB bits to configure memory type, caching policy, and
+    // shareability (with other cores or masters). See table B3-13 in the
+    // ARMv7-M ARM. (Settings are identical on v6-M but the sharability and
+    // TEX bits tend to be ignored.)
+    let (tex, scb) = if ratts.contains(RegionAttributes::DEVICE) {
+        // Device memory.
+        (0b000, 0b001)
+    } else if ratts.contains(RegionAttributes::DMA) {
+        // Conservative settings for normal memory assuming that DMA might
+        // be a problem:
+        // - Outer and inner non-cacheable.
+        // - Shared.
+        (0b001, 0b100)
+    } else {
+        // Aggressive settings for normal memory assume that it is used only
+        // by this processor:
+        // - Outer and inner write-back
+        // - Read and write allocate.
+        // - Not shared.
+        (0b001, 0b011)
+    };
+    // On v6/7-M the MPU expresses size of a region in log2 form _minus
+    // one._ So, the minimum allowed size of 32 bytes is represented as 4,
+    // because `2**(4 + 1) == 32`.
+    //
+    // We store sizes in the region table in an architecture-independent
+    // form (number of bytes) because it simplifies basically everything
+    // else but this routine. Here we must convert between the two -- and
+    // quickly, because this is called on every context switch.
+    //
+    // The image-generation tools check at build time that region sizes are
+    // powers of two. So, we can assume that the size has a single 1 bit. We
+    // can cheaply compute log2 of this by counting trailing zeroes, but
+    // ARMv7-M doesn't have a native instruction for that -- only leading
+    // zeroes. The equivalent using leading zeroes is
+    //
+    //   log2(N) = bits_in_word - 1 - clz(N)
+    //
+    // Because we want log2 _minus one_ we compute it as...
+    //
+    //   log2_m1(N) = bits_in_word - 2 - clz(N)
+    //
+    // If the size is zero or one, this subtraction will underflow. This
+    // should not occur in a valid image, but could occur due to runtime
+    // flash corruption. Any region size under 32 bytes is illegal on
+    // ARMv7-M anyway, so panicking is better than triggering possibly
+    // undefined hardware behavior.
+    //
+    // On ARMv6-M, there is no CLZ instruction either. This winds up
+    // generating decent intrinsic code for `leading_zeros` so we'll live
+    // with it.
+    let l2size = 30 - size.leading_zeros();
+
+    // Region attribute and size register; we enable the region by default
+    // because we load it with the MPU off.
+    let rasr =
+        (xn as u32) << 28 | ap << 24 | tex << 19 | scb << 16 | l2size << 1 | 1;
+
+    // Build the RBAR contents without the VALID bit or region number.
+    let rbar = base;
+    RegionDescExt { rasr, rbar }
+}
+
+/// ARMv8-M specific MPU accelerator data.
+///
+/// This is `repr(C)` only to make the field order match the register order in
+/// the hardware, which improves code generation. We do not actually rely on the
+/// in-memory representation of this struct otherwise.
+#[cfg(armv8m)]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct RegionDescExt {
+    /// Contents of the RBAR register.
+    rbar: u32,
+
+    /// Contents of the RLAR register.
+    rlar: u32,
+
+    /// This region's portion of the four-byte MAIR register.
+    mair: u8,
+}
+
+#[cfg(armv8m)]
+pub const fn compute_region_extension_data(
+    base: usize,
+    size: usize,
+    ratts: RegionAttributes,
+) -> RegionDescExt {
+    let base = base as u32;
+    let size = size as u32;
+    // This MPU requires that all regions are 32-byte aligned...in part
+    // because it stuffs extra stuff into the bottom five bits.
+    if base & 0x1F != 0 {
+        panic!();
+    }
+
+    let xn = !ratts.contains(RegionAttributes::EXECUTE);
+    // ARMv8m has less granularity than ARMv7m for privilege
+    // vs non-privilege so there's no way to say that privilege
+    // can be read write but non-privilge can only be read only
+    // This _should_ be okay?
+    let ap = if ratts.contains(RegionAttributes::WRITE) {
+        0b01 // RW by any privilege level
+    } else if ratts.contains(RegionAttributes::READ) {
+        0b11 // Read only by any privilege level
+    } else {
+        0b00 // RW by privilege code only
+    };
+
+    let (mair, sh) = if ratts.contains(RegionAttributes::DEVICE) {
+        // Most restrictive: device memory, outer shared.
+        (0b00000000, 0b10)
+    } else if ratts.contains(RegionAttributes::DMA) {
+        // Outer/inner non-cacheable, outer shared.
+        (0b01000100, 0b10)
+    } else {
+        let rw = (ratts.contains(RegionAttributes::READ) as u8) << 1
+            | (ratts.contains(RegionAttributes::WRITE) as u8);
+        // write-back transient, not shared
+        (0b0100_0100 | rw | rw << 4, 0b00)
+    };
+
+    // RLAR = our upper bound. We're going ahead and setting the enable bit
+    // because we expect this to be loaded with the MPU _disabled._ Loading this
+    // with the MPU _enabled_ would involve momentary inconsistency between RLAR
+    // and RBAR, since the two cannot be written simultaneously, and that would
+    // be Bad.
+    let rlar = (base + size - 32) | 1; // upper bound | enable bit
+
+    // RBAR = the base
+    let rbar = (xn as u32)
+        | ap << 1
+        | (sh as u32) << 3  // sharability
+        | base;
+    RegionDescExt { rlar, rbar, mair }
+}
+
 // Handler that gets linked into the vector table for the Supervisor Call (SVC)
 // instruction. (Name is dictated by the `cortex_m` crate.)
 cfg_if::cfg_if! {
@@ -1048,29 +1159,6 @@ cfg_if::cfg_if! {
     } else {
         compile_error!("missing SVCall impl for ARM profile.");
     }
-}
-
-/// Records the address of `task` as the current user task.
-///
-/// # Safety
-///
-/// This records a pointer that aliases `task`. As long as you don't read that
-/// pointer while you have access to `task`, and as long as the `task` being
-/// stored is actually in the task table, you'll be okay.
-pub unsafe fn set_current_task(task: &mut task::Task) {
-    let task: *mut task::Task = task;
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
-    crate::profiling::event_context_switch(task as usize);
-}
-
-/// Reads the tick counter.
-pub fn now() -> Timestamp {
-    // Recall that we expect the systick interrupt cannot preempt kernel code,
-    // so we're safe to read this in two nonatomic parts here.
-    Timestamp::from([
-        TICKS[0].load(Ordering::Relaxed),
-        TICKS[1].load(Ordering::Relaxed),
-    ])
 }
 
 /// Kernel global for tracking the current timestamp, measured in ticks.
@@ -1309,87 +1397,6 @@ pub unsafe extern "C" fn DefaultHandler() {
     crate::profiling::event_isr_exit();
 }
 
-pub fn disable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
-    // Disable the interrupt by poking the Interrupt Clear Enable Register.
-    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
-    let reg_num = (n / 32) as usize;
-    let bit_mask = 1 << (n % 32);
-    unsafe {
-        nvic.icer
-            .get(reg_num)
-            .ok_or(UsageError::NoIrq)?
-            .write(bit_mask);
-    }
-    if also_clear_pending {
-        unsafe {
-            nvic.icpr
-                .get(reg_num)
-                .ok_or(UsageError::NoIrq)?
-                .write(bit_mask);
-        }
-    }
-    Ok(())
-}
-
-pub fn enable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
-    // Enable the interrupt by poking the Interrupt Set Enable Register.
-    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
-    let reg_num = (n / 32) as usize;
-    let bit_mask = 1 << (n % 32);
-    if also_clear_pending {
-        // Do this _before_ enabling.
-        unsafe {
-            nvic.icpr
-                .get(reg_num)
-                .ok_or(UsageError::NoIrq)?
-                .write(bit_mask);
-        }
-    }
-    unsafe {
-        nvic.iser
-            .get(reg_num)
-            .ok_or(UsageError::NoIrq)?
-            .write(bit_mask);
-    }
-    Ok(())
-}
-
-/// Looks up an interrupt in the NVIC and returns a cross-platform
-/// representation of that interrupt's status.
-pub fn irq_status(n: u32) -> Result<abi::IrqStatus, UsageError> {
-    let mut status = abi::IrqStatus::empty();
-
-    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
-    let reg_num = (n / 32) as usize;
-    let bit_mask = 1 << (n % 32);
-
-    // See if the interrupt is enabled by checking the bit in the Interrupt Set
-    // Enable Register.
-    let iser_reg = nvic.iser.get(reg_num).ok_or(UsageError::NoIrq)?;
-    let enabled = iser_reg.read() & bit_mask == bit_mask;
-    status.set(abi::IrqStatus::ENABLED, enabled);
-
-    // See if the interrupt is pending by checking the bit in the Interrupt
-    // Set Pending Register (ISPR).
-    let pending = nvic.ispr[reg_num].read() & bit_mask == bit_mask;
-    status.set(abi::IrqStatus::PENDING, pending);
-
-    Ok(status)
-}
-
-pub fn pend_software_irq(
-    InterruptNum(n): InterruptNum,
-) -> Result<(), UsageError> {
-    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
-    let reg_num = (n / 32) as usize;
-    let bit_mask = 1 << (n % 32);
-
-    // Pend the IRQ by poking the corresponding bit in the Interrupt Set Pending
-    // Register (ISPR).
-    let ispr_reg = nvic.ispr.get(reg_num).ok_or(UsageError::NoIrq)?;
-    unsafe { ispr_reg.write(bit_mask) };
-    Ok(())
-}
 
 #[repr(u8)]
 #[allow(dead_code)]
@@ -1669,10 +1676,6 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
             next.switch_to();
         }
     });
-}
-
-pub fn reset() -> ! {
-    cortex_m::peripheral::SCB::sys_reset()
 }
 
 /// Common implementation of fault handling.
