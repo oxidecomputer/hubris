@@ -350,6 +350,6 @@ pub unsafe extern "C" fn HASHCRYPT() {
         unsafe { lpc55_romapi::skboot_hashcrypt_handler() }
     } else {
         // SAFETY: we trust our default handler
-        unsafe { kern::arch::DefaultHandler() }
+        unsafe { <kern::arch::Current as kern::arch::Arch>::DEFAULT_HANDLER() }
     }
 }

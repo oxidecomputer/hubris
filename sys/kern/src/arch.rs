@@ -55,6 +55,13 @@ pub trait Arch {
     /// processors to speed task switching.
     type RegionDescExt;
 
+    /// Default interrupt handler
+    ///
+    /// This will need to be mapped to interrupts as appropriate in the specific
+    /// arch, but is also provided as a constant in case specific tasks need
+    /// to handle this directly.
+    const DEFAULT_HANDLER: unsafe extern "C" fn();
+
     /// Records the kernel tick divisor, which is the clock frequency in kHz,
     /// before anything else in the kernel runs.
     ///
