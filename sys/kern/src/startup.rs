@@ -4,6 +4,7 @@
 
 //! Kernel startup.
 
+use crate::arch::Arch as _;
 use crate::atomic::AtomicExt;
 use crate::descs::{RegionAttributes, RegionDesc, TaskDesc, TaskFlags};
 use crate::task::Task;
@@ -44,7 +45,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     //
     // Safety: TODO it is not clear that this operation needs to be unsafe.
     unsafe {
-        crate::arch::set_clock_freq(tick_divisor);
+        crate::arch::Current::set_clock_freq(tick_divisor);
     }
 
     // Grab references to all our statics.
@@ -80,7 +81,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
             let task: &mut Task = t.write(Task::from_descriptor(d));
 
             // With init done, set up initial register state etc.
-            crate::arch::reinitialize(task);
+            crate::arch::Current::reinitialize(task);
         });
 
     // Safety: we have fully initialized this and can shed the uninit part.
@@ -91,9 +92,9 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // last task, which will cause a scan from 0 on.
     let first_task = crate::task::select(task_table.len() - 1, task_table);
 
-    crate::arch::apply_memory_protection(first_task);
+    crate::arch::Current::apply_memory_protection(first_task);
     TASK_TABLE_IN_USE.store(false, Ordering::Release);
-    crate::arch::start_first_task(tick_divisor, first_task)
+    crate::arch::Current::start_first_task(tick_divisor, first_task)
 }
 
 /// Runs `body` with a reference to the task table.
