@@ -275,6 +275,7 @@ pub struct ArmM;
 impl Arch for ArmM {
     type SavedState = ArmMSavedState;
     type RegionDescExt = ArmMRegionDescExt;
+    const DEFAULT_HANDLER: unsafe extern "C" fn() = DefaultHandler;
 
     // Because debuggers need to know the clock frequency to set the SWO clock
     // scaler that enables ITM, and because ITM is particularly useful when
@@ -347,12 +348,10 @@ impl Arch for ArmM {
             // this occur, don't crash the entire system, since this is a
             // diagnostic tool -- just skip filling the stack.
             if okay
-                && let Some(region_size) = (initial_stack - frame_size)
-                    .checked_sub(region.base)
-                && let Ok(mut uslice) = USlice::<u32>::from_raw(
-                    region.base,
-                    region_size >> 2,
-                )
+                && let Some(region_size) =
+                    (initial_stack - frame_size).checked_sub(region.base)
+                && let Ok(mut uslice) =
+                    USlice::<u32>::from_raw(region.base, region_size >> 2)
             {
                 // This one, we're unwrapping rather than tolerating failure.
                 // This is because try_write failing would indicate an invalid
