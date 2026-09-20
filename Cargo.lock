@@ -7189,6 +7189,7 @@ dependencies = [
 name = "test-suite"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "build-i2c",
  "build-util",
  "cfg-if",
