@@ -181,6 +181,160 @@ pub struct Interrupt {
     pub owner: InterruptOwner,
 }
 
+/// An address in a task's address space, as exchanged between a task and the
+/// kernel.
+///
+/// Ideally, this would be some kind of opaque pointer, like `*const/*mut ()`,
+/// however that doesn't play nice with `FromBytes`.
+///
+/// We use this type to signify "yes we believe the contained value is
+/// pointer-ish". The kernel will still need to perform validation before using
+/// the contained value as such.
+///
+/// We use a `usize` so the contents are sized appropriately for the target
+/// architecture, as a pointer would be.
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    FromBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
+#[repr(transparent)]
+pub struct Addr(usize);
+
+impl serde::Serialize for Addr {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // This is icky! However, kipc uses `ssmarshal` for serialization, which
+        // makes the serialization of addresses a kipc binary concern, and we
+        // don't want to use `usize` as our wire format as serde treats that
+        // as a u64 in all cases, and we've always serialized addresses as u32s.
+        #[cfg(target_pointer_width = "32")]
+        {
+            serializer.serialize_u32(self.0 as u32)
+        }
+        #[cfg(target_pointer_width = "64")]
+        {
+            serializer.serialize_u64(self.0 as u64)
+        }
+    }
+}
+
+struct AddrVisitor;
+impl serde::de::Visitor<'_> for AddrVisitor {
+    type Value = Addr;
+
+    fn expecting(
+        &self,
+        formatter: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
+        write!(formatter, "an address")
+    }
+
+    #[cfg(target_pointer_width = "32")]
+    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Addr(v as usize))
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Addr(v as usize))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Addr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // This is icky! However, kipc uses `ssmarshal` for serialization, which
+        // makes the serialization of addresses a kipc binary concern, and we
+        // don't want to use `usize` as our wire format as serde treats that
+        // as a u64 in all cases, and we've always serialized addresses as u32s.
+        #[cfg(target_pointer_width = "32")]
+        {
+            deserializer.deserialize_u32(AddrVisitor)
+        }
+        #[cfg(target_pointer_width = "64")]
+        {
+            deserializer.deserialize_u64(AddrVisitor)
+        }
+    }
+}
+
+impl Addr {
+    /// Wraps a raw address.
+    #[inline]
+    pub const fn new(address: usize) -> Self {
+        Self(address)
+    }
+
+    /// Records the address of `ptr`.
+    #[inline]
+    pub fn from_ptr<T>(ptr: *const T) -> Self {
+        Self(ptr as usize)
+    }
+
+    /// Returns the address as an integer.
+    #[inline]
+    pub const fn as_usize(self) -> usize {
+        self.0
+    }
+
+    /// Returns the address as a pointer to `T`. This is an unchecked
+    /// cast.
+    ///
+    /// Safe as the caller is responsible for making sure the `Addr` type and
+    /// pointee is correct prior to access.
+    #[inline]
+    pub const fn as_ptr<T>(self) -> *const T {
+        self.0 as *const T
+    }
+
+    /// Returns the address as a mutable pointer to `T`. This is an unchecked
+    /// cast.
+    ///
+    /// Safe as the caller is responsible for making sure the `Addr` type and
+    /// pointee is correct prior to access.
+    #[inline]
+    pub const fn as_mut_ptr<T>(self) -> *mut T {
+        self.0 as *mut T
+    }
+
+    /// Advances the address by `offset` bytes, or returns `None` if the result
+    /// would wrap around the end of the address space.
+    ///
+    /// TODO(AJM): give this a name like "byte_add" or something.
+    #[inline]
+    pub const fn checked_add(self, offset: usize) -> Option<Self> {
+        match self.0.checked_add(offset) {
+            Some(address) => Some(Self(address)),
+            None => None,
+        }
+    }
+}
+
+impl core::fmt::Debug for Addr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
 /// Structure describing a lease in task memory.
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
@@ -193,10 +347,25 @@ pub struct ULease {
     /// Base address of leased memory. This is equivalent to the base address
     /// field in `USlice`, but isn't represented as a `USlice` because we leave
     /// the internal memory representation of `USlice` out of the ABI.
-    pub base_address: u32,
+    pub base_address: Addr,
     /// Length of leased memory, in bytes.
-    pub length: u32,
+    pub length: usize,
 }
+
+// The `ULease` type is fundamental to the ABI! We very much want to ensure
+// that it never breaks. This const assert checks that.
+#[cfg(target_pointer_width = "32")]
+const _ENSURE_32BIT_ABI_UNCHANGED: () = const {
+    use core::mem;
+    // The size is correct
+    assert!(mem::size_of::<ULease>() == 12);
+    // The align is correct
+    assert!(mem::align_of::<ULease>() == 4);
+    // The offset of all fields are unchanged
+    assert!(mem::offset_of!(ULease, attributes) == 0);
+    assert!(mem::offset_of!(ULease, base_address) == 4);
+    assert!(mem::offset_of!(ULease, length) == 8);
+};
 
 #[derive(
     Copy, Clone, Debug, FromBytes, Immutable, KnownLayout, PartialEq, Eq,
@@ -320,16 +489,16 @@ pub enum FaultInfo {
         /// Problematic address that the task accessed, or asked the kernel to
         /// access. This is `Option` because there are cases of processor
         /// protection faults that don't provide a precise address.
-        address: Option<u32>,
+        address: Option<Addr>,
         /// Origin of the fault.
         source: FaultSource,
     },
     /// A task has overflowed its stack. We can always determine the bad
     /// stack address, but we can't determine the PC
-    StackOverflow { address: u32 },
+    StackOverflow { address: Addr },
     /// A task has induced a bus error
     BusError {
-        address: Option<u32>,
+        address: Option<Addr>,
         source: FaultSource,
     },
     /// Divide-by-zero

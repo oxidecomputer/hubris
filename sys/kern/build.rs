@@ -389,6 +389,10 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
         }
     };
 
+    // The kconfig describes regions in 32-bit terms; the kernel's descriptors
+    // are pointer-sized.
+    let base = *base as usize;
+    let size = *size as usize;
     quote::quote! {
         RegionDesc {
             base: #base,

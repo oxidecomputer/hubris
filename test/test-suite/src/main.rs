@@ -310,7 +310,7 @@ fn test_fault_badmem() {
     assert_fault_eq!(
         fault,
         FaultInfo::MemoryAccess {
-            address: Some(bad_address),
+            address: Some(abi::Addr::new(bad_address as usize)),
             source: FaultSource::User,
         }
     );
