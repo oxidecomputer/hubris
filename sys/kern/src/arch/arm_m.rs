@@ -340,9 +340,9 @@ pub fn reinitialize(task: &mut task::Task) {
         // -- just skip filling the stack.
         if okay
             && let Some(region_size) =
-                (initial_stack - frame_size).checked_sub(region.base as usize)
+                (initial_stack - frame_size).checked_sub(region.base)
             && let Ok(mut uslice) =
-                USlice::<u32>::from_raw(region.base as usize, region_size >> 2)
+                USlice::<u32>::from_raw(region.base, region_size >> 2)
         {
             // This one, we're unwrapping rather than tolerating failure. This
             // is because try_write failing would indicate an invalid region
