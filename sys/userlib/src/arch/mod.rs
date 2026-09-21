@@ -3,6 +3,17 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Target-specific syscall implementations.
+//!
+//! In practice, this works by
+//!
+//! - Conditionally defining a nested module (below).
+//! - `pub use`-ing its contents
+//! - Naming that module's implementation of the [`Arch`] trait as
+//!   [`Current`].
+//!
+//! The syscalls every target must provide are defined by the [`Arch`] trait,
+//! and the crate root wraps each of them in a public `sys_*` function.
+
 use abi::{IrqStatus, ReplyFaultReason, TaskId};
 
 use crate::{BorrowInfo, Lease, RecvMessage, TimerState};
@@ -10,7 +21,9 @@ use crate::{BorrowInfo, Lease, RecvMessage, TimerState};
 cfg_if::cfg_if! {
     if #[cfg(target_os = "none")] {
         mod thumb;
-        pub use thumb::*;
+
+        /// The target the task is being built for.
+        pub use thumb::Thumb as Current;
     } else {
         compile_error!("Unsupported!");
     }

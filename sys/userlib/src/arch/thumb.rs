@@ -2,9 +2,37 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::Lease;
-use abi::Sysnum;
+//! Syscall implementation for ARM M-profile targets, where the kernel is
+//! reached through the `svc` instruction.
+//!
+//! This module provides the [`Arch`] implementation that the crate root's
+//! `sys_*` entry points use, the task entry point `_start`, and the panic
+//! handlers.
+//!
+//! # Syscall stub implementations
+//!
+//! Each syscall stub consists of two parts: a `Thumb::foo` method, which the
+//! crate root's public `sys_foo` function calls, and an internal
+//! `sys_foo_stub` function. This might seem like needless duplication, and in
+//! a way, it is.
+//!
+//! Limitations in the behavior of the current `asm!` feature mean we have a
+//! hard time moving values into registers r6, r7, and r11. Because (for better
+//! or worse) the syscall ABI uses these registers, we have to take extra steps.
+//!
+//! The `stub` function contains the actual `asm!` call sequence. It is `naked`,
+//! meaning the compiler will *not* attempt to do any framepointer/basepointer
+//! nonsense, and we can thus reason about the assignment and availability of
+//! all registers.
+//!
+//! See: https://github.com/rust-lang/rust/issues/73450#issuecomment-650463347
+
 use core::arch;
+
+use abi::{IrqControlArg, ReplyFaultReason, Sysnum, TaskId};
+
+use super::Arch;
+use crate::{BorrowInfo, Lease, RecvMessage, TimerState};
 
 /// Return type for stubs that return an `(rc, len)` tuple, because the layout
 /// of tuples is not specified in the C ABI, and we're using the C ABI to
@@ -14,7 +42,7 @@ use core::arch;
 /// represent the pair of returned registers with something that *can* get
 /// passed back in registers: a `u64`.
 #[repr(transparent)]
-pub(crate) struct RcLen(pub u64);
+struct RcLen(u64);
 
 impl From<RcLen> for (u32, usize) {
     fn from(s: RcLen) -> Self {
@@ -22,25 +50,237 @@ impl From<RcLen> for (u32, usize) {
     }
 }
 
+/// The ARM M-profile implementation of the task's architecture interface.
+pub struct Thumb;
+
+impl Arch for Thumb {
+    #[inline(always)]
+    fn send(
+        target: TaskId,
+        operation: u16,
+        outgoing: &[u8],
+        incoming: &mut [u8],
+        leases: &[Lease<'_>],
+    ) -> (u32, usize) {
+        let mut args = SendArgs {
+            packed_target_operation: u32::from(target.0) << 16
+                | u32::from(operation),
+            outgoing_ptr: outgoing.as_ptr(),
+            outgoing_len: outgoing.len(),
+            incoming_ptr: incoming.as_mut_ptr(),
+            incoming_len: incoming.len(),
+            lease_ptr: leases.as_ptr(),
+            lease_len: leases.len(),
+        };
+        unsafe { sys_send_stub(&mut args).into() }
+    }
+
+    #[inline(always)]
+    fn recv(
+        buffer: &mut [u8],
+        notification_mask: u32,
+        specific_sender: Option<TaskId>,
+    ) -> Result<RecvMessage, u32> {
+        use core::mem::MaybeUninit;
+
+        // Flatten option into a packed u32; in the C-compatible ABI we provide
+        // the task ID in the LSBs, and the "some" flag in the MSB.
+        let specific_sender_bits = specific_sender
+            .map(|tid| (1u32 << 31) | u32::from(tid.0))
+            .unwrap_or(0);
+        let mut out = MaybeUninit::<RawRecvMessage>::uninit();
+        let rc = unsafe {
+            sys_recv_stub(
+                buffer.as_mut_ptr(),
+                buffer.len(),
+                notification_mask,
+                specific_sender_bits,
+                out.as_mut_ptr(),
+            )
+        };
+
+        // Safety: stub fully initializes output struct. On failure, it might
+        // initialize it with nonsense, but that's okay -- it's still
+        // initialized.
+        let out = unsafe { out.assume_init() };
+
+        if rc == 0 {
+            Ok(RecvMessage {
+                sender: TaskId(out.sender as u16),
+                operation: out.operation,
+                message_len: out.message_len,
+                response_capacity: out.response_capacity,
+                lease_count: out.lease_count,
+            })
+        } else {
+            Err(rc)
+        }
+    }
+
+    #[inline(always)]
+    fn reply(peer: TaskId, code: u32, message: &[u8]) {
+        unsafe {
+            sys_reply_stub(peer.0 as u32, code, message.as_ptr(), message.len())
+        }
+    }
+
+    #[inline(always)]
+    fn set_timer(deadline: Option<u64>, notifications: u32) {
+        let raw_deadline = deadline.unwrap_or(0);
+        unsafe {
+            sys_set_timer_stub(
+                deadline.is_some() as u32,
+                raw_deadline as u32,
+                (raw_deadline >> 32) as u32,
+                notifications,
+            )
+        }
+    }
+
+    #[inline(always)]
+    fn borrow_read(
+        lender: TaskId,
+        index: usize,
+        offset: usize,
+        dest: &mut [u8],
+    ) -> (u32, usize) {
+        let mut args = BorrowReadArgs {
+            lender: lender.0 as u32,
+            index,
+            offset,
+            dest: dest.as_mut_ptr(),
+            dest_len: dest.len(),
+        };
+        unsafe { sys_borrow_read_stub(&mut args).into() }
+    }
+
+    #[inline(always)]
+    fn borrow_write(
+        lender: TaskId,
+        index: usize,
+        offset: usize,
+        src: &[u8],
+    ) -> (u32, usize) {
+        let mut args = BorrowWriteArgs {
+            lender: lender.0 as u32,
+            index,
+            offset,
+            src: src.as_ptr(),
+            src_len: src.len(),
+        };
+        unsafe { sys_borrow_write_stub(&mut args).into() }
+    }
+
+    #[inline(always)]
+    fn borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
+        use core::mem::MaybeUninit;
+
+        let mut raw = MaybeUninit::<RawBorrowInfo>::uninit();
+        unsafe {
+            sys_borrow_info_stub(lender.0 as u32, index, raw.as_mut_ptr());
+        }
+        // Safety: stub completely initializes record
+        let raw = unsafe { raw.assume_init() };
+
+        if raw.rc == 0 {
+            Some(BorrowInfo {
+                attributes: abi::LeaseAttributes::from_bits_truncate(raw.atts),
+                len: raw.length,
+            })
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    fn irq_control(mask: u32, enable: bool) {
+        let mut arg = IrqControlArg::empty();
+        if enable {
+            arg |= IrqControlArg::ENABLED;
+        }
+
+        unsafe {
+            sys_irq_control_stub(mask, arg.bits());
+        }
+    }
+
+    #[inline(always)]
+    fn irq_control_clear_pending(mask: u32, enable: bool) {
+        let mut arg = IrqControlArg::CLEAR_PENDING;
+        if enable {
+            arg |= IrqControlArg::ENABLED;
+        }
+        unsafe {
+            sys_irq_control_stub(mask, arg.bits());
+        }
+    }
+
+    #[inline(always)]
+    fn panic(msg: &[u8]) -> ! {
+        unsafe { sys_panic_stub(msg.as_ptr(), msg.len()) }
+    }
+
+    #[inline(always)]
+    fn get_timer() -> TimerState {
+        use core::mem::MaybeUninit;
+
+        let mut out = MaybeUninit::<RawTimerState>::uninit();
+        unsafe {
+            sys_get_timer_stub(out.as_mut_ptr());
+        }
+        // Safety: stub fully initializes output struct.
+        let out = unsafe { out.assume_init() };
+
+        TimerState {
+            now: u64::from(out.now_lo) | u64::from(out.now_hi) << 32,
+            deadline: if out.set != 0 {
+                Some(u64::from(out.dl_lo) | u64::from(out.dl_hi) << 32)
+            } else {
+                None
+            },
+            on_dl: out.on_dl,
+        }
+    }
+
+    #[inline(always)]
+    fn refresh_task_id(task_id: TaskId) -> TaskId {
+        let tid = unsafe { sys_refresh_task_id_stub(task_id.0 as u32) };
+        TaskId(tid as u16)
+    }
+
+    #[inline(always)]
+    fn post(task_id: TaskId, bits: u32) -> u32 {
+        unsafe { sys_post_stub(task_id.0 as u32, bits) }
+    }
+
+    #[inline(always)]
+    fn reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
+        unsafe { sys_reply_fault_stub(task_id.0 as u32, reason as u32) }
+    }
+
+    #[inline(always)]
+    fn irq_status(mask: u32) -> abi::IrqStatus {
+        let status = unsafe { sys_irq_status_stub(mask) };
+        abi::IrqStatus::from_bits_truncate(status)
+    }
+}
 #[allow(dead_code)] // this gets used from asm
 #[repr(C)] // field order matters
-pub(crate) struct SendArgs<'a> {
-    pub packed_target_operation: u32,
-    pub outgoing_ptr: *const u8,
-    pub outgoing_len: usize,
-    pub incoming_ptr: *mut u8,
-    pub incoming_len: usize,
-    pub lease_ptr: *const Lease<'a>,
-    pub lease_len: usize,
+struct SendArgs<'a> {
+    packed_target_operation: u32,
+    outgoing_ptr: *const u8,
+    outgoing_len: usize,
+    incoming_ptr: *mut u8,
+    incoming_len: usize,
+    lease_ptr: *const Lease<'a>,
+    lease_len: usize,
 }
 
 /// Core implementation of the SEND syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_send_stub(
-    _args: &mut SendArgs<'_>,
-) -> RcLen {
+unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             arch::naked_asm!("
@@ -111,7 +351,7 @@ pub(crate) unsafe extern "C" fn sys_send_stub(
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 #[must_use]
-pub(crate) unsafe extern "C" fn sys_recv_stub(
+unsafe extern "C" fn sys_recv_stub(
     _buffer_ptr: *mut u8,
     _buffer_len: usize,
     _notification_mask: u32,
@@ -206,7 +446,7 @@ pub(crate) unsafe extern "C" fn sys_recv_stub(
 ///
 /// TODO: might be able to merge this into actual `RecvMessage` with some care.
 #[repr(C)]
-pub(crate) struct RawRecvMessage {
+struct RawRecvMessage {
     pub sender: u32,
     pub operation: u32,
     pub message_len: usize,
@@ -218,7 +458,7 @@ pub(crate) struct RawRecvMessage {
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_reply_stub(
+unsafe extern "C" fn sys_reply_stub(
     _peer: u32,
     _code: u32,
     _message_ptr: *const u8,
@@ -291,7 +531,7 @@ pub(crate) unsafe extern "C" fn sys_reply_stub(
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_set_timer_stub(
+unsafe extern "C" fn sys_set_timer_stub(
     _set_timer: u32,
     _deadline_lo: u32,
     _deadline_hi: u32,
@@ -360,9 +600,7 @@ pub(crate) unsafe extern "C" fn sys_set_timer_stub(
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_borrow_read_stub(
-    _args: *mut BorrowReadArgs,
-) -> RcLen {
+unsafe extern "C" fn sys_borrow_read_stub(_args: *mut BorrowReadArgs) -> RcLen {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             arch::naked_asm!("
@@ -426,19 +664,19 @@ pub(crate) unsafe extern "C" fn sys_borrow_read_stub(
 }
 
 #[repr(C)]
-pub(crate) struct BorrowReadArgs {
-    pub lender: u32,
-    pub index: usize,
-    pub offset: usize,
-    pub dest: *mut u8,
-    pub dest_len: usize,
+struct BorrowReadArgs {
+    lender: u32,
+    index: usize,
+    offset: usize,
+    dest: *mut u8,
+    dest_len: usize,
 }
 
 /// Core implementation of the BORROW_WRITE syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_borrow_write_stub(
+unsafe extern "C" fn sys_borrow_write_stub(
     _args: *mut BorrowWriteArgs,
 ) -> RcLen {
     cfg_if::cfg_if! {
@@ -505,26 +743,26 @@ pub(crate) unsafe extern "C" fn sys_borrow_write_stub(
 }
 
 #[repr(C)]
-pub(crate) struct BorrowWriteArgs {
-    pub lender: u32,
-    pub index: usize,
-    pub offset: usize,
-    pub src: *const u8,
-    pub src_len: usize,
+struct BorrowWriteArgs {
+    lender: u32,
+    index: usize,
+    offset: usize,
+    src: *const u8,
+    src_len: usize,
 }
 
 #[repr(C)]
-pub(crate) struct RawBorrowInfo {
-    pub rc: u32,
-    pub atts: u32,
-    pub length: usize,
+struct RawBorrowInfo {
+    rc: u32,
+    atts: u32,
+    length: usize,
 }
 
 /// Core implementation of the BORROW_INFO syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_borrow_info_stub(
+unsafe extern "C" fn sys_borrow_info_stub(
     _lender: u32,
     _index: usize,
     _out: *mut RawBorrowInfo,
@@ -591,7 +829,7 @@ pub(crate) unsafe extern "C" fn sys_borrow_info_stub(
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
+unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             arch::naked_asm!("
@@ -651,10 +889,7 @@ pub(crate) unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_panic_stub(
-    _msg: *const u8,
-    _len: usize,
-) -> ! {
+unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             arch::naked_asm!("
@@ -705,20 +940,20 @@ pub(crate) unsafe extern "C" fn sys_panic_stub(
 }
 
 #[repr(C)] // loaded from assembly, field order must not change
-pub(crate) struct RawTimerState {
-    pub now_lo: u32,
-    pub now_hi: u32,
-    pub set: u32,
-    pub dl_lo: u32,
-    pub dl_hi: u32,
-    pub on_dl: u32,
+struct RawTimerState {
+    now_lo: u32,
+    now_hi: u32,
+    set: u32,
+    dl_lo: u32,
+    dl_hi: u32,
+    on_dl: u32,
 }
 
 /// Core implementation of the GET_TIMER syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
+unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             arch::naked_asm!("
@@ -1048,7 +1283,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     let msg = unsafe { pw.buf.get_unchecked(..pw.pos) };
 
     // Pass it to kernel.
-    crate::sys_panic(msg)
+    Thumb::panic(msg)
 }
 
 /// Panic handler for tasks without the `panic-messages` feature enabled. This
@@ -1057,7 +1292,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
 #[cfg(all(not(feature = "no-panic"), not(feature = "panic-messages")))]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
-    crate::sys_panic(b"PANIC")
+    Thumb::panic(b"PANIC")
 }
 
 /// Panic handler for when panics are not permitted in a task. This is enabled
@@ -1078,7 +1313,7 @@ fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
+unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             arch::naked_asm!("
@@ -1140,7 +1375,7 @@ pub(crate) unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
+unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             arch::naked_asm!("
@@ -1203,7 +1438,7 @@ pub(crate) unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
+unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             arch::naked_asm!("
@@ -1263,7 +1498,7 @@ pub(crate) unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn sys_irq_status_stub(_mask: u32) -> u32 {
+unsafe extern "C" fn sys_irq_status_stub(_mask: u32) -> u32 {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             arch::naked_asm!("

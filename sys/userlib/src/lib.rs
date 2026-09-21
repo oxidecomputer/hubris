@@ -7,22 +7,10 @@
 //! This contains syscall stubs and types, and re-exports the contents of the
 //! `abi` crate that gets shared with the kernel.
 //!
-//! # Syscall stub implementations
-//!
-//! Each syscall stub consists of two parts: a public `sys_foo` function
-//! intended for use by programs, and an internal `sys_foo_stub` function. This
-//! might seem like needless duplication, and in a way, it is.
-//!
-//! Limitations in the behavior of the current `asm!` feature mean we have a
-//! hard time moving values into registers r6, r7, and r11. Because (for better
-//! or worse) the syscall ABI uses these registers, we have to take extra steps.
-//!
-//! The `stub` function contains the actual `asm!` call sequence. It is `naked`,
-//! meaning the compiler will *not* attempt to do any framepointer/basepointer
-//! nonsense, and we can thus reason about the assignment and availability of
-//! all registers.
-//!
-//! See: https://github.com/rust-lang/rust/issues/73450#issuecomment-650463347
+//! The syscall entry points (`sys_send`, `sys_recv`, and friends) are defined
+//! here, and forward to a target-specific implementation of the `arch::Arch`
+//! trait. The types they exchange, and the convenience wrappers built on top of
+//! them, live in this file and are shared by every implementation.
 
 #![no_std]
 #![forbid(clippy::wildcard_imports)]
@@ -35,16 +23,6 @@ pub use num_derive::{FromPrimitive, ToPrimitive};
 pub use num_traits::{FromPrimitive, ToPrimitive};
 pub use unwrap_lite::UnwrapLite;
 
-use crate::arch::{
-    BorrowReadArgs, BorrowWriteArgs, RawBorrowInfo, RawRecvMessage,
-    RawTimerState, SendArgs,
-};
-use crate::arch::{
-    sys_borrow_info_stub, sys_borrow_read_stub, sys_borrow_write_stub,
-    sys_get_timer_stub, sys_irq_control_stub, sys_irq_status_stub,
-    sys_panic_stub, sys_post_stub, sys_recv_stub, sys_refresh_task_id_stub,
-    sys_reply_fault_stub, sys_reply_stub, sys_send_stub, sys_set_timer_stub,
-};
 use core::marker::PhantomData;
 
 mod arch;
@@ -55,6 +33,7 @@ pub use userlib_units as units;
 
 #[cfg(feature = "critical-section")]
 pub mod critical_section;
+use arch::{Arch, Current};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -118,17 +97,7 @@ pub fn sys_send(
     incoming: &mut [u8],
     leases: &[Lease<'_>],
 ) -> (u32, usize) {
-    let mut args = SendArgs {
-        packed_target_operation: u32::from(target.0) << 16
-            | u32::from(operation),
-        outgoing_ptr: outgoing.as_ptr(),
-        outgoing_len: outgoing.len(),
-        incoming_ptr: incoming.as_mut_ptr(),
-        incoming_len: incoming.len(),
-        lease_ptr: leases.as_ptr(),
-        lease_len: leases.len(),
-    };
-    unsafe { sys_send_stub(&mut args).into() }
+    Current::send(target, operation, outgoing, incoming, leases)
 }
 
 /// Performs an "open" RECV that will accept messages from any task or
@@ -207,39 +176,7 @@ pub fn sys_recv(
     notification_mask: u32,
     specific_sender: Option<TaskId>,
 ) -> Result<RecvMessage, u32> {
-    use core::mem::MaybeUninit;
-
-    // Flatten option into a packed u32; in the C-compatible ABI we provide the
-    // task ID in the LSBs, and the "some" flag in the MSB.
-    let specific_sender_bits = specific_sender
-        .map(|tid| (1u32 << 31) | u32::from(tid.0))
-        .unwrap_or(0);
-    let mut out = MaybeUninit::<RawRecvMessage>::uninit();
-    let rc = unsafe {
-        sys_recv_stub(
-            buffer.as_mut_ptr(),
-            buffer.len(),
-            notification_mask,
-            specific_sender_bits,
-            out.as_mut_ptr(),
-        )
-    };
-
-    // Safety: stub fully initializes output struct. On failure, it might
-    // initialize it with nonsense, but that's okay -- it's still initialized.
-    let out = unsafe { out.assume_init() };
-
-    if rc == 0 {
-        Ok(RecvMessage {
-            sender: TaskId(out.sender as u16),
-            operation: out.operation,
-            message_len: out.message_len,
-            response_capacity: out.response_capacity,
-            lease_count: out.lease_count,
-        })
-    } else {
-        Err(rc)
-    }
+    Current::recv(buffer, notification_mask, specific_sender)
 }
 
 /// Bitmask representing notifications from the kernel
@@ -327,9 +264,7 @@ pub struct RecvMessage {
 
 #[inline(always)]
 pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
-    unsafe {
-        sys_reply_stub(peer.0 as u32, code, message.as_ptr(), message.len())
-    }
+    Current::reply(peer, code, message)
 }
 
 /// Sets this task's timer.
@@ -345,15 +280,7 @@ pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
 /// enabled.
 #[inline(always)]
 pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
-    let raw_deadline = deadline.unwrap_or(0);
-    unsafe {
-        sys_set_timer_stub(
-            deadline.is_some() as u32,
-            raw_deadline as u32,
-            (raw_deadline >> 32) as u32,
-            notifications,
-        )
-    }
+    Current::set_timer(deadline, notifications)
 }
 
 /// Convenience wrapper for `sys_set_timer` that sets a point in time relative
@@ -380,14 +307,7 @@ pub fn sys_borrow_read(
     offset: usize,
     dest: &mut [u8],
 ) -> (u32, usize) {
-    let mut args = BorrowReadArgs {
-        lender: lender.0 as u32,
-        index,
-        offset,
-        dest: dest.as_mut_ptr(),
-        dest_len: dest.len(),
-    };
-    unsafe { sys_borrow_read_stub(&mut args).into() }
+    Current::borrow_read(lender, index, offset, dest)
 }
 
 #[inline(always)]
@@ -397,35 +317,12 @@ pub fn sys_borrow_write(
     offset: usize,
     src: &[u8],
 ) -> (u32, usize) {
-    let mut args = BorrowWriteArgs {
-        lender: lender.0 as u32,
-        index,
-        offset,
-        src: src.as_ptr(),
-        src_len: src.len(),
-    };
-    unsafe { sys_borrow_write_stub(&mut args).into() }
+    Current::borrow_write(lender, index, offset, src)
 }
 
 #[inline(always)]
 pub fn sys_borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
-    use core::mem::MaybeUninit;
-
-    let mut raw = MaybeUninit::<RawBorrowInfo>::uninit();
-    unsafe {
-        sys_borrow_info_stub(lender.0 as u32, index, raw.as_mut_ptr());
-    }
-    // Safety: stub completely initializes record
-    let raw = unsafe { raw.assume_init() };
-
-    if raw.rc == 0 {
-        Some(BorrowInfo {
-            attributes: abi::LeaseAttributes::from_bits_truncate(raw.atts),
-            len: raw.length,
-        })
-    } else {
-        None
-    }
+    Current::borrow_info(lender, index)
 }
 
 /// Information record returned by `sys_borrow_info`.
@@ -438,14 +335,7 @@ pub struct BorrowInfo {
 
 #[inline(always)]
 pub fn sys_irq_control(mask: u32, enable: bool) {
-    let mut arg = IrqControlArg::empty();
-    if enable {
-        arg |= IrqControlArg::ENABLED;
-    }
-
-    unsafe {
-        sys_irq_control_stub(mask, arg.bits());
-    }
+    Current::irq_control(mask, enable)
 }
 
 /// Variation on [`sys_irq_control`] that also clears any pending interrupt.
@@ -456,18 +346,12 @@ pub fn sys_irq_control(mask: u32, enable: bool) {
 /// instance).
 #[inline(always)]
 pub fn sys_irq_control_clear_pending(mask: u32, enable: bool) {
-    let mut arg = IrqControlArg::CLEAR_PENDING;
-    if enable {
-        arg |= IrqControlArg::ENABLED;
-    }
-    unsafe {
-        sys_irq_control_stub(mask, arg.bits());
-    }
+    Current::irq_control_clear_pending(mask, enable)
 }
 
 #[inline(always)]
 pub fn sys_panic(msg: &[u8]) -> ! {
-    unsafe { sys_panic_stub(msg.as_ptr(), msg.len()) }
+    Current::panic(msg)
 }
 
 /// Reads the state of this task's timer.
@@ -484,24 +368,7 @@ pub fn sys_panic(msg: &[u8]) -> ! {
 /// `now` is monotonically advancing and can't be changed.
 #[inline(always)]
 pub fn sys_get_timer() -> TimerState {
-    use core::mem::MaybeUninit;
-
-    let mut out = MaybeUninit::<RawTimerState>::uninit();
-    unsafe {
-        sys_get_timer_stub(out.as_mut_ptr());
-    }
-    // Safety: stub fully initializes output struct.
-    let out = unsafe { out.assume_init() };
-
-    TimerState {
-        now: u64::from(out.now_lo) | u64::from(out.now_hi) << 32,
-        deadline: if out.set != 0 {
-            Some(u64::from(out.dl_lo) | u64::from(out.dl_hi) << 32)
-        } else {
-            None
-        },
-        on_dl: out.on_dl,
-    }
+    Current::get_timer()
 }
 
 /// Result of `sys_get_timer`, provides information about task timer state.
@@ -535,18 +402,17 @@ pub const PANIC_MESSAGE_MAX_LEN: usize = 128;
 
 #[inline(always)]
 pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
-    let tid = unsafe { sys_refresh_task_id_stub(task_id.0 as u32) };
-    TaskId(tid as u16)
+    Current::refresh_task_id(task_id)
 }
 
 #[inline(always)]
 pub fn sys_post(task_id: TaskId, bits: u32) -> u32 {
-    unsafe { sys_post_stub(task_id.0 as u32, bits) }
+    Current::post(task_id, bits)
 }
 
 #[inline(always)]
 pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
-    unsafe { sys_reply_fault_stub(task_id.0 as u32, reason as u32) }
+    Current::reply_fault(task_id, reason)
 }
 
 /// Returns the current status of any interrupts mapped to the provided
@@ -566,7 +432,6 @@ pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
 /// This syscall faults the caller if the given notification bitmask is not
 /// mapped to an interrupt in this task.
 #[inline(always)]
-pub fn sys_irq_status(mask: u32) -> abi::IrqStatus {
-    let status = unsafe { sys_irq_status_stub(mask) };
-    abi::IrqStatus::from_bits_truncate(status)
+pub fn sys_irq_status(mask: u32) -> IrqStatus {
+    Current::irq_status(mask)
 }
