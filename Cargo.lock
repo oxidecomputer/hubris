@@ -4651,8 +4651,9 @@ checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 
 [[package]]
 name = "nprpc"
-version = "0.1.0"
-source = "git+https://github.com/jamesmunns/nprpc.git?rev=de236b3#de236b35bbcc5707c6264204e5a59df5a9fdb06c"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebf5a9df8fb2cdced27964f4716f0bff8e8fb252d09280d9d692f152fcaacba6"
 dependencies = [
  "postcard 1.1.3",
  "postcard-schema-ng",
@@ -5087,12 +5088,14 @@ checksum = "7c68cb38ed13fd7bc9dd5db8f165b7c8d9c1a315104083a2b10f11354c2af97f"
 [[package]]
 name = "postcard-core"
 version = "0.1.0"
-source = "git+https://github.com/jamesmunns/postcard?rev=ed97b79#ed97b798a6c99eb83fb1cbc9063f71311fc50b23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf7737a8bb36950c96cf9ab4b3a1580d348cfc832f923f3d4b294b7427ea28e3"
 
 [[package]]
 name = "postcard-derive-ng"
 version = "0.3.1"
-source = "git+https://github.com/jamesmunns/postcard?rev=ed97b79#ed97b798a6c99eb83fb1cbc9063f71311fc50b23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1a994c510de8fb63c74f8985fab1d670637904f84469f9780dea879111f9dff"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5101,8 +5104,9 @@ dependencies = [
 
 [[package]]
 name = "postcard-schema-ng"
-version = "0.3.2"
-source = "git+https://github.com/jamesmunns/postcard?rev=ed97b79#ed97b798a6c99eb83fb1cbc9063f71311fc50b23"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba156c60b7730b8a73a0c70e46fbc46ebd7a0331eccb6f927ea16276020d1f16"
 dependencies = [
  "postcard-core",
  "postcard-derive-ng",

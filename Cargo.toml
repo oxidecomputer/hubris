@@ -45,7 +45,6 @@ cargo_metadata = { version = "=0.21.0", default-features = false } # pinnning a 
 cfg-if = { version = "1", default-features = false }
 chrono = { version = "0.4", default-features = false }
 clap = { version = "3.0.14", default-features = false, features = ["std", "derive"] }
-cobs = { version = "0.5.1", default-features = false, features = ["std"] }
 colored = { version = "2.0", default-features = false }
 convert_case = { version = "0.4", default-features = false }
 corncobs = { version = "0.1.1", default-features = false }
@@ -87,7 +86,6 @@ memoffset = { version = "0.6.5", default-features = false }
 minicbor = { version = "2.1.1", default-features = false }
 minicbor-serde = { version = "0.6.0", default-features = false }
 multimap = { version = "0.8.3", default-features = false }
-nprpc = { git = "https://github.com/jamesmunns/nprpc.git", rev = "de236b3", default-features = false }
 nb = { version = "1", default-features = false }
 num = { version = "0.4", default-features = false }
 num-derive = { version = "0.4", default-features = false }
@@ -95,8 +93,6 @@ num-traits = { version = "0.2.12", default-features = false }
 p256 = { version = "0.13.2", default-features = false, features = ["ecdsa"] }
 panic-halt = { version = "0.2.0", default-features = false }
 paste = { version = "1", default-features = false }
-postcard = { version = "1.1.3", default-features = false }
-postcard-schema-ng = { git = "https://github.com/jamesmunns/postcard", rev = "ed97b79", default-features = false, features = ["derive"] }
 path-slash = { version = "0.1.3", default-features = false }
 prettyplease = { version = "0.2.29", default-features = false }
 proc-macro2 = { version = "1", default-features = false }
@@ -140,6 +136,11 @@ zerocopy = { version = "0.8.25", default-features = false }
 zerocopy-derive = { version = "0.8.25", default-features = false }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
 zip = { version = "8", default-features = false, features = ["bzip2"] }
+
+cobs = { version = "0.5.1", default-features = false, features = ["std"] }
+nprpc = { version = "1.0.0", default-features = false }
+postcard = { version = "1.1.3", default-features = false }
+postcard-schema-ng = { version = "0.4", default-features = false, features = ["derive"] }
 
 # Oxide forks and repos
 apob = { git = "https://github.com/oxidecomputer/apob", default-features = false }
