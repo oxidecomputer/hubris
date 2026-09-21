@@ -109,137 +109,9 @@ pub fn sys_send(
     Current::send(target, operation, outgoing, incoming, leases)
 }
 
-/// General version of RECV that lets you pick closed vs. open receive at
-/// runtime.
-///
-/// You almost always want `sys_recv_open` or `sys_recv_closed` instead.
-#[inline(always)]
-pub fn sys_recv(
-    buffer: &mut [u8],
-    notification_mask: u32,
-    specific_sender: Option<TaskId>,
-) -> Result<RecvMessage, u32> {
-    Current::recv(buffer, notification_mask, specific_sender)
-}
-
-#[inline(always)]
-pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
-    Current::reply(peer, code, message)
-}
-
-/// Sets this task's timer.
-///
-/// The timer is set to `deadline`. If `deadline` is `None`, the timer is
-/// disabled. Otherwise, the timer is configured to notify when the specified
-/// time (in ticks since boot) is reached. When that occurs, the `notifications`
-/// will get posted to this task, and the timer will be disabled.
-///
-/// If the deadline is chosen such that the timer *would have already fired*,
-/// had it been set earlier -- that is, if the deadline is `<=` the current time
-/// -- the `notifications` will be posted immediately and the timer will not be
-/// enabled.
-#[inline(always)]
-pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
-    Current::set_timer(deadline, notifications)
-}
-
-#[inline(always)]
-pub fn sys_borrow_read(
-    lender: TaskId,
-    index: usize,
-    offset: usize,
-    dest: &mut [u8],
-) -> (u32, usize) {
-    Current::borrow_read(lender, index, offset, dest)
-}
-
-#[inline(always)]
-pub fn sys_borrow_write(
-    lender: TaskId,
-    index: usize,
-    offset: usize,
-    src: &[u8],
-) -> (u32, usize) {
-    Current::borrow_write(lender, index, offset, src)
-}
-
-#[inline(always)]
-pub fn sys_borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
-    Current::borrow_info(lender, index)
-}
-
-#[inline(always)]
-pub fn sys_irq_control(mask: u32, enable: bool) {
-    Current::irq_control(mask, enable)
-}
-
-/// Variation on [`sys_irq_control`] that also clears any pending interrupt.
-///
-/// This sets the interrupt enable status based on `enable`, and also cancels a
-/// pending instance of this interrupt in the interrupt controller, if the
-/// interrupt controller supports such a concept (ARM M-profile NVIC does, for
-/// instance).
-#[inline(always)]
-pub fn sys_irq_control_clear_pending(mask: u32, enable: bool) {
-    Current::irq_control_clear_pending(mask, enable)
-}
-
-#[inline(always)]
-pub fn sys_panic(msg: &[u8]) -> ! {
-    Current::panic(msg)
-}
-
-/// Reads the state of this task's timer.
-///
-/// This returns three values in a `TimerState` struct:
-///
-/// - `now` is the current time on the timer, in ticks since boot.
-/// - `deadline` is either `None`, meaning the timer notifications are disabled,
-///   or `Some(t)`, meaning the timer will post notifications at time `t`.
-/// - `on_dl` are the notification bits that will be posted on deadline.
-///
-/// `deadline` and `on_dl` are as configured by `sys_set_timer`.
-///
-/// `now` is monotonically advancing and can't be changed.
-#[inline(always)]
-pub fn sys_get_timer() -> TimerState {
-    Current::get_timer()
-}
-
-#[inline(always)]
-pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
-    Current::refresh_task_id(task_id)
-}
-
-#[inline(always)]
-pub fn sys_post(task_id: TaskId, bits: u32) -> u32 {
-    Current::post(task_id, bits)
-}
-
 #[inline(always)]
 pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
     Current::reply_fault(task_id, reason)
-}
-
-/// Returns the current status of any interrupts mapped to the provided
-/// notification mask.
-///
-/// # Arguments
-///
-/// - `mask`: a notification mask for interrupts mapped to the current task.
-///
-/// # Returns
-///
-/// An [`IrqStatus`] (see the `abi` crate) describing the status of the
-/// interrupts in the notification mask.
-///
-/// # Faults
-///
-/// This syscall faults the caller if the given notification bitmask is not
-/// mapped to an interrupt in this task.
-#[inline(always)]
-pub fn sys_irq_status(mask: u32) -> IrqStatus {
-    Current::irq_status(mask)
 }
 
 /// Performs an "open" RECV that will accept messages from any task or
@@ -306,6 +178,19 @@ pub enum ClosedRecvError {
     /// The task you requested to receive from has restarted and the message may
     /// never come.
     Dead(Generation),
+}
+
+/// General version of RECV that lets you pick closed vs. open receive at
+/// runtime.
+///
+/// You almost always want `sys_recv_open` or `sys_recv_closed` instead.
+#[inline(always)]
+pub fn sys_recv(
+    buffer: &mut [u8],
+    notification_mask: u32,
+    specific_sender: Option<TaskId>,
+) -> Result<RecvMessage, u32> {
+    Current::recv(buffer, notification_mask, specific_sender)
 }
 
 /// Bitmask representing notifications from the kernel
@@ -391,6 +276,27 @@ pub struct RecvMessage {
     pub lease_count: usize,
 }
 
+#[inline(always)]
+pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
+    Current::reply(peer, code, message)
+}
+
+/// Sets this task's timer.
+///
+/// The timer is set to `deadline`. If `deadline` is `None`, the timer is
+/// disabled. Otherwise, the timer is configured to notify when the specified
+/// time (in ticks since boot) is reached. When that occurs, the `notifications`
+/// will get posted to this task, and the timer will be disabled.
+///
+/// If the deadline is chosen such that the timer *would have already fired*,
+/// had it been set earlier -- that is, if the deadline is `<=` the current time
+/// -- the `notifications` will be posted immediately and the timer will not be
+/// enabled.
+#[inline(always)]
+pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
+    Current::set_timer(deadline, notifications)
+}
+
 /// Convenience wrapper for `sys_set_timer` that sets a point in time relative
 /// to whatever the current kernel timestamp happens to be.
 ///
@@ -408,12 +314,78 @@ pub fn set_timer_relative(interval: u32, notifications: u32) -> u64 {
     wake
 }
 
+#[inline(always)]
+pub fn sys_borrow_read(
+    lender: TaskId,
+    index: usize,
+    offset: usize,
+    dest: &mut [u8],
+) -> (u32, usize) {
+    Current::borrow_read(lender, index, offset, dest)
+}
+
+#[inline(always)]
+pub fn sys_borrow_write(
+    lender: TaskId,
+    index: usize,
+    offset: usize,
+    src: &[u8],
+) -> (u32, usize) {
+    Current::borrow_write(lender, index, offset, src)
+}
+
+#[inline(always)]
+pub fn sys_borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
+    Current::borrow_info(lender, index)
+}
+
 /// Information record returned by `sys_borrow_info`.
 pub struct BorrowInfo {
     /// Attributes of the lease.
     pub attributes: abi::LeaseAttributes,
     /// Length of borrowed memory, in bytes.
     pub len: usize,
+}
+
+#[inline(always)]
+pub fn sys_irq_control(mask: u32, enable: bool) {
+    Current::irq_control(mask, enable)
+}
+
+/// Variation on [`sys_irq_control`] that also clears any pending interrupt.
+///
+/// This sets the interrupt enable status based on `enable`, and also cancels a
+/// pending instance of this interrupt in the interrupt controller, if the
+/// interrupt controller supports such a concept (ARM M-profile NVIC does, for
+/// instance).
+#[inline(always)]
+pub fn sys_irq_control_clear_pending(mask: u32, enable: bool) {
+    Current::irq_control_clear_pending(mask, enable)
+}
+
+
+
+#[inline(always)]
+pub fn sys_panic(msg: &[u8]) -> ! {
+    Current::panic(msg)
+}
+
+
+/// Reads the state of this task's timer.
+///
+/// This returns three values in a `TimerState` struct:
+///
+/// - `now` is the current time on the timer, in ticks since boot.
+/// - `deadline` is either `None`, meaning the timer notifications are disabled,
+///   or `Some(t)`, meaning the timer will post notifications at time `t`.
+/// - `on_dl` are the notification bits that will be posted on deadline.
+///
+/// `deadline` and `on_dl` are as configured by `sys_set_timer`.
+///
+/// `now` is monotonically advancing and can't be changed.
+#[inline(always)]
+pub fn sys_get_timer() -> TimerState {
+    Current::get_timer()
 }
 
 /// Result of `sys_get_timer`, provides information about task timer state.
@@ -444,3 +416,37 @@ compile_error!(
 /// of panic message (and permanently reserve the same number of bytes of
 /// RAM):
 pub const PANIC_MESSAGE_MAX_LEN: usize = 128;
+
+
+#[inline(always)]
+pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
+    Current::refresh_task_id(task_id)
+}
+
+
+#[inline(always)]
+pub fn sys_post(task_id: TaskId, bits: u32) -> u32 {
+    Current::post(task_id, bits)
+}
+
+
+/// Returns the current status of any interrupts mapped to the provided
+/// notification mask.
+///
+/// # Arguments
+///
+/// - `mask`: a notification mask for interrupts mapped to the current task.
+///
+/// # Returns
+///
+/// An [`IrqStatus`] (see the `abi` crate) describing the status of the
+/// interrupts in the notification mask.
+///
+/// # Faults
+///
+/// This syscall faults the caller if the given notification bitmask is not
+/// mapped to an interrupt in this task.
+#[inline(always)]
+pub fn sys_irq_status(mask: u32) -> IrqStatus {
+    Current::irq_status(mask)
+}
