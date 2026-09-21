@@ -5,14 +5,16 @@
 //! Syscall implementation for ARM M-profile targets, where the kernel is
 //! reached through the `svc` instruction.
 //!
-//! This module provides the `sys_*` entry points that `crate` re-exports, the
-//! task entry point `_start`, and the panic handlers.
+//! This module provides the [`Arch`] implementation that the crate root's
+//! `sys_*` entry points use, the task entry point `_start`, and the panic
+//! handlers.
 //!
 //! # Syscall stub implementations
 //!
-//! Each syscall stub consists of two parts: a public `sys_foo` function
-//! intended for use by programs, and an internal `sys_foo_stub` function. This
-//! might seem like needless duplication, and in a way, it is.
+//! Each syscall stub consists of two parts: a `Thumb::foo` method, which the
+//! crate root's public `sys_foo` function calls, and an internal
+//! `sys_foo_stub` function. This might seem like needless duplication, and in
+//! a way, it is.
 //!
 //! Limitations in the behavior of the current `asm!` feature mean we have a
 //! hard time moving values into registers r6, r7, and r11. Because (for better
@@ -29,6 +31,7 @@ use core::arch;
 
 use abi::{IrqControlArg, ReplyFaultReason, Sysnum, TaskId};
 
+use super::Arch;
 use crate::{BorrowInfo, Lease, RecvMessage, TimerState};
 
 /// Return type for stubs that return an `(rc, len)` tuple, because the layout
@@ -47,25 +50,218 @@ impl From<RcLen> for (u32, usize) {
     }
 }
 
-#[inline(always)]
-pub fn sys_send(
-    target: TaskId,
-    operation: u16,
-    outgoing: &[u8],
-    incoming: &mut [u8],
-    leases: &[Lease<'_>],
-) -> (u32, usize) {
-    let mut args = SendArgs {
-        packed_target_operation: u32::from(target.0) << 16
-            | u32::from(operation),
-        outgoing_ptr: outgoing.as_ptr(),
-        outgoing_len: outgoing.len(),
-        incoming_ptr: incoming.as_mut_ptr(),
-        incoming_len: incoming.len(),
-        lease_ptr: leases.as_ptr(),
-        lease_len: leases.len(),
-    };
-    unsafe { sys_send_stub(&mut args).into() }
+/// The ARM M-profile implementation of the task's architecture interface.
+pub struct Thumb;
+
+impl Arch for Thumb {
+    #[inline(always)]
+    fn send(
+        target: TaskId,
+        operation: u16,
+        outgoing: &[u8],
+        incoming: &mut [u8],
+        leases: &[Lease<'_>],
+    ) -> (u32, usize) {
+        let mut args = SendArgs {
+            packed_target_operation: u32::from(target.0) << 16
+                | u32::from(operation),
+            outgoing_ptr: outgoing.as_ptr(),
+            outgoing_len: outgoing.len(),
+            incoming_ptr: incoming.as_mut_ptr(),
+            incoming_len: incoming.len(),
+            lease_ptr: leases.as_ptr(),
+            lease_len: leases.len(),
+        };
+        unsafe { sys_send_stub(&mut args).into() }
+    }
+
+    #[inline(always)]
+    fn recv(
+        buffer: &mut [u8],
+        notification_mask: u32,
+        specific_sender: Option<TaskId>,
+    ) -> Result<RecvMessage, u32> {
+        use core::mem::MaybeUninit;
+
+        // Flatten option into a packed u32; in the C-compatible ABI we provide the
+        // task ID in the LSBs, and the "some" flag in the MSB.
+        let specific_sender_bits = specific_sender
+            .map(|tid| (1u32 << 31) | u32::from(tid.0))
+            .unwrap_or(0);
+        let mut out = MaybeUninit::<RawRecvMessage>::uninit();
+        let rc = unsafe {
+            sys_recv_stub(
+                buffer.as_mut_ptr(),
+                buffer.len(),
+                notification_mask,
+                specific_sender_bits,
+                out.as_mut_ptr(),
+            )
+        };
+
+        // Safety: stub fully initializes output struct. On failure, it might
+        // initialize it with nonsense, but that's okay -- it's still initialized.
+        let out = unsafe { out.assume_init() };
+
+        if rc == 0 {
+            Ok(RecvMessage {
+                sender: TaskId(out.sender as u16),
+                operation: out.operation,
+                message_len: out.message_len,
+                response_capacity: out.response_capacity,
+                lease_count: out.lease_count,
+            })
+        } else {
+            Err(rc)
+        }
+    }
+
+    #[inline(always)]
+    fn reply(peer: TaskId, code: u32, message: &[u8]) {
+        unsafe {
+            sys_reply_stub(peer.0 as u32, code, message.as_ptr(), message.len())
+        }
+    }
+
+    #[inline(always)]
+    fn set_timer(deadline: Option<u64>, notifications: u32) {
+        let raw_deadline = deadline.unwrap_or(0);
+        unsafe {
+            sys_set_timer_stub(
+                deadline.is_some() as u32,
+                raw_deadline as u32,
+                (raw_deadline >> 32) as u32,
+                notifications,
+            )
+        }
+    }
+
+    #[inline(always)]
+    fn borrow_read(
+        lender: TaskId,
+        index: usize,
+        offset: usize,
+        dest: &mut [u8],
+    ) -> (u32, usize) {
+        let mut args = BorrowReadArgs {
+            lender: lender.0 as u32,
+            index,
+            offset,
+            dest: dest.as_mut_ptr(),
+            dest_len: dest.len(),
+        };
+        unsafe { sys_borrow_read_stub(&mut args).into() }
+    }
+
+    #[inline(always)]
+    fn borrow_write(
+        lender: TaskId,
+        index: usize,
+        offset: usize,
+        src: &[u8],
+    ) -> (u32, usize) {
+        let mut args = BorrowWriteArgs {
+            lender: lender.0 as u32,
+            index,
+            offset,
+            src: src.as_ptr(),
+            src_len: src.len(),
+        };
+        unsafe { sys_borrow_write_stub(&mut args).into() }
+    }
+
+    #[inline(always)]
+    fn borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
+        use core::mem::MaybeUninit;
+
+        let mut raw = MaybeUninit::<RawBorrowInfo>::uninit();
+        unsafe {
+            sys_borrow_info_stub(lender.0 as u32, index, raw.as_mut_ptr());
+        }
+        // Safety: stub completely initializes record
+        let raw = unsafe { raw.assume_init() };
+
+        if raw.rc == 0 {
+            Some(BorrowInfo {
+                attributes: abi::LeaseAttributes::from_bits_truncate(raw.atts),
+                len: raw.length,
+            })
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    fn irq_control(mask: u32, enable: bool) {
+        let mut arg = IrqControlArg::empty();
+        if enable {
+            arg |= IrqControlArg::ENABLED;
+        }
+
+        unsafe {
+            sys_irq_control_stub(mask, arg.bits());
+        }
+    }
+
+    #[inline(always)]
+    fn irq_control_clear_pending(mask: u32, enable: bool) {
+        let mut arg = IrqControlArg::CLEAR_PENDING;
+        if enable {
+            arg |= IrqControlArg::ENABLED;
+        }
+        unsafe {
+            sys_irq_control_stub(mask, arg.bits());
+        }
+    }
+
+    #[inline(always)]
+    fn panic(msg: &[u8]) -> ! {
+        unsafe { sys_panic_stub(msg.as_ptr(), msg.len()) }
+    }
+
+    #[inline(always)]
+    fn get_timer() -> TimerState {
+        use core::mem::MaybeUninit;
+
+        let mut out = MaybeUninit::<RawTimerState>::uninit();
+        unsafe {
+            sys_get_timer_stub(out.as_mut_ptr());
+        }
+        // Safety: stub fully initializes output struct.
+        let out = unsafe { out.assume_init() };
+
+        TimerState {
+            now: u64::from(out.now_lo) | u64::from(out.now_hi) << 32,
+            deadline: if out.set != 0 {
+                Some(u64::from(out.dl_lo) | u64::from(out.dl_hi) << 32)
+            } else {
+                None
+            },
+            on_dl: out.on_dl,
+        }
+    }
+
+    #[inline(always)]
+    fn refresh_task_id(task_id: TaskId) -> TaskId {
+        let tid = unsafe { sys_refresh_task_id_stub(task_id.0 as u32) };
+        TaskId(tid as u16)
+    }
+
+    #[inline(always)]
+    fn post(task_id: TaskId, bits: u32) -> u32 {
+        unsafe { sys_post_stub(task_id.0 as u32, bits) }
+    }
+
+    #[inline(always)]
+    fn reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
+        unsafe { sys_reply_fault_stub(task_id.0 as u32, reason as u32) }
+    }
+
+    #[inline(always)]
+    fn irq_status(mask: u32) -> abi::IrqStatus {
+        let status = unsafe { sys_irq_status_stub(mask) };
+        abi::IrqStatus::from_bits_truncate(status)
+    }
 }
 
 #[allow(dead_code)] // this gets used from asm
@@ -147,51 +343,6 @@ unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
         } else {
             compile_error!("missing sys_send_stub for ARM profile");
         }
-    }
-}
-
-/// General version of RECV that lets you pick closed vs. open receive at
-/// runtime.
-///
-/// You almost always want `sys_recv_open` or `sys_recv_closed` instead.
-#[inline(always)]
-pub fn sys_recv(
-    buffer: &mut [u8],
-    notification_mask: u32,
-    specific_sender: Option<TaskId>,
-) -> Result<RecvMessage, u32> {
-    use core::mem::MaybeUninit;
-
-    // Flatten option into a packed u32; in the C-compatible ABI we provide the
-    // task ID in the LSBs, and the "some" flag in the MSB.
-    let specific_sender_bits = specific_sender
-        .map(|tid| (1u32 << 31) | u32::from(tid.0))
-        .unwrap_or(0);
-    let mut out = MaybeUninit::<RawRecvMessage>::uninit();
-    let rc = unsafe {
-        sys_recv_stub(
-            buffer.as_mut_ptr(),
-            buffer.len(),
-            notification_mask,
-            specific_sender_bits,
-            out.as_mut_ptr(),
-        )
-    };
-
-    // Safety: stub fully initializes output struct. On failure, it might
-    // initialize it with nonsense, but that's okay -- it's still initialized.
-    let out = unsafe { out.assume_init() };
-
-    if rc == 0 {
-        Ok(RecvMessage {
-            sender: TaskId(out.sender as u16),
-            operation: out.operation,
-            message_len: out.message_len,
-            response_capacity: out.response_capacity,
-            lease_count: out.lease_count,
-        })
-    } else {
-        Err(rc)
     }
 }
 
@@ -303,13 +454,6 @@ struct RawRecvMessage {
     pub lease_count: usize,
 }
 
-#[inline(always)]
-pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
-    unsafe {
-        sys_reply_stub(peer.0 as u32, code, message.as_ptr(), message.len())
-    }
-}
-
 /// Core implementation of the REPLY syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
@@ -383,30 +527,6 @@ unsafe extern "C" fn sys_reply_stub(
     }
 }
 
-/// Sets this task's timer.
-///
-/// The timer is set to `deadline`. If `deadline` is `None`, the timer is
-/// disabled. Otherwise, the timer is configured to notify when the specified
-/// time (in ticks since boot) is reached. When that occurs, the `notifications`
-/// will get posted to this task, and the timer will be disabled.
-///
-/// If the deadline is chosen such that the timer *would have already fired*,
-/// had it been set earlier -- that is, if the deadline is `<=` the current time
-/// -- the `notifications` will be posted immediately and the timer will not be
-/// enabled.
-#[inline(always)]
-pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
-    let raw_deadline = deadline.unwrap_or(0);
-    unsafe {
-        sys_set_timer_stub(
-            deadline.is_some() as u32,
-            raw_deadline as u32,
-            (raw_deadline >> 32) as u32,
-            notifications,
-        )
-    }
-}
-
 /// Core implementation of the SET_TIMER syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
@@ -474,23 +594,6 @@ unsafe extern "C" fn sys_set_timer_stub(
             compile_error!("missing sys_set_timer_stub for ARM profile")
         }
     }
-}
-
-#[inline(always)]
-pub fn sys_borrow_read(
-    lender: TaskId,
-    index: usize,
-    offset: usize,
-    dest: &mut [u8],
-) -> (u32, usize) {
-    let mut args = BorrowReadArgs {
-        lender: lender.0 as u32,
-        index,
-        offset,
-        dest: dest.as_mut_ptr(),
-        dest_len: dest.len(),
-    };
-    unsafe { sys_borrow_read_stub(&mut args).into() }
 }
 
 /// Core implementation of the BORROW_READ syscall.
@@ -567,23 +670,6 @@ struct BorrowReadArgs {
     offset: usize,
     dest: *mut u8,
     dest_len: usize,
-}
-
-#[inline(always)]
-pub fn sys_borrow_write(
-    lender: TaskId,
-    index: usize,
-    offset: usize,
-    src: &[u8],
-) -> (u32, usize) {
-    let mut args = BorrowWriteArgs {
-        lender: lender.0 as u32,
-        index,
-        offset,
-        src: src.as_ptr(),
-        src_len: src.len(),
-    };
-    unsafe { sys_borrow_write_stub(&mut args).into() }
 }
 
 /// Core implementation of the BORROW_WRITE syscall.
@@ -665,27 +751,6 @@ struct BorrowWriteArgs {
     src_len: usize,
 }
 
-#[inline(always)]
-pub fn sys_borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
-    use core::mem::MaybeUninit;
-
-    let mut raw = MaybeUninit::<RawBorrowInfo>::uninit();
-    unsafe {
-        sys_borrow_info_stub(lender.0 as u32, index, raw.as_mut_ptr());
-    }
-    // Safety: stub completely initializes record
-    let raw = unsafe { raw.assume_init() };
-
-    if raw.rc == 0 {
-        Some(BorrowInfo {
-            attributes: abi::LeaseAttributes::from_bits_truncate(raw.atts),
-            len: raw.length,
-        })
-    } else {
-        None
-    }
-}
-
 #[repr(C)]
 struct RawBorrowInfo {
     rc: u32,
@@ -760,35 +825,6 @@ unsafe extern "C" fn sys_borrow_info_stub(
     }
 }
 
-#[inline(always)]
-pub fn sys_irq_control(mask: u32, enable: bool) {
-    let mut arg = IrqControlArg::empty();
-    if enable {
-        arg |= IrqControlArg::ENABLED;
-    }
-
-    unsafe {
-        sys_irq_control_stub(mask, arg.bits());
-    }
-}
-
-/// Variation on [`sys_irq_control`] that also clears any pending interrupt.
-///
-/// This sets the interrupt enable status based on `enable`, and also cancels a
-/// pending instance of this interrupt in the interrupt controller, if the
-/// interrupt controller supports such a concept (ARM M-profile NVIC does, for
-/// instance).
-#[inline(always)]
-pub fn sys_irq_control_clear_pending(mask: u32, enable: bool) {
-    let mut arg = IrqControlArg::CLEAR_PENDING;
-    if enable {
-        arg |= IrqControlArg::ENABLED;
-    }
-    unsafe {
-        sys_irq_control_stub(mask, arg.bits());
-    }
-}
-
 /// Core implementation of the IRQ_CONTROL syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
@@ -849,11 +885,6 @@ unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
     }
 }
 
-#[inline(always)]
-pub fn sys_panic(msg: &[u8]) -> ! {
-    unsafe { sys_panic_stub(msg.as_ptr(), msg.len()) }
-}
-
 /// Core implementation of the PANIC syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
@@ -905,40 +936,6 @@ unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
         } else {
             compile_error!("missing sys_panic_stub for ARM profile")
         }
-    }
-}
-
-/// Reads the state of this task's timer.
-///
-/// This returns three values in a `TimerState` struct:
-///
-/// - `now` is the current time on the timer, in ticks since boot.
-/// - `deadline` is either `None`, meaning the timer notifications are disabled,
-///   or `Some(t)`, meaning the timer will post notifications at time `t`.
-/// - `on_dl` are the notification bits that will be posted on deadline.
-///
-/// `deadline` and `on_dl` are as configured by `sys_set_timer`.
-///
-/// `now` is monotonically advancing and can't be changed.
-#[inline(always)]
-pub fn sys_get_timer() -> TimerState {
-    use core::mem::MaybeUninit;
-
-    let mut out = MaybeUninit::<RawTimerState>::uninit();
-    unsafe {
-        sys_get_timer_stub(out.as_mut_ptr());
-    }
-    // Safety: stub fully initializes output struct.
-    let out = unsafe { out.assume_init() };
-
-    TimerState {
-        now: u64::from(out.now_lo) | u64::from(out.now_hi) << 32,
-        deadline: if out.set != 0 {
-            Some(u64::from(out.dl_lo) | u64::from(out.dl_hi) << 32)
-        } else {
-            None
-        },
-        on_dl: out.on_dl,
     }
 }
 
@@ -1286,7 +1283,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     let msg = unsafe { pw.buf.get_unchecked(..pw.pos) };
 
     // Pass it to kernel.
-    sys_panic(msg)
+    Thumb::panic(msg)
 }
 
 /// Panic handler for tasks without the `panic-messages` feature enabled. This
@@ -1295,7 +1292,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
 #[cfg(all(not(feature = "no-panic"), not(feature = "panic-messages")))]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
-    sys_panic(b"PANIC")
+    Thumb::panic(b"PANIC")
 }
 
 /// Panic handler for when panics are not permitted in a task. This is enabled
@@ -1310,12 +1307,6 @@ fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
     // Safety: this function does not exist, this code will not pass the linker
     // and is thus not reachable.
     unsafe { you_have_introduced_a_panic_which_is_not_permitted() }
-}
-
-#[inline(always)]
-pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
-    let tid = unsafe { sys_refresh_task_id_stub(task_id.0 as u32) };
-    TaskId(tid as u16)
 }
 
 /// Core implementation of the REFRESH_TASK_ID syscall.
@@ -1378,11 +1369,6 @@ unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
             compile_error!("missing sys_refresh_task_id stub for ARM profile")
         }
     }
-}
-
-#[inline(always)]
-pub fn sys_post(task_id: TaskId, bits: u32) -> u32 {
-    unsafe { sys_post_stub(task_id.0 as u32, bits) }
 }
 
 /// Core implementation of the POST syscall.
@@ -1448,11 +1434,6 @@ unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
     }
 }
 
-#[inline(always)]
-pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
-    unsafe { sys_reply_fault_stub(task_id.0 as u32, reason as u32) }
-}
-
 /// Core implementation of the REPLY_FAULT syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
@@ -1511,28 +1492,6 @@ unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
             compile_error!("missing sys_reply_fault_stub for ARM profile")
         }
     }
-}
-
-/// Returns the current status of any interrupts mapped to the provided
-/// notification mask.
-///
-/// # Arguments
-///
-/// - `mask`: a notification mask for interrupts mapped to the current task.
-///
-/// # Returns
-///
-/// An [`IrqStatus`] (see the `abi` crate) describing the status of the
-/// interrupts in the notification mask.
-///
-/// # Faults
-///
-/// This syscall faults the caller if the given notification bitmask is not
-/// mapped to an interrupt in this task.
-#[inline(always)]
-pub fn sys_irq_status(mask: u32) -> abi::IrqStatus {
-    let status = unsafe { sys_irq_status_stub(mask) };
-    abi::IrqStatus::from_bits_truncate(status)
 }
 
 /// Core implementation of the IRQ_STATUS syscall.

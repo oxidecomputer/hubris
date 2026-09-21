@@ -33,6 +33,7 @@ use hostcall::{
     ReplyFaultRequest, ReplyRequest, SendRequest, SetTimerRequest,
 };
 
+use super::Arch;
 use crate::{
     BorrowInfo, Lease, PANIC_MESSAGE_MAX_LEN, RecvMessage, TimerState,
 };
@@ -148,162 +149,235 @@ fn copy_prefix(dst: &mut [u8], src: &[u8]) -> usize {
     n
 }
 
-pub fn sys_send(
-    target: TaskId,
-    operation: u16,
-    outgoing: &[u8],
-    incoming: &mut [u8],
-    leases: &[Lease<'_>],
-) -> (u32, usize) {
-    let lease_table = leases
-        .iter()
-        .map(|lease| {
-            let attributes = lease._kern_rep.attributes;
-            hostcall::Lease {
-                attributes: attributes.bits(),
-                len: lease._kern_rep.length as u32,
-                contents: if attributes.contains(LeaseAttributes::READ) {
-                    // Safety: built by a Lease constructor.
-                    unsafe { lease_bytes(lease) }.to_vec()
-                } else {
-                    Vec::new()
-                },
-            }
-        })
-        .collect();
+/// The host implementation of the task's architecture interface.
+pub struct Host;
 
-    let response = call("send", |fixture| {
-        fixture.send(&SendRequest {
-            target: target.0,
-            operation,
-            message: outgoing.to_vec(),
-            reply_capacity: incoming.len() as u32,
-            leases: lease_table,
-        })
-    });
-
-    // The kernel would fault a server whose reply exceeds our capacity; the
-    // fixture is trusted to respect it, and anything extra is dropped.
-    let reply_len = copy_prefix(incoming, &response.reply);
-
-    for (lease, writeback) in leases.iter().zip(response.lease_writebacks) {
-        let Some(data) = writeback else {
-            continue;
-        };
-        if !lease._kern_rep.attributes.contains(LeaseAttributes::WRITE) {
-            transport_failed(
-                "send",
-                "the fixture wrote back into a lease that is not writable",
-            );
-        }
-        // Safety: writable leases come from `&mut [u8]`.
-        unsafe { write_lease_prefix(lease, &data) };
-    }
-
-    (response.code, reply_len)
-}
-
-pub fn sys_recv(
-    buffer: &mut [u8],
-    notification_mask: u32,
-    specific_sender: Option<TaskId>,
-) -> Result<RecvMessage, u32> {
-    let response = call("recv", |fixture| {
-        fixture.recv(&RecvRequest {
-            capacity: buffer.len() as u32,
-            notification_mask,
-            specific_sender: specific_sender.map(|t| t.0),
-        })
-    });
-    match response {
-        Ok(message) => {
-            // The fixture truncated to our capacity; the honest length is
-            // reported separately, as the kernel does.
-            copy_prefix(buffer, &message.message);
-            Ok(RecvMessage {
-                sender: TaskId(message.sender),
-                operation: message.operation,
-                message_len: message.message_len as usize,
-                response_capacity: message.response_capacity as usize,
-                lease_count: message.lease_count as usize,
+impl Arch for Host {
+    fn send(
+        target: TaskId,
+        operation: u16,
+        outgoing: &[u8],
+        incoming: &mut [u8],
+        leases: &[Lease<'_>],
+    ) -> (u32, usize) {
+        let lease_table = leases
+            .iter()
+            .map(|lease| {
+                let attributes = lease._kern_rep.attributes;
+                hostcall::Lease {
+                    attributes: attributes.bits(),
+                    len: lease._kern_rep.length as u32,
+                    contents: if attributes.contains(LeaseAttributes::READ) {
+                        // Safety: built by a Lease constructor.
+                        unsafe { lease_bytes(lease) }.to_vec()
+                    } else {
+                        Vec::new()
+                    },
+                }
             })
+            .collect();
+
+        let response = call("send", |fixture| {
+            fixture.send(&SendRequest {
+                target: target.0,
+                operation,
+                message: outgoing.to_vec(),
+                reply_capacity: incoming.len() as u32,
+                leases: lease_table,
+            })
+        });
+
+        // The kernel would fault a server whose reply exceeds our capacity; the
+        // fixture is trusted to respect it, and anything extra is dropped.
+        let reply_len = copy_prefix(incoming, &response.reply);
+
+        for (lease, writeback) in leases.iter().zip(response.lease_writebacks) {
+            let Some(data) = writeback else {
+                continue;
+            };
+            if !lease._kern_rep.attributes.contains(LeaseAttributes::WRITE) {
+                transport_failed(
+                    "send",
+                    "the fixture wrote back into a lease that is not writable",
+                );
+            }
+            // Safety: writable leases come from `&mut [u8]`.
+            unsafe { write_lease_prefix(lease, &data) };
         }
-        // The kernel ABI says an open receive cannot fail, and callers rely
-        // on that with `unreachable_unchecked`; don't let a fixture bug turn
-        // into undefined behavior.
-        Err(_) if specific_sender.is_none() => transport_failed(
-            "recv",
-            "the fixture failed an open receive, which cannot fail",
-        ),
-        Err(code) => Err(code),
+
+        (response.code, reply_len)
     }
-}
 
-pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
-    call("reply", |fixture| {
-        fixture.reply(&ReplyRequest {
-            peer: peer.0,
-            code,
-            message: message.to_vec(),
-        })
-    })
-}
+    fn recv(
+        buffer: &mut [u8],
+        notification_mask: u32,
+        specific_sender: Option<TaskId>,
+    ) -> Result<RecvMessage, u32> {
+        let response = call("recv", |fixture| {
+            fixture.recv(&RecvRequest {
+                capacity: buffer.len() as u32,
+                notification_mask,
+                specific_sender: specific_sender.map(|t| t.0),
+            })
+        });
+        match response {
+            Ok(message) => {
+                // The fixture truncated to our capacity; the honest length is
+                // reported separately, as the kernel does.
+                copy_prefix(buffer, &message.message);
+                Ok(RecvMessage {
+                    sender: TaskId(message.sender),
+                    operation: message.operation,
+                    message_len: message.message_len as usize,
+                    response_capacity: message.response_capacity as usize,
+                    lease_count: message.lease_count as usize,
+                })
+            }
+            // The kernel ABI says an open receive cannot fail, and callers rely
+            // on that with `unreachable_unchecked`; don't let a fixture bug turn
+            // into undefined behavior.
+            Err(_) if specific_sender.is_none() => transport_failed(
+                "recv",
+                "the fixture failed an open receive, which cannot fail",
+            ),
+            Err(code) => Err(code),
+        }
+    }
 
-pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
-    call("set_timer", |fixture| {
-        fixture.set_timer(&SetTimerRequest {
-            deadline,
-            notifications,
+    fn reply(peer: TaskId, code: u32, message: &[u8]) {
+        call("reply", |fixture| {
+            fixture.reply(&ReplyRequest {
+                peer: peer.0,
+                code,
+                message: message.to_vec(),
+            })
         })
-    })
-}
+    }
 
-pub fn sys_borrow_read(
-    lender: TaskId,
-    index: usize,
-    offset: usize,
-    dest: &mut [u8],
-) -> (u32, usize) {
-    let response = call("borrow_read", |fixture| {
-        fixture.borrow_read(&BorrowReadRequest {
-            lender: lender.0,
-            index: index as u32,
-            offset: offset as u32,
-            len: dest.len() as u32,
+    fn set_timer(deadline: Option<u64>, notifications: u32) {
+        call("set_timer", |fixture| {
+            fixture.set_timer(&SetTimerRequest {
+                deadline,
+                notifications,
+            })
         })
-    });
-    let n = copy_prefix(dest, &response.data);
-    (response.code, n)
-}
+    }
 
-pub fn sys_borrow_write(
-    lender: TaskId,
-    index: usize,
-    offset: usize,
-    src: &[u8],
-) -> (u32, usize) {
-    let response = call("borrow_write", |fixture| {
-        fixture.borrow_write(&BorrowWriteRequest {
-            lender: lender.0,
-            index: index as u32,
-            offset: offset as u32,
-            data: src.to_vec(),
-        })
-    });
-    (response.code, response.len as usize)
-}
+    fn borrow_read(
+        lender: TaskId,
+        index: usize,
+        offset: usize,
+        dest: &mut [u8],
+    ) -> (u32, usize) {
+        let response = call("borrow_read", |fixture| {
+            fixture.borrow_read(&BorrowReadRequest {
+                lender: lender.0,
+                index: index as u32,
+                offset: offset as u32,
+                len: dest.len() as u32,
+            })
+        });
+        let n = copy_prefix(dest, &response.data);
+        (response.code, n)
+    }
 
-pub fn sys_borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
-    call("borrow_info", |fixture| {
-        fixture.borrow_info(&BorrowInfoRequest {
-            lender: lender.0,
-            index: index as u32,
+    fn borrow_write(
+        lender: TaskId,
+        index: usize,
+        offset: usize,
+        src: &[u8],
+    ) -> (u32, usize) {
+        let response = call("borrow_write", |fixture| {
+            fixture.borrow_write(&BorrowWriteRequest {
+                lender: lender.0,
+                index: index as u32,
+                offset: offset as u32,
+                data: src.to_vec(),
+            })
+        });
+        (response.code, response.len as usize)
+    }
+
+    fn borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
+        call("borrow_info", |fixture| {
+            fixture.borrow_info(&BorrowInfoRequest {
+                lender: lender.0,
+                index: index as u32,
+            })
         })
-    })
-    .map(|info| BorrowInfo {
-        attributes: LeaseAttributes::from_bits_truncate(info.attributes),
-        len: info.len as usize,
-    })
+        .map(|info| BorrowInfo {
+            attributes: LeaseAttributes::from_bits_truncate(info.attributes),
+            len: info.len as usize,
+        })
+    }
+
+    fn irq_control(mask: u32, enable: bool) {
+        let mut arg = IrqControlArg::empty();
+        if enable {
+            arg |= IrqControlArg::ENABLED;
+        }
+        irq_control(mask, arg)
+    }
+
+    fn irq_control_clear_pending(mask: u32, enable: bool) {
+        let mut arg = IrqControlArg::CLEAR_PENDING;
+        if enable {
+            arg |= IrqControlArg::ENABLED;
+        }
+        irq_control(mask, arg)
+    }
+
+    fn panic(msg: &[u8]) -> ! {
+        let mut fixture = fixture();
+        let result = fixture.panic(&PanicRequest {
+            message: msg.to_vec(),
+        });
+        drop(fixture);
+        if let Err(e) = result {
+            let e: ClientIoError<IoError> = e;
+            transport_failed("panic", e);
+        }
+        std::process::exit(hostcall::EXIT_PANIC)
+    }
+
+    fn get_timer() -> TimerState {
+        let state = call("get_timer", |fixture| fixture.get_timer(&()));
+        TimerState {
+            now: state.now,
+            deadline: state.deadline,
+            on_dl: state.on_deadline,
+        }
+    }
+
+    fn refresh_task_id(task_id: TaskId) -> TaskId {
+        TaskId(call("refresh_task_id", |fixture| {
+            fixture.refresh_task_id(&task_id.0)
+        }))
+    }
+
+    fn post(task_id: TaskId, bits: u32) -> u32 {
+        call("post", |fixture| {
+            fixture.post(&PostRequest {
+                task: task_id.0,
+                bits,
+            })
+        })
+    }
+
+    fn reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
+        call("reply_fault", |fixture| {
+            fixture.reply_fault(&ReplyFaultRequest {
+                peer: task_id.0,
+                reason: reason as u32,
+            })
+        })
+    }
+
+    fn irq_status(mask: u32) -> IrqStatus {
+        IrqStatus::from_bits_truncate(call("irq_status", |fixture| {
+            fixture.irq_status(&mask)
+        }))
+    }
 }
 
 fn irq_control(mask: u32, flags: IrqControlArg) {
@@ -313,74 +387,6 @@ fn irq_control(mask: u32, flags: IrqControlArg) {
             flags: flags.bits(),
         })
     })
-}
-
-pub fn sys_irq_control(mask: u32, enable: bool) {
-    let mut arg = IrqControlArg::empty();
-    if enable {
-        arg |= IrqControlArg::ENABLED;
-    }
-    irq_control(mask, arg)
-}
-
-pub fn sys_irq_control_clear_pending(mask: u32, enable: bool) {
-    let mut arg = IrqControlArg::CLEAR_PENDING;
-    if enable {
-        arg |= IrqControlArg::ENABLED;
-    }
-    irq_control(mask, arg)
-}
-
-pub fn sys_panic(msg: &[u8]) -> ! {
-    let mut fixture = fixture();
-    let result = fixture.panic(&PanicRequest {
-        message: msg.to_vec(),
-    });
-    drop(fixture);
-    if let Err(e) = result {
-        let e: ClientIoError<IoError> = e;
-        transport_failed("panic", e);
-    }
-    std::process::exit(hostcall::EXIT_PANIC)
-}
-
-pub fn sys_get_timer() -> TimerState {
-    let state = call("get_timer", |fixture| fixture.get_timer(&()));
-    TimerState {
-        now: state.now,
-        deadline: state.deadline,
-        on_dl: state.on_deadline,
-    }
-}
-
-pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
-    TaskId(call("refresh_task_id", |fixture| {
-        fixture.refresh_task_id(&task_id.0)
-    }))
-}
-
-pub fn sys_post(task_id: TaskId, bits: u32) -> u32 {
-    call("post", |fixture| {
-        fixture.post(&PostRequest {
-            task: task_id.0,
-            bits,
-        })
-    })
-}
-
-pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
-    call("reply_fault", |fixture| {
-        fixture.reply_fault(&ReplyFaultRequest {
-            peer: task_id.0,
-            reason: reason as u32,
-        })
-    })
-}
-
-pub fn sys_irq_status(mask: u32) -> IrqStatus {
-    IrqStatus::from_bits_truncate(call("irq_status", |fixture| {
-        fixture.irq_status(&mask)
-    }))
 }
 
 /// Asks the fixture which task index a `task_slot!` name refers to.
