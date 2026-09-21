@@ -109,11 +109,6 @@ pub fn sys_send(
     Current::send(target, operation, outgoing, incoming, leases)
 }
 
-#[inline(always)]
-pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
-    Current::reply_fault(task_id, reason)
-}
-
 /// Performs an "open" RECV that will accept messages from any task or
 /// notifications from the kernel.
 ///
@@ -363,13 +358,10 @@ pub fn sys_irq_control_clear_pending(mask: u32, enable: bool) {
     Current::irq_control_clear_pending(mask, enable)
 }
 
-
-
 #[inline(always)]
 pub fn sys_panic(msg: &[u8]) -> ! {
     Current::panic(msg)
 }
-
 
 /// Reads the state of this task's timer.
 ///
@@ -417,18 +409,20 @@ compile_error!(
 /// RAM):
 pub const PANIC_MESSAGE_MAX_LEN: usize = 128;
 
-
 #[inline(always)]
 pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
     Current::refresh_task_id(task_id)
 }
-
 
 #[inline(always)]
 pub fn sys_post(task_id: TaskId, bits: u32) -> u32 {
     Current::post(task_id, bits)
 }
 
+#[inline(always)]
+pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
+    Current::reply_fault(task_id, reason)
+}
 
 /// Returns the current status of any interrupts mapped to the provided
 /// notification mask.
