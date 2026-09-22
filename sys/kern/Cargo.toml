@@ -18,6 +18,7 @@ armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
 phash = { path = "../../lib/phash" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 kerncore.path = "../kerncore"
+hubris-ptime.path = "../ptime"
 
 [build-dependencies]
 anyhow = { workspace = true }
