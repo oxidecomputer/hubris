@@ -13,7 +13,7 @@ use idol_runtime::RequestError;
 use ringbuf::*;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
-use userlib::{RecvMessage, task_slot};
+use userlib::{Addr, RecvMessage, task_slot};
 
 #[cfg(feature = "net")]
 mod udp;
@@ -136,10 +136,12 @@ impl ServerImpl {
     fn dump_task_region(
         &mut self,
         task_index: u32,
-        start: u32,
-        length: u32,
+        start: Addr,
+        length: usize,
     ) -> Result<u8, DumpAgentError> {
-        let out = self.jefe.dump_task_region(task_index, start, length)?;
+        let h_start = start.as_usize() as u32;
+        let h_length = length as u32;
+        let out = self.jefe.dump_task_region(task_index, h_start, h_length)?;
         Ok(out)
     }
 
@@ -280,8 +282,8 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         &mut self,
         _msg: &RecvMessage,
         task_index: u32,
-        start: u32,
-        length: u32,
+        start: Addr,
+        length: usize,
     ) -> Result<u8, RequestError<DumpAgentError>> {
         self.dump_task_region(task_index, start, length)
             .map_err(|e| e.into())
