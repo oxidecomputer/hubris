@@ -367,6 +367,13 @@ impl Addr {
     }
 }
 
+impl core::fmt::LowerHex for Addr {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        <usize as core::fmt::LowerHex>::fmt(&self.0, f)
+    }
+}
+
 impl core::fmt::Debug for Addr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
