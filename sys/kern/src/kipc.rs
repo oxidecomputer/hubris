@@ -248,8 +248,8 @@ fn get_task_dump_region(
 
     let rval = if rindex == 0 {
         Some(abi::TaskDumpRegion {
-            base: &tasks[index as usize] as *const _ as u32,
-            size: size_of::<Task>() as u32,
+            base: abi::Addr::from_ptr(&tasks[index as usize]),
+            size: size_of::<Task>(),
         })
     } else {
         tasks[index as usize]
@@ -258,8 +258,8 @@ fn get_task_dump_region(
             .filter(|r| r.dumpable())
             .nth(rindex as usize - 1)
             .map(|r| abi::TaskDumpRegion {
-                base: r.base.as_usize() as u32,
-                size: r.size as u32,
+                base: r.base,
+                size: r.size,
             })
     };
 
@@ -315,8 +315,8 @@ fn read_task_dump_region(
     // we're going to kill the supervisor, implying a reboot. This is the best
     // we can do, since the supervisor is malfunctioning.
     let from = USlice::<u8>::from_raw(
-        abi::Addr::new(region.base as usize),
-        region.size as usize,
+        region.base,
+        region.size,
     )
     .map_err(FaultInfo::SyscallUsage)?;
 

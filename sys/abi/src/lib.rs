@@ -717,8 +717,8 @@ impl core::convert::TryFrom<u32> for Sysnum {
 /// A region to be dumped from a task
 #[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct TaskDumpRegion {
-    pub base: u32,
-    pub size: u32,
+    pub base: Addr,
+    pub size: usize,
 }
 
 /// Representation of kipc numbers
