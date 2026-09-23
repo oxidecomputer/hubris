@@ -314,11 +314,8 @@ fn read_task_dump_region(
     // Note that if the supervisor passes an illegal base+size combination here,
     // we're going to kill the supervisor, implying a reboot. This is the best
     // we can do, since the supervisor is malfunctioning.
-    let from = USlice::<u8>::from_raw(
-        region.base,
-        region.size,
-    )
-    .map_err(FaultInfo::SyscallUsage)?;
+    let from = USlice::<u8>::from_raw(region.base, region.size)
+        .map_err(FaultInfo::SyscallUsage)?;
 
     //
     // If we are being asked to copy out the target task structure (and only
