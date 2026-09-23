@@ -279,7 +279,7 @@ pub unsafe fn set_clock_freq(tick_divisor: u32) {
 
 pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
-    let initial_stack = Addr::new(task.descriptor().initial_stack as usize);
+    let initial_stack = task.descriptor().initial_stack;
 
     // Modern ARMvX-M machines require 8-byte stack alignment. Make sure that's
     // still true. Note that this carries the risk of panic on task re-init if
@@ -367,7 +367,7 @@ pub fn reinitialize(task: &mut task::Task) {
     // Conservatively/defensively zero the entire frame.
     *frame = ExtendedExceptionFrame::default();
     // Now fill in the bits we actually care about.
-    frame.base.pc = descriptor.entry_point | 1; // for thumb
+    frame.base.pc = descriptor.entry_point.as_usize() as u32 | 1; // for thumb
     frame.base.xpsr = INITIAL_PSR;
     frame.base.lr = 0xFFFF_FFFF; // trap on return from main
     #[cfg(any(armv7m, armv8m))]

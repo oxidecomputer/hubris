@@ -182,8 +182,8 @@ fn process_config() -> Result<Generated> {
         task_descs.push(quote::quote! {
             TaskDesc {
                 regions: [#(&HUBRIS_REGION_DESCS[#regions]),*],
-                entry_point: #entry_point,
-                initial_stack: #initial_stack,
+                entry_point: abi::Addr::new(#entry_point as usize),
+                initial_stack: abi::Addr::new(#initial_stack as usize),
                 priority: #priority,
                 index: #index,
                 flags: #flags,

@@ -45,11 +45,11 @@ pub struct TaskDesc {
     /// Address of the task's entry point. This is the first instruction that
     /// will be executed whenever the task is (re)started. It must be within one
     /// of the task's memory regions (the kernel *will* check this).
-    pub entry_point: u32,
+    pub entry_point: Addr,
     /// Address of the task's initial stack pointer, to be loaded at (re)start.
     /// It must be pointing into or *just past* one of the task's memory
     /// regions (the kernel *will* check this).
-    pub initial_stack: u32,
+    pub initial_stack: Addr,
     /// Initial priority of this task.
     pub priority: u8,
     /// Collection of boolean flags controlling task behavior.
