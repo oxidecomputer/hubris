@@ -4,6 +4,8 @@
 
 //! Descriptor types, used to statically define application resources.
 
+use abi::Addr;
+
 pub(crate) const REGIONS_PER_TASK: usize = 8;
 
 /// Indicates priority of a task.
@@ -43,11 +45,11 @@ pub struct TaskDesc {
     /// Address of the task's entry point. This is the first instruction that
     /// will be executed whenever the task is (re)started. It must be within one
     /// of the task's memory regions (the kernel *will* check this).
-    pub entry_point: u32,
+    pub entry_point: Addr,
     /// Address of the task's initial stack pointer, to be loaded at (re)start.
     /// It must be pointing into or *just past* one of the task's memory
     /// regions (the kernel *will* check this).
-    pub initial_stack: u32,
+    pub initial_stack: Addr,
     /// Initial priority of this task.
     pub priority: u8,
     /// Collection of boolean flags controlling task behavior.
@@ -94,7 +96,7 @@ pub struct RegionDesc {
     /// Address of start of region. The platform likely has alignment
     /// requirements for this; it must meet them. (For example, on ARMv7-M, it
     /// must be naturally aligned for the size.)
-    pub base: usize,
+    pub base: Addr,
     /// Size of region, in bytes. The platform likely has alignment requirements
     /// for this; it must meet them. (For example, on ARMv7-M, it must be a
     /// power of two greater than 16.)
@@ -135,8 +137,8 @@ const _ENSURE_REGION_DESC_32BIT_ABI_UNCHANGED: () = const {
 
 impl RegionDesc {
     /// Tests whether `self` contains `addr`.
-    pub fn contains(&self, addr: usize) -> bool {
-        let next_addr = addr.wrapping_add(1);
+    pub fn contains(&self, addr: Addr) -> bool {
+        let next_addr = addr.wrapping_byte_add(1);
         if next_addr < addr {
             return false;
         };
@@ -148,10 +150,10 @@ impl RegionDesc {
     /// Compute the address one past the end of this region. Since we don't
     /// allow regions to butt up against the end of the address space, we can do
     /// that.
-    pub fn end_addr(&self) -> usize {
+    pub fn end_addr(&self) -> Addr {
         // Wrapping add here avoids the overflow check, which is avoided by our
         // invariant that this not bump the end of the address space.
-        self.base.wrapping_add(self.size)
+        self.base.wrapping_byte_add(self.size)
     }
 
     pub fn dumpable(&self) -> bool {
@@ -165,17 +167,17 @@ impl RegionDesc {
 /// Compatibility with generic kernel algorithms defined in kerncore
 impl kerncore::MemoryRegion for RegionDesc {
     #[inline(always)]
-    fn contains(&self, addr: usize) -> bool {
+    fn contains(&self, addr: Addr) -> bool {
         self.contains(addr)
     }
 
     #[inline(always)]
-    fn base_addr(&self) -> usize {
+    fn base_addr(&self) -> Addr {
         self.base
     }
 
     #[inline(always)]
-    fn end_addr(&self) -> usize {
+    fn end_addr(&self) -> Addr {
         self.end_addr()
     }
 }

@@ -78,8 +78,8 @@ Interface(
             doc: "Dump a region from single task, without the external dumper",
             args: {
                 "task_index": "u32",
-                "start": "u32",
-                "length": "u32",
+                "start": "Addr",
+                "length": "usize",
             },
             reply: Result(
                 ok: "u8",

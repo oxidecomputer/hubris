@@ -11,6 +11,8 @@
 
 use core::cmp::Ordering;
 
+use abi::Addr;
+
 /// Describes types that act as "slices" (in the very abstract sense) referenced
 /// by tasks in syscalls.
 ///
@@ -35,7 +37,7 @@ pub trait UserSlice {
     ///
     /// The value returned by `base_addr` must be less than or equal to that
     /// returned by `end_addr`.
-    fn base_addr(&self) -> usize;
+    fn base_addr(&self) -> Addr;
 
     /// The address of the first byte _not_ included in this slice, past the
     /// end.
@@ -46,7 +48,7 @@ pub trait UserSlice {
     ///
     /// The return value must be greater than or equal to the result of
     /// `base_addr`.
-    fn end_addr(&self) -> usize;
+    fn end_addr(&self) -> Addr;
 }
 
 impl<T: UserSlice> UserSlice for &T {
@@ -56,12 +58,12 @@ impl<T: UserSlice> UserSlice for &T {
     }
 
     #[inline(always)]
-    fn base_addr(&self) -> usize {
+    fn base_addr(&self) -> Addr {
         (**self).base_addr()
     }
 
     #[inline(always)]
-    fn end_addr(&self) -> usize {
+    fn end_addr(&self) -> Addr {
         (**self).end_addr()
     }
 }
@@ -81,9 +83,9 @@ impl<T: UserSlice> UserSlice for &T {
 ///
 /// An empty region is weird but not impossible.
 pub trait MemoryRegion {
-    fn contains(&self, addr: usize) -> bool;
-    fn base_addr(&self) -> usize;
-    fn end_addr(&self) -> usize;
+    fn contains(&self, addr: Addr) -> bool;
+    fn base_addr(&self) -> Addr;
+    fn end_addr(&self) -> Addr;
 }
 
 /// Compares a memory region to an address for use in binary-searching a region
@@ -93,7 +95,7 @@ pub trait MemoryRegion {
 /// if the address is lower, `Less` if the address is higher. i.e. it returns
 /// the status of the region relative to the address, not vice versa.
 #[inline(always)]
-fn region_compare(region: &impl MemoryRegion, addr: usize) -> Ordering {
+fn region_compare(region: &impl MemoryRegion, addr: Addr) -> Ordering {
     if addr < region.base_addr() {
         Ordering::Greater
     } else if addr >= region.end_addr() {
@@ -105,17 +107,17 @@ fn region_compare(region: &impl MemoryRegion, addr: usize) -> Ordering {
 
 impl<T: MemoryRegion> MemoryRegion for &T {
     #[inline(always)]
-    fn contains(&self, addr: usize) -> bool {
+    fn contains(&self, addr: Addr) -> bool {
         (**self).contains(addr)
     }
 
     #[inline(always)]
-    fn base_addr(&self) -> usize {
+    fn base_addr(&self) -> Addr {
         (**self).base_addr()
     }
 
     #[inline(always)]
-    fn end_addr(&self) -> usize {
+    fn end_addr(&self) -> Addr {
         (**self).end_addr()
     }
 }
@@ -233,9 +235,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use abi::Addr;
 
     struct TestSlice {
-        base: usize,
+        base: Addr,
         size: usize,
     }
 
@@ -244,32 +247,32 @@ mod tests {
             self.size == 0
         }
 
-        fn base_addr(&self) -> usize {
+        fn base_addr(&self) -> Addr {
             self.base
         }
 
-        fn end_addr(&self) -> usize {
-            self.base + self.size
+        fn end_addr(&self) -> Addr {
+            self.base.checked_byte_add(self.size).unwrap()
         }
     }
 
     struct TestRegion {
-        base: usize,
+        base: Addr,
         size: usize,
         label: String,
     }
 
     impl MemoryRegion for TestRegion {
-        fn contains(&self, addr: usize) -> bool {
+        fn contains(&self, addr: Addr) -> bool {
             addr >= self.base && addr < self.end_addr()
         }
 
-        fn base_addr(&self) -> usize {
+        fn base_addr(&self) -> Addr {
             self.base
         }
 
-        fn end_addr(&self) -> usize {
-            self.base + self.size
+        fn end_addr(&self) -> Addr {
+            self.base.checked_byte_add(self.size).unwrap()
         }
     }
 
@@ -280,37 +283,37 @@ mod tests {
             // either side of this, because we assume that adjacent areas should
             // be inaccessible.
             TestRegion {
-                base: 0x0099_0000,
+                base: Addr::new(0x0099_0000),
                 size: 0x0001_0000,
                 label: "good".to_string(),
             },
             TestRegion {
-                base: 0x009A_0000,
+                base: Addr::new(0x009A_0000),
                 size: 0x0001_0000,
                 label: "good".to_string(),
             },
             TestRegion {
-                base: 0x1234_5678,
+                base: Addr::new(0x1234_5678),
                 size: 0x0001_0000,
                 label: "bad".to_string(),
             },
             TestRegion {
-                base: 0x1235_5678,
+                base: Addr::new(0x1235_5678),
                 size: 0x0001_0000,
                 label: "bad".to_string(),
             },
             TestRegion {
-                base: 0x1236_5678,
+                base: Addr::new(0x1236_5678),
                 size: 0x0001_0000,
                 label: "good".to_string(),
             },
             TestRegion {
-                base: 0x1237_5678,
+                base: Addr::new(0x1237_5678),
                 size: 0x0001_0000,
                 label: "bad".to_string(),
             },
             TestRegion {
-                base: 0x1238_5678,
+                base: Addr::new(0x1238_5678),
                 size: 0x0001_0000,
                 label: "good".to_string(),
             },
@@ -342,7 +345,10 @@ mod tests {
             assert!(
                 can_access(
                     TestSlice {
-                        base: region_table[i].base + 10,
+                        base: region_table[i]
+                            .base
+                            .checked_byte_add(10)
+                            .unwrap(),
                         size: region_table[i].size - 20,
                     },
                     &region_table,
@@ -361,7 +367,10 @@ mod tests {
                 // load-bearing tiny punctuation character:
                 !can_access(
                     TestSlice {
-                        base: region_table[i].base + 10,
+                        base: region_table[i]
+                            .base
+                            .checked_byte_add(10)
+                            .unwrap(),
                         size: region_table[i].size - 20,
                     },
                     &region_table,
@@ -374,7 +383,7 @@ mod tests {
 
     #[test]
     fn cannot_access_uncontained_memory() {
-        let mut last = 0;
+        let mut last = Addr::new(0);
         let region_table = make_fake_region_table();
         for region in &region_table {
             if last != region.base_addr() {
@@ -382,7 +391,7 @@ mod tests {
                 // one.
                 let slice = TestSlice {
                     base: last,
-                    size: region.base_addr() - last,
+                    size: region.base_addr().as_usize() - last.as_usize(),
                 };
                 assert!(
                     // load-bearing tiny punctuation character:
@@ -405,11 +414,17 @@ mod tests {
     fn can_access_overlapping_adjacent_good_regions() {
         let region_table = make_fake_region_table();
 
-        let base = region_table[GOOD_REGION_0_IDX].base + 10;
-        let end = region_table[GOOD_REGION_1_IDX].end_addr() - 10;
+        let base = region_table[GOOD_REGION_0_IDX]
+            .base
+            .checked_byte_add(10)
+            .unwrap();
+        let end = region_table[GOOD_REGION_1_IDX]
+            .end_addr()
+            .checked_byte_sub(10)
+            .unwrap();
         let slice = TestSlice {
             base,
-            size: end - base,
+            size: end.as_usize() - base.as_usize(),
         };
 
         assert!(
@@ -422,11 +437,17 @@ mod tests {
     fn cannot_access_overlapping_adjacent_bad_regions() {
         let region_table = make_fake_region_table();
 
-        let base = region_table[BAD_REGION_0_IDX].base + 10;
-        let end = region_table[BAD_REGION_1_IDX].end_addr() - 10;
+        let base = region_table[BAD_REGION_0_IDX]
+            .base
+            .checked_byte_add(10)
+            .unwrap();
+        let end = region_table[BAD_REGION_1_IDX]
+            .end_addr()
+            .checked_byte_sub(10)
+            .unwrap();
         let slice = TestSlice {
             base,
-            size: end - base,
+            size: end.as_usize() - base.as_usize(),
         };
 
         assert!(
@@ -440,11 +461,17 @@ mod tests {
     fn cannot_access_contiguous_regions_with_bad_region_interleaved() {
         let region_table = make_fake_region_table();
 
-        let base = region_table[GOOD_REGION_2_IDX].base + 10;
-        let end = region_table[GOOD_REGION_3_IDX].end_addr() - 10;
+        let base = region_table[GOOD_REGION_2_IDX]
+            .base
+            .checked_byte_add(10)
+            .unwrap();
+        let end = region_table[GOOD_REGION_3_IDX]
+            .end_addr()
+            .checked_byte_sub(10)
+            .unwrap();
         let slice = TestSlice {
             base,
-            size: end - base,
+            size: end.as_usize() - base.as_usize(),
         };
 
         assert!(
@@ -461,23 +488,29 @@ mod tests {
         // cannot_access_uncontained_memory to spuriously fail.
         let region_table = vec![
             TestRegion {
-                base: 0x1238_5678,
+                base: Addr::new(0x1238_5678),
                 size: 0x0001_0000,
                 label: "good".to_string(),
             },
             TestRegion {
                 // 64 kiB separated from previous region
-                base: 0x123A_5678,
+                base: Addr::new(0x123A_5678),
                 size: 0x0001_0000,
                 label: "good".to_string(),
             },
         ];
 
-        let base = region_table[GOOD_REGION_0_IDX].base + 10;
-        let end = region_table[GOOD_REGION_1_IDX].end_addr() - 10;
+        let base = region_table[GOOD_REGION_0_IDX]
+            .base
+            .checked_byte_add(10)
+            .unwrap();
+        let end = region_table[GOOD_REGION_1_IDX]
+            .end_addr()
+            .checked_byte_sub(10)
+            .unwrap();
         let slice = TestSlice {
             base,
-            size: end - base,
+            size: end.as_usize() - base.as_usize(),
         };
 
         assert!(

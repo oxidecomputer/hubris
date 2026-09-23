@@ -248,8 +248,8 @@ fn get_task_dump_region(
 
     let rval = if rindex == 0 {
         Some(abi::TaskDumpRegion {
-            base: &tasks[index as usize] as *const _ as u32,
-            size: size_of::<Task>() as u32,
+            base: abi::Addr::from_ptr(&tasks[index as usize]),
+            size: size_of::<Task>(),
         })
     } else {
         tasks[index as usize]
@@ -258,8 +258,8 @@ fn get_task_dump_region(
             .filter(|r| r.dumpable())
             .nth(rindex as usize - 1)
             .map(|r| abi::TaskDumpRegion {
-                base: r.base as u32,
-                size: r.size as u32,
+                base: r.base,
+                size: r.size,
             })
     };
 
@@ -314,9 +314,8 @@ fn read_task_dump_region(
     // Note that if the supervisor passes an illegal base+size combination here,
     // we're going to kill the supervisor, implying a reboot. This is the best
     // we can do, since the supervisor is malfunctioning.
-    let from =
-        USlice::<u8>::from_raw(region.base as usize, region.size as usize)
-            .map_err(FaultInfo::SyscallUsage)?;
+    let from = USlice::<u8>::from_raw(region.base, region.size)
+        .map_err(FaultInfo::SyscallUsage)?;
 
     //
     // If we are being asked to copy out the target task structure (and only
@@ -325,12 +324,12 @@ fn read_task_dump_region(
     // case, which will fail.)
     //
     let tcb_size = size_of::<Task>();
-    let tcb_base = target_task as *mut _ as usize;
+    let tcb_base = abi::Addr::from_mut_ptr(target_task);
     // Because target_task comes from a reference, we can compute the
     // one-past-the-end address for it without overflow (i.e. it is guaranteed
     // not to be up against the top of the address space). So we use a wrapping
     // add here because the compiler can't see that and wants an overflow check.
-    let tcb_end = tcb_base.wrapping_add(tcb_size);
+    let tcb_end = tcb_base.wrapping_byte_add(tcb_size);
 
     let response_len =
         if from.base_addr() >= tcb_base && from.end_addr() <= tcb_end {
@@ -371,8 +370,8 @@ fn read_task_dump_region(
             // Now let's grab the requested portion as a sub-slice. This should
             // succeed (see: the comparisons between base+size and region.size
             // above).
-            let offset = from.base_addr() - tcb_base;
-            let end = offset + from.len();
+            let offset = from.base_addr().as_usize() - tcb_base.as_usize();
+            let end = offset.wrapping_add(from.len());
             let tcb = &target_task[offset..end];
 
             let to = caller_task

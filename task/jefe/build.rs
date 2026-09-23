@@ -198,8 +198,8 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
     writeln!(
         out,
         r##"
-pub(crate) const DUMP_ADDRESS_MIN: u32 = {min:#x};
-pub(crate) const DUMP_ADDRESS_MAX: u32 = {max:#x};"##
+pub(crate) const DUMP_ADDRESS_MIN: usize = {min:#x};
+pub(crate) const DUMP_ADDRESS_MAX: usize = {max:#x};"##
     )?;
 
     Ok(())
