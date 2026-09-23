@@ -346,24 +346,27 @@ impl Addr {
         Self::new(self.as_usize().wrapping_sub(offset))
     }
 
-    /// Checks whether this `Addr` is properly aligned for the given type `T`.
-    #[inline]
-    pub fn is_aligned_for<T>(&self) -> bool {
-        self.as_ptr::<T>().is_aligned()
-    }
-
     /// Decrement this `Addr` by `offset` bytes, returning `None` if the
     /// resulting address would underflow.
     #[inline]
-    pub fn checked_byte_sub(self, offset: usize) -> Option<Self> {
-        self.as_usize().checked_sub(offset).map(Self::new)
+    pub const fn checked_byte_sub(self, offset: usize) -> Option<Self> {
+        match self.as_usize().checked_sub(offset) {
+            Some(u) => Some(Self::new(u)),
+            None => None,
+        }
     }
 
     /// Decrement this `Addr` by `offset` bytes, clamping to the 0-addr if
     /// the resulting address would underflow.
     #[inline]
-    pub fn saturating_byte_sub(self, offset: usize) -> Self {
+    pub const fn saturating_byte_sub(self, offset: usize) -> Self {
         Self::new(self.as_usize().saturating_sub(offset))
+    }
+
+    /// Checks whether this `Addr` is properly aligned for the given type `T`.
+    #[inline]
+    pub fn is_aligned_for<T>(&self) -> bool {
+        self.as_ptr::<T>().is_aligned()
     }
 }
 
