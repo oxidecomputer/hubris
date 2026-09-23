@@ -395,11 +395,11 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
     let size = *size as usize;
     quote::quote! {
         RegionDesc {
-            base: #base,
+            base: abi::Addr::new(#base),
             size: #size,
             attributes: #atts,
             arch_data: crate::arch::compute_region_extension_data(
-                #base, #size, #atts,
+                abi::Addr::new(#base), #size, #atts,
             ),
         }
     }

@@ -104,7 +104,7 @@ impl Task {
             unsafe { Ok(slice.assume_readable()) }
         } else {
             Err(FaultInfo::MemoryAccess {
-                address: Some(Addr::new(slice.base_addr())),
+                address: Some(slice.base_addr()),
                 source: FaultSource::Kernel,
             })
         }
@@ -140,7 +140,7 @@ impl Task {
             unsafe { Ok(slice.assume_readable_raw()) }
         } else {
             Err(FaultInfo::MemoryAccess {
-                address: Some(Addr::new(slice.base_addr())),
+                address: Some(slice.base_addr()),
                 source: FaultSource::Kernel,
             })
         }
@@ -178,7 +178,7 @@ impl Task {
             unsafe { Ok(slice.assume_writable()) }
         } else {
             Err(FaultInfo::MemoryAccess {
-                address: Some(Addr::new(slice.base_addr())),
+                address: Some(slice.base_addr()),
                 source: FaultSource::Kernel,
             })
         }
@@ -472,15 +472,15 @@ pub trait ArchState: Default {
             callee: TaskId((self.arg0() >> 16) as u16),
             operation: self.arg0() as u16,
             message: USlice::from_raw(
-                self.arg1() as usize,
+                Addr::new(self.arg1() as usize),
                 self.arg2() as usize,
             ),
             response: USlice::from_raw(
-                self.arg3() as usize,
+                Addr::new(self.arg3() as usize),
                 self.arg4() as usize,
             ),
             lease_table: USlice::from_raw(
-                self.arg5() as usize,
+                Addr::new(self.arg5() as usize),
                 self.arg6() as usize,
             ),
         }
@@ -495,7 +495,7 @@ pub trait ArchState: Default {
     fn as_recv_args(&self) -> RecvArgs {
         RecvArgs {
             buffer: USlice::from_raw(
-                self.arg0() as usize,
+                Addr::new(self.arg0() as usize),
                 self.arg1() as usize,
             ),
             notification_mask: self.arg2(),
@@ -516,7 +516,7 @@ pub trait ArchState: Default {
             callee: TaskId(self.arg0() as u16),
             response_code: self.arg1(),
             message: USlice::from_raw(
-                self.arg2() as usize,
+                Addr::new(self.arg2() as usize),
                 self.arg3() as usize,
             ),
         }
@@ -555,7 +555,7 @@ pub trait ArchState: Default {
             lease_number: self.arg1() as usize,
             offset: self.arg2() as usize,
             buffer: USlice::from_raw(
-                self.arg3() as usize,
+                Addr::new(self.arg3() as usize),
                 self.arg4() as usize,
             ),
         }
@@ -574,7 +574,7 @@ pub trait ArchState: Default {
     fn as_panic_args(&self) -> PanicArgs {
         PanicArgs {
             message: USlice::from_raw(
-                self.arg0() as usize,
+                Addr::new(self.arg0() as usize),
                 self.arg1() as usize,
             ),
         }

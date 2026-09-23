@@ -73,6 +73,7 @@
 use core::arch::{self, global_asm};
 use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
+use abi::Addr;
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::atomic::AtomicExt;
@@ -82,7 +83,7 @@ use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
 #[cfg(any(armv7m, armv8m))]
-use abi::{Addr, FaultSource};
+use abi::FaultSource;
 use abi::{FaultInfo, InterruptNum, UsageError};
 #[cfg(armv8m)]
 use armv8_m_mpu::{disable_mpu, enable_mpu};
@@ -278,22 +279,24 @@ pub unsafe fn set_clock_freq(tick_divisor: u32) {
 
 pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
-    let initial_stack = task.descriptor().initial_stack as usize;
+    let initial_stack = Addr::new(task.descriptor().initial_stack as usize);
 
     // Modern ARMvX-M machines require 8-byte stack alignment. Make sure that's
     // still true. Note that this carries the risk of panic on task re-init if
     // the task table is corrupted -- this is deliberate.
-    uassert!(initial_stack & 0x7 == 0);
+    uassert!(initial_stack.is_aligned_for::<u64>());
 
     // The remaining state is stored on the stack.
     // Use checked operations to get a reference to the exception frame.
     let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
     // The subtract below can overflow if the task table is corrupt -- let's
     // make that failure a little easier to read:
-    uassert!(initial_stack >= frame_size);
+    let Some(new_base) = initial_stack.checked_byte_sub(frame_size) else {
+        panic!();
+    };
     // Ok. Generate a uslice for the task's starting stack frame.
     let mut frame_uslice: USlice<ExtendedExceptionFrame> =
-        USlice::from_raw(initial_stack - frame_size, 1).unwrap_lite();
+        USlice::from_raw(new_base, 1).unwrap_lite();
 
     // Before we set our frame, find the region that contains the top word of
     // the stack -- one word below the initial stack pointer -- and zap the
@@ -306,7 +309,7 @@ pub fn reinitialize(task: &mut task::Task) {
     // and we don't trust tasks.)
     if let Some((index, mut region)) =
         task.region_table().iter().enumerate().find(|(_i, region)| {
-            region.contains(initial_stack.saturating_sub(4))
+            region.contains(initial_stack.saturating_byte_sub(4))
         })
     {
         // The stack may span multiple contiguous regions; iterate backwards
@@ -319,7 +322,7 @@ pub fn reinitialize(task: &mut task::Task) {
             // If the region table is corrupt such that a region descriptor
             // overflows a u32, then bail out.
             let Some(prev_region_end) =
-                prev_region.base.checked_add(prev_region.size)
+                prev_region.base.checked_byte_add(prev_region.size)
             else {
                 okay = false;
                 break;
@@ -339,10 +342,13 @@ pub fn reinitialize(task: &mut task::Task) {
         // occur, don't crash the entire system, since this is a diagnostic tool
         // -- just skip filling the stack.
         if okay
+            && let Some(new_base) = initial_stack.checked_byte_sub(frame_size)
             && let Some(region_size) =
-                (initial_stack - frame_size).checked_sub(region.base)
-            && let Ok(mut uslice) =
-                USlice::<u32>::from_raw(region.base, region_size >> 2)
+                new_base.checked_byte_sub(region.base.as_usize())
+            && let Ok(mut uslice) = USlice::<u32>::from_raw(
+                region.base,
+                region_size.as_usize() >> 2,
+            )
         {
             // This one, we're unwrapping rather than tolerating failure. This
             // is because try_write failing would indicate an invalid region
@@ -393,11 +399,12 @@ pub struct RegionDescExt {
 
 #[cfg(any(armv6m, armv7m))]
 pub const fn compute_region_extension_data(
-    base: usize,
+    base: Addr,
     size: usize,
     attributes: RegionAttributes,
 ) -> RegionDescExt {
-    let base = base as u32;
+    // Cortex-M is 32-bits, Addr -> usize -> u32 is a lossless conversion
+    let base = base.as_usize() as u32;
     let size = size as u32;
     // This platform requires 32-byte alignment of all regions.
     if base & 0x1F != 0 {
@@ -545,11 +552,12 @@ pub struct RegionDescExt {
 
 #[cfg(armv8m)]
 pub const fn compute_region_extension_data(
-    base: usize,
+    base: Addr,
     size: usize,
     ratts: RegionAttributes,
 ) -> RegionDescExt {
-    let base = base as u32;
+    // Cortex-M is 32-bits, Addr -> usize -> u32 is a lossless conversion
+    let base = base.as_usize() as u32;
     let size = size as u32;
     // This MPU requires that all regions are 32-byte aligned...in part
     // because it stuffs extra stuff into the bottom five bits.

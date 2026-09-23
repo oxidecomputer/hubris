@@ -11,6 +11,8 @@
 
 use core::cmp::Ordering;
 
+use abi::Addr;
+
 /// Describes types that act as "slices" (in the very abstract sense) referenced
 /// by tasks in syscalls.
 ///
@@ -35,7 +37,7 @@ pub trait UserSlice {
     ///
     /// The value returned by `base_addr` must be less than or equal to that
     /// returned by `end_addr`.
-    fn base_addr(&self) -> usize;
+    fn base_addr(&self) -> Addr;
 
     /// The address of the first byte _not_ included in this slice, past the
     /// end.
@@ -46,7 +48,7 @@ pub trait UserSlice {
     ///
     /// The return value must be greater than or equal to the result of
     /// `base_addr`.
-    fn end_addr(&self) -> usize;
+    fn end_addr(&self) -> Addr;
 }
 
 impl<T: UserSlice> UserSlice for &T {
@@ -56,12 +58,12 @@ impl<T: UserSlice> UserSlice for &T {
     }
 
     #[inline(always)]
-    fn base_addr(&self) -> usize {
+    fn base_addr(&self) -> Addr {
         (**self).base_addr()
     }
 
     #[inline(always)]
-    fn end_addr(&self) -> usize {
+    fn end_addr(&self) -> Addr {
         (**self).end_addr()
     }
 }
@@ -81,9 +83,9 @@ impl<T: UserSlice> UserSlice for &T {
 ///
 /// An empty region is weird but not impossible.
 pub trait MemoryRegion {
-    fn contains(&self, addr: usize) -> bool;
-    fn base_addr(&self) -> usize;
-    fn end_addr(&self) -> usize;
+    fn contains(&self, addr: Addr) -> bool;
+    fn base_addr(&self) -> Addr;
+    fn end_addr(&self) -> Addr;
 }
 
 /// Compares a memory region to an address for use in binary-searching a region
@@ -93,7 +95,7 @@ pub trait MemoryRegion {
 /// if the address is lower, `Less` if the address is higher. i.e. it returns
 /// the status of the region relative to the address, not vice versa.
 #[inline(always)]
-fn region_compare(region: &impl MemoryRegion, addr: usize) -> Ordering {
+fn region_compare(region: &impl MemoryRegion, addr: Addr) -> Ordering {
     if addr < region.base_addr() {
         Ordering::Greater
     } else if addr >= region.end_addr() {
@@ -105,17 +107,17 @@ fn region_compare(region: &impl MemoryRegion, addr: usize) -> Ordering {
 
 impl<T: MemoryRegion> MemoryRegion for &T {
     #[inline(always)]
-    fn contains(&self, addr: usize) -> bool {
+    fn contains(&self, addr: Addr) -> bool {
         (**self).contains(addr)
     }
 
     #[inline(always)]
-    fn base_addr(&self) -> usize {
+    fn base_addr(&self) -> Addr {
         (**self).base_addr()
     }
 
     #[inline(always)]
-    fn end_addr(&self) -> usize {
+    fn end_addr(&self) -> Addr {
         (**self).end_addr()
     }
 }

@@ -290,6 +290,12 @@ impl Addr {
         Self(ptr as usize)
     }
 
+    /// Records the address of `ptr`.
+    #[inline]
+    pub fn from_mut_ptr<T>(ptr: *mut T) -> Self {
+        Self(ptr as usize)
+    }
+
     /// Returns the address as an integer.
     #[inline]
     pub const fn as_usize(self) -> usize {
@@ -318,14 +324,46 @@ impl Addr {
 
     /// Advances the address by `offset` bytes, or returns `None` if the result
     /// would wrap around the end of the address space.
-    ///
-    /// TODO(AJM): give this a name like "byte_add" or something.
     #[inline]
-    pub const fn checked_add(self, offset: usize) -> Option<Self> {
+    pub const fn checked_byte_add(self, offset: usize) -> Option<Self> {
         match self.0.checked_add(offset) {
             Some(address) => Some(Self(address)),
             None => None,
         }
+    }
+
+    /// Advances the address by `offset` bytes, potentially wrapping around the
+    /// address space.
+    #[inline]
+    pub const fn wrapping_byte_add(self, offset: usize) -> Self {
+        Self::new(self.as_usize().wrapping_add(offset))
+    }
+
+    /// Decrements the address by `offset` bytes, potentially wrapping around
+    /// the address space.
+    #[inline]
+    pub const fn wrapping_byte_sub(self, offset: usize) -> Self {
+        Self::new(self.as_usize().wrapping_sub(offset))
+    }
+
+    /// Checks whether this `Addr` is properly aligned for the given type `T`.
+    #[inline]
+    pub fn is_aligned_for<T>(&self) -> bool {
+        self.as_ptr::<T>().is_aligned()
+    }
+
+    /// Decrement this `Addr` by `offset` bytes, returning `None` if the
+    /// resulting address would underflow.
+    #[inline]
+    pub fn checked_byte_sub(self, offset: usize) -> Option<Self> {
+        self.as_usize().checked_sub(offset).map(Self::new)
+    }
+
+    /// Decrement this `Addr` by `offset` bytes, clamping to the 0-addr if
+    /// the resulting address would underflow.
+    #[inline]
+    pub fn saturating_byte_sub(self, offset: usize) -> Self {
+        Self::new(self.as_usize().saturating_sub(offset))
     }
 }
 
