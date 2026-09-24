@@ -31,7 +31,9 @@ differently:
 
 - The supervisor task is allowed to send any kernel IPC message.
 
-- If the supervisor task crashes, **the system reboots.**
+- If the supervisor task crashes, **the system is assumed to stop working.**
+  The intent is to make the exact behavior application controlled, but the
+  implementation is not yet done.
 
 == What does the supervisor do?
 
