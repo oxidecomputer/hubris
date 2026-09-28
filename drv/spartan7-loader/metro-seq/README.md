@@ -1,1 +1,1 @@
-THIS IS NOT A REAL METRO IMAGE JUST A COPY OF COSMO AS A PLACEHOLDER
+FPGA images and collateral are generated from some hw guy's local build

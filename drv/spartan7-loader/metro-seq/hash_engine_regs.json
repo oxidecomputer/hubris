@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 64,
+    "addr_span_bytes": 108,
     "inst_name": "hash_engine_regs",
     "addr_offset": 0,
     "children": [
@@ -60,6 +60,10 @@
                         {
                             "name": "HOST_QSPI",
                             "value": 1
+                        },
+                        {
+                            "name": "AUX_QSPI",
+                            "value": 2
                         }
                     ]
                 }
@@ -384,6 +388,270 @@
             "type": "reg",
             "inst_name": "DIGEST7",
             "addr_offset": 60,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_FLASH_ADDR",
+            "addr_offset": 64,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "addr",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash byte address"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_LENGTH",
+            "addr_offset": 68,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Message length in bytes"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_STATUS",
+            "addr_offset": 72,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "busy",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A hardware-requested run is in flight."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "done",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The run completed and HW_DIGEST holds its result."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "cfg_err",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The run was refused as a configuration error, see HW_LENGTH."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "aborted",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The run was ended early by CONTROL.abort."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "engine_busy",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The request arrived while a software-started hash was running\nand was refused; the software run was left alone."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_DIGEST0",
+            "addr_offset": 76,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_DIGEST1",
+            "addr_offset": 80,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_DIGEST2",
+            "addr_offset": 84,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_DIGEST3",
+            "addr_offset": 88,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_DIGEST4",
+            "addr_offset": 92,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_DIGEST5",
+            "addr_offset": 96,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_DIGEST6",
+            "addr_offset": 100,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "32 bits of the digest"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HW_DIGEST7",
+            "addr_offset": 104,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [

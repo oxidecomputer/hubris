@@ -1,8 +1,8 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 49408,
-    "inst_name": "cosmo_seq_top",
-    "orig_type_name": "cosmo_seq_top",
+    "addr_span_bytes": 82176,
+    "inst_name": "metro_seq_top",
+    "orig_type_name": "metro_seq_top",
     "addr_offset": 0,
     "children": [
         {
@@ -23,7 +23,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 104,
+            "addr_span_bytes": 120,
             "inst_name": "sequencer",
             "orig_type_name": "sequencer_regs",
             "addr_offset": 512,
@@ -63,10 +63,26 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 64,
+            "addr_span_bytes": 108,
             "inst_name": "hash",
             "orig_type_name": "hash_engine_regs",
             "addr_offset": 1792,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 48,
+            "inst_name": "versal_flash",
+            "orig_type_name": "spi_nor_regs",
+            "addr_offset": 2048,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 8,
+            "inst_name": "versal_flash_ctrl",
+            "orig_type_name": "versal_flash_regs",
+            "addr_offset": 2304,
             "children": []
         },
         {
@@ -75,6 +91,23 @@
             "inst_name": "espi",
             "orig_type_name": "espi_regs",
             "addr_offset": 32768,
+            "children": [
+                {
+                    "type": "addrmap",
+                    "addr_span_bytes": 72,
+                    "inst_name": "spec_regs",
+                    "orig_type_name": "eSPI_Spec",
+                    "addr_offset": 128,
+                    "children": []
+                }
+            ]
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 16640,
+            "inst_name": "espi1",
+            "orig_type_name": "espi_regs",
+            "addr_offset": 65536,
             "children": [
                 {
                     "type": "addrmap",
