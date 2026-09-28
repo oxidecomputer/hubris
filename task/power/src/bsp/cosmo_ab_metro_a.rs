@@ -12,7 +12,14 @@ use drv_i2c_devices::{lm5066i::*, max5970::*};
 use ringbuf::*;
 use userlib::units::*;
 
+// NOTE: Cosmo and Metro *happen* to both have 43 controllers, the diff is
+//
+// - `v0p96_nic_vdd_a0hp` - Cosmo only
+// - `v0p8_nic_vccint_a0hp` - Metro only
+// - `v0p88_nic_a0hp` - Metro only
+// - `v12_mcio_a0hp` - Cosmo only
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 43;
+
 const MAX5970_CONFIG_LEN: usize = 22;
 
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
@@ -28,7 +35,12 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     rail_controller!(Sys, tps546B24A, v3p3_sp_a2, A2),
     rail_controller!(Sys, tps546B24A, v5_sys_a2, A2),
     rail_controller!(Sys, tps546B24A, v1p8_sys_a2, A2),
+    #[cfg(feature = "cosmo")]
     rail_controller!(Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
+    #[cfg(feature = "metro")]
+    rail_controller_notemp!(Core, isl68224, v0p8_nic_vccint_a0hp, A0), // A0+HP
+    #[cfg(feature = "metro")]
+    rail_controller_notemp!(Core, isl68224, v0p88_nic_a0hp, A0), // A0+HP
     adm127x_controller!(HotSwap, v54p5_ibc_a3, A2, Ohms(0.000_750)),
     lm5066i_controller!(
         Fan,
@@ -73,6 +85,7 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     max5970_controller!(HotSwapIO, v3p3_u2i_a0, A0, Ohms(0.005)),
     max5970_controller!(HotSwapIO, v12_u2j_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.005)),
+    #[cfg(feature = "cosmo")]
     ltc4282_controller!(HotSwapIO, v12_mcio_a0hp, A0, Ohms(0.001)),
     ltc4282_controller!(HotSwapIO, v12_ddr5_abcdef_a0, A0, Ohms(0.001)),
     ltc4282_controller!(HotSwapIO, v12_ddr5_ghijkl_a0, A0, Ohms(0.001)),
@@ -81,7 +94,10 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
 ];
 
 pub(crate) fn get_state() -> PowerState {
+    #[cfg(feature = "cosmo")]
     userlib::task_slot!(SEQUENCER, cosmo_seq);
+    #[cfg(feature = "metro")]
+    userlib::task_slot!(SEQUENCER, metro_seq);
 
     use drv_cpu_seq_api as seq_api;
 

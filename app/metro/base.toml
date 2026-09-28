@@ -162,9 +162,7 @@ stacksize = 1712
 start = true
 task-slots = ["jefe"]
 features = [
-    # TODO: Requires defining a `metro` feature
-    # TODO: Requires `metro_seq` task
-    # "metro",
+    "metro",
     "ereport",
 ]
 notifications = ["task-faulted"]
@@ -178,42 +176,37 @@ start = true
 stacksize = 512
 task-slots = ["sys", "packrat"]
 
-# [tasks.thermal]
-# name = "task-thermal"
-# features = ["metro"]
-# priority = 8
-# max-sizes = {flash = 32768, ram = 8192 }
-# stacksize = 3000
-# start = true
-# task-slots = ["i2c_driver", "sensor", "metro_seq", "jefe"]
-# notifications = ["timer"]
+[tasks.thermal]
+name = "task-thermal"
+features = ["metro"]
+priority = 8
+max-sizes = {flash = 32768, ram = 8192 }
+stacksize = 3000
+start = true
+task-slots = ["i2c_driver", "sensor", "metro_seq", "packrat"]
+notifications = ["timer"]
 
-# [tasks.power]
-# name = "task-power"
-# features = ["metro"]
-# priority = 8
-# max-sizes = {flash = 65536, ram = 16384 }
-# stacksize = 3800
-# start = true
-# task-slots = ["i2c_driver", "sensor", "metro_seq"]
-# notifications = ["timer"]
+[tasks.power]
+name = "task-power"
+features = ["metro"]
+priority = 8
+max-sizes = {flash = 65536, ram = 16384 }
+stacksize = 3800
+start = true
+task-slots = ["i2c_driver", "sensor", "metro_seq"]
+notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
 features = [
     "gpio",
     "h753",
+    "hash",
     "i2c",
+    "qspi",
     "spi",
     "stm32h7",
     "turbo",
-
-    # TODO: Re-enable these once the tasks are available!
-    # "hash",
-    #
-    # NOTE: We have qspi, but not `hf`, and this feature gates the task slot for
-    # the `hf` task.
-    # "qspi",
 ]
 priority = 7
 max-sizes = {flash = 32768, ram = 65536 }
@@ -224,9 +217,8 @@ task-slots = [
     "net",
     "sys",
     "update_server",
-    # TODO: Re-enable these once the tasks are available!
-    # "hf",
-    # "hash_driver",
+    "hf",
+    "hash_driver",
 ]
 notifications = ["timer"]
 
@@ -241,13 +233,13 @@ task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat
 uses = ["mmio_sequencer", "mmio_info", "mmio_espi", "mmio_debug_ctrl"]
 notifications = ["timer", "vcore", "seq-irq"]
 
-# [tasks.ignition_flash]
-# name = "drv-ignition-flash"
-# priority = 7
-# stacksize = 1200
-# start = true
-# task-slots = ["sys", {spi_front = "spi3_driver"}, "spartan7_loader"]
-# uses = ["mmio_sequencer"] # TODO make the mux a separate peripheral
+[tasks.ignition_flash]
+name = "drv-ignition-flash"
+priority = 7
+stacksize = 1200
+start = true
+task-slots = ["sys", {spi_front = "spi3_driver"}, "spartan7_loader"]
+uses = ["mmio_sequencer"] # TODO make the mux a separate peripheral
 
 [tasks.spartan7_loader]
 name = "drv-spartan7-loader"
