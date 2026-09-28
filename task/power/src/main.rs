@@ -536,7 +536,7 @@ macro_rules! mwocp68_controller {
     any(
         target_board = "sidecar-b",
         target_board = "sidecar-c",
-        target_board = "sidecar-d"
+        target_board = "sidecar-d",
     ),
     path = "bsp/sidecar_bcd.rs"
 )]
@@ -546,8 +546,12 @@ macro_rules! mwocp68_controller {
     path = "bsp/minibar.rs"
 )]
 #[cfg_attr(
-    any(target_board = "cosmo-a", target_board = "cosmo-b",),
-    path = "bsp/cosmo_ab.rs"
+    any(
+        target_board = "cosmo-a",
+        target_board = "cosmo-b",
+        target_board = "metro-a",
+    ),
+    path = "bsp/cosmo_ab_metro_a.rs"
 )]
 mod bsp;
 
