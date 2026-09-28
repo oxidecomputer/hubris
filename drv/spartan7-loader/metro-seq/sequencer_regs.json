@@ -1651,6 +1651,10 @@
                         {
                             "name": "MEASURING",
                             "value": 5
+                        },
+                        {
+                            "name": "DISABLE_POWER",
+                            "value": 6
                         }
                     ]
                 }
@@ -1707,15 +1711,15 @@
                             "value": 7
                         },
                         {
-                            "name": "CORE_EN",
+                            "name": "IO_EN",
                             "value": 8
                         },
                         {
-                            "name": "AUX_EN",
+                            "name": "V0P88_EN",
                             "value": 9
                         },
                         {
-                            "name": "IO_EN",
+                            "name": "VCCINT_EN",
                             "value": 10
                         },
                         {
@@ -1741,6 +1745,26 @@
                         {
                             "name": "WAIT_DONE",
                             "value": 16
+                        },
+                        {
+                            "name": "VCCAUX_EN",
+                            "value": 17
+                        },
+                        {
+                            "name": "GT_AVCC_EN",
+                            "value": 18
+                        },
+                        {
+                            "name": "AVCCAUX_EN",
+                            "value": 19
+                        },
+                        {
+                            "name": "GT_AVTT_EN",
+                            "value": 20
+                        },
+                        {
+                            "name": "POWER_DOWN",
+                            "value": 21
                         }
                     ]
                 }
@@ -3078,6 +3102,17 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Let other logic run but directly force mfg mode_l to be asserted when set"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "a0hp_inhibit",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Hold the NIC (A0HP) sequencer off while leaving A0 alone. While set, a0_en does\nnot reach the NIC sequencer and a PERST de-assertion from the SP5 does not restart\nit after a fault. Setting it with the NIC up powers the NIC down as a software\ndisable would, without a fault. Clearing it while a0_en is set starts the NIC sequence."
                 }
             ]
         },
