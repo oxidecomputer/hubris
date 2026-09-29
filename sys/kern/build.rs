@@ -182,8 +182,8 @@ fn process_config() -> Result<Generated> {
         task_descs.push(quote::quote! {
             TaskDesc {
                 regions: [#(&HUBRIS_REGION_DESCS[#regions]),*],
-                entry_point: #entry_point,
-                initial_stack: #initial_stack,
+                entry_point: abi::Addr::new(#entry_point as usize),
+                initial_stack: abi::Addr::new(#initial_stack as usize),
                 priority: #priority,
                 index: #index,
                 flags: #flags,
@@ -395,11 +395,11 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
     let size = *size as usize;
     quote::quote! {
         RegionDesc {
-            base: #base,
+            base: abi::Addr::new(#base),
             size: #size,
             attributes: #atts,
             arch_data: crate::arch::compute_region_extension_data(
-                #base, #size, #atts,
+                abi::Addr::new(#base), #size, #atts,
             ),
         }
     }

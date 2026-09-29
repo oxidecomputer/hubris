@@ -174,9 +174,12 @@ impl ServerImpl {
                     task_index,
                     start,
                     length,
-                } => self
-                    .dump_task_region(task_index, start, length)
-                    .map(Response::DumpTaskRegion)?,
+                } => {
+                    let h_start = userlib::Addr::new(start as usize);
+                    let h_length = length as usize;
+                    self.dump_task_region(task_index, h_start, h_length)
+                        .map(Response::DumpTaskRegion)?
+                }
                 Request::ReinitializeDumpFrom { index } => self
                     .reinitialize_dump_from(index)
                     .map(|()| Response::ReinitializeDumpFrom)?,
