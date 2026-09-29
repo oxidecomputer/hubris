@@ -65,6 +65,7 @@ use inventory::INVENTORY_API_VERSION;
     any(target_board = "cosmo-a", target_board = "cosmo-b",),
     path = "bsp/cosmo_ab.rs"
 )]
+#[cfg_attr(any(target_board = "metro-a",), path = "bsp/metro_a.rs")]
 mod bsp;
 
 use bsp::SP_TO_HOST_CPU_INT_L;
