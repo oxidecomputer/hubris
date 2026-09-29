@@ -1,0 +1,92 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 8,
+    "inst_name": "versal_flash_regs",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "mux_ctrl",
+            "addr_offset": 0,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "request",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to 1 to ask for the Versal's boot flash."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "mux_status",
+            "addr_offset": 4,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "granted",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set when the FPGA actually owns the flash: the sequencer\nclaimed it, or the request was made and the sequencer is holding\nthe Versal in reset."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "seq_owned",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set while the sequencer itself is claiming the flash for\nthe FPGA, during the pre-boot measurement and after the Versal has\nbooted."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "mux_sel",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Live readback of the mux select pin (From FPGA to the mux)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "mux_en_l",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Live readback of the mux enable pin, active low (From FPGA to the mux)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "versal_held_in_reset",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Live readback of whether the sequencer is holding the Versal\nin reset, i.e. whether a request would be granted."
+                }
+            ]
+        }
+    ]
+}
