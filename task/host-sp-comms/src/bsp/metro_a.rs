@@ -29,7 +29,7 @@ pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 72;
+    pub(crate) const INVENTORY_COUNT: u32 = 73;
 
     /// Look up a device in our inventory, by index
     ///
@@ -179,8 +179,12 @@ impl ServerImpl {
                     Ok(self.scratch)
                 })
             }
-            26 => {
-                let (dev, sensors) = by_refdes!(U116, isl68224);
+            26..=27 => {
+                let (dev, sensors) = match index - 26 {
+                    0 => by_refdes!(U116, isl68224),
+                    1 => by_refdes!(U18, isl68224),
+                    _ => unreachable!(),
+                };
                 let name = dev.component_id().as_bytes();
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
@@ -227,8 +231,8 @@ impl ServerImpl {
                     Ok(self.scratch)
                 })
             }
-            27..=28 => {
-                let (dev, sensors) = match index - 27 {
+            28..=29 => {
+                let (dev, sensors) = match index - 28 {
                     0 => by_refdes!(U90, raa229620a),
                     1 => by_refdes!(U103, raa229620a),
                     _ => unreachable!(),
@@ -284,8 +288,8 @@ impl ServerImpl {
                     Ok(self.scratch)
                 })
             }
-            29..=31 => {
-                let (dev, sensors) = match index - 29 {
+            30..=32 => {
+                let (dev, sensors) = match index - 30 {
                     0 => by_refdes!(U81, tps546b24a),
                     1 => by_refdes!(U82, tps546b24a),
                     2 => by_refdes!(U83, tps546b24a),
@@ -343,7 +347,7 @@ impl ServerImpl {
                     Ok(self.scratch)
                 })
             }
-            32 => {
+            33 => {
                 let (dev, sensors) = by_refdes!(U79, adm127x);
                 let name = dev.component_id().as_bytes();
                 *self.scratch = InventoryData::Adm127x {
@@ -380,8 +384,8 @@ impl ServerImpl {
                     Ok(self.scratch)
                 })
             }
-            33..=35 => {
-                let (dev, sensors) = match index - 33 {
+            34..=36 => {
+                let (dev, sensors) = match index - 34 {
                     0 => by_refdes!(U71, lm5066i),
                     1 => by_refdes!(U72, lm5066i),
                     2 => by_refdes!(U73, lm5066i),
@@ -418,8 +422,8 @@ impl ServerImpl {
                     Ok(self.scratch)
                 })
             }
-            36..=40 => {
-                let (dev, sensors) = match index - 36 {
+            37..=41 => {
+                let (dev, sensors) = match index - 37 {
                     0 => by_refdes!(J44_U1, tmp117),
                     1 => by_refdes!(J45_U1, tmp117),
                     2 => by_refdes!(J46_U1, tmp117),
@@ -429,7 +433,7 @@ impl ServerImpl {
                 };
                 self.read_tmp117(sequence, dev, sensors.temperature)
             }
-            41 => {
+            42 => {
                 let spi = drv_spi_api::Spi::from(SPI.get_task_id());
                 let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
                 let ksz8463 = ksz8463::Ksz8463::new(ksz8463_dev);
@@ -444,8 +448,8 @@ impl ServerImpl {
                     Ok(self.scratch)
                 });
             }
-            42..=53 => {
-                let i = index - 42;
+            43..=54 => {
+                let i = index - 43;
                 let (dev, sensors) = match i {
                     0 => by_refdes!(J200_U1, max5970),
                     1 => by_refdes!(J201_U1, max5970),
@@ -469,7 +473,7 @@ impl ServerImpl {
                 self.tx_buf
                     .try_encode_inventory(sequence, name, || Ok(self.scratch));
             }
-            54 => {
+            55 => {
                 let (dev, sensors) = by_refdes!(U58, max31790);
                 let name = dev.component_id().as_bytes();
                 *self.scratch = InventoryData::Max31790 {
@@ -478,8 +482,8 @@ impl ServerImpl {
                 self.tx_buf
                     .try_encode_inventory(sequence, name, || Ok(self.scratch));
             }
-            55..=56 => {
-                let (dev, sensors) = match index - 55 {
+            56..=57 => {
+                let (dev, sensors) = match index - 56 {
                     0 => by_refdes!(U42, ltc4282),
                     1 => by_refdes!(U127, ltc4282),
                     _ => unreachable!(),
@@ -493,11 +497,11 @@ impl ServerImpl {
                     .try_encode_inventory(sequence, name, || Ok(self.scratch))
             }
 
-            57..=68 => {
-                self.dimm_inventory_lookup(sequence, index as u8 - 59);
+            58..=69 => {
+                self.dimm_inventory_lookup(sequence, index as u8 - 58);
             }
 
-            69 => {
+            70 => {
                 let aux =
                     drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
                 self.tx_buf.try_encode_inventory(sequence, b"U21", || {
@@ -511,7 +515,7 @@ impl ServerImpl {
                 });
             }
 
-            70 => {
+            71 => {
                 let hf = drv_hf_api::HostFlash::from(HOST_FLASH.get_task_id());
                 self.tx_buf.try_encode_inventory(sequence, b"U28", || {
                     let id = hf
@@ -529,7 +533,7 @@ impl ServerImpl {
                 });
             }
 
-            71 => {
+            72 => {
                 // J34/ID: Fan VPD barcode (again, but in the V2 format, this
                 // time!)
                 let dev =
