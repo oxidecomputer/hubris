@@ -33,5 +33,6 @@ pub(crate) use by_refdes;
     target_board = "gimlet-f",
     target_board = "cosmo-a",
     target_board = "cosmo-b",
+    target_board = "metro-a",
 ))]
 pub(crate) mod compute_sled_common;

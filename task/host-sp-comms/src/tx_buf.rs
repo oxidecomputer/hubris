@@ -143,7 +143,7 @@ impl TxBuf {
         matches!(self.state, State::Idle)
     }
 
-    #[cfg(any(feature = "grapefruit", feature = "cosmo"))]
+    #[cfg(any(feature = "grapefruit", feature = "cosmo", feature = "metro"))]
     pub(crate) fn should_send_periodic_zero_bytes(&self) -> bool {
         false
     }
