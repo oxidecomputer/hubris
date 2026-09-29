@@ -40,7 +40,7 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
 # host_sp_comms = "jefe-state-change"
-# spd = "jefe-state-change"
+spd = "jefe-state-change"
 
 [tasks.jefe.config.on-task-fault]
 packrat = "task-faulted"
