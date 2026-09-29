@@ -8,7 +8,7 @@ name = "metro"
 requires = {flash = 32768, ram = 8192}
 features = [
     "dump",
-    # "measurement-handoff",
+    "measurement-handoff",
 ]
 extern-regions = [{ region = "dtcm", shared = true }]
 
