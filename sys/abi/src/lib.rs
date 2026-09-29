@@ -185,7 +185,8 @@ pub struct Interrupt {
 /// kernel.
 ///
 /// Ideally, this would be some kind of opaque pointer, like `*const/*mut ()`,
-/// however that doesn't play nice with `FromBytes`.
+/// however that doesn't play nice with `FromBytes`. For details, see:
+/// https://github.com/google/zerocopy/issues/1818
 ///
 /// We use this type to signify "yes we believe the contained value is
 /// pointer-ish". The kernel will still need to perform validation before using
