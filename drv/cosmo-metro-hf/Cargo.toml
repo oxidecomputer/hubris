@@ -30,6 +30,9 @@ build-util = { path = "../../build/util" }
 build-fpga-regmap = { path = "../../build/fpga-regmap" }
 idol = { workspace = true }
 
+[features]
+metro = []
+
 [[bin]]
 name = "drv-cosmo-metro-hf"
 test = false

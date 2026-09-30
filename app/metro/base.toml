@@ -281,6 +281,7 @@ uses = ["mmio_spi_nor"]
 task-slots = ["hash_driver", "spartan7_loader"]
 stacksize = 4000
 notifications = ["timer"]
+features = ["metro"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -451,7 +452,7 @@ start = true
 notifications = ["jefe-state-change", "timer"]
 task-slots = ["jefe", "spartan7_loader", "packrat", "sensor"]
 uses = ["mmio_dimms"]
-stacksize = 976
+stacksize = 1152
 
 [tasks.auxflash]
 name = "drv-auxflash-server"

@@ -62,8 +62,9 @@ fn main() -> ! {
     let seq =
         drv_spartan7_loader_api::Spartan7Loader::from(LOADER.get_task_id());
 
+    // Set up the real host flash
     let mut drv = FlashDriver {
-        drv: fmc_periph::SpiNor::new(seq.get_token()),
+        drv: fmc_periph::spi_nor::SpiNor::new(seq.get_token()),
     };
     drv.flash_set_quad_enable();
 
@@ -80,6 +81,18 @@ fn main() -> ! {
     {
         fail(drv_hf_api::HfError::BadChipId);
     }
+
+    // Set up the Versal flash - we don't really check it out at all, but set
+    // it up in case we need it later.
+    let vdrv = FlashDriver {
+        drv: unsafe {
+            fmc_periph::spi_nor::SpiNor::new_with_addr(
+                fmc_periph::versal_flash::SpiNor::ADDR,
+                seq.get_token(),
+            )
+        },
+    };
+    vdrv.flash_set_quad_enable();
 
     let mut server = hf::ServerImpl::new(drv);
     let mut buffer = [0; hf::idl::INCOMING_SIZE];
@@ -104,7 +117,7 @@ impl FlashAddr {
 
 /// Driver for a QSPI NOR flash controlled by an FPGA over FMC
 struct FlashDriver {
-    drv: fmc_periph::SpiNor,
+    drv: fmc_periph::spi_nor::SpiNor,
 }
 
 #[allow(unused)]

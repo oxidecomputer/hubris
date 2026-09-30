@@ -17,8 +17,9 @@ use userlib::{RecvMessage, UnwrapLite, set_timer_relative, task_slot};
 use zerocopy::{FromZeros, IntoBytes};
 
 use crate::{
-    FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, Trace, apob,
-    apob::APOB_PERSISTENT_DATA_STRIDE,
+    FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, Trace,
+    apob::{self, APOB_PERSISTENT_DATA_STRIDE},
+    fmc_periph,
 };
 
 task_slot!(HASH, hash_driver);
@@ -155,6 +156,8 @@ impl ServerImpl {
         match dev {
             HfDevSelect::Flash0 => 0,
             HfDevSelect::Flash1 => SLOT_SIZE_BYTES,
+            #[cfg(feature = "metro")]
+            HfDevSelect::Flash2 => 0,
         }
     }
 
@@ -322,6 +325,10 @@ impl ServerImpl {
                             HfDevSelect::Flash1 => {
                                 self.hash.cached_hash1 = SlotHash::Hash(v);
                             }
+                            #[cfg(feature = "metro")]
+                            HfDevSelect::Flash2 => {
+                                self.hash.cached_hash2 = SlotHash::Hash(v);
+                            }
                         },
                         Err(e) => {
                             ringbuf_entry!(Trace::HashUpdateError(e));
@@ -358,6 +365,10 @@ impl ServerImpl {
             HfDevSelect::Flash1 => {
                 self.hash.cached_hash1 = SlotHash::Recalculate;
             }
+            #[cfg(feature = "metro")]
+            HfDevSelect::Flash2 => {
+                self.hash.cached_hash2 = SlotHash::Recalculate;
+            }
         }
     }
 
@@ -372,7 +383,42 @@ impl ServerImpl {
         &mut self,
         dev: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
+        use crate::LOADER;
+        use drv_spartan7_loader_api::Spartan7Loader;
+        use fmc_periph::{spi_nor, versal_flash};
+
         self.drv.check_flash_mux_state()?;
+        match (self.dev, dev) {
+            // (0, 1) -> (0, 1) OR 2 -> 2
+            //
+            // Unchanged device
+            (HfDevSelect::Flash0, HfDevSelect::Flash0)
+            | (HfDevSelect::Flash0, HfDevSelect::Flash1)
+            | (HfDevSelect::Flash1, HfDevSelect::Flash0)
+            | (HfDevSelect::Flash1, HfDevSelect::Flash1)
+            | (HfDevSelect::Flash2, HfDevSelect::Flash2) => {}
+
+            // (0, 1) -> 2: Host Flash to Versal Flash
+            (HfDevSelect::Flash0, HfDevSelect::Flash2)
+            | (HfDevSelect::Flash1, HfDevSelect::Flash2) => {
+                let seq = Spartan7Loader::from(LOADER.get_task_id());
+                let addr = versal_flash::SpiNor::ADDR;
+                self.drv = FlashDriver {
+                    drv: unsafe {
+                        spi_nor::SpiNor::new_with_addr(addr, seq.get_token())
+                    },
+                };
+            }
+
+            // 2 -> (0, 1): Versal Flash to Host Flash
+            (HfDevSelect::Flash2, HfDevSelect::Flash0)
+            | (HfDevSelect::Flash2, HfDevSelect::Flash1) => {
+                let seq = Spartan7Loader::from(LOADER.get_task_id());
+                self.drv = FlashDriver {
+                    drv: spi_nor::SpiNor::new(seq.get_token()),
+                };
+            }
+        }
         self.dev = dev;
         self.drv.set_espi_addr_offset(self.flash_base());
         Ok(())
@@ -769,6 +815,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                     self.hash.cached_hash1 = SlotHash::HashInProgress;
                 }
             },
+            #[cfg(feature = "metro")]
+            HfDevSelect::Flash2 => match self.hash.cached_hash2 {
+                SlotHash::Hash { .. } => return Ok(()),
+                _ => {
+                    self.hash.cached_hash2 = SlotHash::HashInProgress;
+                }
+            },
         }
 
         // Treat sector 0 as all `0xff`
@@ -801,6 +854,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             }
             HfDevSelect::Flash1 => {
                 self.hash.cached_hash1.get_hash().map_err(|e| e.into())
+            }
+            #[cfg(feature = "metro")]
+            HfDevSelect::Flash2 => {
+                self.hash.cached_hash2.get_hash().map_err(|e| e.into())
             }
         }
     }

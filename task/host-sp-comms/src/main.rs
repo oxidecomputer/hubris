@@ -935,6 +935,9 @@ impl ServerImpl {
                 let bsu = match self.hf.get_dev() {
                     Ok(HfDevSelect::Flash0) | Err(_) => Bsu::A,
                     Ok(HfDevSelect::Flash1) => Bsu::B,
+                    // TODO(AJM): idk, lie?
+                    #[cfg(feature = "metro")]
+                    Ok(HfDevSelect::Flash2) => Bsu::A,
                 };
                 Some(SpToHost::BootStorageUnit(bsu))
             }
@@ -976,6 +979,8 @@ impl ServerImpl {
                 let flashidx = match self.hf.get_dev() {
                     Ok(HfDevSelect::Flash0) => Some(0),
                     Ok(HfDevSelect::Flash1) => Some(1),
+                    #[cfg(feature = "metro")]
+                    Ok(HfDevSelect::Flash2) => None,
                     Err(_) => None,
                 };
 

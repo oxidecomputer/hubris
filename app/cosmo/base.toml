@@ -385,7 +385,7 @@ start = true
 notifications = ["jefe-state-change", "timer"]
 task-slots = ["jefe", "spartan7_loader", "packrat", "sensor"]
 uses = ["mmio_dimms"]
-stacksize = 976
+stacksize = 1152
 
 [tasks.auxflash]
 name = "drv-auxflash-server"
