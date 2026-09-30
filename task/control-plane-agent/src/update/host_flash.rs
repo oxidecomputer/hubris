@@ -92,6 +92,8 @@ impl HostFlashUpdate {
         match dev {
             HfDevSelect::Flash0 => 0,
             HfDevSelect::Flash1 => 1,
+            #[cfg(feature = "metro")]
+            HfDevSelect::Flash2 => 2,
         }
     }
 
@@ -99,6 +101,8 @@ impl HostFlashUpdate {
         match slot {
             0 => Ok(HfDevSelect::Flash0),
             1 => Ok(HfDevSelect::Flash1),
+            #[cfg(feature = "metro")]
+            2 => Ok(HfDevSelect::Flash2),
             _ => Err(SpError::InvalidSlotForComponent),
         }
     }

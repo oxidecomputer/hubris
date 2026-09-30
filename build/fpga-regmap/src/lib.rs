@@ -648,25 +648,32 @@ pub fn build_peripheral(
                     + u32::try_from(*periph_offset).unwrap()
                     + u32::try_from(*addr_offset).unwrap();
                 let struct_def = quote! {
-                    pub struct #struct_name;
+                    pub struct #struct_name(*mut u32);
                     #[allow(
                         dead_code,
                         clippy::useless_conversion,
                         clippy::unnecessary_cast
                     )]
                     impl #struct_name {
-                        const ADDR: *mut u32 = #reg_addr as *mut u32;
+                        /// Base address of register
+                        pub const ADDR: *mut u32 = #reg_addr as *mut u32;
+                        pub const B_ADDR: usize = #base_addr as usize;
+                        pub const P_OFFSET: usize = #periph_offset;
+                        pub const A_OFFSET: usize = #addr_offset;
                         fn new() -> Self {
-                            #struct_name
+                            #struct_name(Self::ADDR)
+                        }
+                        pub unsafe fn new_with_addr(addr: *mut u32) -> Self {
+                            Self(addr)
                         }
                         fn get_raw(&self) -> u32 {
                             unsafe {
-                                Self::ADDR.read_volatile()
+                                self.0.read_volatile()
                             }
                         }
                         fn set_raw(&self, v: u32) {
                             unsafe {
-                                Self::ADDR.write_volatile(v)
+                                self.0.write_volatile(v)
                             }
                         }
                         #[inline]
@@ -735,7 +742,11 @@ pub fn build_peripheral(
                     pub #reg_name: #struct_name
                 });
                 reg_decls.push(quote! {
-                    #reg_name: #struct_name::new()
+                    #reg_name: unsafe {
+                        #struct_name::new_with_addr(
+                            base.byte_add(#struct_name::A_OFFSET)
+                        )
+                    }
                 });
             }
             Node::Mem {
@@ -752,21 +763,28 @@ pub fn build_peripheral(
                     + u32::try_from(*addr_offset).unwrap();
                 assert_eq!(*memwidth, 32, "only 32-bit memories are supported");
                 let struct_def = quote! {
-                    pub struct #struct_name;
+                    pub struct #struct_name(*mut u32);
                     #[allow(
                         dead_code,
                         clippy::useless_conversion,
                         clippy::unnecessary_cast
                     )]
                     impl #struct_name {
-                        const ADDR: *mut u32 = #reg_addr as *mut u32;
+                        /// Base address of register
+                        pub const ADDR: *mut u32 = #reg_addr as *mut u32;
+                        pub const B_ADDR: usize = #base_addr as usize;
+                        pub const P_OFFSET: usize = #periph_offset;
+                        pub const A_OFFSET: usize = #addr_offset;
                         fn new() -> Self {
-                            #struct_name
+                            #struct_name(Self::ADDR)
+                        }
+                        pub unsafe fn new_with_addr(addr: *mut u32) -> Self {
+                            Self(addr)
                         }
                         pub fn get(&self, i: usize) -> Option<u32> {
                             if i < #mementries {
                                 Some(unsafe {
-                                    Self::ADDR.add(i).read_volatile()
+                                    self.0.add(i).read_volatile()
                                 })
                             } else {
                                 None
@@ -782,7 +800,11 @@ pub fn build_peripheral(
                     pub #reg_name: #struct_name
                 });
                 reg_decls.push(quote! {
-                    #reg_name: #struct_name::new()
+                    #reg_name: unsafe {
+                        #struct_name::new_with_addr(
+                            base.byte_add(#struct_name::A_OFFSET)
+                        )
+                    }
                 });
                 // TODO
             }
@@ -794,15 +816,32 @@ pub fn build_peripheral(
         syn::parse_str(&peripheral.to_upper_camel_case()).unwrap();
     let peripheral_def = if let Some(token) = token {
         let token_ty: syn::Path = syn::parse_str(token).unwrap();
+        let reg_addr = (base_addr as u32) + (*periph_offset as u32);
         quote! {
             #[allow(dead_code)]
             pub struct #periph_name {
+                base_addr: *mut u32,
                 #(#reg_types),*
             }
             #[allow(dead_code)]
             impl #periph_name {
+                pub const ADDR: *mut u32 = #reg_addr as *mut u32;
+                pub const B_ADDR: usize = #base_addr as usize;
+                pub const P_OFFSET: usize = #periph_offset;
                 pub fn new(_token: #token_ty) -> Self {
+                    let base = Self::ADDR;
                     Self {
+                        base_addr: Self::ADDR,
+                        #(#reg_decls),*
+                    }
+                }
+
+                pub unsafe fn new_with_addr(addr: *mut u32, _token: #token_ty)
+                    -> Self
+                {
+                    let base = addr;
+                    Self {
+                        base_addr: Self::ADDR,
                         #(#reg_decls),*
                     }
                 }
@@ -810,15 +849,30 @@ pub fn build_peripheral(
             #(#reg_definitions)*
         }
     } else {
+        let reg_addr = (base_addr as u32) + (*periph_offset as u32);
         quote! {
             #[allow(dead_code)]
             pub struct #periph_name {
+                base_addr: *mut u32,
                 #(#reg_types),*
             }
             #[allow(dead_code)]
             impl #periph_name {
+                pub const ADDR: *mut u32 = #reg_addr as *mut u32;
+                pub const B_ADDR: usize = #base_addr as usize;
+                pub const P_OFFSET: usize = #periph_offset;
                 pub fn new() -> Self {
+                    let base = Self::ADDR;
                     Self {
+                        base_addr: Self::ADDR,
+                        #(#reg_decls),*
+                    }
+                }
+
+                pub unsafe fn new_with_addr(addr: *mut u32) -> Self {
+                    let base = addr;
+                    Self {
+                        base_addr: Self::ADDR,
                         #(#reg_decls),*
                     }
                 }

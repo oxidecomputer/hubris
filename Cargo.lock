@@ -1629,6 +1629,7 @@ dependencies = [
 name = "drv-hf-api"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "counters",
  "crc",
  "derive-idol-err",

@@ -81,8 +81,11 @@ pub enum HfMuxState {
 pub enum HfDevSelect {
     Flash0 = 0,
     Flash1 = 1,
+    #[cfg(target_board = "metro-a")]
+    Flash2 = 2,
 }
 
+#[cfg(not(target_board = "metro-a"))]
 impl core::ops::Not for HfDevSelect {
     type Output = Self;
     fn not(self) -> Self::Output {
@@ -214,6 +217,8 @@ pub struct HashData {
     pub task: drv_hash_api::Hash,
     pub cached_hash0: SlotHash,
     pub cached_hash1: SlotHash,
+    #[cfg(target_board = "metro-a")]
+    pub cached_hash2: SlotHash,
     pub state: HashState,
 }
 
@@ -223,6 +228,8 @@ impl HashData {
             task: drv_hash_api::Hash::from(hash),
             cached_hash0: SlotHash::Uncalculated,
             cached_hash1: SlotHash::Uncalculated,
+            #[cfg(target_board = "metro-a")]
+            cached_hash2: SlotHash::Uncalculated,
             state: HashState::NotRunning,
         }
     }
