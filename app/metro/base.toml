@@ -1073,7 +1073,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "main"
 mux = 1
-segment = 8
+segment = 3
 address = 0x4c
 device = "am006"
 name = "versal"
