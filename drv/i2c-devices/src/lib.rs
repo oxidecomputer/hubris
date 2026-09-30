@@ -480,6 +480,7 @@ impl<'dev> PmbusVpdReader<'dev> {
 
 pub mod adm127x;
 pub mod adt7420;
+pub mod am006;
 pub mod at24csw080;
 pub mod bmr491;
 pub mod emc2305;
