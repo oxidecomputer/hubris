@@ -402,7 +402,7 @@ impl ServerImpl {
             (HfDevSelect::Flash0, HfDevSelect::Flash2)
             | (HfDevSelect::Flash1, HfDevSelect::Flash2) => {
                 let seq = Spartan7Loader::from(LOADER.get_task_id());
-                let addr = versal_flash::SpiNor::ADDR;
+                let addr = versal_flash::VersalFlash::ADDR;
                 self.drv = FlashDriver {
                     drv: unsafe {
                         spi_nor::SpiNor::new_with_addr(addr, seq.get_token())

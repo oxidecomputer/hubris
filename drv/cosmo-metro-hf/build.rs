@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             &mut file,
             "pub(crate) mod {periph} {{\n{}\n}}",
             build_fpga_regmap::fpga_peripheral(
-                "spi_nor",
+                periph,
                 "drv_spartan7_loader_api::Spartan7Token",
                 true,
             )?
