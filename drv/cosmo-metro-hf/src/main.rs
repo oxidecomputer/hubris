@@ -94,7 +94,7 @@ fn main() -> ! {
     let vdrv = FlashDriver {
         drv: unsafe {
             fmc_periph::spi_nor::SpiNor::new_with_addr(
-                fmc_periph::versal_flash::SpiNor::ADDR,
+                fmc_periph::versal_flash::VersalFlash::ADDR,
                 seq.get_token(),
             )
         },
