@@ -160,6 +160,19 @@ enum Xtask {
         doc_args: Vec<String>,
     },
 
+    /// Removes firmware build products, but not host ones
+    ///
+    /// This deletes everything built for the firmware targets (tasks, the
+    /// kernel, and their dependencies), generated linker scripts, and `dist`
+    /// output. Host artifacts, i.e. `xtask` itself, build scripts, and proc
+    /// macros, are kept, so the next build doesn't have to rebuild them. Use
+    /// `cargo clean` to remove everything.
+    CleanLite {
+        /// Print what would be removed, without removing anything.
+        #[clap(long)]
+        dry_run: bool,
+    },
+
     /// Runs `cargo clippy` on a specified task
     Clippy {
         /// Request verbosity from tools we shell out to.
@@ -499,6 +512,9 @@ fn run(xtask: Xtask) -> Result<()> {
                 &[],
                 &extra_options,
             )?;
+        }
+        Xtask::CleanLite { dry_run } => {
+            clean::run(dry_run)?;
         }
         Xtask::Doc {
             verbose,
