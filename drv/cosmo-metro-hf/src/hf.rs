@@ -408,6 +408,9 @@ impl ServerImpl {
                         spi_nor::SpiNor::new_with_addr(addr, seq.get_token())
                     },
                 };
+                ringbuf_entry!(Trace::SetDriverBase(
+                    self.drv.drv.base_addr as usize as u32
+                ));
             }
 
             // 2 -> (0, 1): Versal Flash to Host Flash
@@ -417,6 +420,9 @@ impl ServerImpl {
                 self.drv = FlashDriver {
                     drv: spi_nor::SpiNor::new(seq.get_token()),
                 };
+                ringbuf_entry!(Trace::SetDriverBase(
+                    self.drv.drv.base_addr as usize as u32
+                ));
             }
         }
         self.dev = dev;

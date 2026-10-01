@@ -400,6 +400,7 @@ pub fn build_peripheral(
     peripheral: &str,
     base_addr: u32,
     token: Option<&str>,
+    ringbuf: bool,
 ) -> anyhow::Result<String> {
     use heck::{ToSnakeCase, ToUpperCamelCase};
     use quote::quote;
@@ -647,6 +648,53 @@ pub fn build_peripheral(
                 let reg_addr = base_addr
                     + u32::try_from(*periph_offset).unwrap()
                     + u32::try_from(*addr_offset).unwrap();
+
+                let raw_get_func = if ringbuf {
+                    quote! {
+                        fn get_raw(&self) -> u32 {
+                            ::ringbuf::ringbuf_entry_root!(
+                                crate::Trace::MmioReadAddr(
+                                    self.0 as usize as u32
+                                )
+                            );
+                            unsafe {
+                                self.0.read_volatile()
+                            }
+                        }
+                    }
+                } else {
+                    quote! {
+                        fn get_raw(&self) -> u32 {
+                            unsafe {
+                                self.0.read_volatile()
+                            }
+                        }
+                    }
+                };
+
+                let raw_set_func = if ringbuf {
+                    quote! {
+                        fn set_raw(&self, v: u32) {
+                            ::ringbuf::ringbuf_entry_root!(
+                                crate::Trace::MmioWriteAddr(
+                                    self.0 as usize as u32
+                                )
+                            );
+                            unsafe {
+                                self.0.write_volatile(v)
+                            }
+                        }
+                    }
+                } else {
+                    quote! {
+                        fn set_raw(&self, v: u32) {
+                            unsafe {
+                                self.0.write_volatile(v)
+                            }
+                        }
+                    }
+                };
+
                 let struct_def = quote! {
                     pub struct #struct_name(*mut u32);
                     #[allow(
@@ -666,16 +714,11 @@ pub fn build_peripheral(
                         pub unsafe fn new_with_addr(addr: *mut u32) -> Self {
                             Self(addr)
                         }
-                        fn get_raw(&self) -> u32 {
-                            unsafe {
-                                self.0.read_volatile()
-                            }
-                        }
-                        fn set_raw(&self, v: u32) {
-                            unsafe {
-                                self.0.write_volatile(v)
-                            }
-                        }
+
+                        #raw_get_func
+
+                        #raw_set_func
+
                         #[inline]
                         pub fn modify<F: Fn(&mut #handle_name)>(&self, f: F) {
                             let mut v = #handle_name(
@@ -820,7 +863,7 @@ pub fn build_peripheral(
         quote! {
             #[allow(dead_code)]
             pub struct #periph_name {
-                base_addr: *mut u32,
+                pub base_addr: *mut u32,
                 #(#reg_types),*
             }
             #[allow(dead_code)]
@@ -831,7 +874,7 @@ pub fn build_peripheral(
                 pub fn new(_token: #token_ty) -> Self {
                     let base = Self::ADDR;
                     Self {
-                        base_addr: Self::ADDR,
+                        base_addr: base,
                         #(#reg_decls),*
                     }
                 }
@@ -841,7 +884,7 @@ pub fn build_peripheral(
                 {
                     let base = addr;
                     Self {
-                        base_addr: Self::ADDR,
+                        base_addr: base,
                         #(#reg_decls),*
                     }
                 }
@@ -853,7 +896,7 @@ pub fn build_peripheral(
         quote! {
             #[allow(dead_code)]
             pub struct #periph_name {
-                base_addr: *mut u32,
+                pub base_addr: *mut u32,
                 #(#reg_types),*
             }
             #[allow(dead_code)]
@@ -864,7 +907,7 @@ pub fn build_peripheral(
                 pub fn new() -> Self {
                     let base = Self::ADDR;
                     Self {
-                        base_addr: Self::ADDR,
+                        base_addr: base,
                         #(#reg_decls),*
                     }
                 }
@@ -872,7 +915,7 @@ pub fn build_peripheral(
                 pub unsafe fn new_with_addr(addr: *mut u32) -> Self {
                     let base = addr;
                     Self {
-                        base_addr: Self::ADDR,
+                        base_addr: base,
                         #(#reg_decls),*
                     }
                 }
@@ -902,7 +945,11 @@ pub fn read_parse(p: &std::path::Path) -> anyhow::Result<Node> {
 ///
 /// The register map and base address are loaded from environmental variables,
 /// so this must be called in the context of a Hubris task build.
-pub fn fpga_peripheral(name: &str, token: &str) -> anyhow::Result<String> {
+pub fn fpga_peripheral(
+    name: &str,
+    token: &str,
+    ringbuf: bool,
+) -> anyhow::Result<String> {
     let base_addr: u32 = build_util::env_var("HUBRIS_MMIO_BASE_ADDRESS")?
         .parse()
         .context("parsing base address")?;
@@ -934,5 +981,5 @@ pub fn fpga_peripheral(name: &str, token: &str) -> anyhow::Result<String> {
         .join(format!("{orig_type_name}.json"));
     let node = read_parse(&node_name)?;
 
-    build_peripheral(&node, &top, name, base_addr, Some(token))
+    build_peripheral(&node, &top, name, base_addr, Some(token), ringbuf)
 }

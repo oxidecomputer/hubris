@@ -22,7 +22,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         "{}",
         build_fpga_regmap::fpga_peripheral(
             "dimms",
-            "drv_spartan7_loader_api::Spartan7Token"
+            "drv_spartan7_loader_api::Spartan7Token",
+            false,
         )?
     )?;
 
