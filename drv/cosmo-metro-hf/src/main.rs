@@ -44,9 +44,13 @@ enum Trace {
     PrevAbl0VersionNotUsed(u32),
     Abl0VersionFound(u32),
     Abl0VersionError(apob::ApobError),
+
+    SetDriverBase(u32),
+    MmioReadAddr(u32),
+    MmioWriteAddr(u32),
 }
 
-counted_ringbuf!(Trace, 32, Trace::None);
+counted_ringbuf!(Trace, 128, Trace::None);
 
 // Re-export constants from the generic host flash API
 pub use drv_hf_api::PAGE_SIZE_BYTES;
@@ -81,6 +85,9 @@ fn main() -> ! {
     {
         fail(drv_hf_api::HfError::BadChipId);
     }
+    ringbuf_entry!(Trace::SetDriverBase(
+        fmc_periph::spi_nor::SpiNor::ADDR as usize as u32
+    ));
 
     // Set up the Versal flash - we don't really check it out at all, but set
     // it up in case we need it later.
