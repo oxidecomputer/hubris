@@ -1,0 +1,14 @@
+// Interface to the task to droop the IBC voltage.
+Interface(
+    name: "Drooper",
+    ops: {
+        "droop": (
+            doc: "Droop the 12V rails for a given ms time period.",
+            args: {
+                "time_ms": "u64",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    }
+)
