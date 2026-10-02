@@ -14,6 +14,11 @@ pub use crate::reg_map::Reg;
 #[cfg(feature = "bitstream")]
 use crate::reg_map::SIDECAR_MAINBOARD_BITSTREAM_CHECKSUM;
 
+// Renaming these types which are used in the IDL
+pub type TofinoSeqState = Reg::TOFINO_SEQ_STATE::ValueEncoded;
+pub type TofinoSeqError = Reg::TOFINO_SEQ_ERROR::ValueEncoded;
+pub type TofinoSeqStep = Reg::TOFINO_SEQ_STEP::ValueEncoded;
+
 pub mod fan_modules;
 pub mod front_io;
 pub mod ignition;
