@@ -1069,6 +1069,18 @@ refdes = ["J34", "U1"]
 name = "fan_vpd"
 removable = true
 
+# I2C_SP_TO_NIC_SYSMON
+[[config.i2c.devices]]
+bus = "main"
+mux = 1
+segment = 3
+address = 0x4c
+device = "am006"
+name = "versal"
+sensors = { temperature = 1, voltage = 1 }
+description = "Versal SYSMON interface"
+refdes = "U145"
+
 # XXX DIMM temperature sensors are on this bus, proxied by the FPGA
 
 ################################################################################
