@@ -556,8 +556,8 @@ mod devices_with_static_validation {
             capabilities: DeviceCapabilities::HAS_SERIAL_CONSOLE,
             presence: DevicePresence::Present, // TODO: ok to assume always present?
         },
-        // Same for cosmo / grapefruit
-        #[cfg(feature = "cosmo")]
+        // Same for cosmo / grapefruit / metro
+        #[cfg(any(feature = "cosmo", feature = "metro"))]
         DeviceDescription {
             component: SpComponent::SP5_HOST_CPU,
             device: SpComponent::SP5_HOST_CPU.const_as_str(),
@@ -565,7 +565,7 @@ mod devices_with_static_validation {
             capabilities: DeviceCapabilities::HAS_SERIAL_CONSOLE,
             presence: DevicePresence::Present, // TODO: ok to assume always present?
         },
-        #[cfg(feature = "cosmo")]
+        #[cfg(any(feature = "cosmo", feature = "metro"))]
         DeviceDescription {
             component: SpComponent::SP5_POST_CODES,
             device: SpComponent::SP5_POST_CODES.const_as_str(),
@@ -587,10 +587,12 @@ mod devices_with_static_validation {
             description: "Gimlet host boot flash",
             #[cfg(feature = "cosmo")]
             description: "Cosmo host boot flash",
+            #[cfg(feature = "metro")]
+            description: "Metro host boot flash",
             capabilities: DeviceCapabilities::UPDATEABLE,
             presence: DevicePresence::Present, // TODO: ok to assume always present?
         },
-        #[cfg(feature = "cosmo")]
+        #[cfg(any(feature = "cosmo", feature = "metro"))]
         DeviceDescription {
             component: SpComponent::HOST_CPU_BOOT_APOB,
             device: SpComponent::HOST_CPU_BOOT_APOB.const_as_str(),
@@ -612,6 +614,7 @@ mod devices_with_static_validation {
         #[cfg(any(
             feature = "gimlet",
             feature = "cosmo",
+            feature = "metro",
             feature = "psc",
             feature = "sidecar"
         ))]

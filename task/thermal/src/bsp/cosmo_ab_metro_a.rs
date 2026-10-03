@@ -33,7 +33,11 @@ use i2c_temp_input::{
 mod max31790;
 use max31790::Max31790State;
 
+#[cfg(feature = "cosmo")]
 task_slot!(SEQ, cosmo_seq);
+
+#[cfg(feature = "metro")]
+task_slot!(SEQ, metro_seq);
 
 // We monitor the TMP117 air temperature sensors, but don't use them as part of
 // the control loop.
@@ -42,10 +46,15 @@ const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
 const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
     sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS;
 
+#[cfg(feature = "cosmo")]
+const NUM_TMP451_SENSORS: usize = sensors::NUM_TMP451_TEMPERATURE_SENSORS;
+#[cfg(feature = "metro")]
+const NUM_TMP451_SENSORS: usize = 0;
+
 // The control loop is driven by CPU, NIC, and BMC temperatures
 // XXX we should also monitor DIMM temperatures here
 const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
-    + sensors::NUM_TMP451_TEMPERATURE_SENSORS
+    + NUM_TMP451_SENSORS
     + NUM_NVME_BMC_TEMPERATURE_SENSORS;
 
 // We've got 6 fans, driven from a single MAX31790 IC
@@ -287,6 +296,7 @@ const CPU_THERMALS: ThermalProperties = ThermalProperties {
 
 // According to Chelsio, T_j Max is 115°C, while T_j Typical is 100° C. Let's
 // try to stay below 100°C.
+#[cfg(feature = "cosmo")]
 const T6_THERMALS: ThermalProperties = ThermalProperties {
     target_temperature: Celsius(95f32),
     critical_temperature: Celsius(100f32),
@@ -331,6 +341,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         PowerBitmask::A0,
         ChannelType::MustBePresent,
     )),
+    #[cfg(feature = "cosmo")]
     InputChannel::new(&InputChannelMetadata::new(
         TemperatureSensor::new(
             Device::Tmp451(drv_i2c_devices::tmp451::Target::Remote),
@@ -467,6 +478,7 @@ const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [
         devices::tmp117_northeast,
         sensors::TMP117_NORTHEAST_TEMPERATURE_SENSOR,
     ),
+    #[cfg(feature = "cosmo")]
     TemperatureSensor::new(
         Device::Tmp117,
         devices::tmp117_north,

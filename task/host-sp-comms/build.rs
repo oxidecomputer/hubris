@@ -6,7 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
     build_util::build_notifications()?;
 
-    #[cfg(any(feature = "gimlet", feature = "cosmo"))]
+    #[cfg(any(feature = "gimlet", feature = "cosmo", feature = "metro"))]
     {
         let cfg: build_i2c::CodegenSettings =
             build_i2c::Disposition::Sensors.into();

@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::build_notifications()?;
 
     idol::Generator::new().build_server_support(
-        "../../idl/cosmo-spd.idl",
+        "../../idl/sp5-spd.idl",
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,
     )?;

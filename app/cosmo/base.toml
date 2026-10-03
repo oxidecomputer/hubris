@@ -378,7 +378,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.spd]
-name = "task-cosmo-spd"
+name = "task-sp5-spd"
 priority = 7
 max-sizes = {flash = 8192, ram = 4096 }
 start = true
