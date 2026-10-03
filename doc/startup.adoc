@@ -86,3 +86,139 @@ and your application is running.
 
 If the task descriptor table contains *zero* tasks marked `START_AT_BOOT`, this
 represents an application configuration error, and the kernel will panic.
+
+=== Example
+
+Consider the following device which does not exist:
+
+```
+High address    +-------------------------------------+<----+ Peripherals end
+                |     Device3 Registers (RW, device)  |
+                |                                     |
+                |                                     |
+ 0x40002000 +-> +-------------------------------------+
+                |     Device2 Registers (RW, device)  |
+                |                                     |
+                |                                     |
+ 0x40001000 +-> +-------------------------------------+
+                |     Device1 Registers (RW, device)  |
+                |                                     |
+ 0x40000000 +-> +--------------------------------------<----+ Peripherals Start
+                |     Empty address space             |
+                +--------------------------------------<----+ RAM end
+                |     Task2 .data (RW)                |
+                |                                     |
+    0x21000 +-> +-------------------------------------+
+                |     Task2 stack (RW)                |
+                |                                     |
+    0x20000 +-> +-------------------------------------+
+                |     Task1 .data (RW)                |
+                |                                     |
+    0x12000 +-> +-------------------------------------+
+                |     Task1 Stack (RW)                |
+                |                                     |
+    0x11000 +-> +--------------------------------------<---+ hubris_kernel_ram_end
+                |     Kernel RAM                      |
+                |                                     |
+    0x10000 +-> +--------------------------------------<----+ RAM start/hubris_kernel_ram_start
+                |     Empty address space             |
+     0x3000 +-> +--------------------------------------<----+ Flash end
+                |     Task2 .rodata (RO)              |
+                |                                     |
+                +-------------------------------------+
+                |     Task2 .text (RO)                |
+                |                                     |
+     0x2000 +-> +-------------------------------------+
+                |     Task1 .rodata (RO)              |
+                |                                     |
+                +-------------------------------------+
+                |     Task1 .text (RO)                |
+                |                                     |
+     0x1000 +-> +-------------------------------------+
+                |     Vectors                         |
+ Low address    +-------------------------------------v<-----+Flash start
+
+
+```
+
+Suppose that Task1 needs access to Device1 and Device3 and Task2 needs
+access to Device2 and Device3. The descriptors would look like:
+
+```
+App {
+	magic: kernel::app::CURRENT_APP_MAGIC,
+	region_count:
+	task_count: 2,
+	zeroed_expansion_space: [0; 16],
+}
+TaskDesc {
+	entry_point: 0x1000
+	flags: TaskFlags::START_AT_BOOT,
+	initial_stack: 0x12000
+	regions: [1, 2, 5, 7, 0, 0, 0, 0]
+}
+TaskDesc {
+	entry_point: 0x2000
+	flags: TaskFlags::START_AT_BOOT,
+	initial_stack: 0x21000,
+	regions: [3, 4, 6, 7, 0, 0, 0, 0]
+}
+
+# The empty region
+RegionDesc {
+	base: 0
+	size: !0
+	attributes: RegionAttributes::RW
+	reserved_zero: 0
+}
+
+# Task 1 Read Only
+RegionDesc {
+	base: 0x1000
+	size: 0x1000
+	attributes: RegionAttributes::RO
+	reserved_zero: 0
+}
+# Task 1 Read Write
+RegionDesc  {
+	base: 0x11000
+	size: 0x2000
+	attributes: RegionAttributes::RW
+	reserved_zero: 0
+}
+# Task 2 Read Only
+RegionDesc {
+	base: 0x2000
+	size: 0x1000
+	attributes: RegionAttributes::RO
+	reserved_zero: 0
+}
+# Task 2 Read Write
+RegionDesc {
+	base: 0x20040
+	size: 0x40
+	attributes: RegionAttributes::RW
+	reserved_zero: 0
+}
+# Device 1
+RegionDesc {
+	base: 0x40000000
+	size: 0x1000
+	attributes: RegionAttributes::Device | RegionAttributes::RW
+	reserved_zero: 0
+}
+# Device 2
+RegionDesc  {
+	base: 0x40001000
+	size: 0x1000
+	attributes: RegionAttributes::Device | RegionAttributes::RW
+	reserved_zero: 0
+}
+# Device 3
+RegionDesc  {
+	base: 0x40002000
+	size: 0x1000
+	attributes: RegionAttributes::Device | RegionAttributes::RW
+	reserved_zero: 0
+}
+```
