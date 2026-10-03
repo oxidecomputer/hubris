@@ -162,10 +162,6 @@ pub struct SavedState {
 /// Map the volatile registers to (architecture-independent) syscall argument
 /// and return slots.
 impl task::ArchState for SavedState {
-    fn stack_pointer(&self) -> u32 {
-        self.psp
-    }
-
     /// Reads syscall argument register 0.
     fn arg0(&self) -> u32 {
         self.r4
