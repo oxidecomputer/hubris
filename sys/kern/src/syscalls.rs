@@ -581,7 +581,7 @@ fn borrow_info(
 
     tasks[caller]
         .save_mut()
-        .set_borrow_info(lease.attributes.bits(), lease.length as usize);
+        .set_borrow_info(lease.attributes.bits(), lease.length);
     Ok(NextTask::Same)
 }
 
@@ -632,12 +632,9 @@ fn borrow_lease(
     let lease = leases.get(lease_number).cloned();
     // Is the lease number provided by the borrower legitimate?
     if let Some(mut lease) = lease {
-        // Attempt to offset the lease. Handle cases where the offset is bogus.
-        // First, we must convert to u32, which _should be_ a no-op but we'll do
-        // it the careful way:
-        let offset = u32::try_from(offset).unwrap_lite();
-        // Now, proceed only if both neither the length nor address computation
-        // wrap.
+        // Attempt to offset the lease. Handle cases where the offset is bogus:
+        // proceed only if neither the length nor the address computation
+        // wraps.
         if let (Some(off_len), Some(off_addr)) = (
             lease.length.checked_sub(offset),
             lease.base_address.checked_add(offset),
