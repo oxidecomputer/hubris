@@ -1,9 +1,9 @@
-// Cosmo SPD task API
+// Cosmo/Metro (SP5) SPD task API
 //
 // Right now, this doesn't actually do anything, but it lets us use the idol
 // runtime for notifications / dispatch.
 Interface(
-    name: "CosmoSpd",
+    name: "Sp5Spd",
     ops: {
         "ping": (
             doc: "blocks until the server is running",
@@ -13,4 +13,3 @@ Interface(
         ),
     },
 )
-

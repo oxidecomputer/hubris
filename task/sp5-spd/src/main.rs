@@ -293,7 +293,7 @@ impl ServerImpl {
     }
 }
 
-impl idl::InOrderCosmoSpdImpl for ServerImpl {
+impl idl::InOrderSp5SpdImpl for ServerImpl {
     fn ping(
         &mut self,
         _mgs: &RecvMessage,

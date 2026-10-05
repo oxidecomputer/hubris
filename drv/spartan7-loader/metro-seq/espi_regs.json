@@ -77,6 +77,17 @@
                 },
                 {
                     "type": "field",
+                    "inst_name": "flash_write_enable",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Allow the host to write and erase the flash over the eSPI flash\nchannel. Only has effect on a build whose FLASH_WRITES_ALLOWED generic is\nset; elsewhere writes are refused regardless. A refused write or erase is\nanswered with an unsuccessful completion."
+                },
+                {
+                    "type": "field",
                     "inst_name": "espi_reset",
                     "lsb": 5,
                     "msb": 5,
