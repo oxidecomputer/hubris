@@ -12,6 +12,7 @@ ringbuf = { path = "../../lib/ringbuf", features = ["counters"] }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static-cell = { path = "../../lib/static-cell" }
 array-init.workspace = true
+heapless.workspace = true
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

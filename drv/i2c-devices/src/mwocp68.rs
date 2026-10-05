@@ -5,8 +5,8 @@
 //! MWOCP68-3600 Murata power shelf
 
 use crate::mwocp6x::{
-    Error, FIRMWARE_REVISION_LEN, FirmwareRev, MfrId, ModelNumber,
-    SerialNumber, parse_firmware_revision,
+    Error, FIRMWARE_REVISION_LEN, FirmwareImage, FirmwareRev, MfrId,
+    ModelNumber, PsuMcu, SerialNumber, parse_firmware_revision,
 };
 use crate::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, Validate,
@@ -418,7 +418,7 @@ impl Mwocp68 {
     }
 
     ///
-    /// Returns the firmware revision of the primary MCU (AC input side).
+    /// Returns the firmware revision of the primary and secondary MCUs.
     ///
     pub fn firmware_revision(&self) -> Result<FirmwareRev, Error> {
         let mut data = [0u8; FIRMWARE_REVISION_LEN];
@@ -563,13 +563,25 @@ impl Mwocp68 {
     /// to assure that the returned delay has been observed before calling
     /// back in to continue the update.
     ///
+    /// Currently, this function is only capable of updating the primary MCU and
+    /// will return a `NotImplemented` error if you give it firmware for the
+    /// secondary MCU.
+    ///
     pub fn update(
         &self,
         state: Option<UpdateState>,
-        payload: &[u8],
+        firmware: FirmwareImage,
     ) -> Result<(UpdateState, u64), Error> {
         use BOOT_LOADER_STATUS::Mode;
         use pmbus::commands::mwocp68::CommandCode;
+
+        if !matches!(firmware.mcu, PsuMcu::Primary) {
+            // At the time this function was written, there was no need to
+            // update the secondary MCU. It would not be difficult to implement
+            // if we actually had a firmware binary for the secondary MCU. It
+            // just requires sending slightly different pmbus commands.
+            return Err(Error::NotImplemented);
+        }
 
         let write_boot_loader_key = || -> Result<UpdateState, Error> {
             const MWOCP68_BOOT_LOADER_KEY: &[u8] = b"InVe";
@@ -623,7 +635,8 @@ impl Mwocp68 {
 
             let mut data = [0u8; BLOCK_LEN + 1];
             data[0] = CommandCode::BOOT_LOADER_MEMORY_BLOCK as u8;
-            data[1..].copy_from_slice(&payload[offset..offset + BLOCK_LEN]);
+            data[1..]
+                .copy_from_slice(&firmware.payload[offset..offset + BLOCK_LEN]);
 
             self.device
                 .write(&data)
@@ -634,7 +647,7 @@ impl Mwocp68 {
                 .fold(checksum, |c, &d| c.wrapping_add(d.into()));
             offset += BLOCK_LEN;
 
-            if offset >= payload.len() {
+            if offset >= firmware.payload.len() {
                 Ok(UpdateState::WroteLastBlock { checksum })
             } else {
                 Ok(UpdateState::WroteBlock { offset, checksum })

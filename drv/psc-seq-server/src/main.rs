@@ -1132,7 +1132,7 @@ impl PsuFruid {
         if self.fw_rev.is_none() {
             self.fw_rev = retry_i2c_txn(now, psu, || dev.firmware_revision())
                 .ok()
-                .and_then(|v| FixedString::try_from_utf8(&v.0[..]).ok());
+                .and_then(|v| FixedString::try_from_utf8(&v.primary[..]).ok());
         }
     }
 }

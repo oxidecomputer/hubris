@@ -2243,6 +2243,7 @@ dependencies = [
  "counters",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "heapless",
  "ringbuf",
  "static-cell",
  "userlib",
