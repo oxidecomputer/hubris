@@ -1968,14 +1968,24 @@ const _ENSURE_REGION_DESC_32BIT_ABI_UNCHANGED: () = const {
     use crate::descs::RegionDesc;
     use core::mem;
 
-    // The size is correct
-    assert!(mem::size_of::<RegionDesc>() == 20);
-    // The align is correct
-    assert!(mem::align_of::<RegionDesc>() == 4);
+    // Fun fact: armv6/armv7 and armv8 have different `RegionDescExt`s! This
+    // means that they have incompatible ABIs!
+    let arch_data_size = mem::size_of::<RegionDescExt>();
+    let arch_data_align = mem::align_of::<RegionDescExt>();
 
+    // The size is correct
+    assert!(mem::size_of::<RegionDesc>() == arch_data_size + 12);
+    // The align is correct
+    let base_align = 4;
+    let act_align = mem::align_of::<RegionDesc>();
+
+    if arch_data_align > 4 {
+        assert!(act_align == arch_data_align);
+    } else {
+        assert!(act_align == base_align);
+    }
     // The offset of all fields are unchanged
-    assert!(mem::offset_of!(RegionDesc, arch_data) == 0);
-    assert!(mem::offset_of!(RegionDesc, base) == 8);
-    assert!(mem::offset_of!(RegionDesc, size) == 12);
-    assert!(mem::offset_of!(RegionDesc, attributes) == 16);
+    assert!(mem::offset_of!(RegionDesc, base) == arch_data_size);
+    assert!(mem::offset_of!(RegionDesc, size) == arch_data_size + 4);
+    assert!(mem::offset_of!(RegionDesc, attributes) == arch_data_size + 8);
 };
