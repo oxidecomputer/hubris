@@ -6,6 +6,7 @@
 
 pub mod auxflash;
 pub mod caboose_pos;
+pub mod clean;
 pub mod config;
 pub mod dist;
 pub mod flash;

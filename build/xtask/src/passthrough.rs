@@ -22,6 +22,7 @@ use crate::dist::PackageConfig;
 ///   invocation, e.g. `cargo subcommand $DIRECT_OPTS`
 /// * `post_opts`: Arguments to be passed AFTER the `--` of the command
 ///   invocation, e.g. `cargo subcommand -- $POST_OPTS`
+/// * `env`: Extra environment variables for the command
 pub fn run(
     cargo_cmd: &str,
     verbose: bool,
@@ -29,6 +30,7 @@ pub fn run(
     tasks: &[String],
     direct_opts: &[String],
     post_opts: &[String],
+    env: &[(&str, &str)],
 ) -> Result<()> {
     let cfg = PackageConfig::new(&cfg, verbose, false)?;
     let toml = &cfg.toml;
@@ -126,15 +128,18 @@ pub fn run(
             cfg.task_build_config(name).unwrap()
         };
         let mut cmd = build_config.cmd(cargo_cmd);
+        cmd.envs(env.iter().copied());
 
         for opt in direct_opts {
             cmd.arg(opt);
         }
 
-        cmd.arg("--");
-
-        for opt in post_opts {
-            cmd.arg(opt);
+        // Skip post-args if we have none
+        if !post_opts.is_empty() {
+            cmd.arg("--");
+            for opt in post_opts {
+                cmd.arg(opt);
+            }
         }
 
         let status = cmd.status()?;
