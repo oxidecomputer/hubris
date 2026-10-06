@@ -127,16 +127,43 @@ jobs:
         if: runner.os == 'Linux'
         run: du -sh ./target
 
+      # The oxidecomputer/humility repository is public, so *in theory* we don't
+      # need a token to download releases from it. In practice we occasionally
+      # saw downloading Humility failing with a 429 (too many requests) status
+      # code. To avoid that we use the `gh` CLI with the job's GitHub token to
+      # download, granting us higher rate limits.
+      #
+      # ALSO, we have occasionally seen this just fail with 500 errors, probably
+      # just normal github weather. We do 6 attempts, this takes us up to about
+      # a minute of retries with 2^attempt seconds of exponential backoff.
       - name: Fetch Humility
         if: runner.os == 'Linux'
         run: |
-          gh release download -R oxidecomputer/humility nightly -p humility -O target/release/humility
+          download_humility() {
+            gh release download \
+              --repo oxidecomputer/humility \
+              nightly \
+              --pattern humility \
+              --output target/release/humility \
+              --clobber
+          }
+
+          max_attempts=6
+          for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+            if download_humility; then
+              break
+            fi
+            if (( attempt == max_attempts )); then
+              echo "::error::Failed to download Humility after $attempt attempts"
+              exit 1
+            fi
+            delay=$(( 2 ** attempt ))
+            echo "::warning::Download attempt $attempt failed, retrying in ${delay}s"
+            sleep "$delay"
+          done
           chmod +x target/release/humility
         env:
-          # The oxidecomputer/humility repository is public, so *in theory* we don't need a token to
-          # download releases from it. In practice we occasionally saw downloading Humility failing
-          # with a 429 (too many requests) status code. To avoid that we use the `gh` CLI with the
-          # job's GitHub token to download, granting us higher rate limits.
+          # See note above
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Test Humility manifest
