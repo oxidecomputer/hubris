@@ -160,6 +160,34 @@ enum Xtask {
         doc_args: Vec<String>,
     },
 
+    /// Checks that every task and the kernel in an image compile
+    ///
+    /// This is like `dist`, but runs the equivalent of `cargo check` on each
+    /// task and the kernel instead of building them. It's faster, but since
+    /// full linking isn't performed, it won't catch problems like a task not
+    /// fitting in its memory or overflowing its stack.
+    CheckDist {
+        /// Request verbosity from tools we shell out to.
+        #[clap(short)]
+        verbose: bool,
+
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+    },
+
+    /// Removes firmware build products, but not host ones
+    ///
+    /// This deletes everything built for the firmware targets (tasks, the
+    /// kernel, and their dependencies), generated linker scripts, and `dist`
+    /// output. Host artifacts, i.e. `xtask` itself, build scripts, and proc
+    /// macros, are kept, so the next build doesn't have to rebuild them. Use
+    /// `cargo clean` to remove everything.
+    CleanLite {
+        /// Print what would be removed, without removing anything.
+        #[clap(long)]
+        dry_run: bool,
+    },
+
     /// Runs `cargo clippy` on a specified task
     Clippy {
         /// Request verbosity from tools we shell out to.
@@ -498,6 +526,29 @@ fn run(xtask: Xtask) -> Result<()> {
                 &tasks,
                 &[],
                 &extra_options,
+                &[],
+            )?;
+        }
+        Xtask::CleanLite { dry_run } => {
+            clean::run(dry_run)?;
+        }
+        Xtask::CheckDist { verbose, cfg } => {
+            // Use the release profile, so that we share build scripts and
+            // proc macros with `dist`. `dist` denies `unused_attributes` for
+            // the task crate itself; `cargo check` can't pass flags to just
+            // that crate, so this applies to all of our crates instead (Cargo
+            // caps lints for third-party crates, so they aren't affected).
+            passthrough::run(
+                "check",
+                verbose,
+                cfg,
+                &[],
+                &["--release".to_owned()],
+                &[],
+                &[
+                    ("RUSTC_BOOTSTRAP", "1"),
+                    ("RUSTFLAGS", "-Dunused_attributes"),
+                ],
             )?;
         }
         Xtask::Doc {
@@ -508,7 +559,7 @@ fn run(xtask: Xtask) -> Result<()> {
         } => {
             // Doc commands are passed BEFORE the `--`, currently post-options
             // are not supported.
-            passthrough::run("doc", verbose, cfg, &tasks, &doc_args, &[])?;
+            passthrough::run("doc", verbose, cfg, &tasks, &doc_args, &[], &[])?;
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;
