@@ -1958,3 +1958,24 @@ cfg_if::cfg_if! {
 
     }
 }
+
+// The `RegionDesc` type is fundamental to the ABI! We very much want to ensure
+// that it never breaks. This const assert checks that.
+//
+// Ensure that all 32-bit Arm-M targets share the same ABI qualities.
+#[cfg(target_pointer_width = "32")]
+const _ENSURE_REGION_DESC_32BIT_ABI_UNCHANGED: () = const {
+    use crate::descs::RegionDesc;
+    use core::mem;
+
+    // The size is correct
+    assert!(mem::size_of::<RegionDesc>() == 20);
+    // The align is correct
+    assert!(mem::align_of::<RegionDesc>() == 4);
+
+    // The offset of all fields are unchanged
+    assert!(mem::offset_of!(RegionDesc, arch_data) == 0);
+    assert!(mem::offset_of!(RegionDesc, base) == 8);
+    assert!(mem::offset_of!(RegionDesc, size) == 12);
+    assert!(mem::offset_of!(RegionDesc, attributes) == 16);
+};
