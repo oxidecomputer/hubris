@@ -1973,17 +1973,21 @@ const _ENSURE_REGION_DESC_32BIT_ABI_UNCHANGED: () = const {
     let arch_data_size = mem::size_of::<RegionDescExt>();
     let arch_data_align = mem::align_of::<RegionDescExt>();
 
-    // The size is correct
-    assert!(mem::size_of::<RegionDesc>() == arch_data_size + 12);
-    // The align is correct
+    // The align is the larger of our 4-byte fields or whatever RegionDescExt
+    // requires.
     let base_align = 4;
-    let act_align = mem::align_of::<RegionDesc>();
-
-    if arch_data_align > 4 {
-        assert!(act_align == arch_data_align);
+    let expected_align = if arch_data_align > base_align {
+        arch_data_align
     } else {
-        assert!(act_align == base_align);
-    }
+        base_align
+    };
+    let act_align = mem::align_of::<RegionDesc>();
+    assert!(act_align == expected_align);
+
+    // The size is correct, including any potentially odd alignments of
+    // RegionDataExt
+    let expected_size = (arch_data_size + 12).next_multiple_of(expected_align);
+    assert!(mem::size_of::<RegionDesc>() == expected_size);
     // The offset of all fields are unchanged
     assert!(mem::offset_of!(RegionDesc, base) == arch_data_size);
     assert!(mem::offset_of!(RegionDesc, size) == arch_data_size + 4);

@@ -319,10 +319,8 @@ impl Addr {
 
     /// Advances the address by `offset` bytes, or returns `None` if the result
     /// would wrap around the end of the address space.
-    ///
-    /// TODO(AJM): give this a name like "byte_add" or something.
     #[inline]
-    pub const fn checked_add(self, offset: usize) -> Option<Self> {
+    pub const fn checked_byte_add(self, offset: usize) -> Option<Self> {
         match self.0.checked_add(offset) {
             Some(address) => Some(Self(address)),
             None => None,

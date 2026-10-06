@@ -637,7 +637,7 @@ fn borrow_lease(
         // wraps.
         if let (Some(off_len), Some(off_addr)) = (
             lease.length.checked_sub(offset),
-            lease.base_address.checked_add(offset),
+            lease.base_address.checked_byte_add(offset),
         ) {
             lease.base_address = off_addr;
             lease.length = off_len;

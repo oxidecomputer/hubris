@@ -26,7 +26,7 @@ use hubris_num_tasks::NUM_TASKS;
 use ringbuf::{ringbuf, ringbuf_entry};
 use test_api::{AssistOp, RunnerOp, SuiteOp};
 use userlib::{
-    FaultInfo, FaultSource, Generation, IrqStatus, LeaseAttributes,
+    Addr, FaultInfo, FaultSource, Generation, IrqStatus, LeaseAttributes,
     ReplyFaultReason, SchedState, TaskId, TaskState, UsageError, hl, kipc,
     task_slot,
 };
@@ -310,7 +310,7 @@ fn test_fault_badmem() {
     assert_fault_eq!(
         fault,
         FaultInfo::MemoryAccess {
-            address: Some(abi::Addr::new(bad_address as usize)),
+            address: Some(Addr::new(bad_address as usize)),
             source: FaultSource::User,
         }
     );
