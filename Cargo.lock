@@ -2345,6 +2345,7 @@ dependencies = [
  "drv-fpga-user-api",
  "drv-ignition-api",
  "gnarle",
+ "hubpack",
  "idol",
  "num-derive",
  "num-traits",
