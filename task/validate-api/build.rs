@@ -180,7 +180,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
 
 /// Look at the `pmbus` crate metadata to see if a specific command is "Illegal"
 /// and set the capability bit if not.
-macro_rules! set_if_pmbus_read_illegal {
+macro_rules! set_if_pmbus_read_legal {
     ($out:ident, $module:ident, $cmd:ident) => {{
         use pmbus::{Command, Operation};
         if let Ok(code) =
@@ -204,25 +204,25 @@ macro_rules! pmbus_generator {
     ($name:literal, $module:ident) => {
         ($name, || {
             let mut out = 0u32;
-            set_if_pmbus_read_illegal!(out, $module, STATUS_WORD);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_VOUT);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_IOUT);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_TEMPERATURE);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_CML);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_OTHER);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_INPUT);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_MFR_SPECIFIC);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_1_2);
-            set_if_pmbus_read_illegal!(out, $module, STATUS_FANS_3_4);
+            set_if_pmbus_read_legal!(out, $module, STATUS_WORD);
+            set_if_pmbus_read_legal!(out, $module, STATUS_VOUT);
+            set_if_pmbus_read_legal!(out, $module, STATUS_IOUT);
+            set_if_pmbus_read_legal!(out, $module, STATUS_TEMPERATURE);
+            set_if_pmbus_read_legal!(out, $module, STATUS_CML);
+            set_if_pmbus_read_legal!(out, $module, STATUS_OTHER);
+            set_if_pmbus_read_legal!(out, $module, STATUS_INPUT);
+            set_if_pmbus_read_legal!(out, $module, STATUS_MFR_SPECIFIC);
+            set_if_pmbus_read_legal!(out, $module, STATUS_FANS_1_2);
+            set_if_pmbus_read_legal!(out, $module, STATUS_FANS_3_4);
             // VPD bits
-            set_if_pmbus_read_illegal!(out, $module, MFR_ID);
-            set_if_pmbus_read_illegal!(out, $module, MFR_MODEL);
-            set_if_pmbus_read_illegal!(out, $module, MFR_REVISION);
-            set_if_pmbus_read_illegal!(out, $module, MFR_SERIAL);
-            set_if_pmbus_read_illegal!(out, $module, MFR_LOCATION);
-            set_if_pmbus_read_illegal!(out, $module, MFR_DATE);
-            set_if_pmbus_read_illegal!(out, $module, IC_DEVICE_ID);
-            set_if_pmbus_read_illegal!(out, $module, IC_DEVICE_REV);
+            set_if_pmbus_read_legal!(out, $module, MFR_ID);
+            set_if_pmbus_read_legal!(out, $module, MFR_MODEL);
+            set_if_pmbus_read_legal!(out, $module, MFR_REVISION);
+            set_if_pmbus_read_legal!(out, $module, MFR_SERIAL);
+            set_if_pmbus_read_legal!(out, $module, MFR_LOCATION);
+            set_if_pmbus_read_legal!(out, $module, MFR_DATE);
+            set_if_pmbus_read_legal!(out, $module, IC_DEVICE_ID);
+            set_if_pmbus_read_legal!(out, $module, IC_DEVICE_REV);
             PmbusCapabilities(out)
         })
     };
