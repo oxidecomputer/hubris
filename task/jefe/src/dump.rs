@@ -5,6 +5,7 @@
 //! Dump support for Jefe
 
 use crate::generated::{DUMP_ADDRESS_MAX, DUMP_ADDRESS_MIN, DUMP_AREAS};
+use abi::Addr;
 use humpty::{DumpArea, DumpContents};
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::DumpAgentError;
@@ -28,25 +29,25 @@ enum Trace {
     None,
     Initialized,
     GetDumpArea(u8),
-    Base(u32),
+    Base(Addr),
     GetDumpAreaFailed(humpty::DumpError<()>),
     ClaimDumpAreaFailed(humpty::DumpError<()>),
     Claiming,
     Dumping {
         task: usize,
-        base: u32,
+        base: Addr,
     },
     DumpingTaskRegion {
         task: usize,
-        base: u32,
-        start: u32,
-        length: u32,
+        base: Addr,
+        start: Addr,
+        length: usize,
     },
     DumpArea(Result<Option<DumpArea>, humpty::DumpError<()>>),
     DumpRegion(abi::TaskDumpRegion),
     DumpRegionsFailed(humpty::DumpError<()>),
     DumpStart {
-        base: u32,
+        base: Addr,
     },
     DumpReading {
         addr: u32,
@@ -63,7 +64,7 @@ enum Trace {
 
 ringbuf!(Trace, 8, Trace::None);
 
-pub fn initialize_dump_areas() -> u32 {
+pub fn initialize_dump_areas() -> Addr {
     let areas = humpty::initialize_dump_areas(
         &crate::generated::DUMP_AREAS,
         Some(0x1000),
@@ -72,7 +73,8 @@ pub fn initialize_dump_areas() -> u32 {
 
     ringbuf_entry!(Trace::Initialized);
 
-    areas
+    // TODO(AJM): Sorry
+    Addr::new(areas as usize)
 }
 
 ///
@@ -80,14 +82,19 @@ pub fn initialize_dump_areas() -> u32 {
 /// area, short-circuiting in the common case that it isn't.  (Note
 /// that this will only check for containment, not overlap.)
 ///
-fn in_dump_area(address: u32, length: u32) -> bool {
-    if !(DUMP_ADDRESS_MIN..DUMP_ADDRESS_MAX).contains(&address) {
+fn in_dump_area(address: Addr, length: usize) -> bool {
+    if !(DUMP_ADDRESS_MIN..DUMP_ADDRESS_MAX).contains(&address.as_usize()) {
         return false;
     }
 
     for area in &DUMP_AREAS {
-        if address >= area.address
-            && address + length <= area.address + area.length
+        // TODO(AJM): I'm so sorry.
+        let h_area_address = Addr::new(area.address as usize);
+        let h_area_length = area.length as usize;
+        if address >= h_area_address
+            && let Some(end) = address.checked_byte_add(length)
+            && let Some(aend) = h_area_address.checked_byte_add(h_area_length)
+            && end <= aend
         {
             return true;
         }
@@ -96,14 +103,20 @@ fn in_dump_area(address: u32, length: u32) -> bool {
     false
 }
 
-pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
+pub fn get_dump_area(
+    base: Addr,
+    index: u8,
+) -> Result<DumpArea, DumpAgentError> {
     ringbuf_entry!(Trace::GetDumpArea(index));
     ringbuf_entry!(Trace::Base(base));
 
     // SAFETY: we have configured memory so that humpty should only read
     // headers which are properly initialized and which this task is allowed to
     // read.
-    match humpty::get_dump_area(base, index, |addr, buf, _| unsafe {
+    //
+    // TODO(AJM): Sorry
+    let h_base = base.as_usize() as u32;
+    match humpty::get_dump_area(h_base, index, |addr, buf, _| unsafe {
         humpty::from_mem(addr, buf)
     }) {
         Err(e) => {
@@ -115,14 +128,17 @@ pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
     }
 }
 
-pub fn claim_dump_area(base: u32) -> Result<DumpArea, DumpAgentError> {
+pub fn claim_dump_area(base: Addr) -> Result<DumpArea, DumpAgentError> {
     ringbuf_entry!(Trace::Claiming);
     // SAFETY: we have configured memory so that humpty should only read
     // headers which are properly initialized and readable by this task, and
     // should only write memory which is writeable by this task (i.e. the dump
     // areas).
+    //
+    // TODO(AJM): usize
+    let h_base = base.as_usize() as u32;
     match humpty::claim_dump_area(
-        base,
+        h_base,
         DumpContents::WholeSystem,
         |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
         |addr, buf| unsafe { humpty::to_mem(addr, buf) },
@@ -153,7 +169,7 @@ impl From<DumpTaskContents> for DumpContents {
 
 /// Setup for dumping a task (either completely or a sub-region)
 fn dump_task_setup(
-    base: u32,
+    base: Addr,
     contents: DumpTaskContents,
 ) -> Result<DumpArea, DumpAgentError> {
     //
@@ -164,8 +180,11 @@ fn dump_task_setup(
     // SAFETY: we have set up the memory correctly, and we're trusting
     // Humpty to do the right thing here, but ideally we could do this without
     // `unsafe` (given sufficient changes to `humpty`)
+    //
+    // TODO(AJM): humpty needs to be usize-ified
+    let h_base = base.as_usize() as u32;
     let area = humpty::claim_dump_area(
-        base,
+        h_base,
         contents.into(),
         |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
         |addr, buf| unsafe { humpty::to_mem(addr, buf) },
@@ -180,15 +199,17 @@ fn dump_task_setup(
 }
 
 /// Once a task dump is set up, this function executes it
-fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
+fn dump_task_run(base: Addr, task: usize) -> Result<(), DumpAgentError> {
     ringbuf_entry!(Trace::DumpStart { base });
     let start = userlib::sys_get_timer().now;
 
     //
     // The humpty dance is your chance... to do the dump!
     //
+    // TODO(AJM): Humpty needs to be usize-ified
+    let h_base = base.as_usize() as u32;
     let r = humpty::dump::<(), 512, { humpty::DUMPER_JEFE }>(
-        base,
+        h_base,
         Some(humpty::DumpTask::new(
             task as u16,
             userlib::sys_get_timer().now,
@@ -217,8 +238,9 @@ fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
                 let r = kipc::read_task_dump_region(
                     task,
                     TaskDumpRegion {
-                        base: addr,
-                        size: buf.len() as u32,
+                        // TODO(AJM): Humpty needs to be usize-ified
+                        base: Addr::new(addr as usize),
+                        size: buf.len(),
                     },
                     buf,
                 );
@@ -242,7 +264,7 @@ fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
     Ok(())
 }
 
-pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
+pub fn dump_task(base: Addr, task: usize) -> Result<u8, DumpAgentError> {
     ringbuf_entry!(Trace::Dumping { task, base });
 
     let area = dump_task_setup(base, DumpTaskContents::SingleTask)?;
@@ -259,10 +281,14 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
         // should only read headers which are properly initialized and
         // readable by this task, and should only write memory which is
         // writeable by this task (i.e. the dump areas).
+        //
+        // TODO(AJM): Humpty needs to be usize-ified
+        let h_base = region.base.as_usize() as u32;
+        let h_size = region.size as u32;
         if let Err(e) = humpty::add_dump_segment_header(
             area.region.address,
-            region.base,
-            region.size,
+            h_base,
+            h_size,
             |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
             |addr, buf| unsafe { humpty::to_mem(addr, buf) },
         ) {
@@ -291,16 +317,18 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
         add_dump_region(region)?;
     }
 
-    dump_task_run(area.region.address, task)?;
+    // TODO(AJM): Sorry
+    let h_address = Addr::new(area.region.address as usize);
+    dump_task_run(h_address, task)?;
     Ok(area.index)
 }
 
 /// Dumps a specific region from the given task
 pub fn dump_task_region(
-    base: u32,
+    base: Addr,
     task: usize,
-    start: u32,
-    length: u32,
+    start: Addr,
+    length: usize,
 ) -> Result<u8, DumpAgentError> {
     ringbuf_entry!(Trace::DumpingTaskRegion {
         task,
@@ -310,7 +338,7 @@ pub fn dump_task_region(
     });
 
     // Require alignment of 4-bytes for start + length
-    if !start.is_multiple_of(4) {
+    if !start.is_aligned_for::<u32>() {
         return Err(DumpAgentError::UnalignedSegmentAddress);
     }
     if !length.is_multiple_of(4) {
@@ -323,7 +351,7 @@ pub fn dump_task_region(
     // owned by this particular task!  To check this, we iterate over all of the
     // valid dump regions and confirm that our desired region is within one of
     // them. We also check that start+length wouldn't wrap around.
-    let Some(end) = start.checked_add(length) else {
+    let Some(end) = start.checked_byte_add(length) else {
         return Err(DumpAgentError::BadSegmentAdd);
     };
     let mem = start..end;
@@ -334,8 +362,10 @@ pub fn dump_task_region(
     // Note: we implicitly trust kipc won't give us a region that wraps, so
     // we'll use an unchecked add here (unlike untrusted user data from the
     // request that we checked above)
-    let desc_region = desc.base..desc.base + desc.size;
-    if mem.start >= desc_region.start && mem.end <= desc_region.end {
+    let desc_region = desc.base.as_usize()..desc.base.as_usize() + desc.size;
+    if mem.start.as_usize() >= desc_region.start
+        && mem.end.as_usize() <= desc_region.end
+    {
         // We are reading from the kernel descriptor region, great job
         okay = true;
     } else {
@@ -362,16 +392,17 @@ pub fn dump_task_region(
             ringbuf_entry!(Trace::DumpRegion(region));
 
             // Slide `mem.start` based on overlap
-            let region = region.base..region.base + region.size;
-            if region.contains(&mem.start) {
-                mem.start = region.end.min(mem.end);
+            let region =
+                region.base.as_usize()..region.base.as_usize() + region.size;
+            if region.contains(&mem.start.as_usize()) {
+                mem.start = Addr::new(region.end.min(mem.end.as_usize()));
                 started = true;
                 if mem.start == mem.end {
                     okay = true;
                     break;
                 }
-            } else if region.start > mem.start
-                || (started && region.start < mem.start)
+            } else if region.start > mem.start.as_usize()
+                || (started && region.start < mem.start.as_usize())
             {
                 // If we are beyond the start of our `mem` region (or have
                 // started overlapping but this region does not overlap), then
@@ -389,10 +420,14 @@ pub fn dump_task_region(
     // headers which are properly initialized and readable by this task, and
     // should only write memory which is writeable by this task (i.e. the
     // segment header region within dump areas).
+    //
+    // TODO(AJM): Sorry
+    let h_start = start.as_usize() as u32;
+    let h_length = length as u32;
     if let Err(e) = humpty::add_dump_segment_header(
         area.region.address,
-        start,
-        length,
+        h_start,
+        h_length,
         |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
         |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     ) {
@@ -400,12 +435,14 @@ pub fn dump_task_region(
         return Err(DumpAgentError::BadSegmentAdd);
     }
 
-    dump_task_run(area.region.address, task)?;
+    // TODO(AJM): We need to usize-ify Humpty.
+    let addr = Addr::new(area.region.address as usize);
+    dump_task_run(addr, task)?;
     Ok(area.index)
 }
 
 pub fn reinitialize_dump_from(
-    base: u32,
+    base: Addr,
     index: u8,
 ) -> Result<(), DumpAgentError> {
     let area = get_dump_area(base, index)?;

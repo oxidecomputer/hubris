@@ -37,7 +37,7 @@ use abi::{Addr, FaultInfo, FaultSource, UsageError};
 /// decision that will generate bugs.
 pub struct USlice<T> {
     /// Base address of the slice.
-    base_address: usize,
+    base_address: Addr,
     /// Number of `T` elements in the slice.
     length: usize,
     /// since we don't actually use T...
@@ -59,7 +59,7 @@ impl<T> USlice<T> {
     ///
     /// This method will categorically reject zero-sized T.
     pub fn from_raw(
-        base_address: usize,
+        base_address: Addr,
         length: usize,
     ) -> Result<Self, UsageError> {
         // NOTE: the properties checked here are critical for the correctness of
@@ -72,7 +72,7 @@ impl<T> USlice<T> {
         let _ = Self::SIZE_CHECK;
 
         // Alignment check:
-        if !base_address.is_multiple_of(core::mem::align_of::<T>()) {
+        if !base_address.is_aligned_for::<T>() {
             return Err(UsageError::InvalidSlice);
         }
         // Check that a slice of `length` `T`s can even exist starting at
@@ -82,7 +82,7 @@ impl<T> USlice<T> {
             .ok_or(UsageError::InvalidSlice)?;
         // Note: this subtraction cannot underflow. You can subtract any usize
         // from usize::MAX.
-        let highest_possible_base = usize::MAX - size_in_bytes;
+        let highest_possible_base = Addr::new(usize::MAX - size_in_bytes);
         if base_address <= highest_possible_base {
             Ok(Self {
                 base_address,
@@ -101,7 +101,7 @@ impl<T> USlice<T> {
     /// slice.
     pub fn empty() -> Self {
         Self {
-            base_address: core::ptr::NonNull::<T>::dangling().as_ptr() as usize,
+            base_address: Addr::from_ptr::<T>(core::ptr::dangling()),
             length: 0,
             _marker: PhantomData,
         }
@@ -118,25 +118,25 @@ impl<T> USlice<T> {
     }
 
     /// Returns the bottom address of this slice as a `usize`.
-    pub fn base_addr(&self) -> usize {
+    pub fn base_addr(&self) -> Addr {
         self.base_address
     }
 
     /// Returns the end address of the slice, which is the address one past its
     /// final byte -- or its base address if it's empty.
-    pub fn end_addr(&self) -> usize {
+    pub fn end_addr(&self) -> Addr {
         // Compute the size using an unchecked multiplication. Why can we do
         // this? Because we checked that this multiplication does not overflow
         // at construction above. Using an unchecked multiply here removes some
         // instructions.
         let size_in_bytes = self.length.wrapping_mul(core::mem::size_of::<T>());
-        self.base_address.wrapping_add(size_in_bytes)
+        self.base_address.wrapping_byte_add(size_in_bytes)
     }
 
     /// Returns the *highest* address in this slice, inclusive.
     ///
     /// This produces `None` if the slice is empty.
-    pub fn last_byte_addr(&self) -> Option<usize> {
+    pub fn last_byte_addr(&self) -> Option<Addr> {
         // This implementation would be wrong for ZSTs (it would indicate any
         // slice of ZSTs as empty), but we blocked them at construction.
 
@@ -148,14 +148,14 @@ impl<T> USlice<T> {
         if size_in_bytes == 0 {
             None
         } else {
-            Some(
-                // Note: wrapping operations are safe here because we checked
-                // that the slice doesn't overlap the end of the address space
-                // at construction.
-                self.base_address
-                    .wrapping_add(size_in_bytes)
-                    .wrapping_sub(1),
-            )
+            // Note: wrapping operations are safe here because we checked
+            // that the slice doesn't overlap the end of the address space
+            // at construction.
+            let addr = self
+                .base_address
+                .wrapping_byte_add(size_in_bytes)
+                .wrapping_byte_sub(1);
+            Some(addr)
         }
     }
 
@@ -219,7 +219,7 @@ where
         // here is valid.
         unsafe {
             core::slice::from_raw_parts(
-                self.base_address as *const T,
+                self.base_address.as_ptr::<T>(),
                 self.length,
             )
         }
@@ -248,7 +248,7 @@ where
         // here is valid.
         unsafe {
             core::slice::from_raw_parts_mut(
-                self.base_address as *mut T,
+                self.base_address.as_mut_ptr::<T>(),
                 self.length,
             )
         }
@@ -273,7 +273,7 @@ where
     /// 4. That it does not alias any slice you intend to `&mut`-reference with
     ///    `assume_writable`, or any kernel memory.
     pub unsafe fn assume_readable_raw(&self) -> Range<*const T> {
-        let p = self.base_address as *const T;
+        let p = self.base_address.as_ptr();
         // Safety: this is unsafe because the pointer addition might overflow.
         // It won't though, due to the invariants on this type and the required
         // preconditions for this function.
@@ -306,7 +306,7 @@ impl<T> core::fmt::Debug for USlice<T> {
 impl<'a> From<&'a abi::ULease> for USlice<u8> {
     fn from(lease: &'a abi::ULease) -> Self {
         Self {
-            base_address: lease.base_address.as_usize(),
+            base_address: lease.base_address,
             length: lease.length,
             _marker: PhantomData,
         }
@@ -319,11 +319,11 @@ impl<T> kerncore::UserSlice for USlice<T> {
         self.is_empty()
     }
 
-    fn base_addr(&self) -> usize {
+    fn base_addr(&self) -> Addr {
         self.base_addr()
     }
 
-    fn end_addr(&self) -> usize {
+    fn end_addr(&self) -> Addr {
         self.end_addr()
     }
 }
@@ -366,7 +366,7 @@ pub fn safe_copy(
     // arbitrary.
     let dst = if from_slice.aliases(&to_slice) {
         Err(FaultInfo::MemoryAccess {
-            address: Some(Addr::new(to_slice.base_address)),
+            address: Some(to_slice.base_address),
             source: FaultSource::Kernel,
         })
     } else {
@@ -411,7 +411,7 @@ pub fn safe_copy_dma(
     // arbitrary.
     let dst = if from_slice.aliases(&to_slice) {
         Err(FaultInfo::MemoryAccess {
-            address: Some(Addr::new(to_slice.base_address)),
+            address: Some(to_slice.base_address),
             source: FaultSource::Kernel,
         })
     } else {

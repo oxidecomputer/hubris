@@ -4048,6 +4048,9 @@ dependencies = [
 [[package]]
 name = "kerncore"
 version = "0.1.0"
+dependencies = [
+ "abi",
+]
 
 [[package]]
 name = "ksz8463"

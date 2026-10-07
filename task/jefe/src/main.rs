@@ -34,6 +34,8 @@ mod external;
 
 use core::{convert::Infallible, mem::MaybeUninit};
 
+#[cfg(feature = "dump")]
+use abi::Addr;
 use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
 use idol_runtime::RequestError;
@@ -144,7 +146,7 @@ struct ServerImpl {
 
     /// Base address for a linked list of dump areas
     #[cfg(feature = "dump")]
-    dump_areas: u32,
+    dump_areas: Addr,
 
     /// Cache of most recently checked dump area
     ///
@@ -259,8 +261,11 @@ impl idl::InOrderJefeImpl for ServerImpl {
                     // need to walk to it, but we'll reload from from memory in
                     // case other data in the header has changed.
                     if let Some(offset) = index.checked_sub(prev.index) {
+                        let h_prev_reg_addr = Addr::new(
+                            prev.region.address as usize
+                        );
                         let mut d =
-                            dump::get_dump_area(prev.region.address, offset);
+                            dump::get_dump_area(h_prev_reg_addr, offset);
                         if let Ok(d) = &mut d {
                             d.index += prev.index;
                         }
@@ -322,8 +327,12 @@ impl idl::InOrderJefeImpl for ServerImpl {
                 } else if task_index as usize >= self.task_states.len() {
                     return Err(DumpAgentError::BadOffset.into());
                 }
+
+                // TODO(AJM): Sorry
+                let addr = Addr::new(address as usize);
+                let len = length as usize;
                 dump::dump_task_region(
-                    self.dump_areas, task_index as usize, address, length
+                    self.dump_areas, task_index as usize, addr, len
                 ).map_err(|e| e.into())
             }
 
