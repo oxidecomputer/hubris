@@ -6,21 +6,54 @@ use crate::host::HostCrashDebuggingInfo;
 use crate::spd_data::SpdStore;
 use task_packrat_api::HostStartupOptions;
 
-// Select an impl and re-export based on the board family features
+// Select an impl and re-export based on the target board
+//
+// This is intentionally verbose, to ensure that when a new board is added we
+// emit a compilation error until it is added here.
 cfg_if::cfg_if! {
-    if #[cfg(feature = "gimlet")] {
+    if #[cfg(any(
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d",
+        target_board = "gimlet-e",
+        target_board = "gimlet-f",
+    ))] {
         mod gimlet;
         pub(crate) use gimlet::BspImpl;
-    } else if #[cfg(any(feature = "cosmo", feature = "metro"))] {
+    } else if #[cfg(any(
+        target_board = "cosmo-a",
+        target_board = "cosmo-b",
+        target_board = "metro-a",
+    ))] {
         mod cosmo_metro;
         pub(crate) use cosmo_metro::BspImpl;
-    } else if #[cfg(feature = "grapefruit")] {
+    } else if #[cfg(any(
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
+    ))] {
         mod grapefruit;
         pub(crate) use grapefruit::BspImpl;
-    } else {
-        // Everything else is a board that is not expected to have a host.
+    } else if #[cfg(any(
+        target_board = "gimletlet-2",
+        target_board = "medusa-a",
+        target_board = "minibar-a",
+        target_board = "minibar-b",
+        target_board = "nucleo-h743zi2",
+        target_board = "nucleo-h753zi",
+        target_board = "observer-a",
+        target_board = "psc-b",
+        target_board = "psc-c",
+        target_board = "sidecar-b",
+        target_board = "sidecar-c",
+        target_board = "sidecar-d",
+    ))] {
+        // Boards which are not expected to have a host.
         mod no_host;
         pub(crate) use no_host::BspImpl;
+    } else {
+        // Every board must be listed explicitly above, so that a new board
+        // with a host can't silently end up with the `no_host` BSP.
+        compile_error!("no packrat BSP for the given target board");
     }
 }
 

@@ -164,10 +164,7 @@ priority = 1
 stacksize = 1712
 start = true
 task-slots = ["jefe"]
-features = [
-    "metro",
-    "ereport",
-]
+features = ["ereport"]
 notifications = ["task-faulted"]
 
 [tasks.rng_driver]

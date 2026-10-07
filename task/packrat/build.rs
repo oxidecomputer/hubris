@@ -7,6 +7,7 @@ use anyhow::{Result, anyhow};
 use anyhow::Context;
 
 fn main() -> Result<()> {
+    build_util::expose_target_board();
     build_util::build_notifications()?;
 
     idol::Generator::new()
@@ -19,36 +20,6 @@ fn main() -> Result<()> {
             idol::server::ServerStyle::InOrder,
         )
         .map_err(|e| anyhow!("{e}"))?;
-
-    // Ensure the "gimlet" feature is enabled on gimlet boards.
-    #[cfg(not(feature = "gimlet"))]
-    if let Some(
-        "gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e" | "gimlet-f",
-    ) = build_util::target_board().as_deref()
-    {
-        panic!(concat!(
-            "packrat's `gimlet` feature should be enabled when ",
-            "building for gimlets",
-        ))
-    }
-
-    // Ensure the "gimlet" feature is _not_ enabled on sidecar/psc boards.
-    #[cfg(feature = "gimlet")]
-    match build_util::target_board().as_deref() {
-        Some("psc-a" | "psc-b" | "psc-c") => panic!(concat!(
-            "packrat's `gimlet` feature should not be enabled when ",
-            "building for PSCs",
-        )),
-        Some("observer-a") => panic!(concat!(
-            "packrat's `gimlet` feature should not be enabled when ",
-            "building for Observers",
-        )),
-        Some("sidecar-b" | "sidecar-c" | "sidecar-d") => panic!(concat!(
-            "packrat's `gimlet` feature should not be enabled when ",
-            "building for sidecars",
-        )),
-        _ => (),
-    }
 
     #[cfg(feature = "ereport")]
     gen_ereport_config().context("failed to generate ereport config")?;
