@@ -183,6 +183,12 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
 macro_rules! set_if_pmbus_read_legal {
     ($out:ident, $module:ident, $cmd:ident) => {{
         use pmbus::{Command, Operation};
+
+        // Attempt to interpret the argument as a `CommandCode` in the PMBus
+        // crate's module for this device. If this fails, that means there is no
+        // command with that name (probably because the device decided to use
+        // that address for a different command instead of following the PMBus
+        // spec), so we leave the capability unset.
         if let Ok(code) =
             stringify!($cmd).parse::<pmbus::commands::$module::CommandCode>()
         {
@@ -190,10 +196,6 @@ macro_rules! set_if_pmbus_read_legal {
                 $out |= PmbusCapabilities::$cmd.0;
             }
         }
-        // Else the device didn't define a command with that name, probably
-        // because it decided to use that address for a different command
-        // instead of following the PMBus spec. That's fine, we just leave the
-        // capability bit unset.
     }};
 }
 
