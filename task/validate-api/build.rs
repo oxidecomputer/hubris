@@ -183,11 +183,17 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
 macro_rules! set_if_pmbus_read_illegal {
     ($out:ident, $module:ident, $cmd:ident) => {{
         use pmbus::{Command, Operation};
-        if pmbus::commands::$module::CommandCode::$cmd.read_op()
-            != Operation::Illegal
+        if let Ok(code) =
+            stringify!($cmd).parse::<pmbus::commands::$module::CommandCode>()
         {
-            $out |= PmbusCapabilities::$cmd.0;
+            if code.read_op() != Operation::Illegal {
+                $out |= PmbusCapabilities::$cmd.0;
+            }
         }
+        // Else the device didn't define a command with that name, probably
+        // because it decided to use that address for a different command
+        // instead of following the PMBus spec. That's fine, we just leave the
+        // capability bit unset.
     }};
 }
 
