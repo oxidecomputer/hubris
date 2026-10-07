@@ -13,8 +13,8 @@ use task_packrat_api::HostStartupOptions;
 pub(crate) type SpdData = crate::spd_data::SpdData<16, 512>;
 
 pub(crate) struct BspImpl {
-    host_startup_options: &'static mut HostStartupOptions,
-    host_info: &'static mut HostCrashDebuggingInfo,
+    host_startup_options: HostStartupOptions,
+    host_info: HostCrashDebuggingInfo,
     spd_data: &'static mut SpdData,
 }
 
@@ -33,48 +33,35 @@ const fn default_host_startup_options() -> HostStartupOptions {
     }
 }
 
-struct StaticBufs {
-    host_startup_options: HostStartupOptions,
-    host_info: HostCrashDebuggingInfo,
-    spd_data: SpdData,
-}
-
 impl Bsp for BspImpl {
     type Spd = SpdData;
 
     fn new() -> Self {
-        static BUFS: ClaimOnceCell<StaticBufs> =
-            ClaimOnceCell::new(StaticBufs {
-                host_startup_options: default_host_startup_options(),
-                host_info: HostCrashDebuggingInfo::new(),
-                spd_data: SpdData::new(),
-            });
-        let &mut StaticBufs {
-            ref mut host_startup_options,
-            ref mut host_info,
-            ref mut spd_data,
-        } = BUFS.claim();
+        // The SPD data is kept separate as it may contain large data that we
+        // don't want to have as static initializer data in `.text`.
+        static SPD_DATA: ClaimOnceCell<SpdData> =
+            ClaimOnceCell::new(SpdData::new());
         Self {
-            host_startup_options,
-            host_info,
-            spd_data,
+            host_startup_options: default_host_startup_options(),
+            host_info: HostCrashDebuggingInfo::new(),
+            spd_data: SPD_DATA.claim(),
         }
     }
 
     fn host_startup_options(&self) -> Option<&HostStartupOptions> {
-        Some(self.host_startup_options)
+        Some(&self.host_startup_options)
     }
 
     fn host_startup_options_mut(&mut self) -> Option<&mut HostStartupOptions> {
-        Some(self.host_startup_options)
+        Some(&mut self.host_startup_options)
     }
 
     fn host_info(&self) -> Option<&HostCrashDebuggingInfo> {
-        Some(self.host_info)
+        Some(&self.host_info)
     }
 
     fn host_info_mut(&mut self) -> Option<&mut HostCrashDebuggingInfo> {
-        Some(self.host_info)
+        Some(&mut self.host_info)
     }
 
     fn spd(&self) -> Option<&SpdData> {

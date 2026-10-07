@@ -7,12 +7,11 @@
 use crate::bsp::Bsp;
 use crate::host::HostCrashDebuggingInfo;
 use crate::spd_data::NoSpdData;
-use static_cell::ClaimOnceCell;
 use task_packrat_api::HostStartupOptions;
 
 pub(crate) struct BspImpl {
     host_startup_options: HostStartupOptions,
-    host_info: &'static mut HostCrashDebuggingInfo,
+    host_info: HostCrashDebuggingInfo,
 }
 
 const fn default_host_startup_options() -> HostStartupOptions {
@@ -36,11 +35,9 @@ impl Bsp for BspImpl {
     type Spd = NoSpdData;
 
     fn new() -> Self {
-        static HOST_INFO: ClaimOnceCell<HostCrashDebuggingInfo> =
-            ClaimOnceCell::new(HostCrashDebuggingInfo::new());
         Self {
             host_startup_options: default_host_startup_options(),
-            host_info: HOST_INFO.claim(),
+            host_info: HostCrashDebuggingInfo::new(),
         }
     }
 
@@ -53,11 +50,11 @@ impl Bsp for BspImpl {
     }
 
     fn host_info(&self) -> Option<&HostCrashDebuggingInfo> {
-        Some(self.host_info)
+        Some(&self.host_info)
     }
 
     fn host_info_mut(&mut self) -> Option<&mut HostCrashDebuggingInfo> {
-        Some(self.host_info)
+        Some(&mut self.host_info)
     }
 
     fn spd(&self) -> Option<&NoSpdData> {

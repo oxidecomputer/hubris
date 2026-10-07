@@ -4,6 +4,8 @@
 
 //! Items that are unique to SPs with a host, e.g. compute sleds.
 
+use static_cell::ClaimOnceCell;
+
 /// Metadata about panics observed from the host
 pub struct HostPanicMetadata {
     /// Length in bytes of the currently stored panic message
@@ -30,19 +32,30 @@ pub struct HostBootFailMetadata {
 
 /// Data we store from the host in case it crashes, either early as a BootFail,
 /// or later as a panic.
+///
+/// We keep panic/bootfail payloads as separate `ClaimOnceCell` contents to
+/// prevent the initializer for this function from taking up a lot of `.text`
+/// space.
 pub struct HostCrashDebuggingInfo {
-    pub panic_payload: [u8; 4096],
-    pub bootfail_payload: [u8; 4096],
+    pub panic_payload: &'static mut [u8; PAYLOAD_SIZE],
+    pub bootfail_payload: &'static mut [u8; PAYLOAD_SIZE],
     pub panic_state: Option<HostPanicMetadata>,
     pub bootfail_state: Option<HostBootFailMetadata>,
 }
 
+/// Number of bytes we retain of each kind of payload from the host.
+const PAYLOAD_SIZE: usize = 4096;
+
 impl HostCrashDebuggingInfo {
+    /// This may only be called once.
     #[allow(dead_code)] // Not all BSPs have a host!
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
+        static PAYLOADS: ClaimOnceCell<[[u8; PAYLOAD_SIZE]; 2]> =
+            ClaimOnceCell::new([[0u8; PAYLOAD_SIZE]; 2]);
+        let [panic_payload, bootfail_payload] = PAYLOADS.claim();
         Self {
-            panic_payload: [0u8; _],
-            bootfail_payload: [0u8; _],
+            panic_payload,
+            bootfail_payload,
             panic_state: None,
             bootfail_state: None,
         }
