@@ -94,7 +94,8 @@
 //!       priority makes it *unlikely* that the same task will have faulted
 //!       a bunch of times before we see it, it's always possible.
 
-use super::ereport_messages;
+use super::Ereports;
+use crate::ereport_messages;
 
 use core::cmp::Ordering;
 use drv_caboose::CabooseReader;
@@ -103,12 +104,13 @@ use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::{CborLen, encode};
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
+use static_cell::ClaimOnceCell;
 use task_jefe_api::Jefe;
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
 use userlib::{
-    FaultInfo, FaultSource, Generation, ReadPanicMessageError, RecvMessage,
-    ReplyFaultReason, TaskId, TaskState, UsageError, kipc, sys_get_timer,
-    task_slot,
+    FaultInfo, FaultSource, Generation, NotificationBits,
+    ReadPanicMessageError, RecvMessage, ReplyFaultReason, TaskId, TaskState,
+    UsageError, kipc, sys_get_timer, task_slot,
 };
 use zerocopy::IntoBytes;
 
@@ -143,7 +145,7 @@ pub(crate) struct EreportStore {
     holding_faults: bool,
 }
 
-pub(crate) struct EreportBufs {
+struct EreportBufs {
     storage: snitch_core::Store<STORE_SIZE>,
     recv: [u8; RECV_BUF_SIZE],
     panic_buf: [u8; userlib::PANIC_MESSAGE_MAX_LEN],
@@ -177,7 +179,7 @@ const STORE_SIZE: usize = 4096;
 
 /// Number of bytes for the receive buffer. This only needs to fit a single
 /// ereport at a time (and implicitly, limits the maximum size of an ereport).
-pub(crate) const RECV_BUF_SIZE: usize = 1024;
+const RECV_BUF_SIZE: usize = 1024;
 
 /// Separate ring buffer for ereport events, as we probably don't care that much
 /// about the sequence of ereport events relative to other packrat API events.
@@ -261,15 +263,17 @@ enum EreportError {
 
 counted_ringbuf!(Trace, 16, Trace::None);
 
-impl EreportStore {
-    pub(crate) fn new(bufs: &'static mut EreportBufs) -> Self {
+impl Ereports for EreportStore {
+    fn new() -> Self {
+        static BUFS: ClaimOnceCell<EreportBufs> =
+            ClaimOnceCell::new(EreportBufs::new());
         let &mut EreportBufs {
             ref mut storage,
             ref mut recv,
             ref mut panic_buf,
             ref mut task_fault_states,
             ref mut fault_count_buf,
-        } = bufs;
+        } = BUFS.claim();
         let now = sys_get_timer().now;
         storage.initialize(config::TASK_ID, now);
 
@@ -283,10 +287,8 @@ impl EreportStore {
             jefe: Jefe::from(JEFE.get_task_id()),
         }
     }
-}
 
-impl EreportStore {
-    pub(crate) fn deliver_encoded_ereport(
+    fn deliver_encoded_ereport(
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, RECV_BUF_SIZE>,
@@ -312,7 +314,7 @@ impl EreportStore {
         }
     }
 
-    pub(crate) fn read_ereports(
+    fn read_ereports(
         &mut self,
         current_restart_id: &Option<ereport_messages::RestartId>,
         request_id: ereport_messages::RequestIdV0,
@@ -498,6 +500,23 @@ impl EreportStore {
         Ok(end)
     }
 
+    fn notification_mask(&self) -> u32 {
+        crate::notifications::TASK_FAULTED_MASK
+    }
+
+    fn handle_notification(&mut self, bits: NotificationBits) {
+        let now = sys_get_timer().now;
+
+        if bits.check_notification_mask(crate::notifications::TASK_FAULTED_MASK)
+        {
+            self.record_faulted_tasks(now);
+        }
+
+        // Otherwise, we've received a spurious notification.
+    }
+}
+
+impl EreportStore {
     fn encode_metadata(
         &self,
         encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
@@ -572,7 +591,7 @@ impl EreportStore {
         Ok(())
     }
 
-    pub(crate) fn record_faulted_tasks(&mut self, now: u64) {
+    fn record_faulted_tasks(&mut self, now: u64) {
         // Either Jefe has sent us a notification of a fault, or we have just
         // made some more room in our buffer and could potentially record a
         // previously held fault.
@@ -983,7 +1002,7 @@ impl EreportStore {
 }
 
 impl EreportBufs {
-    pub(crate) const fn new() -> Self {
+    const fn new() -> Self {
         Self {
             storage: snitch_core::Store::DEFAULT,
             recv: [0u8; RECV_BUF_SIZE],

@@ -77,13 +77,12 @@ use task_packrat_api::{
 use userlib::RecvMessage;
 
 mod bsp;
+mod ereport;
 mod host;
 mod spd_data;
 
-#[cfg(feature = "ereport")]
-mod ereport;
-
 use bsp::{Bsp, BspImpl};
+use ereport::{Ereports, EreportsImpl};
 use spd_data::SpdStore;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -140,21 +139,15 @@ fn main() -> ! {
     struct StaticBufs {
         mac_address_block: Option<MacAddressBlock>,
         identity: Option<OxideIdentity>,
-        #[cfg(feature = "ereport")]
-        ereport_bufs: ereport::EreportBufs,
     }
     let &mut StaticBufs {
         ref mut mac_address_block,
         ref mut identity,
-        #[cfg(feature = "ereport")]
-        ref mut ereport_bufs,
     } = {
         static BUFS: ClaimOnceCell<StaticBufs> =
             ClaimOnceCell::new(StaticBufs {
                 mac_address_block: None,
                 identity: None,
-                #[cfg(feature = "ereport")]
-                ereport_bufs: ereport::EreportBufs::new(),
             });
         BUFS.claim()
     };
@@ -164,8 +157,7 @@ fn main() -> ! {
         identity,
         restart_id: None,
         bsp: BspImpl::new(),
-        #[cfg(feature = "ereport")]
-        ereport_store: ereport::EreportStore::new(ereport_bufs),
+        ereports: EreportsImpl::new(),
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -174,17 +166,17 @@ fn main() -> ! {
     }
 }
 
-struct ServerImpl<B: Bsp> {
+struct ServerImpl<B: Bsp, E: Ereports> {
     mac_address_block: &'static mut Option<MacAddressBlock>,
     identity: &'static mut Option<OxideIdentity>,
     restart_id: Option<ereport_messages::RestartId>,
     /// Board-specific data
     bsp: B,
-    #[cfg(feature = "ereport")]
-    ereport_store: ereport::EreportStore,
+    /// Ereport aggregation, if enabled
+    ereports: E,
 }
 
-impl<B: Bsp> ServerImpl<B> {
+impl<B: Bsp, E: Ereports> ServerImpl<B, E> {
     // Implementation for properties that may only be set once (e.g., our MAC
     // address block). If `storage` is already `Some(_)`, we log the extra set
     // and return an error if `value` doesn't match.
@@ -221,7 +213,7 @@ impl<B: Bsp> ServerImpl<B> {
     }
 }
 
-impl<B: Bsp> idl::InOrderPackratImpl for ServerImpl<B> {
+impl<B: Bsp, E: Ereports> idl::InOrderPackratImpl for ServerImpl<B, E> {
     fn get_mac_address_block(
         &mut self,
         _: &RecvMessage,
@@ -366,41 +358,14 @@ impl<B: Bsp> idl::InOrderPackratImpl for ServerImpl<B> {
         Self::set_once(&mut self.restart_id, restart_id).map_err(Into::into)
     }
 
-    #[cfg(not(feature = "ereport"))]
-    fn deliver_encoded_ereport(
-        &mut self,
-        _: &RecvMessage,
-        _: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
-    ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
-        // go away, we don't know how to do that
-        Err(idol_runtime::ClientError::UnknownOperation.fail())
-    }
-
-    #[cfg(feature = "ereport")]
     fn deliver_encoded_ereport(
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
     ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
-        self.ereport_store.deliver_encoded_ereport(msg, data)
+        self.ereports.deliver_encoded_ereport(msg, data)
     }
 
-    #[cfg(not(feature = "ereport"))]
-    fn read_ereports(
-        &mut self,
-        _msg: &RecvMessage,
-        _: ereport_messages::RequestIdV0,
-        _: ereport_messages::RestartId,
-        _: ereport_messages::Ena,
-        _: u8,
-        _: ereport_messages::Ena,
-        _: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<usize, RequestError<EreportReadError>> {
-        // go away, we don't know how to do that
-        Err(idol_runtime::ClientError::UnknownOperation.fail())
-    }
-
-    #[cfg(feature = "ereport")]
     fn read_ereports(
         &mut self,
         _msg: &RecvMessage,
@@ -411,7 +376,7 @@ impl<B: Bsp> idl::InOrderPackratImpl for ServerImpl<B> {
         committed_ena: ereport_messages::Ena,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<EreportReadError>> {
-        self.ereport_store.read_ereports(
+        self.ereports.read_ereports(
             &self.restart_id,
             request_id,
             restart_id,
@@ -542,7 +507,7 @@ impl<B: Bsp> idl::InOrderPackratImpl for ServerImpl<B> {
     }
 }
 
-impl<B: Bsp> ServerImpl<B> {
+impl<B: Bsp, E: Ereports> ServerImpl<B, E> {
     fn host_panic_helper(
         &self,
         req: Option<&HostInfoRequest>,
@@ -664,33 +629,14 @@ impl<B: Bsp> ServerImpl<B> {
     }
 }
 
-// If we are not built with ereport support, we expect no notifications.
-#[cfg(not(feature = "ereport"))]
-impl<B: Bsp> NotificationHandler for ServerImpl<B> {
+impl<B: Bsp, E: Ereports> NotificationHandler for ServerImpl<B, E> {
     fn current_notification_mask(&self) -> u32 {
-        // We don't use notifications, don't listen for any.
-        0
-    }
-
-    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
-        unreachable!()
-    }
-}
-
-#[cfg(feature = "ereport")]
-impl<B: Bsp> NotificationHandler for ServerImpl<B> {
-    fn current_notification_mask(&self) -> u32 {
-        notifications::TASK_FAULTED_MASK
+        // The only notifications we use are those for ereport aggregation.
+        self.ereports.notification_mask()
     }
 
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
-        let now = userlib::sys_get_timer().now;
-
-        if bits.check_notification_mask(notifications::TASK_FAULTED_MASK) {
-            self.ereport_store.record_faulted_tasks(now);
-        }
-
-        // Otherwise, we've received a spurious notification.
+        self.ereports.handle_notification(bits)
     }
 }
 
