@@ -7,11 +7,47 @@ use core::convert::Infallible;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 
+/// Trait for interacting with cached DIMM EEPROM SPD data.
+pub(crate) trait SpdStore {
+    /// Writes `data` into the cached EEPROM contents for DIMM `index`,
+    /// starting at `offset`, and sets that DIMM as present.
+    fn set_eeprom(
+        &mut self,
+        index: u8,
+        offset: usize,
+        data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
+    ) -> Result<(), RequestError<Infallible>>;
+
+    /// Sets DIMM `index` as not present.
+    fn remove_eeprom(
+        &mut self,
+        index: u8,
+    ) -> Result<(), RequestError<Infallible>>;
+
+    /// Checks whether DIMM `index` is set as present.
+    fn get_present(&self, index: u8) -> Result<bool, RequestError<Infallible>>;
+
+    /// Reads a single byte of cached EEPROM contents for DIMM `index`.
+    fn get_data(
+        &self,
+        index: u8,
+        offset: usize,
+    ) -> Result<u8, RequestError<Infallible>>;
+
+    /// Reads the entire cached EEPROM contents for DIMM `index`.
+    fn get_full_data(
+        &self,
+        index: u8,
+        out: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), RequestError<Infallible>>;
+}
+
 pub(crate) struct SpdData<const DIMM_COUNT: usize, const DATA_SIZE: usize> {
     spd_present: [bool; DIMM_COUNT],
     spd_data: [[u8; DATA_SIZE]; DIMM_COUNT],
 }
 
+/// Implement `SpdStore` trait for `SpdData` of any data size and DIMM count.
 impl<const DIMM_COUNT: usize, const DATA_SIZE: usize>
     SpdData<DIMM_COUNT, DATA_SIZE>
 {
@@ -22,8 +58,12 @@ impl<const DIMM_COUNT: usize, const DATA_SIZE: usize>
             spd_data: [[0; DATA_SIZE]; DIMM_COUNT],
         }
     }
+}
 
-    pub fn set_eeprom(
+impl<const DIMM_COUNT: usize, const DATA_SIZE: usize> SpdStore
+    for SpdData<DIMM_COUNT, DATA_SIZE>
+{
+    fn set_eeprom(
         &mut self,
         index: u8,
         offset: usize,
@@ -54,7 +94,7 @@ impl<const DIMM_COUNT: usize, const DATA_SIZE: usize>
         Ok(())
     }
 
-    pub fn remove_eeprom(
+    fn remove_eeprom(
         &mut self,
         index: u8,
     ) -> Result<(), RequestError<Infallible>> {
@@ -66,17 +106,14 @@ impl<const DIMM_COUNT: usize, const DATA_SIZE: usize>
         Ok(())
     }
 
-    pub fn get_present(
-        &self,
-        index: u8,
-    ) -> Result<bool, RequestError<Infallible>> {
+    fn get_present(&self, index: u8) -> Result<bool, RequestError<Infallible>> {
         self.spd_present
             .get(usize::from(index))
             .copied()
             .ok_or(RequestError::Fail(ClientError::BadMessageContents))
     }
 
-    pub fn get_data(
+    fn get_data(
         &self,
         index: u8,
         offset: usize,
@@ -88,7 +125,7 @@ impl<const DIMM_COUNT: usize, const DATA_SIZE: usize>
             .ok_or(RequestError::Fail(ClientError::BadMessageContents))
     }
 
-    pub fn get_full_data(
+    fn get_full_data(
         &self,
         index: u8,
         out: Leased<idol_runtime::W, [u8]>,

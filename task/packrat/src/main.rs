@@ -86,6 +86,7 @@ mod grapefruit;
 mod cosmo_metro;
 
 mod spd_data;
+use spd_data::SpdStore;
 
 #[cfg(feature = "gimlet")]
 use gimlet::SpdData;
