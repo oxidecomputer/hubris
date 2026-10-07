@@ -38,6 +38,7 @@ pub struct HostCrashDebuggingInfo {
 }
 
 impl HostCrashDebuggingInfo {
+    #[allow(dead_code)] // Not all BSPs have a host!
     pub const fn new() -> Self {
         Self {
             panic_payload: [0u8; _],

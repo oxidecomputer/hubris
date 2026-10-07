@@ -47,11 +47,15 @@ pub(crate) struct SpdData<const DIMM_COUNT: usize, const DATA_SIZE: usize> {
     spd_data: [[u8; DATA_SIZE]; DIMM_COUNT],
 }
 
+/// Dummy type for BSPs which don't support SPD data
+#[allow(dead_code)]
+pub(crate) type NoSpdData = SpdData<0, 0>;
+
 /// Implement `SpdStore` trait for `SpdData` of any data size and DIMM count.
 impl<const DIMM_COUNT: usize, const DATA_SIZE: usize>
     SpdData<DIMM_COUNT, DATA_SIZE>
 {
-    #[cfg_attr(not(any(feature = "gimlet", feature = "cosmo")), allow(unused))]
+    #[allow(dead_code)] // Not all BSPs have SPD data!
     pub const fn new() -> Self {
         Self {
             spd_present: [false; DIMM_COUNT],

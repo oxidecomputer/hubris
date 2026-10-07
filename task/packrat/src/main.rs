@@ -76,61 +76,24 @@ use task_packrat_api::{
 };
 use userlib::RecvMessage;
 
-#[cfg(feature = "gimlet")]
-mod gimlet;
-
-#[cfg(feature = "grapefruit")]
-mod grapefruit;
-
-#[cfg(any(feature = "cosmo", feature = "metro"))]
-mod cosmo_metro;
-
+mod bsp;
+mod host;
 mod spd_data;
-use spd_data::SpdStore;
-
-#[cfg(feature = "gimlet")]
-use gimlet::SpdData;
-
-#[cfg(any(feature = "cosmo", feature = "metro"))]
-use cosmo_metro::SpdData;
 
 #[cfg(feature = "ereport")]
 mod ereport;
 
-#[cfg(any(
-    feature = "gimlet",
-    feature = "grapefruit",
-    feature = "cosmo",
-    feature = "metro"
-))]
-mod host;
-
-#[cfg(not(any(feature = "gimlet", feature = "cosmo", feature = "metro")))]
-type SpdData = spd_data::SpdData<0, 0>; // dummy type
+use bsp::{Bsp, BspImpl};
+use spd_data::SpdStore;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum Trace {
     None,
     MacAddressBlockSet(TraceSet<MacAddressBlock>),
     VpdIdentitySet(TraceSet<OxideIdentity>),
-    #[cfg_attr(
-        not(any(
-            feature = "gimlet",
-            feature = "grapefruit",
-            feature = "cosmo",
-            feature = "metro",
-        )),
-        allow(dead_code)
-    )]
     SetNextBootHostStartupOptions(HostStartupOptions),
-    SpdDataUpdate {
-        index: u8,
-        offset: usize,
-        len: u8,
-    },
-    SpdRemoveEeprom {
-        index: u8,
-    },
+    SpdDataUpdate { index: u8, offset: usize, len: u8 },
+    SpdRemoveEeprom { index: u8 },
     RestartIdSet(TraceSet<u128>),
 }
 
@@ -177,34 +140,12 @@ fn main() -> ! {
     struct StaticBufs {
         mac_address_block: Option<MacAddressBlock>,
         identity: Option<OxideIdentity>,
-        #[cfg(any(
-            feature = "gimlet",
-            feature = "grapefruit",
-            feature = "cosmo",
-            feature = "metro",
-        ))]
-        host_info: host::HostCrashDebuggingInfo,
-        #[cfg(feature = "gimlet")]
-        gimlet_bufs: gimlet::StaticBufs,
-        #[cfg(any(feature = "cosmo", feature = "metro"))]
-        sp5_bufs: cosmo_metro::StaticBufs,
         #[cfg(feature = "ereport")]
         ereport_bufs: ereport::EreportBufs,
     }
     let &mut StaticBufs {
         ref mut mac_address_block,
         ref mut identity,
-        #[cfg(any(
-            feature = "gimlet",
-            feature = "grapefruit",
-            feature = "cosmo",
-            feature = "metro",
-        ))]
-        ref mut host_info,
-        #[cfg(feature = "gimlet")]
-        ref mut gimlet_bufs,
-        #[cfg(any(feature = "cosmo", feature = "metro"))]
-        ref mut sp5_bufs,
         #[cfg(feature = "ereport")]
         ref mut ereport_bufs,
     } = {
@@ -212,17 +153,6 @@ fn main() -> ! {
             ClaimOnceCell::new(StaticBufs {
                 mac_address_block: None,
                 identity: None,
-                #[cfg(any(
-                    feature = "gimlet",
-                    feature = "grapefruit",
-                    feature = "cosmo",
-                    feature = "metro",
-                ))]
-                host_info: host::HostCrashDebuggingInfo::new(),
-                #[cfg(feature = "gimlet")]
-                gimlet_bufs: gimlet::StaticBufs::new(),
-                #[cfg(any(feature = "cosmo", feature = "metro"))]
-                sp5_bufs: cosmo_metro::StaticBufs::new(),
                 #[cfg(feature = "ereport")]
                 ereport_bufs: ereport::EreportBufs::new(),
             });
@@ -233,19 +163,7 @@ fn main() -> ! {
         mac_address_block,
         identity,
         restart_id: None,
-        #[cfg(any(
-            feature = "gimlet",
-            feature = "grapefruit",
-            feature = "cosmo",
-            feature = "metro",
-        ))]
-        host_info,
-        #[cfg(feature = "gimlet")]
-        gimlet_data: gimlet::GimletData::new(gimlet_bufs),
-        #[cfg(feature = "grapefruit")]
-        grapefruit_data: grapefruit::GrapefruitData::new(),
-        #[cfg(any(feature = "cosmo", feature = "metro"))]
-        sp5_data: cosmo_metro::CosmoData::new(sp5_bufs),
+        bsp: BspImpl::new(),
         #[cfg(feature = "ereport")]
         ereport_store: ereport::EreportStore::new(ereport_bufs),
     };
@@ -256,28 +174,17 @@ fn main() -> ! {
     }
 }
 
-struct ServerImpl {
+struct ServerImpl<B: Bsp> {
     mac_address_block: &'static mut Option<MacAddressBlock>,
     identity: &'static mut Option<OxideIdentity>,
     restart_id: Option<ereport_messages::RestartId>,
-    #[cfg(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro"
-    ))]
-    host_info: &'static mut host::HostCrashDebuggingInfo,
-    #[cfg(feature = "gimlet")]
-    gimlet_data: gimlet::GimletData,
-    #[cfg(feature = "grapefruit")]
-    grapefruit_data: grapefruit::GrapefruitData,
-    #[cfg(any(feature = "cosmo", feature = "metro"))]
-    sp5_data: cosmo_metro::CosmoData,
+    /// Board-specific data
+    bsp: B,
     #[cfg(feature = "ereport")]
     ereport_store: ereport::EreportStore,
 }
 
-impl ServerImpl {
+impl<B: Bsp> ServerImpl<B> {
     // Implementation for properties that may only be set once (e.g., our MAC
     // address block). If `storage` is already `Some(_)`, we log the extra set
     // and return an error if `value` doesn't match.
@@ -314,39 +221,7 @@ impl ServerImpl {
     }
 }
 
-#[cfg(feature = "gimlet")]
-impl ServerImpl {
-    fn spd(&self) -> Option<&SpdData> {
-        Some(self.gimlet_data.spd())
-    }
-
-    fn spd_mut(&mut self) -> Option<&mut SpdData> {
-        Some(self.gimlet_data.spd_mut())
-    }
-}
-
-#[cfg(any(feature = "cosmo", feature = "metro"))]
-impl ServerImpl {
-    fn spd(&self) -> Option<&SpdData> {
-        Some(self.sp5_data.spd())
-    }
-
-    fn spd_mut(&mut self) -> Option<&mut SpdData> {
-        Some(self.sp5_data.spd_mut())
-    }
-}
-
-#[cfg(not(any(feature = "cosmo", feature = "gimlet", feature = "metro")))]
-impl ServerImpl {
-    fn spd(&self) -> Option<&SpdData> {
-        None
-    }
-    fn spd_mut(&mut self) -> Option<&mut SpdData> {
-        None
-    }
-}
-
-impl idl::InOrderPackratImpl for ServerImpl {
+impl<B: Bsp> idl::InOrderPackratImpl for ServerImpl<B> {
     fn get_mac_address_block(
         &mut self,
         _: &RecvMessage,
@@ -379,100 +254,33 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Self::set_once(self.identity, identity).map_err(Into::into)
     }
 
-    #[cfg(feature = "gimlet")]
     fn get_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Ok(self.gimlet_data.host_startup_options())
+        self.bsp
+            .host_startup_options()
+            .copied()
+            .ok_or(RequestError::Fail(
+                idol_runtime::ClientError::BadMessageContents,
+            ))
     }
 
-    #[cfg(feature = "grapefruit")]
-    fn get_next_boot_host_startup_options(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Ok(self.grapefruit_data.host_startup_options())
-    }
-
-    #[cfg(any(feature = "cosmo", feature = "metro"))]
-    fn get_next_boot_host_startup_options(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Ok(self.sp5_data.host_startup_options())
-    }
-
-    #[cfg(not(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro",
-    )))]
-    fn get_next_boot_host_startup_options(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
-    }
-
-    #[cfg(feature = "gimlet")]
     fn set_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,
         host_startup_options: HostStartupOptions,
     ) -> Result<(), RequestError<Infallible>> {
+        let Some(options) = self.bsp.host_startup_options_mut() else {
+            return Err(RequestError::Fail(
+                idol_runtime::ClientError::BadMessageContents,
+            ));
+        };
         ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
             host_startup_options
         ));
-        self.gimlet_data
-            .set_host_startup_options(host_startup_options);
+        *options = host_startup_options;
         Ok(())
-    }
-
-    #[cfg(feature = "grapefruit")]
-    fn set_next_boot_host_startup_options(
-        &mut self,
-        _: &RecvMessage,
-        host_startup_options: HostStartupOptions,
-    ) -> Result<(), RequestError<Infallible>> {
-        ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
-            host_startup_options
-        ));
-        self.grapefruit_data
-            .set_host_startup_options(host_startup_options);
-        Ok(())
-    }
-
-    #[cfg(any(feature = "cosmo", feature = "metro"))]
-    fn set_next_boot_host_startup_options(
-        &mut self,
-        _: &RecvMessage,
-        host_startup_options: HostStartupOptions,
-    ) -> Result<(), RequestError<Infallible>> {
-        ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
-            host_startup_options
-        ));
-        self.sp5_data.set_host_startup_options(host_startup_options);
-        Ok(())
-    }
-
-    #[cfg(not(any(
-        feature = "gimlet",
-        feature = "cosmo",
-        feature = "grapefruit",
-        feature = "metro",
-    )))]
-    fn set_next_boot_host_startup_options(
-        &mut self,
-        _: &RecvMessage,
-        _host_startup_options: HostStartupOptions,
-    ) -> Result<(), RequestError<Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
     }
 
     fn set_spd_eeprom(
@@ -482,7 +290,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         offset: usize,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
     ) -> Result<(), RequestError<Infallible>> {
-        if let Some(spd) = self.spd_mut() {
+        if let Some(spd) = self.bsp.spd_mut() {
             spd.set_eeprom(index, offset, data)
         } else {
             Err(RequestError::Fail(
@@ -496,7 +304,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: &RecvMessage,
         index: u8,
     ) -> Result<(), RequestError<Infallible>> {
-        if let Some(spd) = self.spd_mut() {
+        if let Some(spd) = self.bsp.spd_mut() {
             spd.remove_eeprom(index)
         } else {
             Err(RequestError::Fail(
@@ -510,7 +318,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: &RecvMessage,
         index: u8,
     ) -> Result<bool, RequestError<Infallible>> {
-        if let Some(spd) = self.spd() {
+        if let Some(spd) = self.bsp.spd() {
             spd.get_present(index)
         } else {
             Err(RequestError::Fail(
@@ -525,7 +333,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         index: u8,
         offset: usize,
     ) -> Result<u8, RequestError<Infallible>> {
-        if let Some(spd) = self.spd() {
+        if let Some(spd) = self.bsp.spd() {
             spd.get_data(index, offset)
         } else {
             Err(RequestError::Fail(
@@ -540,7 +348,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         index: u8,
         out: Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), RequestError<Infallible>> {
-        if let Some(spd) = self.spd() {
+        if let Some(spd) = self.bsp.spd() {
             spd.get_full_data(index, out)
         } else {
             Err(RequestError::Fail(
@@ -615,33 +423,6 @@ impl idl::InOrderPackratImpl for ServerImpl {
         )
     }
 
-    /// We're not a system that is expected to have a host, so we shouldn't have
-    /// anyone writing host bootfail messages to us
-    #[cfg(not(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro",
-    )))]
-    fn write_host_bootfail(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        _reason: u8,
-        _slot: Option<u16>,
-        _data: Leased<idol_runtime::R, [u8]>,
-    ) -> Result<
-        HostInfoWriteOutput,
-        idol_runtime::RequestError<core::convert::Infallible>,
-    > {
-        Err(idol_runtime::ClientError::UnknownOperation.fail())
-    }
-
-    #[cfg(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro"
-    ))]
     fn write_host_bootfail(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -652,28 +433,30 @@ impl idl::InOrderPackratImpl for ServerImpl {
         HostInfoWriteOutput,
         idol_runtime::RequestError<core::convert::Infallible>,
     > {
+        // If we're not a system that is expected to have a host, we shouldn't
+        // have anyone writing host bootfail messages to us.
+        let Some(host_info) = self.bsp.host_info_mut() else {
+            return Err(idol_runtime::ClientError::UnknownOperation.fail());
+        };
+
         // First, attempt to copy-in the new data, to ensure that we don't rev the
         // metadata if the lease access fails.
-        let to_copy = self.host_info.bootfail_payload.len().min(data.len());
-        data.read_range(
-            0..to_copy,
-            &mut self.host_info.bootfail_payload[..to_copy],
-        )
-        .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
+        let to_copy = host_info.bootfail_payload.len().min(data.len());
+        data.read_range(0..to_copy, &mut host_info.bootfail_payload[..to_copy])
+            .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
 
         // Okay! We've written the requested data. Let's update the metadata.
         //
         // Take the old count, if any, and add one to it. If that count wrapped,
         // or if we didn't have an old count, set it to 1, so we never return
         // a count of zero if we've ever observed a boot failure.
-        let new_seq = self
-            .host_info
+        let new_seq = host_info
             .bootfail_state
             .take()
             .map(|s| s.sequence_number.wrapping_add(1))
             .unwrap_or(0)
             .max(1);
-        self.host_info.bootfail_state = Some(host::HostBootFailMetadata {
+        host_info.bootfail_state = Some(host::HostBootFailMetadata {
             total_length: to_copy,
             sequence_number: new_seq,
             reason,
@@ -687,33 +470,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         })
     }
 
-    /// We're not a system that is expected to have a host, therefore we can always return
-    /// "no host info", since we won't ever have any.
-    #[cfg(not(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro",
-    )))]
-    fn read_host_bootfail_fragment(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        _request: Option<HostInfoRequest>,
-        _data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<
-        HostBootfailReadOutput,
-        idol_runtime::RequestError<HostInfoReadError>,
-    > {
-        Err(HostInfoReadError::NoHostInfo.into())
-    }
-
     /// Attempt to obtain the requested host info.
-    #[cfg(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro"
-    ))]
     fn read_host_bootfail_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -726,32 +483,6 @@ impl idl::InOrderPackratImpl for ServerImpl {
         self.host_bootfail_helper(request.as_ref(), data)
     }
 
-    /// We're not a system that is expected to have a host, therefore we can always return
-    /// "no host info", since we won't ever have any.
-    #[cfg(not(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro",
-    )))]
-    fn write_host_panic(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        _slot: Option<u16>,
-        _data: Leased<idol_runtime::R, [u8]>,
-    ) -> Result<
-        HostInfoWriteOutput,
-        idol_runtime::RequestError<core::convert::Infallible>,
-    > {
-        Err(idol_runtime::ClientError::UnknownOperation.fail())
-    }
-
-    #[cfg(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro"
-    ))]
     fn write_host_panic(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -761,28 +492,30 @@ impl idl::InOrderPackratImpl for ServerImpl {
         HostInfoWriteOutput,
         idol_runtime::RequestError<core::convert::Infallible>,
     > {
+        // If we're not a system that is expected to have a host, we shouldn't
+        // have anyone writing host panic messages to us.
+        let Some(host_info) = self.bsp.host_info_mut() else {
+            return Err(idol_runtime::ClientError::UnknownOperation.fail());
+        };
+
         // First, attempt to copy-in the new data, to ensure that we don't rev the
         // metadata if the lease access fails.
-        let to_copy = self.host_info.panic_payload.len().min(data.len());
-        data.read_range(
-            0..to_copy,
-            &mut self.host_info.panic_payload[..to_copy],
-        )
-        .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
+        let to_copy = host_info.panic_payload.len().min(data.len());
+        data.read_range(0..to_copy, &mut host_info.panic_payload[..to_copy])
+            .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
 
         // Okay! We've written the requested data. Let's update the metadata.
         //
         // Take the old count, if any, and add one to it. If that count wrapped,
         // or if we didn't have an old count, set it to 1, so we never return
         // a count of zero if we've ever observed a panic.
-        let new_seq = self
-            .host_info
+        let new_seq = host_info
             .panic_state
             .take()
             .map(|s| s.sequence_number.wrapping_add(1))
             .unwrap_or(0)
             .max(1);
-        self.host_info.panic_state = Some(host::HostPanicMetadata {
+        host_info.panic_state = Some(host::HostPanicMetadata {
             total_length: to_copy,
             sequence_number: new_seq,
             slot,
@@ -796,32 +529,6 @@ impl idl::InOrderPackratImpl for ServerImpl {
         })
     }
 
-    /// We're not a system that is expected to have a host, therefore we can always return
-    /// "no host info", since we won't ever have any.
-    #[cfg(not(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro",
-    )))]
-    fn read_host_panic_fragment(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        _request: Option<HostInfoRequest>,
-        _data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<
-        HostPanicReadOutput,
-        idol_runtime::RequestError<HostInfoReadError>,
-    > {
-        Err(HostInfoReadError::NoHostInfo.into())
-    }
-
-    #[cfg(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro"
-    ))]
     fn read_host_panic_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -835,13 +542,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     }
 }
 
-impl ServerImpl {
-    #[cfg(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro"
-    ))]
+impl<B: Bsp> ServerImpl<B> {
     fn host_panic_helper(
         &self,
         req: Option<&HostInfoRequest>,
@@ -850,8 +551,14 @@ impl ServerImpl {
         HostPanicReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
     > {
+        // If we're not a system that is expected to have a host, we can always
+        // return "no host info", since we won't ever have any.
+        let Some(host_info) = self.bsp.host_info() else {
+            return Err(HostInfoReadError::NoHostInfo.into());
+        };
+
         // Do we *have* a panic to report?
-        let Some(bfs) = self.host_info.panic_state.as_ref() else {
+        let Some(bfs) = host_info.panic_state.as_ref() else {
             return Err(HostInfoReadError::NoHostInfo.into());
         };
 
@@ -860,7 +567,7 @@ impl ServerImpl {
             return Err(HostInfoReadError::MissingRestartId.into());
         };
 
-        let length = bfs.total_length.min(self.host_info.panic_payload.len());
+        let length = bfs.total_length.min(host_info.panic_payload.len());
         let offset = if let Some(req) = req {
             // Do we have the specific panic data being requested?
             if bfs.sequence_number != req.seqno {
@@ -879,7 +586,7 @@ impl ServerImpl {
         };
 
         // Attempt to copy the requested range into the destination
-        let relevant = &self.host_info.panic_payload[offset..];
+        let relevant = &host_info.panic_payload[offset..];
         let max_to_copy = data.len().min(relevant.len());
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
             .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
@@ -895,12 +602,6 @@ impl ServerImpl {
         })
     }
 
-    #[cfg(any(
-        feature = "gimlet",
-        feature = "grapefruit",
-        feature = "cosmo",
-        feature = "metro"
-    ))]
     fn host_bootfail_helper(
         &self,
         request: Option<&HostInfoRequest>,
@@ -909,8 +610,14 @@ impl ServerImpl {
         HostBootfailReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
     > {
+        // If we're not a system that is expected to have a host, we can always
+        // return "no host info", since we won't ever have any.
+        let Some(host_info) = self.bsp.host_info() else {
+            return Err(HostInfoReadError::NoHostInfo.into());
+        };
+
         // Do we *have* a bootfail to report?
-        let Some(bfs) = self.host_info.bootfail_state.as_ref() else {
+        let Some(bfs) = host_info.bootfail_state.as_ref() else {
             return Err(HostInfoReadError::NoHostInfo.into());
         };
 
@@ -919,8 +626,7 @@ impl ServerImpl {
             return Err(HostInfoReadError::MissingRestartId.into());
         };
 
-        let length =
-            bfs.total_length.min(self.host_info.bootfail_payload.len());
+        let length = bfs.total_length.min(host_info.bootfail_payload.len());
         let offset = if let Some(req) = request {
             // Do we have the specific bootfail data being requested?
             if bfs.sequence_number != req.seqno {
@@ -938,7 +644,7 @@ impl ServerImpl {
         };
 
         // Attempt to copy the requested range into the destination
-        let relevant = &self.host_info.bootfail_payload[offset..];
+        let relevant = &host_info.bootfail_payload[offset..];
         let max_to_copy = data.len().min(relevant.len());
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
             .map_err(|_| idol_runtime::ClientError::WentAway.fail())?;
@@ -960,7 +666,7 @@ impl ServerImpl {
 
 // If we are not built with ereport support, we expect no notifications.
 #[cfg(not(feature = "ereport"))]
-impl NotificationHandler for ServerImpl {
+impl<B: Bsp> NotificationHandler for ServerImpl<B> {
     fn current_notification_mask(&self) -> u32 {
         // We don't use notifications, don't listen for any.
         0
@@ -972,7 +678,7 @@ impl NotificationHandler for ServerImpl {
 }
 
 #[cfg(feature = "ereport")]
-impl NotificationHandler for ServerImpl {
+impl<B: Bsp> NotificationHandler for ServerImpl<B> {
     fn current_notification_mask(&self) -> u32 {
         notifications::TASK_FAULTED_MASK
     }
