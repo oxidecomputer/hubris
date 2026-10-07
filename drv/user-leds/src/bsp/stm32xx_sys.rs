@@ -197,5 +197,5 @@ mod board {
         target_board = "cosmo-b",
         target_board = "metro-a",
     ))]
-    pub const LEDS: &[PinInfo] = &[act_hi(Port::H.pin(6))];
+    pub const LEDS: &[PinInfo] = &[act_hi(Port::C.pin(6))];
 }
