@@ -21,6 +21,28 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Set to 1 to ask for the Versal's boot flash."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "to_fpga",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Debug. Set to 1 to point the mux at the FPGA regardless of what the\nsequencer or the Versal is doing. No interlock: with the Versal out of reset\nthis takes the flash away from it mid-boot or mid-read. For bring-up."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "mux_en",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Debug. Set to 1 to hold the mux enabled (mux_en_l low) whoever the select\npoints at. Without it the mux is enabled while the FPGA owns the flash and\nwhile the Versal is out of reset, and disabled otherwise."
                 }
             ]
         },
@@ -58,11 +80,11 @@
                     "inst_name": "mux_sel",
                     "lsb": 2,
                     "msb": 2,
-                    "reset": 0,
+                    "reset": 1,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Live readback of the mux select pin (From FPGA to the mux)"
+                    "desc": "Live readback of the mux select pin (From FPGA to the mux). 0 connects the\nFPGA to the flash, 1 the Versal"
                 },
                 {
                     "type": "field",
