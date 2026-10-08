@@ -16,63 +16,6 @@ use pmbus::{
     commands::{VOUT_MODE, am006},
 };
 use userlib::units::*;
-use zerocopy::{Immutable, IntoBytes};
-
-#[allow(dead_code)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, IntoBytes, Immutable)]
-#[repr(u8)]
-pub enum Register {
-    // (0x00, "PAGE", WriteByte, ReadByte),
-    Page = 0x00,
-    // (0x03, "CLEAR_FAULTS", SendByte, Illegal),
-    ClearFaults = 0x03,
-    // (0x19, "CAPABILITY", Illegal, ReadByte),
-    Capability = 0x19,
-    // (0x20, "VOUT_MODE", WriteByte, ReadByte),
-    VoutMode = 0x20,
-    // (0x40, "VOUT_OV_FAULT_LIMIT", WriteWord, ReadWord),
-    VoutOvFaultLimit = 0x40,
-    // (0x44, "VOUT_UV_FAULT_LIMIT", WriteWord, ReadWord),
-    VoutUvFaultLimit = 0x44,
-    // (0x4f, "OT_FAULT_LIMIT", WriteWord, ReadWord),
-    OtFaultLimit = 0x4f,
-    // (0x51, "OT_WARN_LIMIT", WriteWord, ReadWord),
-    OtWarnLimit = 0x51,
-    // (0x52, "UT_WARN_LIMIT", WriteWord, ReadWord),
-    UtWarnLimit = 0x52,
-    // (0x53, "UT_FAULT_LIMIT", WriteWord, ReadWord),
-    UtFaultLimit = 0x53,
-    // (0x78, "STATUS_BYTE", WriteByte, ReadByte),
-    StatusByte = 0x78,
-    // (0x79, "STATUS_WORD", WriteWord, ReadWord),
-    StatusWord = 0x79,
-    // (0x7a, "STATUS_VOUT", WriteByte, ReadByte),
-    StatusVout = 0x7a,
-    // (0x7d, "STATUS_TEMPERATURE", WriteByte, ReadByte),
-    StatusTemperature = 0x7d,
-    // (0x7e, "STATUS_CML", WriteByte, ReadByte),
-    StatusCml = 0x7e,
-    // (0x8b, "READ_VOUT", Illegal, ReadWord),
-    ReadVout = 0x8b,
-    // (0x8d, "READ_TEMPERATURE_1", Illegal, ReadWord),
-    ReadTemperature1 = 0x8d,
-    // (0x98, "PMBUS_REVISION", Illegal, ReadByte),
-    PmbusRevision = 0x98,
-    // (0x99, "MFR_ID", WriteBlock, ReadBlock),
-    MfrId = 0x99,
-    // (0x9a, "MFR_MODEL", WriteBlock, ReadBlock),
-    MfrModel = 0x9a,
-    // (0x9b, "MFR_REVISION", WriteBlock, ReadBlock),
-    MfrRevision = 0x9b,
-    // (0xd0, "MFR_SPECIFIC_D0", MfrDefined, MfrDefined),
-    MfrSpecificD0 = 0xd0,
-    // (0xd1, "MFR_SPECIFIC_D1", MfrDefined, MfrDefined),
-    MfrSpecificD1 = 0xd1,
-    // (0xd2, "MFR_SPECIFIC_D2", WriteWord, ReadWord),
-    MfrSpecificD2 = 0xd2,
-    // (0xd3, "MFR_SPECIFIC_D3", WriteWord, ReadWord),
-    MfrSpecificD3 = 0xd3,
-}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
@@ -133,8 +76,6 @@ impl core::fmt::Display for Am006 {
 
 impl Am006 {
     pub fn new(device: &I2cDevice) -> Self {
-        // By default, the chip runs at 16 conversions per second, which is
-        // plenty fast for our use case.
         Self {
             device: *device,
             mode: Cell::new(None),
