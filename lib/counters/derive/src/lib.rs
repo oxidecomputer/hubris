@@ -45,21 +45,29 @@ pub fn derive_count(input: TokenStream) -> TokenStream {
     }
 }
 
-fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
-    let syn::Data::Enum(ref data_enum) = input.data else {
-        return Err(syn::Error::new_spanned(
+fn gen_count_impl(
+    input: DeriveInput,
+) -> Result<proc_macro2::TokenStream, syn::Error> {
+    match &input.data {
+        syn::Data::Enum(data_enum) => {
+            let variants = &data_enum.variants;
+            let mut state = CountGenerator::new(&input, variants.len());
+
+            for variant in variants {
+                state.add_variant(variant)?;
+            }
+
+            Ok(state.generate().to_token_stream())
+        }
+        syn::Data::Struct(_) => Err(syn::Error::new_spanned(
             input,
             "`Count` can only be derived for enums",
-        ));
-    };
-    let variants = &data_enum.variants;
-    let mut state = CountGenerator::new(&input, variants.len());
-
-    for variant in variants {
-        state.add_variant(variant)?;
+        )),
+        syn::Data::Union(_) => Err(syn::Error::new_spanned(
+            input,
+            "`Count` can only be derived for enums or newtype structs",
+        )),
     }
-
-    Ok(state.generate())
 }
 
 struct CountGenerator<'input> {
