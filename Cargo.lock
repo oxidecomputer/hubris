@@ -4094,6 +4094,7 @@ dependencies = [
  "call_rustfmt",
  "cfg-if",
  "cortex-m",
+ "hostcall",
  "indexmap 1.9.1",
  "kerncore",
  "phash",
