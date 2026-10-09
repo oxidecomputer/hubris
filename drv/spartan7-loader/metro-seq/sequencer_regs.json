@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 120,
+    "addr_span_bytes": 124,
     "inst_name": "sequencer_regs",
     "addr_offset": 0,
     "children": [
@@ -240,7 +240,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Live. Set '1' when v0p96_nic_to_fpga1_alert_l is active (low on board)"
+                    "desc": "Live. Set '1' when v0p96_nic_to_fpga1_alert_l is active (low on board). Cosmo only."
                 },
                 {
                     "type": "field",
@@ -546,7 +546,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Live. Set '1' when v0p96_nic_to_fpga1_alert_l is active (low on board)"
+                    "desc": "Live. Set '1' when v0p96_nic_to_fpga1_alert_l is active (low on board). Cosmo only."
                 },
                 {
                     "type": "field",
@@ -852,7 +852,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Live. Set '1' when v0p96_nic_to_fpga1_alert_l is active (low on board)"
+                    "desc": "Live. Set '1' when v0p96_nic_to_fpga1_alert_l is active (low on board). Cosmo only."
                 },
                 {
                     "type": "field",
@@ -1158,7 +1158,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Live. Set '1' when v0p96_nic_to_fpga1_alert_l is active (low on board)"
+                    "desc": "Live. Set '1' when v0p96_nic_to_fpga1_alert_l is active (low on board). Cosmo only."
                 },
                 {
                     "type": "field",
@@ -1651,6 +1651,10 @@
                         {
                             "name": "MEASURING",
                             "value": 5
+                        },
+                        {
+                            "name": "DISABLE_POWER",
+                            "value": 6
                         }
                     ]
                 }
@@ -1699,48 +1703,64 @@
                             "value": 5
                         },
                         {
-                            "name": "DONE",
+                            "name": "HSC_EN",
                             "value": 6
                         },
                         {
-                            "name": "HSC_EN",
+                            "name": "GROUP_1",
                             "value": 7
                         },
                         {
-                            "name": "CORE_EN",
+                            "name": "GROUP_2",
                             "value": 8
                         },
                         {
-                            "name": "AUX_EN",
+                            "name": "GROUP_3",
                             "value": 9
                         },
                         {
-                            "name": "IO_EN",
+                            "name": "GROUP_4",
                             "value": 10
                         },
                         {
-                            "name": "RAILS_SETTLE",
+                            "name": "GROUP_5",
                             "value": 11
                         },
                         {
-                            "name": "HASH_IMAGE",
+                            "name": "GROUP_6",
                             "value": 12
                         },
                         {
-                            "name": "HASH_RELEASE",
+                            "name": "GROUP_7",
                             "value": 13
                         },
                         {
-                            "name": "MODE_STRAP",
+                            "name": "RAILS_SETTLE",
                             "value": 14
                         },
                         {
-                            "name": "POR_RELEASE",
+                            "name": "HASH_WAIT",
                             "value": 15
                         },
                         {
-                            "name": "WAIT_DONE",
+                            "name": "MODE_STRAP",
                             "value": 16
+                        },
+                        {
+                            "name": "POR_RELEASE",
+                            "value": 17
+                        },
+                        {
+                            "name": "WAIT_DONE",
+                            "value": 18
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 19
+                        },
+                        {
+                            "name": "POWER_DOWN",
+                            "value": 20
                         }
                     ]
                 }
@@ -1932,7 +1952,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V)"
+                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V). On metro, enabled and checked ahead of group 1"
                 },
                 {
                     "type": "field",
@@ -1943,7 +1963,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V)"
+                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V). On metro, enabled and checked ahead of group 1"
                 },
                 {
                     "type": "field",
@@ -1954,7 +1974,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -1965,7 +1985,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -1976,7 +1996,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -1987,7 +2007,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -1998,7 +2018,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2009,7 +2029,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p4_nic_a0hp (discrete pg, enable cascade from nic 5V). Note: mirrors enable on HCV A boards, actual pin readback on HCV B and newer boards"
+                    "desc": "Cosmo only. NIC v1p4_nic_a0hp (discrete pg, enable cascade from nic 5V). Note: mirrors enable on HCV A boards, actual pin readback on HCV B and newer boards"
                 },
                 {
                     "type": "field",
@@ -2020,7 +2040,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2031,7 +2051,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCINT 0.8V"
+                    "desc": "Metro only. Versal VCCINT 0.8V. Group 3"
                 },
                 {
                     "type": "field",
@@ -2042,7 +2062,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 0.88V"
+                    "desc": "Metro only. Versal 0.88V. Group 2"
                 },
                 {
                     "type": "field",
@@ -2053,7 +2073,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVCC 0.92V (discrete pg, cascade enable)"
+                    "desc": "Metro only. Versal transceiver AVCC 0.92V. Group 5 (discrete pg, no enable of its own; comes up with V1P1)"
                 },
                 {
                     "type": "field",
@@ -2064,7 +2084,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 1.1V"
+                    "desc": "Metro only. Versal 1.1V. Group 5 (enable only; no pg pin, reads back its enable)"
                 },
                 {
                     "type": "field",
@@ -2075,7 +2095,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVTT 1.2V (discrete pg, cascade enable)"
+                    "desc": "Metro only. Versal transceiver AVTT 1.2V. Group 7 (discrete pg, no enable of its own; comes up with V1P4)"
                 },
                 {
                     "type": "field",
@@ -2086,7 +2106,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 1.4V"
+                    "desc": "Metro only. Versal 1.4V. Group 7 (enable only; no pg pin, reads back its enable)"
                 },
                 {
                     "type": "field",
@@ -2097,7 +2117,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCAUX 1.5V"
+                    "desc": "Metro only. Versal VCCAUX 1.5V. Group 4"
                 },
                 {
                     "type": "field",
@@ -2108,7 +2128,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVCCAUX 1.5V"
+                    "desc": "Metro only. Versal transceiver AVCCAUX 1.5V. Group 6"
                 },
                 {
                     "type": "field",
@@ -2119,7 +2139,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCO 1.8V"
+                    "desc": "Metro only. Versal VCCO 1.8V. Group 1"
                 },
                 {
                     "type": "field",
@@ -2130,7 +2150,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCO 3.3V"
+                    "desc": "Metro only. Versal VCCO 3.3V. Group 1"
                 }
             ]
         },
@@ -2260,7 +2280,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V)"
+                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V). On metro, enabled and checked ahead of group 1"
                 },
                 {
                     "type": "field",
@@ -2271,7 +2291,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V)"
+                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V). On metro, enabled and checked ahead of group 1"
                 },
                 {
                     "type": "field",
@@ -2282,7 +2302,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2293,7 +2313,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2304,7 +2324,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2315,7 +2335,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2326,7 +2346,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2337,7 +2357,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p4_nic_a0hp (discrete pg, enable cascade from nic 5V). Note: mirrors enable on HCV A boards, actual pin readback on HCV B and newer boards"
+                    "desc": "Cosmo only. NIC v1p4_nic_a0hp (discrete pg, enable cascade from nic 5V). Note: mirrors enable on HCV A boards, actual pin readback on HCV B and newer boards"
                 },
                 {
                     "type": "field",
@@ -2348,7 +2368,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2359,7 +2379,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCINT 0.8V"
+                    "desc": "Metro only. Versal VCCINT 0.8V. Group 3"
                 },
                 {
                     "type": "field",
@@ -2370,7 +2390,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 0.88V"
+                    "desc": "Metro only. Versal 0.88V. Group 2"
                 },
                 {
                     "type": "field",
@@ -2381,7 +2401,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVCC 0.92V (discrete pg, cascade enable)"
+                    "desc": "Metro only. Versal transceiver AVCC 0.92V. Group 5 (discrete pg, no enable of its own; comes up with V1P1)"
                 },
                 {
                     "type": "field",
@@ -2392,7 +2412,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 1.1V"
+                    "desc": "Metro only. Versal 1.1V. Group 5 (enable only; no pg pin, reads back its enable)"
                 },
                 {
                     "type": "field",
@@ -2403,7 +2423,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVTT 1.2V (discrete pg, cascade enable)"
+                    "desc": "Metro only. Versal transceiver AVTT 1.2V. Group 7 (discrete pg, no enable of its own; comes up with V1P4)"
                 },
                 {
                     "type": "field",
@@ -2414,7 +2434,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 1.4V"
+                    "desc": "Metro only. Versal 1.4V. Group 7 (enable only; no pg pin, reads back its enable)"
                 },
                 {
                     "type": "field",
@@ -2425,7 +2445,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCAUX 1.5V"
+                    "desc": "Metro only. Versal VCCAUX 1.5V. Group 4"
                 },
                 {
                     "type": "field",
@@ -2436,7 +2456,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVCCAUX 1.5V"
+                    "desc": "Metro only. Versal transceiver AVCCAUX 1.5V. Group 6"
                 },
                 {
                     "type": "field",
@@ -2447,7 +2467,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCO 1.8V"
+                    "desc": "Metro only. Versal VCCO 1.8V. Group 1"
                 },
                 {
                     "type": "field",
@@ -2458,7 +2478,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCO 3.3V"
+                    "desc": "Metro only. Versal VCCO 3.3V. Group 1"
                 }
             ]
         },
@@ -2588,7 +2608,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V)"
+                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V). On metro, enabled and checked ahead of group 1"
                 },
                 {
                     "type": "field",
@@ -2599,7 +2619,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V)"
+                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V). On metro, enabled and checked ahead of group 1"
                 },
                 {
                     "type": "field",
@@ -2610,7 +2630,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2621,7 +2641,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2632,7 +2652,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2643,7 +2663,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2654,7 +2674,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2665,7 +2685,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p4_nic_a0hp (discrete pg, enable cascade from nic 5V). Note: mirrors enable on HCV A boards, actual pin readback on HCV B and newer boards"
+                    "desc": "Cosmo only. NIC v1p4_nic_a0hp (discrete pg, enable cascade from nic 5V). Note: mirrors enable on HCV A boards, actual pin readback on HCV B and newer boards"
                 },
                 {
                     "type": "field",
@@ -2676,7 +2696,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -2687,7 +2707,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCINT 0.8V"
+                    "desc": "Metro only. Versal VCCINT 0.8V. Group 3"
                 },
                 {
                     "type": "field",
@@ -2698,7 +2718,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 0.88V"
+                    "desc": "Metro only. Versal 0.88V. Group 2"
                 },
                 {
                     "type": "field",
@@ -2709,7 +2729,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVCC 0.92V (discrete pg, cascade enable)"
+                    "desc": "Metro only. Versal transceiver AVCC 0.92V. Group 5 (discrete pg, no enable of its own; comes up with V1P1)"
                 },
                 {
                     "type": "field",
@@ -2720,7 +2740,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 1.1V"
+                    "desc": "Metro only. Versal 1.1V. Group 5 (enable only; no pg pin, reads back its enable)"
                 },
                 {
                     "type": "field",
@@ -2731,7 +2751,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVTT 1.2V (discrete pg, cascade enable)"
+                    "desc": "Metro only. Versal transceiver AVTT 1.2V. Group 7 (discrete pg, no enable of its own; comes up with V1P4)"
                 },
                 {
                     "type": "field",
@@ -2742,7 +2762,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 1.4V"
+                    "desc": "Metro only. Versal 1.4V. Group 7 (enable only; no pg pin, reads back its enable)"
                 },
                 {
                     "type": "field",
@@ -2753,7 +2773,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCAUX 1.5V"
+                    "desc": "Metro only. Versal VCCAUX 1.5V. Group 4"
                 },
                 {
                     "type": "field",
@@ -2764,7 +2784,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVCCAUX 1.5V"
+                    "desc": "Metro only. Versal transceiver AVCCAUX 1.5V. Group 6"
                 },
                 {
                     "type": "field",
@@ -2775,7 +2795,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCO 1.8V"
+                    "desc": "Metro only. Versal VCCO 1.8V. Group 1"
                 },
                 {
                     "type": "field",
@@ -2786,7 +2806,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCO 3.3V"
+                    "desc": "Metro only. Versal VCCO 3.3V. Group 1"
                 }
             ]
         },
@@ -2925,7 +2945,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "cld_rst_l live status, (From FPGA to NIC)"
+                    "desc": "Cosmo only. cld_rst_l live status, (From FPGA to NIC)"
                 },
                 {
                     "type": "field",
@@ -2936,7 +2956,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "perst_l live status, (From FPGA to NIC)"
+                    "desc": "Cosmo only. perst_l live status, (From FPGA to NIC)"
                 },
                 {
                     "type": "field",
@@ -2947,7 +2967,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "nic_mfg_mode_l live status, (From FPGA to NIC)"
+                    "desc": "Cosmo only. nic_mfg_mode_l live status, (From FPGA to NIC)"
                 },
                 {
                     "type": "field",
@@ -2958,7 +2978,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "eeprom_wp_l live status, note: only valid when SP5 rails are up (From FPGA to eeprom)"
+                    "desc": "Cosmo only. eeprom_wp_l live status, note: only valid when SP5 rails are up (From FPGA to eeprom)"
                 },
                 {
                     "type": "field",
@@ -2969,7 +2989,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "eeprom_wp_buffer_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
+                    "desc": "Cosmo only. eeprom_wp_buffer_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
                 },
                 {
                     "type": "field",
@@ -2980,7 +3000,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "flash_wp_l live status, note: only valid when SP5 rails are up (From FPGA to flash)"
+                    "desc": "Cosmo only. flash_wp_l live status, note: only valid when SP5 rails are up (From FPGA to flash)"
                 },
                 {
                     "type": "field",
@@ -2991,7 +3011,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "nic_pcie_clk_buff_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
+                    "desc": "Cosmo only. nic_pcie_clk_buff_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
                 },
                 {
                     "type": "field",
@@ -3002,7 +3022,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "ext_rst_l live status, note: only valid when NIC rails are up (From NIC)"
+                    "desc": "Cosmo only. ext_rst_l live status, note: only valid when NIC rails are up (From NIC)"
                 },
                 {
                     "type": "field",
@@ -3013,7 +3033,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "sp5_mfg_mode_l live status, (From SP5 to FPGA)"
+                    "desc": "Cosmo only. sp5_mfg_mode_l live status, (From SP5 to FPGA)"
                 },
                 {
                     "type": "field",
@@ -3024,7 +3044,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "sp5_perst_l live status, (From SP5 hotplug to FPGA)"
+                    "desc": "Cosmo only. sp5_perst_l live status, (From SP5 hotplug to FPGA)"
                 }
             ]
         },
@@ -3077,7 +3097,29 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Let other logic run but directly force mfg mode_l to be asserted when set"
+                    "desc": "Cosmo only. Let other logic run but directly force mfg mode_l to be asserted when set"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "a0hp_inhibit",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Hold the NIC (A0HP) sequencer off while leaving A0 alone. While set, a0_en does\nnot reach the NIC sequencer and a PERST de-assertion from the SP5 does not restart\nit after a fault. Setting it with the NIC up powers the NIC down as a software\ndisable would, without a fault. Clearing it while a0_en is set starts the NIC sequence."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ignore_nic_hash",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Metro only. Do not wait for the image measurement before releasing POR_B. The\nNIC's rails must still be up and settled. A measurement in flight when POR_B is\nreleased loses the flash to the NIC and is recorded as abandoned."
                 }
             ]
         },
@@ -3097,7 +3139,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "cld_rst_l live status, (From FPGA to NIC)"
+                    "desc": "Cosmo only. cld_rst_l live status, (From FPGA to NIC)"
                 },
                 {
                     "type": "field",
@@ -3108,7 +3150,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "perst_l live status, (From FPGA to NIC)"
+                    "desc": "Cosmo only. perst_l live status, (From FPGA to NIC)"
                 },
                 {
                     "type": "field",
@@ -3119,7 +3161,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "nic_mfg_mode_l live status, (From FPGA to NIC)"
+                    "desc": "Cosmo only. nic_mfg_mode_l live status, (From FPGA to NIC)"
                 },
                 {
                     "type": "field",
@@ -3130,7 +3172,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "eeprom_wp_l live status, note: only valid when SP5 rails are up (From FPGA to eeprom)"
+                    "desc": "Cosmo only. eeprom_wp_l live status, note: only valid when SP5 rails are up (From FPGA to eeprom)"
                 },
                 {
                     "type": "field",
@@ -3141,7 +3183,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "eeprom_wp_buffer_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
+                    "desc": "Cosmo only. eeprom_wp_buffer_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
                 },
                 {
                     "type": "field",
@@ -3152,7 +3194,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "flash_wp_l live status, note: only valid when SP5 rails are up (From FPGA to flash)"
+                    "desc": "Cosmo only. flash_wp_l live status, note: only valid when SP5 rails are up (From FPGA to flash)"
                 },
                 {
                     "type": "field",
@@ -3163,7 +3205,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "nic_pcie_clk_buff_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
+                    "desc": "Cosmo only. nic_pcie_clk_buff_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
                 },
                 {
                     "type": "field",
@@ -3174,7 +3216,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Self-clearing. Set to 1 to trigger a NIC-domain MAPO for testing purposes."
+                    "desc": "Self-clearing. Set to 1 to trigger a NIC-domain MAPO for testing purposes. Both boards."
                 }
             ]
         },
@@ -3304,7 +3346,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V)"
+                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V). On metro, enabled and checked ahead of group 1"
                 },
                 {
                     "type": "field",
@@ -3315,7 +3357,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V)"
+                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V). On metro, enabled and checked ahead of group 1"
                 },
                 {
                     "type": "field",
@@ -3326,7 +3368,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -3337,7 +3379,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -3348,7 +3390,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -3359,7 +3401,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -3370,7 +3412,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -3381,7 +3423,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v1p4_nic_a0hp (discrete pg, enable cascade from nic 5V). Note: mirrors enable on HCV A boards, actual pin readback on HCV B and newer boards"
+                    "desc": "Cosmo only. NIC v1p4_nic_a0hp (discrete pg, enable cascade from nic 5V). Note: mirrors enable on HCV A boards, actual pin readback on HCV B and newer boards"
                 },
                 {
                     "type": "field",
@@ -3392,7 +3434,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
+                    "desc": "Cosmo only. NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
                 },
                 {
                     "type": "field",
@@ -3403,7 +3445,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCINT 0.8V"
+                    "desc": "Metro only. Versal VCCINT 0.8V. Group 3"
                 },
                 {
                     "type": "field",
@@ -3414,7 +3456,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 0.88V"
+                    "desc": "Metro only. Versal 0.88V. Group 2"
                 },
                 {
                     "type": "field",
@@ -3425,7 +3467,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVCC 0.92V (discrete pg, cascade enable)"
+                    "desc": "Metro only. Versal transceiver AVCC 0.92V. Group 5 (discrete pg, no enable of its own; comes up with V1P1)"
                 },
                 {
                     "type": "field",
@@ -3436,7 +3478,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 1.1V"
+                    "desc": "Metro only. Versal 1.1V. Group 5 (enable only; no pg pin, reads back its enable)"
                 },
                 {
                     "type": "field",
@@ -3447,7 +3489,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVTT 1.2V (discrete pg, cascade enable)"
+                    "desc": "Metro only. Versal transceiver AVTT 1.2V. Group 7 (discrete pg, no enable of its own; comes up with V1P4)"
                 },
                 {
                     "type": "field",
@@ -3458,7 +3500,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal 1.4V"
+                    "desc": "Metro only. Versal 1.4V. Group 7 (enable only; no pg pin, reads back its enable)"
                 },
                 {
                     "type": "field",
@@ -3469,7 +3511,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCAUX 1.5V"
+                    "desc": "Metro only. Versal VCCAUX 1.5V. Group 4"
                 },
                 {
                     "type": "field",
@@ -3480,7 +3522,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal transceiver AVCCAUX 1.5V"
+                    "desc": "Metro only. Versal transceiver AVCCAUX 1.5V. Group 6"
                 },
                 {
                     "type": "field",
@@ -3491,7 +3533,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCO 1.8V"
+                    "desc": "Metro only. Versal VCCO 1.8V. Group 1"
                 },
                 {
                     "type": "field",
@@ -3502,7 +3544,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Metro only. Versal VCCO 3.3V"
+                    "desc": "Metro only. Versal VCCO 3.3V. Group 1"
                 }
             ]
         },
@@ -3926,18 +3968,118 @@
                     "inst_name": "hash_image",
                     "lsb": 4,
                     "msb": 4,
-                    "reset": 1,
+                    "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Measure the boot image with the hash engine before releasing POR_B.\nThe range comes from the hash engine's HW_FLASH_ADDR/HW_LENGTH. A failed\nmeasurement is recorded in the status register and the boot goes ahead.\nClear to skip the measurement."
+                    "desc": "Start a measurement of the boot image when the NIC power sequence starts.\nIt runs alongside the rails coming up, and POR_B is not released until it\nhas finished. The range comes from the hash engine's HW_FLASH_ADDR/HW_LENGTH.\nThe engine failing to produce a digest is recorded and the boot goes ahead.\nOff by default: the Versal boots without a measurement unless software\nsets this before the power-up."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "hash_start",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Self-clearing. Set to 1 to start a measurement now. Only taken while the NIC\nis held in POR and no measurement is in flight; otherwise it is recorded in\nnic_hash_status.refused."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "nic_hash_status",
+            "addr_offset": 116,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "hash_sm",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Measurement state machine",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "RUNNING",
+                            "value": 1
+                        },
+                        {
+                            "name": "ACK_RELEASE",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "type": "field",
+                    "inst_name": "done",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The last measurement finished and produced a digest. Cleared when the next one starts."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "err",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The last measurement finished without a usable digest: the hash engine reported\nan error, or the measurement was abandoned. Cleared when the next one starts."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "abandoned",
+                    "lsb": 10,
+                    "msb": 10,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "POR_B was released with the measurement in flight, so the flash went to the NIC\npart way through it. Cleared when the next one starts."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "sw_started",
+                    "lsb": 11,
+                    "msb": 11,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The current or last measurement was started by versal_boot_ctrl.hash_start\nand not by the power sequence."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "refused",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A start was turned away since the last one taken: the NIC was out of POR, or\na measurement was already in flight."
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "board_version",
-            "addr_offset": 116,
+            "addr_offset": 120,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
