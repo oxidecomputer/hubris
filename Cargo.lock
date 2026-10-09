@@ -1248,7 +1248,7 @@ dependencies = [
  "num-traits",
  "serde",
  "sha3 0.11.0",
- "tlvc",
+ "tlvc 0.4.2",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -1267,7 +1267,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "stm32h7",
- "tlvc",
+ "tlvc 0.4.2",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -1281,7 +1281,7 @@ dependencies = [
  "derive-idol-err",
  "hubpack",
  "num-traits",
- "tlvc",
+ "tlvc 0.4.2",
  "userlib",
 ]
 
@@ -1413,7 +1413,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "sha3 0.11.0",
- "tlvc",
+ "tlvc 0.4.2",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -2217,7 +2217,7 @@ dependencies = [
  "drv-i2c-devices",
  "idol",
  "ringbuf",
- "tlvc",
+ "tlvc 0.4.2",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
 ]
@@ -2527,7 +2527,7 @@ dependencies = [
  "serde",
  "sprockets-common",
  "static_assertions",
- "tlvc",
+ "tlvc 0.4.2",
  "unwrap-lite",
  "userlib",
  "zerocopy 0.8.27",
@@ -3704,8 +3704,8 @@ dependencies = [
  "path-slash 0.2.1",
  "rsa",
  "thiserror",
- "tlvc",
- "tlvc-text",
+ "tlvc 0.4.0",
+ "tlvc-text 0.4.0 (git+https://github.com/oxidecomputer/tlvc)",
  "toml 1.1.2+spec-1.1.0",
  "x509-cert",
  "zerocopy 0.8.27",
@@ -4257,7 +4257,7 @@ dependencies = [
  "stage0-handoff",
  "static_assertions",
  "task-jefe-api",
- "tlvc",
+ "tlvc 0.4.2",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -6237,7 +6237,7 @@ dependencies = [
  "task-sensor-api",
  "task-validate-api",
  "task-vpd-api",
- "tlvc",
+ "tlvc 0.4.2",
  "update-buffer",
  "userlib",
  "zerocopy 0.8.27",
@@ -6454,7 +6454,7 @@ dependencies = [
  "task-net-api",
  "task-packrat-api",
  "task-sensor-api",
- "tlvc",
+ "tlvc 0.4.2",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -7401,13 +7401,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "tlvc"
+version = "0.4.2"
+source = "git+https://github.com/oxidecomputer/tlvc?rev=12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca#12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca"
+dependencies = [
+ "crc",
+ "thiserror",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "tlvc-text"
+version = "0.4.0"
+source = "git+https://github.com/oxidecomputer/tlvc?rev=12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca#12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca"
+dependencies = [
+ "ron 0.8.0",
+ "serde",
+ "tlvc 0.4.2",
+ "zerocopy 0.8.27",
+]
+
+[[package]]
 name = "tlvc-text"
 version = "0.4.0"
 source = "git+https://github.com/oxidecomputer/tlvc#2f69360ddcb07ad6072cb720bb1fac9f58a2ddec"
 dependencies = [
  "ron 0.8.0",
  "serde",
- "tlvc",
+ "tlvc 0.4.0",
  "zerocopy 0.8.27",
 ]
 
@@ -8183,8 +8205,8 @@ dependencies = [
  "sha3 0.11.0",
  "strsim 0.10.0",
  "tempfile",
- "tlvc",
- "tlvc-text",
+ "tlvc 0.4.2",
+ "tlvc-text 0.4.0 (git+https://github.com/oxidecomputer/tlvc?rev=12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca)",
  "toml 1.1.2+spec-1.1.0",
  "toml-patch",
  "toml-task",
