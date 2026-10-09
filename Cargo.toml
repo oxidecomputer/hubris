@@ -158,8 +158,8 @@ ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-
 pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
 salty = { version = "0.3", default-features = false }
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
-tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.4.0" }
-tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.4.0" }
+tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, rev = "12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca" }
+tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, rev = "12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca" }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
