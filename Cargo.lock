@@ -3685,6 +3685,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "host-demo"
+version = "0.1.0"
+dependencies = [
+ "kern",
+]
+
+[[package]]
 name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
@@ -6977,6 +6984,13 @@ dependencies = [
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "task-stub"
+version = "0.1.0"
+dependencies = [
+ "userlib",
 ]
 
 [[package]]

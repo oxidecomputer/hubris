@@ -2,10 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
-use userlib::{Lease, sys_panic, sys_send, task_slot};
+#[cfg(feature = "uart")]
+use userlib::Lease;
+use userlib::{sys_panic, sys_send, task_slot};
 
 task_slot!(PEER, peer);
 #[cfg(feature = "uart")]
@@ -36,13 +38,15 @@ fn divzero() {
     }
 }
 
-#[unsafe(export_name = "main")]
+#[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {
     let peer = PEER.get_task_id();
     const PING_OP: u16 = 1;
     const FAULT_EVERY: u32 = 100;
 
-    #[cfg(armv6m)]
+    // Only ARMv7-M and newer can divide by zero; ARMv6-M (and a host build)
+    // only get the "nullread" option
+    #[cfg(not(any(armv7m, armv8m)))]
     let faultme = [nullread];
     #[cfg(any(armv7m, armv8m))]
     let faultme = [nullread, divzero];

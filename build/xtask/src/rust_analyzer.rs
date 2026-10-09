@@ -59,7 +59,9 @@ impl LspConfig {
                 .iter()
                 .map(|(k, v)| (k.clone(), v.clone().into())),
         );
-        cargo.insert("target".to_owned(), self.target.to_owned().into());
+        if self.target != "host" {
+            cargo.insert("target".to_owned(), self.target.to_owned().into());
+        }
         cargo.insert("allTargets".to_owned(), false.into());
         let target_dir = cargo
             .get("targetDir")

@@ -261,7 +261,17 @@ impl PackageConfig {
         features: &[String],
     ) -> BuildConfig<'_> {
         let toml = &self.toml;
-        let mut args = vec!["--target".to_string(), toml.target.to_string()];
+        let mut args = vec![];
+
+        // If we're building for the host, don't pass in `--target` so that we
+        // use the host's target definition instead.
+        if toml.target != "host" {
+            args.extend_from_slice(&[
+                "--target".to_string(),
+                toml.target.to_string(),
+            ]);
+        }
+
         if no_default_features {
             args.push("--no-default-features".to_string());
         }
