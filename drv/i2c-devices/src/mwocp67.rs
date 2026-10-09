@@ -5,8 +5,8 @@
 //! MWOCP67-5500 Murata power shelf
 
 use crate::mwocp6x::{
-    Error, FIRMWARE_REVISION_LEN, FirmwareRev, MfrId, ModelNumber,
-    SerialNumber, parse_firmware_revision,
+    Error, FIRMWARE_REVISION_LEN, FirmwareImage, FirmwareRev, MfrId,
+    ModelNumber, SerialNumber, parse_firmware_revision,
 };
 use crate::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, Validate,
@@ -20,6 +20,44 @@ use pmbus::units::{Celsius, Rpm};
 use pmbus::*;
 use task_power_api::PmbusValue;
 use userlib::units::{Amperes, Volts};
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum UpdateState {
+    EnteredUploadMode,
+    WroteBlock { block_index: usize },
+    WroteLastBlock,
+    UpdateSuccessful,
+}
+
+impl UpdateState {
+    /// Return how many milliseconds to wait after the `update` function returns
+    /// this state.
+    pub(crate) fn delay_ms(&self) -> u64 {
+        match self {
+            // Wait for PSU to erase program memory
+            Self::EnteredUploadMode => 5_000,
+            // Wait for PSU to write program memory
+            Self::WroteBlock { .. } => 10,
+            // Wait for PSU to verify checksum
+            Self::WroteLastBlock => 12_000,
+            // If we don't delay before checking the revision, the PSU will
+            // report the old firmware's revision and we will think that the
+            // update failed. Presumably this delay gives the PSU time to reboot
+            // into the new firmware.
+            Self::UpdateSuccessful => 1_000,
+        }
+    }
+}
+
+/// A more convenient representation of the MFR_FWUPLOAD_STATUS register.
+struct UploadStatus {
+    command_format_mismatch: bool,
+    image_unsupported: bool,
+    image_corrupt: bool,
+    #[allow(unused)]
+    full_image_not_received_yet: bool,
+    full_image_received_successfully: bool,
+}
 
 pub struct Mwocp67 {
     device: I2cDevice,
@@ -368,7 +406,7 @@ impl Mwocp67 {
     }
 
     ///
-    /// Returns the firmware revision of the primary MCU (AC input side).
+    /// Returns the firmware revision of the primary and secondary MCUs.
     ///
     pub fn firmware_revision(&self) -> Result<FirmwareRev, Error> {
         let mut data = [0u8; FIRMWARE_REVISION_LEN];
@@ -460,6 +498,180 @@ impl Mwocp67 {
         &self,
     ) -> Result<STATUS_MFR_SPECIFIC::CommandData, Error> {
         pmbus_read!(self.device, STATUS_MFR_SPECIFIC)
+    }
+
+    fn enter_upload_mode(&self) -> Result<(), Error> {
+        let mut data = MFR_FWUPLOAD_MODE::CommandData(0);
+        data.set_enter_or_exit(MFR_FWUPLOAD_MODE::EnterOrExit::Enter);
+        pmbus_write!(self.device, MFR_FWUPLOAD_MODE, data)
+    }
+
+    fn exit_upload_mode(&self) -> Result<(), Error> {
+        let mut data = MFR_FWUPLOAD_MODE::CommandData(0);
+        data.set_enter_or_exit(MFR_FWUPLOAD_MODE::EnterOrExit::Exit);
+        pmbus_write!(self.device, MFR_FWUPLOAD_MODE, data)
+    }
+
+    fn get_upload_mode(&self) -> Result<MFR_FWUPLOAD_MODE::EnterOrExit, Error> {
+        let data = pmbus_read!(self.device, MFR_FWUPLOAD_MODE)?;
+        data.get_enter_or_exit().ok_or(Error::BadData {
+            cmd: MFR_FWUPLOAD_MODE::CommandData::code(),
+        })
+    }
+
+    fn get_upload_status(&self) -> Result<UploadStatus, Error> {
+        let register = pmbus_read!(self.device, MFR_FWUPLOAD_STATUS)?;
+        let bad_data = Error::BadData {
+            cmd: MFR_FWUPLOAD_STATUS::CommandData::code(),
+        };
+        let command_format_mismatch =
+            register.get_command_format_mismatch().ok_or(bad_data)?
+                == MFR_FWUPLOAD_STATUS::CommandFormatMismatch::Mismatch;
+        let image_unsupported =
+            register.get_image_unsupported().ok_or(bad_data)?
+                == MFR_FWUPLOAD_STATUS::ImageUnsupported::Unsupported;
+        let image_corrupt = register.get_image_corrupt().ok_or(bad_data)?
+            == MFR_FWUPLOAD_STATUS::ImageCorrupt::Yes;
+        let full_image_not_received_yet =
+            register.get_full_image_not_received_yet().ok_or(bad_data)?
+                == MFR_FWUPLOAD_STATUS::FullImageNotReceivedYet::NotDone;
+        let full_image_received_successfully = register
+            .get_full_image_received_successfully()
+            .ok_or(bad_data)?
+            == MFR_FWUPLOAD_STATUS::FullImageReceivedSuccessfully::Yes;
+
+        Ok(UploadStatus {
+            command_format_mismatch,
+            image_unsupported,
+            image_corrupt,
+            full_image_not_received_yet,
+            full_image_received_successfully,
+        })
+    }
+
+    /// Perform a firmware update, implementing the procedure contained within
+    /// Murata's ACAN-157 document. Note that this function must be called
+    /// initially with a state of `None`; it will return either an error, or the
+    /// next state in the update process, along with a specified delay in
+    /// milliseconds. It is up to the caller to assure that the returned delay
+    /// has been observed before calling back in to continue the update.
+    pub fn update(
+        &self,
+        state: Option<UpdateState>,
+        firmware: FirmwareImage,
+    ) -> Result<(UpdateState, u64), Error> {
+        // All the interesting stuff happens in `update_impl()`. This wrapper just
+        // ensures that we'll (attempt to) take the PSU out of upload mode after
+        // an update fails for any reason. This will allow the PSU to function
+        // normally again, running the original firmware from before the update.
+        let result = self.update_impl(state, firmware);
+        if result.is_err() {
+            let _ = self.exit_upload_mode();
+        }
+        result
+    }
+
+    fn update_impl(
+        &self,
+        state: Option<UpdateState>,
+        firmware: FirmwareImage,
+    ) -> Result<(UpdateState, u64), Error> {
+        // We should have already entered upload mode the first time `update()`
+        // was called, so if the PSU is not still in upload mode, then something
+        // weird happened. (But note that we don't need to report an error if
+        // the PSU was already in upload mode when `update()` was called for the
+        // first time. The docs say that you can re-enter upload mode at any
+        // time to restart the update process.)
+        let ensure_in_upload_mode = || -> Result<(), Error> {
+            if self.get_upload_mode()? != MFR_FWUPLOAD_MODE::EnterOrExit::Enter
+            {
+                // Ideally the error would be named "NotInUploadMode", but we need
+                // to share an error enum with the mwocp68, and this is basically
+                // the same situation as the mwocp68's "NotInBootloader" error.
+                Err(Error::UpdateNotInBootLoader)
+            } else {
+                Ok(())
+            }
+        };
+
+        // Sends one 32-byte block of the payload to the PSU
+        let write_block = |block_index: usize| -> Result<UpdateState, Error> {
+            const BLOCK_LEN: usize = 32;
+            let mut blocks = firmware.payload.chunks(BLOCK_LEN);
+            let num_blocks = blocks.len();
+            let block = blocks
+                .nth(block_index)
+                .ok_or(Error::UpdateBlockOutOfBounds)?;
+
+            // All the binaries that we've seen so far have had lengths that are
+            // a multiple of 32 bytes, so they can be evenly divided into
+            // blocks. It's unclear what we should do if that's ever not true,
+            // but padding the end of the final block with 0xFF seems like a
+            // reasonable choice.
+            let mut data = [0xFFu8; BLOCK_LEN + 2];
+            data[0] = pmbus::commands::mwocp67::CommandCode::MFR_FWUPLOAD as u8;
+            data[1] = BLOCK_LEN as u8;
+            data[2..2 + block.len()].copy_from_slice(block);
+
+            self.device
+                .write(&data)
+                .map_err(|code| Error::BadWrite { cmd: data[0], code })?;
+
+            if block_index == num_blocks - 1 {
+                Ok(UpdateState::WroteLastBlock)
+            } else {
+                Ok(UpdateState::WroteBlock { block_index })
+            }
+        };
+
+        let next = match state {
+            None => {
+                // Note that we don't need to specify which MCU we'll be
+                // updating. Unlike the mwocp68, the mwocp67 can automatically
+                // detect whether a firmware image is intended for the primary
+                // or secondary MCU.
+                self.enter_upload_mode()?;
+                UpdateState::EnteredUploadMode
+            }
+            Some(UpdateState::EnteredUploadMode) => {
+                ensure_in_upload_mode()?;
+                write_block(0)?
+            }
+            Some(UpdateState::WroteBlock { block_index }) => {
+                ensure_in_upload_mode()?;
+
+                let status = self.get_upload_status()?;
+                if status.command_format_mismatch {
+                    return Err(Error::UpdateCommandFormatMismatch);
+                }
+                if status.image_unsupported {
+                    return Err(Error::UpdateImageUnsupported);
+                }
+                write_block(block_index + 1)?
+            }
+            Some(UpdateState::WroteLastBlock) => {
+                ensure_in_upload_mode()?;
+                let status = self.get_upload_status()?;
+                if !status.full_image_received_successfully {
+                    if status.image_corrupt {
+                        return Err(Error::ChecksumNotSuccessful);
+                    } else if status.command_format_mismatch {
+                        return Err(Error::UpdateCommandFormatMismatch);
+                    } else if status.image_unsupported {
+                        return Err(Error::UpdateImageUnsupported);
+                    } else {
+                        return Err(Error::UnknownUpdateError);
+                    }
+                }
+                self.exit_upload_mode()?;
+                // The PSU will now reboot into the new firmware
+                UpdateState::UpdateSuccessful
+            }
+            Some(UpdateState::UpdateSuccessful) => {
+                return Err(Error::UpdateAlreadySuccessful);
+            }
+        };
+        Ok((next, next.delay_ms()))
     }
 
     pub fn i2c_device(&self) -> &I2cDevice {

@@ -2243,6 +2243,7 @@ dependencies = [
  "counters",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "heapless",
  "ringbuf",
  "static-cell",
  "userlib",
@@ -4940,7 +4941,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.7"
-source = "git+https://github.com/oxidecomputer/pmbus#dbbf84efe32b17f6cfd9cd7fc0f9d148dc67f452"
+source = "git+https://github.com/oxidecomputer/pmbus#1679df79aa11870e936db330c8c4861322848bef"
 dependencies = [
  "anyhow",
  "convert_case 0.11.0",
