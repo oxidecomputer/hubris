@@ -4,7 +4,7 @@
 
 //! Descriptor types, used to statically define application resources.
 
-use crate::arch::{Arch, Current};
+use crate::arch::{Arch, ArchImpl};
 
 pub(crate) const REGIONS_PER_TASK: usize = 8;
 
@@ -91,7 +91,7 @@ bitflags::bitflags! {
 pub struct RegionDesc {
     /// Architecture-specific additional data to make context switch cheaper.
     /// Should be first in the struct to improve context switch code generation.
-    pub arch_data: <Current as Arch>::RegionDescExt,
+    pub arch_data: <ArchImpl as Arch>::RegionDescExt,
 
     /// Address of start of region. The platform likely has alignment
     /// requirements for this; it must meet them. (For example, on ARMv7-M, it
@@ -112,7 +112,7 @@ pub struct RegionDesc {
 // now ensure that all 32-bit targets share the same ABI qualities.
 #[cfg(target_pointer_width = "32")]
 const _ENSURE_REGION_DESC_32BIT_ABI_UNCHANGED: () = const {
-    type RegionDescExt = <Current as Arch>::RegionDescExt;
+    type RegionDescExt = <ArchImpl as Arch>::RegionDescExt;
     use core::mem;
     // Okay part of this is arch-specific, and we can't take that for granted.
     let arch_data_size = mem::size_of::<RegionDescExt>();

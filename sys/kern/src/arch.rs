@@ -9,10 +9,10 @@
 //!
 //! - Implementing the [`Arch`] trait on a ZST struct type.
 //! - Conditionally defining a nested module (below).
-//! - `pub use`-ing the [`Arch`] trait impl under the name `Current` within
+//! - `pub use`-ing the [`Arch`] trait impl under the name `ArchImpl` within
 //!   the conditional code below.
 //!
-//! The rest of the kernel (ideally) ONLY uses the `arch::Current` type and
+//! The rest of the kernel (ideally) ONLY uses the `arch::ArchImpl` type and
 //! its associated types and methods to perform behavior, allowing for
 //! arch-independent operation.
 
@@ -31,7 +31,7 @@ cfg_if::cfg_if! {
         pub mod arm_m;
 
         /// The architecture the kernel is being built for.
-        pub use arm_m::ArmM as Current;
+        pub use arm_m::ArmM as ArchImpl;
     } else {
         compile_error!("support for this architecture not implemented");
     }

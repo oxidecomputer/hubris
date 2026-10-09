@@ -123,7 +123,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::Recv) => recv(tasks, current),
         Ok(Sysnum::Reply) => reply(tasks, current).map_err(UserError::from),
         Ok(Sysnum::SetTimer) => {
-            Ok(set_timer(&mut tasks[current], arch::Current::now()))
+            Ok(set_timer(&mut tasks[current], arch::ArchImpl::now()))
         }
         Ok(Sysnum::BorrowRead) => borrow_read(tasks, current),
         Ok(Sysnum::BorrowWrite) => borrow_write(tasks, current),
@@ -131,7 +131,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::IrqControl) => irq_control(tasks, current),
         Ok(Sysnum::Panic) => explicit_panic(tasks, current),
         Ok(Sysnum::GetTimer) => {
-            Ok(get_timer(&mut tasks[current], arch::Current::now()))
+            Ok(get_timer(&mut tasks[current], arch::ArchImpl::now()))
         }
         Ok(Sysnum::RefreshTaskId) => refresh_task_id(tasks, current),
         Ok(Sysnum::Post) => post(tasks, current),
@@ -744,9 +744,9 @@ fn irq_control(
     )?;
 
     let operation = if control.contains(IrqControlArg::ENABLED) {
-        crate::arch::Current::enable_irq
+        crate::arch::ArchImpl::enable_irq
     } else {
-        crate::arch::Current::disable_irq
+        crate::arch::ArchImpl::disable_irq
     };
     let also_clear_pending = control.contains(IrqControlArg::CLEAR_PENDING);
 
@@ -906,7 +906,7 @@ fn irq_status(
     // Combine the platform-level status of all the IRQs in the notification set.
     let mut status =
         irqs.iter().try_fold(IrqStatus::empty(), |status, irq| {
-            crate::arch::Current::irq_status(irq.0).map(|n| status | n)
+            crate::arch::ArchImpl::irq_status(irq.0).map(|n| status | n)
         })?;
 
     // If any bits in the notification mask are set in the caller's notification

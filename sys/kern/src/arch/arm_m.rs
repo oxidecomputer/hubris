@@ -1988,13 +1988,13 @@ const _ENSURE_REGION_DESC_32BIT_ABI_UNCHANGED: () = const {
     use crate::descs::RegionDesc;
     use core::mem;
 
-    // Fun fact: armv6/armv7 and armv8 have different `RegionDescExt`s! This
+    // Fun fact: armv6/armv7 and armv8 have different `ArmMRegionDescExt`s! This
     // means that they have incompatible ABIs!
-    let arch_data_size = mem::size_of::<RegionDescExt>();
-    let arch_data_align = mem::align_of::<RegionDescExt>();
+    let arch_data_size = mem::size_of::<ArmMRegionDescExt>();
+    let arch_data_align = mem::align_of::<ArmMRegionDescExt>();
 
-    // The align is the larger of our 4-byte fields or whatever RegionDescExt
-    // requires.
+    // The align is the larger of our 4-byte fields or whatever
+    // ArmMRegionDescExt requires.
     let base_align = 4;
     let expected_align = if arch_data_align > base_align {
         arch_data_align

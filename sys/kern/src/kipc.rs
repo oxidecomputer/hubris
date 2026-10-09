@@ -56,7 +56,7 @@ pub fn handle_kernel_message(
     }
 }
 fn reset(_tasks: &mut [Task], _caller: usize, _message: USlice<u8>) -> ! {
-    arch::Current::reset()
+    arch::ArchImpl::reset()
 }
 
 fn deserialize_message<T>(
@@ -470,7 +470,7 @@ fn software_irq(
     for &irq in irqs.iter() {
         // Any error here would be a problem in our dispatch table, not the
         // caller, so we panic because we want to hear about it.
-        crate::arch::Current::pend_software_irq(irq).unwrap_lite();
+        crate::arch::ArchImpl::pend_software_irq(irq).unwrap_lite();
     }
 
     tasks[caller].save_mut().set_send_response_and_length(0, 0);
