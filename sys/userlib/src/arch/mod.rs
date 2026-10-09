@@ -20,10 +20,10 @@ use crate::{BorrowInfo, Lease, RecvMessage, TimerState};
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "none")] {
-        mod thumb;
+        mod arm_m;
 
         /// The target the task is being built for.
-        pub use thumb::Thumb as Current;
+        pub use arm_m::Thumb as Current;
     } else {
         compile_error!("Unsupported!");
     }
