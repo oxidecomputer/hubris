@@ -67,11 +67,12 @@
 
 use std::io::{BufRead, Write};
 
+use abi::{IrqControlArg, ReplyFaultReason, TaskId};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-/// Task id the kernel uses for itself; notifications arrive from it.
-pub const KERNEL_TASK_ID: u16 = abi::TaskId::KERNEL.0;
+/// Task id the kernel uses for itself; notifications arrive from this ID.
+pub const KERNEL_TASK_ID: u16 = TaskId::KERNEL.0;
 
 /// Exit status of the task process after it reported a panic.
 pub const EXIT_PANIC: i32 = 101;
@@ -121,6 +122,335 @@ pub struct Syscall {
     pub leases: Vec<Lease>,
 }
 
+// These are for documentation purposes to be used for places where a syscall
+// arg should be non-zero (or unused), but is zero for host-native impl reasons.
+// These consts only exist to make the impls below more readable.
+
+/// The position an outgoing (e.g. read-by-kernel) base pointer would go.
+///
+/// The payload is instead in [`Syscall::input`].
+const SYSCALL_OUTGOING_BASEPTR: u32 = 0;
+/// The position an incoming (e.g. written-by-kernel) base pointer would go.
+///
+/// The payload will instead be in [`Return::output`].
+const SYSCALL_INCOMING_BASEPTR: u32 = 0;
+/// The position a lease table base pointer would go.
+///
+/// The payload instead exists in [`Syscall::leases`] (to the kernel) and
+/// [`Return::lease_writebacks`] (from the kernel).
+const SYSCALL_LEASE_TABLE_BASEPTR: u32 = 0;
+/// A position that is unused by this system call.
+const SYSCALL_ARG_UNUSED: u32 = 0;
+
+impl Syscall {
+    /// Builds a `SEND` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_send>.
+    pub fn send(
+        target: TaskId,
+        operation: u16,
+        outgoing: &[u8],
+        incoming: &mut [u8],
+        leases: &[Lease],
+    ) -> Self {
+        Self {
+            nr: abi::Sysnum::Send,
+            args: [
+                u32::from(target.0) << 16 | u32::from(operation),
+                SYSCALL_OUTGOING_BASEPTR,
+                outgoing.len() as u32,
+                SYSCALL_INCOMING_BASEPTR,
+                incoming.len() as u32,
+                SYSCALL_LEASE_TABLE_BASEPTR,
+                leases.len() as u32,
+            ],
+            input: outgoing.to_vec(),
+            output_len: incoming.len() as u32,
+            leases: leases.to_vec(),
+        }
+    }
+
+    /// Builds a `RECV` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_recv>.
+    pub fn recv(
+        incoming_len: usize,
+        notification_mask: u32,
+        specific_sender: Option<TaskId>,
+    ) -> Self {
+        Self {
+            nr: abi::Sysnum::Recv,
+            args: [
+                SYSCALL_INCOMING_BASEPTR,
+                incoming_len as u32,
+                notification_mask,
+                specific_sender.map_or(0, |t| 1 << 31 | u32::from(t.0)),
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: vec![],
+            output_len: incoming_len as u32,
+            leases: vec![],
+        }
+    }
+
+    /// Builds a `REPLY` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_reply>.
+    pub fn reply(peer: TaskId, code: u32, message: &[u8]) -> Self {
+        Self {
+            nr: abi::Sysnum::Reply,
+            args: [
+                peer.0.into(),
+                code,
+                SYSCALL_OUTGOING_BASEPTR,
+                message.len() as u32,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: message.to_vec(),
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+
+    /// Builds a `SET_TIMER` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_set_timer>.
+    pub fn set_timer(deadline: Option<u64>, notifications: u32) -> Self {
+        let dl = deadline.unwrap_or(0);
+        Self {
+            nr: abi::Sysnum::SetTimer,
+            args: [
+                deadline.is_some().into(),
+                dl as u32,
+                (dl >> 32) as u32,
+                notifications,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: vec![],
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+
+    /// Builds a `BORROW_READ` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_borrow_read>.
+    pub fn borrow_read(
+        lender: TaskId,
+        index: usize,
+        offset: usize,
+        dest_len: usize,
+    ) -> Self {
+        Self {
+            nr: abi::Sysnum::BorrowRead,
+            args: [
+                lender.0.into(),
+                index as u32,
+                offset as u32,
+                SYSCALL_INCOMING_BASEPTR,
+                dest_len as u32,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: vec![],
+            output_len: dest_len as u32,
+            leases: vec![],
+        }
+    }
+
+    /// Builds a `BORROW_WRITE` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_borrow_write>.
+    pub fn borrow_write(
+        lender: TaskId,
+        index: usize,
+        offset: usize,
+        src: &[u8],
+    ) -> Self {
+        Self {
+            nr: abi::Sysnum::BorrowWrite,
+            args: [
+                lender.0.into(),
+                index as u32,
+                offset as u32,
+                SYSCALL_OUTGOING_BASEPTR,
+                src.len() as u32,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: src.to_vec(),
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+
+    /// Builds a `BORROW_INFO` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_borrow_info>.
+    pub fn borrow_info(lender: TaskId, index: usize) -> Self {
+        Self {
+            nr: abi::Sysnum::BorrowInfo,
+            args: [
+                lender.0.into(),
+                index as u32,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: vec![],
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+
+    /// Builds an `IRQ_CONTROL` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_irq_control>.
+    pub fn irq_control(mask: u32, flags: IrqControlArg) -> Self {
+        Self {
+            nr: abi::Sysnum::IrqControl,
+            args: [
+                mask,
+                flags.bits(),
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: vec![],
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+
+    /// Builds a PANIC syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#_panic_8>
+    pub fn panic(message: &[u8]) -> Self {
+        Self {
+            nr: abi::Sysnum::Panic,
+            args: [
+                SYSCALL_OUTGOING_BASEPTR,
+                message.len() as u32,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: message.to_vec(),
+            leases: vec![],
+            output_len: 0,
+        }
+    }
+
+    /// Builds a `GET_TIMER` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_get_timer>.
+    pub fn get_timer() -> Self {
+        Self {
+            nr: abi::Sysnum::GetTimer,
+            args: [SYSCALL_ARG_UNUSED; 7],
+            input: vec![],
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+
+    /// Builds a `REFRESH_TASK_ID` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#_refresh_task_id_10>.
+    pub fn refresh_task_id(task_id: TaskId) -> Self {
+        Self {
+            nr: abi::Sysnum::RefreshTaskId,
+            args: [
+                task_id.0.into(),
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: vec![],
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+
+    /// Builds a `POST` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#_post_11>.
+    pub fn post(task_id: TaskId, bits: u32) -> Self {
+        Self {
+            nr: abi::Sysnum::Post,
+            args: [
+                task_id.0.into(),
+                bits,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: vec![],
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+
+    /// Builds a `REPLY_FAULT` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#_reply_fault_12>.
+    pub fn reply_fault(task_id: TaskId, reason: ReplyFaultReason) -> Self {
+        Self {
+            nr: abi::Sysnum::ReplyFault,
+            args: [
+                task_id.0.into(),
+                reason as u32,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: vec![],
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+
+    /// Builds an `IRQ_STATUS` syscall message.
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_irq_status>.
+    pub fn irq_status(mask: u32) -> Self {
+        Self {
+            nr: abi::Sysnum::IrqStatus,
+            args: [
+                mask,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+                SYSCALL_ARG_UNUSED,
+            ],
+            input: vec![],
+            output_len: 0,
+            leases: vec![],
+        }
+    }
+}
+
 /// A syscall response from `kern` to `userlib`
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Return {
@@ -128,6 +458,10 @@ pub struct Return {
     /// syscall.
     ///
     /// Same note regarding `u32` vs `usize` as in `Syscall.args`.
+    ///
+    /// Technically, the manual says "Syscalls provide for up to 7 arguments and
+    /// 8 return values in registers.", however, we currently never use more
+    /// than 6 return values.
     pub rets: [u32; 6],
     /// Contents for the buffer the task offered, starting at its beginning.
     /// May be shorter than [`Syscall::output_len`] but not longer.
