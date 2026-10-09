@@ -51,9 +51,9 @@ impl From<RcLen> for (u32, usize) {
 }
 
 /// The ARM M-profile implementation of the task's architecture interface.
-pub struct Thumb;
+pub struct ArmM;
 
-impl Arch for Thumb {
+impl Arch for ArmM {
     #[inline(always)]
     fn send(
         target: TaskId,
@@ -1283,7 +1283,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     let msg = unsafe { pw.buf.get_unchecked(..pw.pos) };
 
     // Pass it to kernel.
-    Thumb::panic(msg)
+    ArmM::panic(msg)
 }
 
 /// Panic handler for tasks without the `panic-messages` feature enabled. This
@@ -1292,7 +1292,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
 #[cfg(all(not(feature = "no-panic"), not(feature = "panic-messages")))]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
-    Thumb::panic(b"PANIC")
+    ArmM::panic(b"PANIC")
 }
 
 /// Panic handler for when panics are not permitted in a task. This is enabled

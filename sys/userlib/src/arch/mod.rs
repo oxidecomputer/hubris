@@ -23,7 +23,7 @@ cfg_if::cfg_if! {
         mod arm_m;
 
         /// The target the task is being built for.
-        pub use arm_m::Thumb as ArchImpl;
+        pub use arm_m::ArmM as ArchImpl;
     } else {
         compile_error!("Unsupported!");
     }
