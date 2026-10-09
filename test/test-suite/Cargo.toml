@@ -10,6 +10,7 @@ num-traits = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
+abi = { path = "../../sys/abi" }
 hubris-num-tasks = { path = "../../sys/num-tasks" }
 task-config = {  path = "../../lib/task-config"  }
 test-api = { path = "../test-api" }
