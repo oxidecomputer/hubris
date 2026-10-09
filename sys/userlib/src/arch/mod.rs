@@ -9,7 +9,7 @@
 //! - Conditionally defining a nested module (below).
 //! - `pub use`-ing its contents
 //! - Naming that module's implementation of the [`Arch`] trait as
-//!   [`Current`].
+//!   [`ArchImpl`].
 //!
 //! The syscalls every target must provide are defined by the [`Arch`] trait,
 //! and the crate root wraps each of them in a public `sys_*` function.
@@ -23,7 +23,7 @@ cfg_if::cfg_if! {
         mod arm_m;
 
         /// The target the task is being built for.
-        pub use arm_m::Thumb as Current;
+        pub use arm_m::Thumb as ArchImpl;
     } else {
         compile_error!("Unsupported!");
     }
@@ -32,7 +32,7 @@ cfg_if::cfg_if! {
 /// Syscalls a task can make, as implemented for the target it runs on.
 ///
 /// Implemented by a zero-sized type in each target module, and reached
-/// through [`Current`]. Each method implements the crate root's function of
+/// through [`ArchImpl`]. Each method implements the crate root's function of
 /// the same name with a `sys_` prefix, which documents its behavior.
 pub trait Arch {
     /// Implements [`crate::sys_send`].

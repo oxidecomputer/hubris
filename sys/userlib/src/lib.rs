@@ -33,7 +33,7 @@ pub use userlib_units as units;
 
 #[cfg(feature = "critical-section")]
 pub mod critical_section;
-use arch::{Arch, Current};
+use arch::{Arch, ArchImpl};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -97,7 +97,7 @@ pub fn sys_send(
     incoming: &mut [u8],
     leases: &[Lease<'_>],
 ) -> (u32, usize) {
-    Current::send(target, operation, outgoing, incoming, leases)
+    ArchImpl::send(target, operation, outgoing, incoming, leases)
 }
 
 /// Performs an "open" RECV that will accept messages from any task or
@@ -176,7 +176,7 @@ pub fn sys_recv(
     notification_mask: u32,
     specific_sender: Option<TaskId>,
 ) -> Result<RecvMessage, u32> {
-    Current::recv(buffer, notification_mask, specific_sender)
+    ArchImpl::recv(buffer, notification_mask, specific_sender)
 }
 
 /// Bitmask representing notifications from the kernel
@@ -264,7 +264,7 @@ pub struct RecvMessage {
 
 #[inline(always)]
 pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
-    Current::reply(peer, code, message)
+    ArchImpl::reply(peer, code, message)
 }
 
 /// Sets this task's timer.
@@ -280,7 +280,7 @@ pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
 /// enabled.
 #[inline(always)]
 pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
-    Current::set_timer(deadline, notifications)
+    ArchImpl::set_timer(deadline, notifications)
 }
 
 /// Convenience wrapper for `sys_set_timer` that sets a point in time relative
@@ -307,7 +307,7 @@ pub fn sys_borrow_read(
     offset: usize,
     dest: &mut [u8],
 ) -> (u32, usize) {
-    Current::borrow_read(lender, index, offset, dest)
+    ArchImpl::borrow_read(lender, index, offset, dest)
 }
 
 #[inline(always)]
@@ -317,12 +317,12 @@ pub fn sys_borrow_write(
     offset: usize,
     src: &[u8],
 ) -> (u32, usize) {
-    Current::borrow_write(lender, index, offset, src)
+    ArchImpl::borrow_write(lender, index, offset, src)
 }
 
 #[inline(always)]
 pub fn sys_borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
-    Current::borrow_info(lender, index)
+    ArchImpl::borrow_info(lender, index)
 }
 
 /// Information record returned by `sys_borrow_info`.
@@ -335,7 +335,7 @@ pub struct BorrowInfo {
 
 #[inline(always)]
 pub fn sys_irq_control(mask: u32, enable: bool) {
-    Current::irq_control(mask, enable)
+    ArchImpl::irq_control(mask, enable)
 }
 
 /// Variation on [`sys_irq_control`] that also clears any pending interrupt.
@@ -346,12 +346,12 @@ pub fn sys_irq_control(mask: u32, enable: bool) {
 /// instance).
 #[inline(always)]
 pub fn sys_irq_control_clear_pending(mask: u32, enable: bool) {
-    Current::irq_control_clear_pending(mask, enable)
+    ArchImpl::irq_control_clear_pending(mask, enable)
 }
 
 #[inline(always)]
 pub fn sys_panic(msg: &[u8]) -> ! {
-    Current::panic(msg)
+    ArchImpl::panic(msg)
 }
 
 /// Reads the state of this task's timer.
@@ -368,7 +368,7 @@ pub fn sys_panic(msg: &[u8]) -> ! {
 /// `now` is monotonically advancing and can't be changed.
 #[inline(always)]
 pub fn sys_get_timer() -> TimerState {
-    Current::get_timer()
+    ArchImpl::get_timer()
 }
 
 /// Result of `sys_get_timer`, provides information about task timer state.
@@ -402,17 +402,17 @@ pub const PANIC_MESSAGE_MAX_LEN: usize = 128;
 
 #[inline(always)]
 pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
-    Current::refresh_task_id(task_id)
+    ArchImpl::refresh_task_id(task_id)
 }
 
 #[inline(always)]
 pub fn sys_post(task_id: TaskId, bits: u32) -> u32 {
-    Current::post(task_id, bits)
+    ArchImpl::post(task_id, bits)
 }
 
 #[inline(always)]
 pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
-    Current::reply_fault(task_id, reason)
+    ArchImpl::reply_fault(task_id, reason)
 }
 
 /// Returns the current status of any interrupts mapped to the provided
@@ -433,5 +433,5 @@ pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
 /// mapped to an interrupt in this task.
 #[inline(always)]
 pub fn sys_irq_status(mask: u32) -> IrqStatus {
-    Current::irq_status(mask)
+    ArchImpl::irq_status(mask)
 }
