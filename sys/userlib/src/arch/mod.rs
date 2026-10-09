@@ -19,13 +19,18 @@ use abi::{IrqStatus, ReplyFaultReason, TaskId};
 use crate::{BorrowInfo, Lease, RecvMessage, TimerState};
 
 cfg_if::cfg_if! {
-    if #[cfg(target_os = "none")] {
-        mod arm_m;
+    // NOTE: kept identical with detection method used in `kern/src/arch.rs`.
+    if #[cfg(not(target_pointer_width = "32"))] {
+        compile_error!(
+            "non-32-bit targets not supported (even for simulation)"
+        );
+    } else if #[cfg(target_arch = "arm")] {
+        pub mod arm_m;
 
-        /// The target the task is being built for.
+        /// The architecture the userlib is being built for.
         pub use arm_m::ArmM as ArchImpl;
     } else {
-        compile_error!("Unsupported!");
+        compile_error!("support for this architecture not implemented");
     }
 }
 
