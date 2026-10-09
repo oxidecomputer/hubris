@@ -367,10 +367,19 @@ const _ENSURE_32BIT_ABI_UNCHANGED: () = const {
 };
 
 #[derive(
-    Copy, Clone, Debug, FromBytes, Immutable, KnownLayout, PartialEq, Eq,
+    Copy,
+    Clone,
+    Debug,
+    FromBytes,
+    Immutable,
+    KnownLayout,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
 )]
 #[repr(transparent)]
-pub struct LeaseAttributes(u32);
+pub struct LeaseAttributes(pub u32);
 
 bitflags::bitflags! {
     impl LeaseAttributes: u32 {
@@ -621,6 +630,7 @@ pub enum ReplyFaultReason {
 
 /// Enumeration of syscall numbers.
 #[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Sysnum {
     Send = 0,
     Recv = 1,
