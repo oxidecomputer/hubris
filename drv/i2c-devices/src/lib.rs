@@ -42,6 +42,7 @@
 //! - [`tmp451`]: TMP451 temperature sensor
 //! - [`tps546b24a`]: TPS546B24A buck converter
 //! - [`tse2004av`]: TSE2004av SPD EEPROM with temperature sensor
+//! - [`versal`]: Versal Adaptive SoC System Monitor
 
 #![no_std]
 
@@ -480,7 +481,6 @@ impl<'dev> PmbusVpdReader<'dev> {
 
 pub mod adm127x;
 pub mod adt7420;
-pub mod am006;
 pub mod at24csw080;
 pub mod bmr491;
 pub mod emc2305;
@@ -509,3 +509,4 @@ pub mod tmp117;
 pub mod tmp451;
 pub mod tps546b24a;
 pub mod tse2004av;
+pub mod versal;

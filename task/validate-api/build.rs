@@ -242,7 +242,6 @@ type PmbusDeviceRow = (&'static str, fn() -> PmbusCapabilities);
 // devices where this may trigger runtime CML errors.
 const PMBUS_GENERATOR: &[PmbusDeviceRow] = &[
     pmbus_generator!("adm127x", adm127x),
-    pmbus_generator!("am006", am006),
     pmbus_generator!("bmr491", bmr491),
     pmbus_generator!("isl68224", isl68224),
     pmbus_generator!("lm5066", lm5066),
@@ -252,4 +251,5 @@ const PMBUS_GENERATOR: &[PmbusDeviceRow] = &[
     pmbus_generator!("raa229618", raa229618),
     pmbus_generator!("raa229620a", raa229620a),
     pmbus_generator!("tps546b24a", tps546b24a),
+    pmbus_generator!("versal", versal),
 ];

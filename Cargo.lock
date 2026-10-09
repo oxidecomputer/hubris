@@ -4940,7 +4940,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.7"
-source = "git+https://github.com/oxidecomputer/pmbus?rev=0f43ef1#0f43ef150aafe7b63e33d35f8d1c5d25c392a7e3"
+source = "git+https://github.com/oxidecomputer/pmbus#7525df2366e28608b609631b89bd6f5714cf343c"
 dependencies = [
  "anyhow",
  "convert_case 0.11.0",

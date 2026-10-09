@@ -13,7 +13,7 @@ use crate::{
 use drv_i2c_api::*;
 use pmbus::{
     CommandCode,
-    commands::{VOUT_MODE, am006},
+    commands::{VOUT_MODE, versal},
 };
 use userlib::units::*;
 
@@ -63,18 +63,18 @@ impl From<Error> for ResponseCode {
     }
 }
 
-pub struct Am006 {
+pub struct Versal {
     device: I2cDevice,
     mode: Cell<Option<pmbus::VOutModeCommandData>>,
 }
 
-impl core::fmt::Display for Am006 {
+impl core::fmt::Display for Versal {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "am006: {}", &self.device)
+        write!(f, "versal: {}", &self.device)
     }
 }
 
-impl Am006 {
+impl Versal {
     pub fn new(device: &I2cDevice) -> Self {
         Self {
             device: *device,
@@ -94,7 +94,7 @@ impl Am006 {
     }
 }
 
-impl Validate<Error> for Am006 {
+impl Validate<Error> for Versal {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
         let expected = &[0x00, 0x00, 0x93];
         pmbus_validate(device, CommandCode::MFR_ID, expected)
@@ -102,16 +102,16 @@ impl Validate<Error> for Am006 {
     }
 }
 
-impl TempSensor<Error> for Am006 {
+impl TempSensor<Error> for Versal {
     fn read_temperature(&self) -> Result<Celsius, Error> {
-        let temp = pmbus_read!(self.device, am006::READ_TEMPERATURE_1)?;
+        let temp = pmbus_read!(self.device, versal::READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
     }
 }
 
-impl VoltageSensor<Error> for Am006 {
+impl VoltageSensor<Error> for Versal {
     fn read_vout(&self) -> Result<Volts, Error> {
-        let vout = pmbus_read!(self.device, am006::READ_VOUT)?;
+        let vout = pmbus_read!(self.device, versal::READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
 }

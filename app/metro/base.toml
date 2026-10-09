@@ -1061,7 +1061,7 @@ bus = "main"
 mux = 1
 segment = 3
 address = 0x4c
-device = "am006"
+device = "versal"
 name = "versal"
 sensors = { temperature = 1, voltage = 1 }
 description = "Versal SYSMON interface"
