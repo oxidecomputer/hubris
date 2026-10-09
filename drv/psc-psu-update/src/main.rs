@@ -252,20 +252,18 @@ impl Psu {
                 for firmware in [
                     bsp::MWOCP6X_PRIMARY_FIRMWARE,
                     bsp::MWOCP6X_SECONDARY_FIRMWARE,
-                ] {
-                    if let Some(firmware) = firmware {
-                        if revision.get(firmware.mcu) == firmware.revision {
-                            // This MCU's firmware is already up to date
-                            continue;
-                        }
-                        if self.status(firmware.mcu).is_backoff_elapsed(now) {
-                            let _ = to_update.push(firmware);
-                        } else {
-                            ringbuf_entry!(Trace::BackingOff(
-                                ndx,
-                                firmware.mcu
-                            ));
-                        }
+                ]
+                .into_iter()
+                .flatten()
+                {
+                    if revision.get(firmware.mcu) == firmware.revision {
+                        // This MCU's firmware is already up to date
+                        continue;
+                    }
+                    if self.status(firmware.mcu).is_backoff_elapsed(now) {
+                        let _ = to_update.push(firmware);
+                    } else {
+                        ringbuf_entry!(Trace::BackingOff(ndx, firmware.mcu));
                     }
                 }
                 to_update
