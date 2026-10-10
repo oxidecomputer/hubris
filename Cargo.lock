@@ -6656,7 +6656,6 @@ dependencies = [
  "counters",
  "drv-caboose",
  "drv-caboose-pos",
- "drv-cpu-seq-api",
  "gateway-ereport-messages",
  "hubpack",
  "hubris-num-tasks",

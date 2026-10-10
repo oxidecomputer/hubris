@@ -4,10 +4,14 @@
 
 //! Grapefruit-specific packrat data.
 
+use crate::bsp::Bsp;
+use crate::host::HostCrashDebuggingInfo;
+use crate::spd_data::NoSpdData;
 use task_packrat_api::HostStartupOptions;
 
-pub(crate) struct GrapefruitData {
+pub(crate) struct BspImpl {
     host_startup_options: HostStartupOptions,
+    host_info: HostCrashDebuggingInfo,
 }
 
 const fn default_host_startup_options() -> HostStartupOptions {
@@ -26,21 +30,38 @@ const fn default_host_startup_options() -> HostStartupOptions {
     }
 }
 
-impl GrapefruitData {
-    pub(crate) fn new() -> Self {
+impl Bsp for BspImpl {
+    // Grapefruit has a host, but we don't support SPD data for it.
+    type Spd = NoSpdData;
+
+    fn new() -> Self {
         Self {
             host_startup_options: default_host_startup_options(),
+            host_info: HostCrashDebuggingInfo::new(),
         }
     }
 
-    pub(crate) fn host_startup_options(&self) -> HostStartupOptions {
-        self.host_startup_options
+    fn host_startup_options(&self) -> Option<&HostStartupOptions> {
+        Some(&self.host_startup_options)
     }
 
-    pub(crate) fn set_host_startup_options(
-        &mut self,
-        options: HostStartupOptions,
-    ) {
-        self.host_startup_options = options;
+    fn host_startup_options_mut(&mut self) -> Option<&mut HostStartupOptions> {
+        Some(&mut self.host_startup_options)
+    }
+
+    fn host_info(&self) -> Option<&HostCrashDebuggingInfo> {
+        Some(&self.host_info)
+    }
+
+    fn host_info_mut(&mut self) -> Option<&mut HostCrashDebuggingInfo> {
+        Some(&mut self.host_info)
+    }
+
+    fn spd(&self) -> Option<&NoSpdData> {
+        None
+    }
+
+    fn spd_mut(&mut self) -> Option<&mut NoSpdData> {
+        None
     }
 }
