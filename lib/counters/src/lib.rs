@@ -20,7 +20,9 @@ pub use counters_derive::Count;
 /// A countable event.
 ///
 /// This trait can (and generally should) be derived for an `enum`
-/// type using the [`#[derive(Count)]`][drv] attribute.
+/// type using the [`#[derive(Count)]`][drv] attribute. It can also be
+/// derived for a newtype around an integer with a bounded range, using
+/// `#[count(max = N)]`.
 ///
 /// [drv]: counters_derive::Count
 pub trait Count {

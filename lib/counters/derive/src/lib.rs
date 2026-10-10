@@ -13,10 +13,15 @@ use syn::{
     parse_macro_input,
 };
 
-/// Derives an implementation of the `Count` trait for the annotated
-/// `enum` type.
+/// Derives an implementation of the `Count` trait for the annotated type.
 ///
-/// Note that this macro can currently only be used on `enum` types.
+/// `Count` can be derived for `enum` types (one counter per variant), and
+/// for newtype structs around integer types with a bounded range, via the
+/// `#[count(max = N)]` attribute.
+///
+/// Note that deriving `Count` for structs with `#[count(children)]` fields
+/// (i.e. structs with multiple fields) is not yet supported; see
+/// <https://github.com/oxidecomputer/hubris/pull/2727>.
 ///
 /// # Variant Attributes
 ///
@@ -36,6 +41,17 @@ use syn::{
 ///   `Count` trait, however, the `#[count(children)]` attribute can be used to
 ///   generate an instance of the field type's counter struct, and implement
 ///   those counters instead.
+///
+/// # Struct Attributes
+///
+/// The following attribute may be added to a *newtype* struct (a tuple struct
+/// with exactly one field of an integer type) when deriving `Count`:
+///
+/// - `#[count(max = N)]`: Declare that the wrapped integer is always in the
+///   range `0..=N`. Rather than generating a counter table sized for the full
+///   integer type (e.g. 256 counters for a `u8`, or over four billion for a
+///   `u32`), this generates one counter per value in `0..=N`, named `_0`
+///   through `_N`. Values outside that range are not counted.
 #[proc_macro_derive(Count, attributes(count))]
 pub fn derive_count(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
