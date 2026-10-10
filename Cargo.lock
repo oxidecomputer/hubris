@@ -893,6 +893,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
+ "hubris-ptime",
  "kern",
  "ringbuf",
  "stm32h7",
@@ -2763,6 +2764,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
+ "hubris-ptime",
  "measurement-handoff",
  "stm32h7",
 ]
@@ -3407,6 +3409,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
+ "hubris-ptime",
  "kern",
  "ringbuf",
  "stm32h7",
@@ -3464,6 +3467,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
+ "hubris-ptime",
  "kern",
  "stm32h7",
 ]
@@ -3683,6 +3687,10 @@ version = "0.1.0"
 dependencies = [
  "build-util",
 ]
+
+[[package]]
+name = "hubris-ptime"
+version = "0.1.0"
 
 [[package]]
 name = "hubris-task-names"
@@ -4034,6 +4042,7 @@ dependencies = [
  "call_rustfmt",
  "cfg-if",
  "cortex-m",
+ "hubris-ptime",
  "indexmap 1.9.1",
  "kerncore",
  "phash",
@@ -5088,6 +5097,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
+ "hubris-ptime",
  "kern",
  "stm32h7",
 ]
@@ -5774,6 +5784,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
+ "hubris-ptime",
  "kern",
  "stm32h7",
 ]

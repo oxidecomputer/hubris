@@ -18,6 +18,7 @@ ringbuf = { path = "../../lib/ringbuf", optional = true }
 
 drv-stm32h7-startup = { path = "../../drv/stm32h7-startup", features = ["h753"] }
 kern = { path = "../../sys/kern" }
+hubris-ptime = { path = "../../sys/ptime" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

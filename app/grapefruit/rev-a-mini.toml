@@ -8,7 +8,7 @@ stacksize = 512
 
 [kernel]
 name = "grapefruit"
-requires = {flash = 32768, ram = 2048}
+requires = {flash = 32768, ram = 2112}
 features = ["measurement-handoff"]
 extern-regions = [{ region = "dtcm", shared = true }]
 
