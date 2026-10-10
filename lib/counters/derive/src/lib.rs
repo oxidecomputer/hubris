@@ -13,12 +13,15 @@ use syn::{
     parse_macro_input,
 };
 
-/// Derives an implementation of the `Count` trait for the annotated
-/// `enum` type.
+/// Derives an implementation of the `Count` trait for the annotated `struct`
+/// and `enum` types.
 ///
-/// Note that this macro can currently only be used on `enum` types.
+/// # Using `Count` with Structs
 ///
-/// # Variant Attributes
+/// A struct deriving `Count` must have a single field annotated with `#[count(children)]`.
+/// The generated implementation will use the `Count` implementation of the field.
+///
+/// # Variant Attributes for Enums
 ///
 /// The following attributes may be added on one or more of the variants of the
 /// `enum` type deriving `Count`:
@@ -46,20 +49,75 @@ pub fn derive_count(input: TokenStream) -> TokenStream {
 }
 
 fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
-    let syn::Data::Enum(ref data_enum) = input.data else {
-        return Err(syn::Error::new_spanned(
+    match input.data {
+        syn::Data::Struct(ref data_struct) => {
+            let Some((idx, counter_field)) =
+                find_counted_field(&data_struct.fields)?
+            else {
+                return Err(syn::Error::new_spanned(
+                    input,
+                    "`Count` on structs requires one field annotated with `#[count(children)]`",
+                ));
+            };
+
+            let struct_name = &input.ident;
+
+            let accessor = match &counter_field.ident {
+                Some(counter_field_name) => quote! {
+                    counters::Count::count(&self.#counter_field_name, counters);
+                },
+                None => {
+                    let idx = syn::Index::from(idx);
+                    quote! {
+                        counters::Count::count(&self.#idx, counters);
+                    }
+                }
+            };
+
+            let counter_field_type = &counter_field.ty;
+
+            let mut generics = input.generics.clone();
+            // Always adding `T: counters::Count` to cover generics as well and this
+            // also doesn't hurt if we put it for the types that already derive counters::Count
+            generics
+                .make_where_clause()
+                .predicates
+                .push(syn::parse_quote! {
+                    #counter_field_type: counters::Count
+                });
+
+            let (impl_generics, ty_generics, where_clause) =
+                generics.split_for_impl();
+
+            Ok(quote! {
+                #[automatically_derived]
+                impl #impl_generics counters::Count for #struct_name #ty_generics #where_clause {
+                    type Counters = <#counter_field_type as counters::Count>::Counters;
+
+                    #[allow(clippy::declare_interior_mutable_const)]
+                    const NEW_COUNTERS: Self::Counters = <#counter_field_type as counters::Count>::NEW_COUNTERS;
+
+                    fn count(&self, counters: &Self::Counters) {
+                        #accessor
+                    }
+                }
+            })
+        }
+        syn::Data::Enum(ref data_enum) => {
+            let variants = &data_enum.variants;
+            let mut state = CountGenerator::new(&input, variants.len());
+
+            for variant in variants {
+                state.add_variant(variant)?;
+            }
+
+            Ok(state.generate().to_token_stream())
+        }
+        _ => Err(syn::Error::new_spanned(
             input,
-            "`Count` can only be derived for enums",
-        ));
-    };
-    let variants = &data_enum.variants;
-    let mut state = CountGenerator::new(&input, variants.len());
-
-    for variant in variants {
-        state.add_variant(variant)?;
+            "`Count` can only be derived for enums and structs that store a counter in them",
+        )),
     }
-
-    Ok(state.generate())
 }
 
 struct CountGenerator<'input> {
@@ -309,8 +367,7 @@ fn find_counted_field(
             if counted_field.is_some() {
                 return Err(syn::Error::new_spanned(
                     field,
-                    "a variant may only have one field annotated \
-                    with `#[count(children)]`",
+                    "only one field may be annotated with `#[count(children)]`",
                 ));
             } else {
                 counted_field = Some((i, field));
