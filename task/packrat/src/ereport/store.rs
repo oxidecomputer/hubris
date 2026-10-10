@@ -108,7 +108,7 @@ use static_cell::ClaimOnceCell;
 use task_jefe_api::Jefe;
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
 use userlib::{
-    FaultInfo, FaultSource, Generation, NotificationBits,
+    Addr, FaultInfo, FaultSource, Generation, NotificationBits,
     ReadPanicMessageError, RecvMessage, ReplyFaultReason, TaskId, TaskState,
     UsageError, kipc, sys_get_timer, task_slot,
 };
@@ -834,16 +834,16 @@ impl EreportStore {
             match fault {
                 FaultInfo::MemoryAccess { address, source } => {
                     encoder.str("k")?.str("hubris.fault.mem")?;
-                    encoder.str("addr")?.encode(address)?;
+                    encoder.str("addr")?.encode(address.map(Addr::as_usize))?;
                     encode_fault_src(&mut encoder, source)?;
                 }
                 FaultInfo::StackOverflow { address } => {
                     encoder.str("k")?.str("hubris.fault.stack")?;
-                    encoder.str("addr")?.encode(address)?;
+                    encoder.str("addr")?.encode(address.as_usize())?;
                 }
                 FaultInfo::BusError { address, source } => {
                     encoder.str("k")?.str("hubris.fault.bus")?;
-                    encoder.str("addr")?.encode(address)?;
+                    encoder.str("addr")?.encode(address.map(Addr::as_usize))?;
                     encode_fault_src(&mut encoder, source)?;
                 }
                 FaultInfo::DivideByZero => {
