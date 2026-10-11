@@ -51,9 +51,11 @@ use syn::{
 ///   range `0..=N`. Rather than generating a counter table sized for the full
 ///   integer type (e.g. 256 counters for a `u8`, or over four billion for a
 ///   `u32`), this generates one counter per value in `0..=N`, named `_0`
-///   through `_N`. `N` must be no larger than the wrapped type's maximum
-///   value. Counting a value outside `0..=N` is treated as an invariant
-///   violation: it panics in debug builds, and is dropped in release builds.
+///   through `_N`, plus an `_other` counter for out-of-range values. `N`
+///   must be no larger than the wrapped type's maximum value. Rather than
+///   being dropped (or panicking), values outside `0..=N` are accumulated
+///   in the `_other` counter, so a range violation is still visible in the
+///   counters.
 #[proc_macro_derive(Count, attributes(count))]
 pub fn derive_count(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -92,9 +94,9 @@ fn gen_count_impl(
 /// integer type, and must be annotated with `#[count(max = N)]`, where `N` is
 /// the largest value the wrapped integer can take on. This generates a counter
 /// struct with one `AtomicU32` per value in `0..=N`, and a `count`
-/// implementation that increments the counter for the wrapped value. Counting
-/// a value outside `0..=N` is treated as an invariant violation: it panics in
-/// debug builds, and is dropped in release builds.
+/// implementation that increments the counter for the wrapped value. Values
+/// outside `0..=N` are accumulated in a single `_other` bucket counter, so a
+/// range violation is still reflected in the counters.
 fn gen_newtype_count_impl(
     input: DeriveInput,
 ) -> Result<proc_macro2::TokenStream, syn::Error> {
@@ -193,12 +195,24 @@ fn gen_newtype_count_impl(
             }
         }
     });
+    let bucket_def = quote! {
+        #[doc = concat!(
+            " The total number of times a value outside `0..=",
+            stringify!(#max),
+            "` was recorded by this set of counters."
+        )]
+        pub _other: core::sync::atomic::AtomicU32
+    };
+    let bucket_init = quote! {
+        _other: core::sync::atomic::AtomicU32::new(0)
+    };
 
     Ok(quote! {
         #[doc = concat!("Total counts for [`", stringify!(#name), "`].")]
         #[allow(nonstandard_style)]
         #vis struct #counts_ty {
             #(#field_defs,)*
+            #bucket_def,
         }
 
         #[automatically_derived]
@@ -208,6 +222,7 @@ fn gen_newtype_count_impl(
             #[allow(clippy::declare_interior_mutable_const)]
             const NEW_COUNTERS: #counts_ty = #counts_ty {
                 #(#field_inits,)*
+                #bucket_init,
             };
 
             fn count(&self, counters: &Self::Counters) {
@@ -217,18 +232,12 @@ fn gen_newtype_count_impl(
 
                 match self.0 {
                     #(#count_arms)*
+                    // Out-of-range values are bucketed into `_other`, rather
+                    // than being silently dropped.
                     _ => {
-                        // `#[count(max = N)]` promises the wrapped value is
-                        // always in `0..=N`; reaching this arm means that
-                        // invariant was violated somewhere, so the count
-                        // should not be silently dropped.
-                        debug_assert!(
-                            false,
-                            "{} value {} is outside the range `0..={}` \
-                             promised by `#[count(max = N)]`",
-                            stringify!(#name),
-                            self.0,
-                            #max,
+                        counters._other.fetch_add(
+                            1,
+                            core::sync::atomic::Ordering::Relaxed,
                         );
                     }
                 }

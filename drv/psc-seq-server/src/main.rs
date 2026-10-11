@@ -398,8 +398,8 @@ counted_ringbuf!(__I2C_TRACE, I2cTrace, 32, I2cTrace::None, no_dedup);
 ///
 /// Note that, unlike the `#[repr(u8)]` enum this replaced, the `0..=5`
 /// invariant is *not* enforced by the type: `Slot`s should only ever be
-/// produced by indexing [`PSU_SLOTS`], and counting an out-of-range `Slot`
-/// will panic in debug builds (and be dropped in release builds).
+/// produced by indexing [`PSU_SLOTS`], and out-of-range values are counted
+/// in the generated `_other` bucket.
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 #[count(max = 5)]
 struct Slot(u8);
