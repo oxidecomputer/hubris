@@ -45,13 +45,15 @@ use syn::{
 /// # Struct Attributes
 ///
 /// The following attribute may be added to a *newtype* struct (a tuple struct
-/// with exactly one field of an integer type) when deriving `Count`:
+/// with exactly one field of an *unsigned* integer type) when deriving `Count`:
 ///
 /// - `#[count(max = N)]`: Declare that the wrapped integer is always in the
 ///   range `0..=N`. Rather than generating a counter table sized for the full
 ///   integer type (e.g. 256 counters for a `u8`, or over four billion for a
 ///   `u32`), this generates one counter per value in `0..=N`, named `_0`
-///   through `_N`. Values outside that range are not counted.
+///   through `_N`. `N` must be no larger than the wrapped type's maximum
+///   value. Counting a value outside `0..=N` is treated as an invariant
+///   violation: it panics in debug builds, and is dropped in release builds.
 #[proc_macro_derive(Count, attributes(count))]
 pub fn derive_count(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -86,12 +88,13 @@ fn gen_count_impl(
 /// Derive `Count` for a newtype struct wrapping an integer with a bounded
 /// range.
 ///
-/// The struct must be a tuple struct with exactly one field of an integer
-/// type, and must be annotated with `#[count(max = N)]`, where `N` is the
-/// largest value the wrapped integer can take on. This generates a counter
+/// The struct must be a tuple struct with exactly one field of an *unsigned*
+/// integer type, and must be annotated with `#[count(max = N)]`, where `N` is
+/// the largest value the wrapped integer can take on. This generates a counter
 /// struct with one `AtomicU32` per value in `0..=N`, and a `count`
-/// implementation that increments the counter for the wrapped value. Values
-/// greater than `N` are not counted.
+/// implementation that increments the counter for the wrapped value. Counting
+/// a value outside `0..=N` is treated as an invariant violation: it panics in
+/// debug builds, and is dropped in release builds.
 fn gen_newtype_count_impl(
     input: DeriveInput,
 ) -> Result<proc_macro2::TokenStream, syn::Error> {
@@ -132,16 +135,16 @@ fn gen_newtype_count_impl(
         }
     };
 
-    if !is_primitive_int(&field.ty) {
+    let Some((int_ty, type_max)) = int_name_and_bound(&field.ty) else {
         return Err(syn::Error::new_spanned(
             &field.ty,
             format!(
-                "`Count` can only be derived for newtypes around integers \
-                annotated with `#[count(max = N)]`; `{name}` wraps a \
-                non-integer type",
+                "`Count` can only be derived for newtypes around unsigned \
+                integers annotated with `#[count(max = N)]`; `{name}` must \
+                wrap an unsigned integer type",
             ),
         ));
-    }
+    };
 
     let max = max_attr(&input)?;
     if max >= 1024 {
@@ -150,6 +153,15 @@ fn gen_newtype_count_impl(
             "`#[count(max = N)]` with `N >= 1024` would generate a very large \
             counter struct (N + 1 `AtomicU32`s); consider a `#[repr(uN)]` \
             enum instead",
+        ));
+    }
+    if max as u64 > type_max {
+        return Err(syn::Error::new_spanned(
+            &field.ty,
+            format!(
+                "`#[count(max = {max})]` exceeds the range of `{int_ty}`, \
+                which can only hold values up to `{type_max}`",
+            ),
         ));
     }
 
@@ -205,7 +217,20 @@ fn gen_newtype_count_impl(
 
                 match self.0 {
                     #(#count_arms)*
-                    _ => {}
+                    _ => {
+                        // `#[count(max = N)]` promises the wrapped value is
+                        // always in `0..=N`; reaching this arm means that
+                        // invariant was violated somewhere, so the count
+                        // should not be silently dropped.
+                        debug_assert!(
+                            false,
+                            "{} value {} is outside the range `0..={}` \
+                             promised by `#[count(max = N)]`",
+                            stringify!(#name),
+                            self.0,
+                            #max,
+                        );
+                    }
                 }
             }
         }
@@ -561,19 +586,31 @@ impl Parse for MaxAttr {
     }
 }
 
-/// Returns `true` if `ty` is a primitive integer type.
-fn is_primitive_int(ty: &syn::Type) -> bool {
-    const INTS: &[&str] = &[
-        "u8", "u16", "u32", "u64", "u128", "usize", //
-        "i8", "i16", "i32", "i64", "i128", "isize",
+/// Returns the name and maximum value of the primitive *unsigned* integer type
+/// wrapped by `ty`, or `None` if `ty` is not a bare unsigned integer type.
+///
+/// `u64`, `u128`, and `usize` can never collide with `#[count(max = N)]` in
+/// practice (the counter table is already capped at `N < 1024`), so a
+/// `u64::MAX` sentinel is fine for those.
+fn int_name_and_bound(ty: &syn::Type) -> Option<(&'static str, u64)> {
+    const INTS: &[(&str, u64)] = &[
+        ("u8", u8::MAX as u64),
+        ("u16", u16::MAX as u64),
+        ("u32", u32::MAX as u64),
+        ("u64", u64::MAX),
+        ("u128", u64::MAX),
+        ("usize", u64::MAX),
     ];
     let syn::Type::Path(syn::TypePath { qself: None, path }) = ty else {
-        return false;
+        return None;
     };
-    path.segments
-        .last()
-        .map(|seg| INTS.contains(&seg.ident.to_string().as_str()))
-        .unwrap_or(false)
+    // Only accept a bare path (e.g. `u8`); a path like `foo::u8` is not a
+    // primitive.
+    if path.segments.len() != 1 {
+        return None;
+    }
+    let name = path.segments.first()?.ident.to_string();
+    INTS.iter().copied().find(|(n, _)| *n == name)
 }
 
 fn counts_ty(ident: &Ident) -> Ident {

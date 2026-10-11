@@ -395,6 +395,11 @@ counted_ringbuf!(__I2C_TRACE, I2cTrace, 32, I2cTrace::None, no_dedup);
 /// have to generate a counter table with 256 entries rather than just 6). The
 /// `#[count(max = 5)]` bound (which must be kept in sync with `PSU_COUNT`)
 /// limits the counter table to 6 entries.
+///
+/// Note that, unlike the `#[repr(u8)]` enum this replaced, the `0..=5`
+/// invariant is *not* enforced by the type: `Slot`s should only ever be
+/// produced by indexing [`PSU_SLOTS`], and counting an out-of-range `Slot`
+/// will panic in debug builds (and be dropped in release builds).
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 #[count(max = 5)]
 struct Slot(u8);

@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Demonstrates deriving `counters::Count` for a newtype around an integer
-//! with a bounded range, via the `#[count(max = N)]` attribute.
+//! Demonstrates deriving `counters::Count` for a newtype around an unsigned
+//! integer with a bounded range, via the `#[count(max = N)]` attribute.
 //!
 //! A raw `u8` cannot derive `Count` (it would generate a 256-entry counter
 //! table); a bounded newtype generates one counter per value in `0..=N`.
@@ -17,6 +17,10 @@ use counters::*;
 /// `u8`. This is the same shape as the `Slot` enum in
 /// `drv/psc-seq-server/src/main.rs`, without the `#[repr(u8)]` enum
 /// boilerplate.
+///
+/// The `#[count(max = 5)]` bound is an *invariant*: counting a `Slot` whose
+/// value is outside `0..=5` panics in debug builds (and is dropped in release
+/// builds).
 #[derive(Count, Debug, Copy, Clone, PartialEq, Eq)]
 #[count(max = 5)]
 pub struct Slot(u8);
@@ -34,9 +38,6 @@ fn main() {
     count!(SLOT_COUNTERS, Slot(0));
     count!(SLOT_COUNTERS, Slot(0));
     count!(SLOT_COUNTERS, Slot(3));
-    // Values outside `0..=max` are not counted (see the `_ => {}` arm in the
-    // generated `count` implementation).
-    count!(SLOT_COUNTERS, Slot(255));
 
     count!(EVENT_COUNTERS, Event::SomeNumber(42));
     count!(EVENT_COUNTERS, Event::Psu(Slot(0)));
