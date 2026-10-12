@@ -5,8 +5,8 @@
 //! Syscall implementation for ARM M-profile targets, where the kernel is
 //! reached through the `svc` instruction.
 //!
-//! This module provides the [`Arch`] implementation that the crate root's
-//! `sys_*` entry points use, the task entry point `_start`, and the panic
+//! This module provides the [`Arch`] implementation used by the crate root's
+//! `sys_*` entry points, the task entry point `_start`, and the panic
 //! handlers.
 //!
 //! # Syscall stub implementations
