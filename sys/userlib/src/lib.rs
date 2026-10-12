@@ -58,8 +58,8 @@ impl<'a> Lease<'a> {
         Self {
             _kern_rep: abi::ULease {
                 attributes: abi::LeaseAttributes::READ,
-                base_address: x.as_ptr() as u32,
-                length: x.len() as u32,
+                base_address: abi::Addr::from_ptr(x.as_ptr()),
+                length: x.len(),
             },
             _marker: PhantomData,
         }
@@ -69,8 +69,8 @@ impl<'a> Lease<'a> {
         Self {
             _kern_rep: abi::ULease {
                 attributes: LeaseAttributes::READ | LeaseAttributes::WRITE,
-                base_address: x.as_ptr() as u32,
-                length: x.len() as u32,
+                base_address: abi::Addr::from_ptr(x.as_mut_ptr()),
+                length: x.len(),
             },
             _marker: PhantomData,
         }
@@ -80,8 +80,8 @@ impl<'a> Lease<'a> {
         Self {
             _kern_rep: abi::ULease {
                 attributes: LeaseAttributes::WRITE,
-                base_address: x.as_ptr() as u32,
-                length: x.len() as u32,
+                base_address: abi::Addr::from_ptr(x.as_mut_ptr()),
+                length: x.len(),
             },
             _marker: PhantomData,
         }

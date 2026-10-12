@@ -36,7 +36,7 @@ use abi::{
 };
 use unwrap_lite::UnwrapLite;
 
-use crate::arch;
+use crate::arch::{self, Arch as _};
 use crate::err::{InteractFault, UserError};
 use crate::startup::with_task_table;
 use crate::task::{self, ArchState, NextTask, Task, current_id};
@@ -122,13 +122,17 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::Send) => send(tasks, current),
         Ok(Sysnum::Recv) => recv(tasks, current),
         Ok(Sysnum::Reply) => reply(tasks, current).map_err(UserError::from),
-        Ok(Sysnum::SetTimer) => Ok(set_timer(&mut tasks[current], arch::now())),
+        Ok(Sysnum::SetTimer) => {
+            Ok(set_timer(&mut tasks[current], arch::ArchImpl::now()))
+        }
         Ok(Sysnum::BorrowRead) => borrow_read(tasks, current),
         Ok(Sysnum::BorrowWrite) => borrow_write(tasks, current),
         Ok(Sysnum::BorrowInfo) => borrow_info(tasks, current),
         Ok(Sysnum::IrqControl) => irq_control(tasks, current),
         Ok(Sysnum::Panic) => explicit_panic(tasks, current),
-        Ok(Sysnum::GetTimer) => Ok(get_timer(&mut tasks[current], arch::now())),
+        Ok(Sysnum::GetTimer) => {
+            Ok(get_timer(&mut tasks[current], arch::ArchImpl::now()))
+        }
         Ok(Sysnum::RefreshTaskId) => refresh_task_id(tasks, current),
         Ok(Sysnum::Post) => post(tasks, current),
         Ok(Sysnum::ReplyFault) => {
@@ -581,7 +585,7 @@ fn borrow_info(
 
     tasks[caller]
         .save_mut()
-        .set_borrow_info(lease.attributes.bits(), lease.length as usize);
+        .set_borrow_info(lease.attributes.bits(), lease.length);
     Ok(NextTask::Same)
 }
 
@@ -632,15 +636,12 @@ fn borrow_lease(
     let lease = leases.get(lease_number).cloned();
     // Is the lease number provided by the borrower legitimate?
     if let Some(mut lease) = lease {
-        // Attempt to offset the lease. Handle cases where the offset is bogus.
-        // First, we must convert to u32, which _should be_ a no-op but we'll do
-        // it the careful way:
-        let offset = u32::try_from(offset).unwrap_lite();
-        // Now, proceed only if both neither the length nor address computation
-        // wrap.
+        // Attempt to offset the lease. Handle cases where the offset is bogus:
+        // proceed only if neither the length nor the address computation
+        // wraps.
         if let (Some(off_len), Some(off_addr)) = (
             lease.length.checked_sub(offset),
-            lease.base_address.checked_add(offset),
+            lease.base_address.checked_byte_add(offset),
         ) {
             lease.base_address = off_addr;
             lease.length = off_len;
@@ -743,9 +744,9 @@ fn irq_control(
     )?;
 
     let operation = if control.contains(IrqControlArg::ENABLED) {
-        crate::arch::enable_irq
+        crate::arch::ArchImpl::enable_irq
     } else {
-        crate::arch::disable_irq
+        crate::arch::ArchImpl::disable_irq
     };
     let also_clear_pending = control.contains(IrqControlArg::CLEAR_PENDING);
 
@@ -905,7 +906,7 @@ fn irq_status(
     // Combine the platform-level status of all the IRQs in the notification set.
     let mut status =
         irqs.iter().try_fold(IrqStatus::empty(), |status, irq| {
-            crate::arch::irq_status(irq.0).map(|n| status | n)
+            crate::arch::ArchImpl::irq_status(irq.0).map(|n| status | n)
         })?;
 
     // If any bits in the notification mask are set in the caller's notification

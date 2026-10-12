@@ -389,12 +389,18 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
         }
     };
 
+    // The kconfig describes regions in 32-bit terms; the kernel's descriptors
+    // are pointer-sized.
+    let base = *base as usize;
+    let size = *size as usize;
     quote::quote! {
         RegionDesc {
             base: #base,
             size: #size,
             attributes: #atts,
-            arch_data: crate::arch::compute_region_extension_data(
+
+            // TODO(AJM): create different kinds of arch data for each arch?
+            arch_data: crate::arch::arm_m::compute_region_extension_data(
                 #base, #size, #atts,
             ),
         }

@@ -11,7 +11,7 @@ use zerocopy::{FromBytes, Immutable, KnownLayout};
 use crate::err::InteractFault;
 use crate::task::Task;
 use crate::util::index2_distinct;
-use abi::{FaultInfo, FaultSource, UsageError};
+use abi::{Addr, FaultInfo, FaultSource, UsageError};
 
 /// A (user, untrusted, unprivileged) slice.
 ///
@@ -306,8 +306,8 @@ impl<T> core::fmt::Debug for USlice<T> {
 impl<'a> From<&'a abi::ULease> for USlice<u8> {
     fn from(lease: &'a abi::ULease) -> Self {
         Self {
-            base_address: lease.base_address as usize,
-            length: lease.length as usize,
+            base_address: lease.base_address.as_usize(),
+            length: lease.length,
             _marker: PhantomData,
         }
     }
@@ -366,7 +366,7 @@ pub fn safe_copy(
     // arbitrary.
     let dst = if from_slice.aliases(&to_slice) {
         Err(FaultInfo::MemoryAccess {
-            address: Some(to_slice.base_address as u32),
+            address: Some(Addr::new(to_slice.base_address)),
             source: FaultSource::Kernel,
         })
     } else {
@@ -411,7 +411,7 @@ pub fn safe_copy_dma(
     // arbitrary.
     let dst = if from_slice.aliases(&to_slice) {
         Err(FaultInfo::MemoryAccess {
-            address: Some(to_slice.base_address as u32),
+            address: Some(Addr::new(to_slice.base_address)),
             source: FaultSource::Kernel,
         })
     } else {

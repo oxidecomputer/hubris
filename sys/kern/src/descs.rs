@@ -4,6 +4,8 @@
 
 //! Descriptor types, used to statically define application resources.
 
+use crate::arch::{Arch, ArchImpl};
+
 pub(crate) const REGIONS_PER_TASK: usize = 8;
 
 /// Indicates priority of a task.
@@ -89,16 +91,16 @@ bitflags::bitflags! {
 pub struct RegionDesc {
     /// Architecture-specific additional data to make context switch cheaper.
     /// Should be first in the struct to improve context switch code generation.
-    pub arch_data: crate::arch::RegionDescExt,
+    pub arch_data: <ArchImpl as Arch>::RegionDescExt,
 
     /// Address of start of region. The platform likely has alignment
     /// requirements for this; it must meet them. (For example, on ARMv7-M, it
     /// must be naturally aligned for the size.)
-    pub base: u32,
+    pub base: usize,
     /// Size of region, in bytes. The platform likely has alignment requirements
     /// for this; it must meet them. (For example, on ARMv7-M, it must be a
     /// power of two greater than 16.)
-    pub size: u32,
+    pub size: usize,
     /// Flags describing what can be done with this region.
     pub attributes: RegionAttributes,
 }
@@ -110,15 +112,15 @@ impl RegionDesc {
         if next_addr < addr {
             return false;
         };
-        let end = self.end_addr() as usize;
+        let end = self.end_addr();
 
-        (self.base as usize) <= addr && next_addr <= end
+        self.base <= addr && next_addr <= end
     }
 
     /// Compute the address one past the end of this region. Since we don't
     /// allow regions to butt up against the end of the address space, we can do
     /// that.
-    pub fn end_addr(&self) -> u32 {
+    pub fn end_addr(&self) -> usize {
         // Wrapping add here avoids the overflow check, which is avoided by our
         // invariant that this not bump the end of the address space.
         self.base.wrapping_add(self.size)
@@ -141,12 +143,12 @@ impl kerncore::MemoryRegion for RegionDesc {
 
     #[inline(always)]
     fn base_addr(&self) -> usize {
-        self.base as usize
+        self.base
     }
 
     #[inline(always)]
     fn end_addr(&self) -> usize {
-        self.end_addr() as usize
+        self.end_addr()
     }
 }
 
