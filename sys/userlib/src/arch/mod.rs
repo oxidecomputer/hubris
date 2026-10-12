@@ -36,11 +36,12 @@ cfg_if::cfg_if! {
 
 /// Syscalls a task can make, as implemented for the target it runs on.
 ///
-/// Implemented by a zero-sized type in each target module, and reached
-/// through [`ArchImpl`]. Each method implements the crate root's function of
-/// the same name with a `sys_` prefix, which documents its behavior.
+/// See <https://hubris.oxide.computer/reference/#_syscalls> for more details
+/// and documentation for individual syscalls.
 pub trait Arch {
     /// Implements [`crate::sys_send`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_send>.
     fn send(
         target: TaskId,
         operation: u16,
@@ -50,6 +51,8 @@ pub trait Arch {
     ) -> (u32, usize);
 
     /// Implements [`crate::sys_recv`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_recv>.
     fn recv(
         buffer: &mut [u8],
         notification_mask: u32,
@@ -57,12 +60,18 @@ pub trait Arch {
     ) -> Result<RecvMessage, u32>;
 
     /// Implements [`crate::sys_reply`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_reply>.
     fn reply(peer: TaskId, code: u32, message: &[u8]);
 
     /// Implements [`crate::sys_set_timer`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_set_timer>.
     fn set_timer(deadline: Option<u64>, notifications: u32);
 
     /// Implements [`crate::sys_borrow_read`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_borrow_read>
     fn borrow_read(
         lender: TaskId,
         index: usize,
@@ -71,6 +80,8 @@ pub trait Arch {
     ) -> (u32, usize);
 
     /// Implements [`crate::sys_borrow_write`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_borrow_write>
     fn borrow_write(
         lender: TaskId,
         index: usize,
@@ -79,29 +90,47 @@ pub trait Arch {
     ) -> (u32, usize);
 
     /// Implements [`crate::sys_borrow_info`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_borrow_info>
     fn borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo>;
 
     /// Implements [`crate::sys_irq_control`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_irq_control>
     fn irq_control(mask: u32, enable: bool);
 
     /// Implements [`crate::sys_irq_control_clear_pending`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_irq_control>.
     fn irq_control_clear_pending(mask: u32, enable: bool);
 
     /// Implements [`crate::sys_panic`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#_panic_8>.
     fn panic(msg: &[u8]) -> !;
 
     /// Implements [`crate::sys_get_timer`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_get_timer>.
     fn get_timer() -> TimerState;
 
     /// Implements [`crate::sys_refresh_task_id`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#_refresh_task_id_10>.
     fn refresh_task_id(task_id: TaskId) -> TaskId;
 
     /// Implements [`crate::sys_post`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#_post_11>.
     fn post(task_id: TaskId, bits: u32) -> u32;
 
     /// Implements [`crate::sys_reply_fault`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#_reply_fault_12>
     fn reply_fault(task_id: TaskId, reason: ReplyFaultReason);
 
     /// Implements [`crate::sys_irq_status`].
+    ///
+    /// See <https://hubris.oxide.computer/reference/#sys_irq_status>.
     fn irq_status(mask: u32) -> IrqStatus;
 }
