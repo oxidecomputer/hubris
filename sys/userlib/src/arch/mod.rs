@@ -71,7 +71,7 @@ pub trait Arch {
 
     /// Implements [`crate::sys_borrow_read`].
     ///
-    /// See <https://hubris.oxide.computer/reference/#sys_borrow_read>
+    /// See <https://hubris.oxide.computer/reference/#sys_borrow_read>.
     fn borrow_read(
         lender: TaskId,
         index: usize,
@@ -81,7 +81,7 @@ pub trait Arch {
 
     /// Implements [`crate::sys_borrow_write`].
     ///
-    /// See <https://hubris.oxide.computer/reference/#sys_borrow_write>
+    /// See <https://hubris.oxide.computer/reference/#sys_borrow_write>.
     fn borrow_write(
         lender: TaskId,
         index: usize,
@@ -91,12 +91,12 @@ pub trait Arch {
 
     /// Implements [`crate::sys_borrow_info`].
     ///
-    /// See <https://hubris.oxide.computer/reference/#sys_borrow_info>
+    /// See <https://hubris.oxide.computer/reference/#sys_borrow_info>.
     fn borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo>;
 
     /// Implements [`crate::sys_irq_control`].
     ///
-    /// See <https://hubris.oxide.computer/reference/#sys_irq_control>
+    /// See <https://hubris.oxide.computer/reference/#sys_irq_control>.
     fn irq_control(mask: u32, enable: bool);
 
     /// Implements [`crate::sys_irq_control_clear_pending`].
@@ -126,7 +126,7 @@ pub trait Arch {
 
     /// Implements [`crate::sys_reply_fault`].
     ///
-    /// See <https://hubris.oxide.computer/reference/#_reply_fault_12>
+    /// See <https://hubris.oxide.computer/reference/#_reply_fault_12>.
     fn reply_fault(task_id: TaskId, reason: ReplyFaultReason);
 
     /// Implements [`crate::sys_irq_status`].

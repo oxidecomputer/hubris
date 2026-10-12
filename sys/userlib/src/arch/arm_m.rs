@@ -51,6 +51,9 @@ impl From<RcLen> for (u32, usize) {
 }
 
 /// The ARM M-profile implementation of the task's architecture interface.
+///
+/// This implementation uses `SVCall` instructions within inline assembly
+/// `_stub` functions to interact with the Hubris kernel.
 pub struct ArmM;
 
 impl Arch for ArmM {
