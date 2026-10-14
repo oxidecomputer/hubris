@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let out_dir = build_util::out_dir();
     let out_file = out_dir.join("fmc_periph.rs");
     let mut file = std::fs::File::create(out_file)?;
-    for p in ["sgpio", "espi"] {
+    for p in ["sgpio", "espi", "hash"] {
         write!(
             &mut file,
             "pub mod {p} {{\n{}\n}}",
