@@ -22,6 +22,16 @@ pub struct Task<T = ordered_toml::Value> {
     #[serde(default)]
     pub start: bool,
 
+    /// Whether this task uses the `hubris-async` executor. This unlocks the
+    /// `hubris-async` crate for the task, and makes `cargo xtask clippy`
+    /// lint it against syscalls that would interfere with the executor.
+    #[serde(
+        default,
+        rename = "async",
+        skip_serializing_if = "std::ops::Not::not"
+    )]
+    pub is_async: bool,
+
     #[serde(default)]
     pub uses: Vec<String>,
     #[serde(default)]
