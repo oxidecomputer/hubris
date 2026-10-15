@@ -7,9 +7,8 @@ edition = "2024"
 drv-user-leds-api = { path = "../../drv/user-leds-api" }
 
 counters = { path = "../../lib/counters" }
-hubris-async = { path = "../../lib/hubris-async" }
+hubris-async = { path = "../../lib/hubris-async", features = ["panic-messages"] }
 ringbuf = { path = "../../lib/ringbuf" }
-userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

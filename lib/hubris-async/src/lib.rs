@@ -28,7 +28,8 @@
 //! ```ignore
 //! loop {
 //!     if let Some(msg) = executor.recv(&mut buf) {
-//!         // handle the message and reply...
+//!         // handle the message...
+//!         msg.reply(0, &response);
 //!     }
 //! }
 //! ```
@@ -46,10 +47,42 @@
 //!     }
 //! }
 //!
-//! let executor = Executor::new(notifications::TIMER_MASK);
+//! let executor = Executor::new();
 //! executor.spawn(blinky(500));
 //! executor.run()
 //! ```
+//!
+//! # Declaring an async task in the app.toml
+//!
+//! A task using this crate must set `async = true` in its app.toml entry,
+//! and have a notification named `timer`, which the executor uses for its
+//! timer:
+//!
+//! ```toml
+//! [tasks.my_task]
+//! name = "task-my-task"
+//! async = true
+//! notifications = ["timer"]
+//! ```
+//!
+//! The build fails if either is missing.
+//!
+//! # Syscalls
+//!
+//! Some syscalls interfere with the executor: receiving behind its back
+//! steals messages or notification bits that async tasks are waiting for,
+//! setting the timer clobbers the executor's deadline, sleeping stalls every
+//! async task, and a raw `sys_reply` sidesteps [`Message`]'s reply tracking.
+//!
+//! [`sys`] re-exports the parts of `userlib` that are safe to use from an
+//! async task; prefer it to using `userlib` directly. [`danger`] re-exports
+//! the rest, for the rare case you really need one.
+//!
+//! This is enforced by `cargo xtask clippy`: for tasks with `async = true`,
+//! it denies calls to the dangerous syscalls (whichever path they're named
+//! by) in the task *and in every workspace crate it depends on*. A deliberate
+//! use needs an explicit `#[allow(clippy::disallowed_methods)]`, which also
+//! makes it easy to find. The list lives in this crate's `lint/clippy.toml`.
 //!
 //! # Concurrency
 //!
@@ -59,15 +92,52 @@
 
 #![no_std]
 
+mod config {
+    include!(concat!(env!("OUT_DIR"), "/config.rs"));
+}
 mod executor;
+mod message;
 pub mod notification;
 mod select;
 mod task;
 pub mod time;
 
 pub use executor::Executor;
+pub use message::Message;
 pub use select::{Either, Select, select};
 pub use task::{__future_size, SpawnToken, TaskFn, TaskStorage};
+
+/// The parts of `userlib` that are safe to use from a task running the
+/// executor.
+///
+/// Blocking calls here (like `sys_send`) stall every async task until they
+/// return, but don't otherwise interfere with the executor.
+pub mod sys {
+    pub use userlib::{
+        BorrowInfo, FromPrimitive, IrqStatus, Lease, LeaseAttributes,
+        NotificationBits, ReplyFaultReason, TaskId, TimerState, ToPrimitive,
+        UnwrapLite, kipc, sys_borrow_info, sys_borrow_read, sys_borrow_write,
+        sys_get_timer, sys_irq_control, sys_irq_control_clear_pending,
+        sys_irq_status, sys_panic, sys_post, sys_refresh_task_id, sys_send,
+        task_slot, units,
+    };
+}
+
+/// The parts of `userlib` that interfere with the executor.
+///
+/// Calls to these are denied by `cargo xtask clippy` in async tasks; see the
+/// [crate docs](crate#syscalls). They're re-exported here so that a
+/// deliberate use stands out, but each call still needs
+/// `#[allow(clippy::disallowed_methods)]`, with a comment explaining why
+/// it's safe.
+pub mod danger {
+    pub use userlib::hl::{sleep_for, sleep_until};
+    pub use userlib::{
+        RecvMessage, set_timer_relative, sys_recv, sys_recv_closed,
+        sys_recv_notification, sys_recv_open, sys_reply, sys_reply_fault,
+        sys_set_timer,
+    };
+}
 
 /// Declares a statically-allocated async task.
 ///

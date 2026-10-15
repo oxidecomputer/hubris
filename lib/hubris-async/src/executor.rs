@@ -8,10 +8,10 @@ use core::cell::Cell;
 use core::task::{Context, RawWaker, RawWakerVTable, Waker};
 
 use userlib::{
-    RecvMessage, TaskId, sys_get_timer, sys_recv_notification, sys_recv_open,
-    sys_set_timer,
+    TaskId, sys_get_timer, sys_recv_notification, sys_recv_open, sys_set_timer,
 };
 
+use crate::message::Message;
 use crate::task::{SpawnToken, TaskHeader};
 
 /// A single-threaded executor that runs statically-allocated async tasks
@@ -35,13 +35,18 @@ pub struct Executor {
 }
 
 impl Executor {
-    /// Creates an executor that will use `timer_mask` as the notification
-    /// for the Hubris task timer.
+    /// Creates an executor.
     ///
-    /// The executor takes over the task timer entirely; nothing else in the
-    /// task should call `sys_set_timer`, and no async task may wait on
-    /// `timer_mask` as a notification.
-    pub const fn new(timer_mask: u32) -> Self {
+    /// The executor takes over the task timer, using the task's `timer`
+    /// notification (found in the app.toml at build time). Nothing else in
+    /// the task should set the timer, and no async task may wait on the
+    /// `timer` notification itself.
+    #[allow(clippy::new_without_default)]
+    pub const fn new() -> Self {
+        let timer_mask = match crate::config::TIMER_MASK {
+            Some(m) => m,
+            None => panic!("hubris-async was built outside of `cargo xtask`"),
+        };
         Self {
             tasks: Cell::new(None),
             timer_mask,
@@ -69,6 +74,8 @@ impl Executor {
     /// Call this before every receive. If code outside the executor could
     /// have woken an async task since the last call, the receive might
     /// otherwise block with that task still waiting to run.
+    // This is the one place the executor is allowed to set the timer.
+    #[allow(clippy::disallowed_methods)]
     pub fn step(&self) -> u32 {
         let deadline = loop {
             let now = sys_get_timer().now;
@@ -121,30 +128,34 @@ impl Executor {
     /// Runs async tasks until they're all waiting, then blocks until either
     /// an IPC message arrives or something they're waiting on happens.
     ///
-    /// Returns `Some` if a message was received into `buf`, which the caller
-    /// must reply to, as with `sys_recv_open`. Returns `None` if we were
-    /// woken by a timer or notification, which has already been routed to
-    /// the async tasks; just call `recv` again.
+    /// Returns `Some` if a message was received into `buf`. The returned
+    /// [`Message`] must be replied to, either right away or later (a
+    /// deferred reply); dropping it without replying panics. Returns `None`
+    /// if we were woken by a timer or notification, which has already been
+    /// routed to the async tasks; just call `recv` again.
     ///
     /// ```ignore
     /// loop {
     ///     if let Some(msg) = executor.recv(&mut buf) {
-    ///         // handle the message and reply...
+    ///         // handle the message...
+    ///         msg.reply(0, &response);
     ///     }
     /// }
     /// ```
-    pub fn recv(&self, buf: &mut [u8]) -> Option<RecvMessage> {
+    #[allow(clippy::disallowed_methods)]
+    pub fn recv(&self, buf: &mut [u8]) -> Option<Message> {
         let mask = self.step();
         let msg = sys_recv_open(buf, mask);
         if msg.sender == TaskId::KERNEL {
             self.handle_notification(msg.operation);
             None
         } else {
-            Some(msg)
+            Some(Message::new(msg))
         }
     }
 
     /// Runs async tasks forever, for tasks that don't serve IPC.
+    #[allow(clippy::disallowed_methods)]
     pub fn run(&self) -> ! {
         loop {
             let mask = self.step();

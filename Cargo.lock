@@ -3674,6 +3674,8 @@ dependencies = [
 name = "hubris-async"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-util",
  "userlib",
 ]
 
@@ -6237,7 +6239,6 @@ dependencies = [
  "drv-user-leds-api",
  "hubris-async",
  "ringbuf",
- "userlib",
 ]
 
 [[package]]
