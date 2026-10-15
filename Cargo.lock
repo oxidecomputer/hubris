@@ -3671,6 +3671,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hubris-async"
+version = "0.1.0"
+dependencies = [
+ "userlib",
+]
+
+[[package]]
 name = "hubris-num-tasks"
 version = "0.1.0"
 dependencies = [

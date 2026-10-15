@@ -1,0 +1,15 @@
+[package]
+name = "hubris-async"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+userlib = { path = "../../sys/userlib" }
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
