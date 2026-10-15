@@ -1,9 +1,13 @@
 # Minimal Grapefruit image demonstrating the `hubris-async` executor.
 #
-# The `async_demo` task runs four async tasks: three that log to its ringbuf at
-# different periods, and one that blinks the user LED. Watch them with:
+# The `async_demo` task runs six async tasks: three that log to its ringbuf at
+# different periods, one that blinks the user LED, an IPC echo server, and one
+# that waits on the `poke` notification. `async_demo_client` is an ordinary
+# synchronous task that drives the echo server and posts `poke`. Watch them
+# with:
 #
 #   humility ringbuf async_demo
+#   humility ringbuf async_demo_client
 #
 name = "grapefruit-async-demo"
 board = "grapefruit-a"
@@ -53,11 +57,20 @@ max-sizes = {flash = 8192, ram = 4096}
 stacksize = 1024
 start = true
 task-slots = ["user_leds"]
-notifications = ["timer"]
+notifications = ["timer", "poke"]
+
+# Must be lower priority than `async_demo`, since it sends to it.
+[tasks.async_demo_client]
+name = "task-async-demo-client"
+priority = 4
+max-sizes = {flash = 8192, ram = 2048}
+stacksize = 1024
+start = true
+task-slots = ["async_demo"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 4
+priority = 5
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
