@@ -2,14 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
 use userlib::{TaskId, sys_recv_open, sys_reply, sys_set_timer, task_slot};
 
 task_slot!(USER_LEDS, user_leds);
 
-#[unsafe(export_name = "main")]
+#[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 pub fn main() -> ! {
     const INTERVAL: u64 = 500;
 
