@@ -5,8 +5,6 @@ edition = "2024"
 
 [dependencies]
 enum-map = { workspace = true }
-
-[target.'cfg(target_os = "none")'.dependencies]
 userlib = {path = "../../sys/userlib"}
 
 [lints]

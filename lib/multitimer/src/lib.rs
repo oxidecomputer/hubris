@@ -34,9 +34,9 @@
 
 use enum_map::{EnumArray, EnumMap};
 
-// Import the actual syscalls if we're targeting actual Hubris; otherwise we use
-// some stub functions defined below.
-#[cfg(target_os = "none")]
+// Use the actual syscalls, including in host builds of Hubris tasks, except in
+// this crate's unit tests, which use some stub functions defined below.
+#[cfg(not(test))]
 use userlib::{sys_get_timer, sys_set_timer};
 
 pub struct Multitimer<E: EnumArray<Timer>> {
@@ -209,7 +209,7 @@ pub enum Repeat {
 
 // Syscall fakes for testing!
 
-#[cfg(not(target_os = "none"))]
+#[cfg(test)]
 mod fakes {
     use core::cell::Cell;
 
@@ -239,7 +239,7 @@ mod fakes {
         pub on_dl: u32,
     }
 }
-#[cfg(not(target_os = "none"))]
+#[cfg(test)]
 use self::fakes::{sys_get_timer, sys_set_timer};
 
 #[cfg(test)]
