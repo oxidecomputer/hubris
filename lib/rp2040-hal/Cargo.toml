@@ -1,0 +1,12 @@
+[package]
+name = "rp2040-hal"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rp2040-hal-macros = { path = "../rp2040-hal-macros" }
+rp2040-pac = { workspace = true }
+rp2040-boot2 = { workspace = true }
+
+[lints]
+workspace = true

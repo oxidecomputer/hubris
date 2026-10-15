@@ -1,0 +1,16 @@
+[package]
+name = "rp2040-hal-macros"
+description = "macros used by the rp2040-hal crate"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+
+[lints]
+workspace = true
