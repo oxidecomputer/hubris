@@ -14,7 +14,7 @@
 //!   message, and
 //! - a watcher that logs each time the `poke` notification is posted.
 //!
-//! The `async_demo_client` task sends the echo requests and posts `poke`.
+//! The `demo_client` task sends the echo requests and posts `poke`.
 //!
 //! On hardware, watch it with `humility ringbuf async_demo`. Built for the
 //! host (`cargo xtask host-run app/host/async-demo.toml`), every trace event
@@ -195,13 +195,14 @@ fn main() -> ! {
     executor.spawn(echo_idle_watcher());
     executor.spawn(poke_watcher());
 
-    // The echo server. `executor.recv` runs the async tasks until they're
-    // all waiting, then blocks until a message arrives (`Some`) or something
-    // an async task is waiting on happens (`None`, and already handled).
     // One byte longer than the longest message we accept: the kernel reports
     // how much it copied, not how much was sent, so a message that fills the
     // buffer may have been truncated.
     let mut buf = [0u8; ECHO_MAX + 1];
+
+    // The echo server. `executor.recv` runs the async tasks until they're
+    // all waiting, then blocks until a message arrives (`Some`) or something
+    // an async task is waiting on happens (`None`, and already handled).
     loop {
         let Some(msg) = executor.recv(&mut buf) else {
             continue;

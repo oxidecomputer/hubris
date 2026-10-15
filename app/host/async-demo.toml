@@ -27,12 +27,12 @@ task-slots = ["user_leds"]
 notifications = ["timer", "poke"]
 
 # Must be lower priority than `async_demo`, since it sends to it.
-[tasks.async_demo_client]
-name = "task-async-demo-client"
+[tasks.demo_client]
+name = "task-demo-client"
 priority = 4
 max-sizes = {flash = 0, ram = 0}
 start = true
-task-slots = ["async_demo"]
+task-slots = [{server = "async_demo"}]
 
 # Stands in for the LED driver: a server that answers every request with
 # success.
