@@ -2,7 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Ordinary synchronous client that exercises `task-async-demo`.
+//! Ordinary synchronous client that exercises `task-async-demo` or
+//! `task-blocking-demo`, whichever its `server` task slot points at. The two
+//! servers behave identically, so this client works the same against both.
 //!
 //! Forever: sends a burst of messages to the echo server and checks that each
 //! comes back unchanged, posts the `poke` notification, then goes quiet for
@@ -14,7 +16,7 @@
 use ringbuf::counted_ringbuf;
 use userlib::{hl, sys_post, sys_send, task_slot};
 
-task_slot!(SERVER, async_demo);
+task_slot!(SERVER, server);
 
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 #[cfg_attr(not(target_os = "none"), derive(Debug))]
@@ -51,7 +53,7 @@ macro_rules! trace {
     ($event:expr) => {{
         let event = $event;
         #[cfg(not(target_os = "none"))]
-        eprintln!("[async_demo_client] {event:?}");
+        eprintln!("[demo_client] {event:?}");
         ringbuf::ringbuf_entry!(event);
     }};
 }
@@ -81,7 +83,7 @@ fn main() -> ! {
         trace!(Trace::TooLongRejected { rc });
 
         trace!(Trace::Poke);
-        sys_post(SERVER.get_task_id(), notifications::async_demo::POKE_MASK);
+        sys_post(SERVER.get_task_id(), SERVER_POKE_MASK);
 
         hl::sleep_for(QUIET);
     }
@@ -107,3 +109,4 @@ fn echo(seq: u32) {
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+include!(concat!(env!("OUT_DIR"), "/server.rs"));

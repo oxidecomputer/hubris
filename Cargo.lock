@@ -6242,16 +6242,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-async-demo-client"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "counters",
- "ringbuf",
- "userlib",
-]
-
-[[package]]
 name = "task-attest"
 version = "0.1.0"
 dependencies = [
@@ -6366,6 +6356,16 @@ dependencies = [
  "userlib",
  "zerocopy 0.8.63",
  "zerocopy-derive 0.8.63",
+]
+
+[[package]]
+name = "task-demo-client"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "counters",
+ "ringbuf",
+ "userlib",
 ]
 
 [[package]]

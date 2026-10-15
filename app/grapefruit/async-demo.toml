@@ -2,13 +2,16 @@
 #
 # The `async_demo` task is a synchronous IPC echo server whose receive loop
 # also drives six async tasks: three that log to its ringbuf at different
-# periods, one that blinks the user LED, one that logs when the echo server is
-# idle, and one that waits on the `poke` notification. `async_demo_client` is an ordinary
-# synchronous task that drives the echo server and posts `poke`. Watch them
-# with:
+# periods, one that blinks the user LED, one that logs when the echo server
+# is idle, and one that waits on the `poke` notification. `demo_client` is
+# an ordinary synchronous task that drives the echo server and posts `poke`.
+# Watch them with:
 #
 #   humility ringbuf async_demo
-#   humility ringbuf async_demo_client
+#   humility ringbuf demo_client
+#
+# blocking-demo.toml is the same image with `task-blocking-demo`, the
+# traditional Hubris counterpart of `task-async-demo`.
 #
 name = "grapefruit-async-demo"
 board = "grapefruit-a"
@@ -62,13 +65,13 @@ task-slots = ["user_leds"]
 notifications = ["timer", "poke"]
 
 # Must be lower priority than `async_demo`, since it sends to it.
-[tasks.async_demo_client]
-name = "task-async-demo-client"
+[tasks.demo_client]
+name = "task-demo-client"
 priority = 4
 max-sizes = {flash = 8192, ram = 2048}
 stacksize = 1024
 start = true
-task-slots = ["async_demo"]
+task-slots = [{server = "async_demo"}]
 
 [tasks.idle]
 name = "task-idle"
