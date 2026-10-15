@@ -23,10 +23,10 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
+use hubris_async::sys::task_slot;
 use hubris_async::time::{Ticker, Timer, now};
 use hubris_async::{Executor, notification};
 use ringbuf::{counted_ringbuf, ringbuf_entry};
-use userlib::{sys_reply, task_slot};
 
 task_slot!(USER_LEDS, user_leds);
 
@@ -171,7 +171,7 @@ hubris_async::task! {
 fn main() -> ! {
     ringbuf_entry!(Trace::Start);
 
-    let executor = Executor::new(notifications::TIMER_MASK);
+    let executor = Executor::new();
     executor.spawn(ticker_fast());
     executor.spawn(ticker_medium());
     executor.spawn(ticker_slow());
@@ -188,23 +188,23 @@ fn main() -> ! {
             continue;
         };
 
-        let len = msg.message_len;
-        if len > buf.len() || len > msg.response_capacity {
+        let len = msg.message_len();
+        if len > buf.len() || len > msg.response_capacity() {
             ringbuf_entry!(Trace::EchoRejected {
-                op: msg.operation,
+                op: msg.operation(),
                 len,
-                capacity: msg.response_capacity,
+                capacity: msg.response_capacity(),
             });
-            sys_reply(msg.sender, ECHO_TOO_LONG, &[]);
+            msg.reply(ECHO_TOO_LONG, &[]);
             continue;
         }
 
         ringbuf_entry!(Trace::Echo {
-            op: msg.operation,
+            op: msg.operation(),
             len,
             now: now()
         });
-        sys_reply(msg.sender, 0, &buf[..len]);
+        msg.reply(0, &buf[..len]);
         ECHO_COUNT.fetch_add(1, Ordering::Relaxed);
     }
 }

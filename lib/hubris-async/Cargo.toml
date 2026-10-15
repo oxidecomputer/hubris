@@ -3,8 +3,15 @@ name = "hubris-async"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+panic-messages = ["userlib/panic-messages"]
+
 [dependencies]
 userlib = { path = "../../sys/userlib" }
+
+[build-dependencies]
+anyhow = { workspace = true }
+build-util = { path = "../../build/util" }
 
 [lib]
 test = false
