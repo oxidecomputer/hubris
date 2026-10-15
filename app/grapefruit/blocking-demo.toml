@@ -1,0 +1,77 @@
+# Minimal Grapefruit image running `task-blocking-demo`, the traditional
+# Hubris counterpart of `task-async-demo` (see async-demo.toml). The two
+# behave identically; compare their sources side by side.
+#
+# `blocking_demo` is an IPC echo server whose receive loop also logs to its
+# ringbuf at three different periods, blinks the user LED, logs when the echo
+# server is idle, and logs each time the `poke` notification arrives.
+# `demo_client` drives the echo server and posts `poke`. Watch them with:
+#
+#   humility ringbuf blocking_demo
+#   humility ringbuf demo_client
+#
+name = "grapefruit-blocking-demo"
+board = "grapefruit-a"
+target = "thumbv7em-none-eabihf"
+chip = "../../chips/stm32h7"
+default-ram = "axi_sram"
+stacksize = 896
+epoch = 0
+version = 0
+
+[kernel]
+name = "grapefruit"
+requires = {flash = 32768, ram = 8192}
+features = ["measurement-handoff"]
+extern-regions = [{ region = "dtcm", shared = true }]
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+stacksize = 1536
+notifications = ["fault", "timer"]
+
+[tasks.sys]
+name = "drv-stm32xx-sys"
+features = ["h753"]
+priority = 1
+max-sizes = {flash = 4096, ram = 2048}
+uses = ["rcc", "gpios", "system_flash"]
+start = true
+task-slots = ["jefe"]
+
+[tasks.user_leds]
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 2
+max-sizes = {flash = 2048, ram = 1024}
+start = true
+task-slots = ["sys"]
+notifications = ["timer"]
+
+[tasks.blocking_demo]
+name = "task-blocking-demo"
+priority = 3
+max-sizes = {flash = 8192, ram = 4096}
+stacksize = 1024
+start = true
+task-slots = ["user_leds"]
+notifications = ["timer", "poke"]
+
+# Must be lower priority than `blocking_demo`, since it sends to it.
+[tasks.demo_client]
+name = "task-demo-client"
+priority = 4
+max-sizes = {flash = 8192, ram = 2048}
+stacksize = 1024
+start = true
+task-slots = [{server = "blocking_demo"}]
+
+[tasks.idle]
+name = "task-idle"
+priority = 5
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true

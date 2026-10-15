@@ -6272,6 +6272,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-blocking-demo"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "counters",
+ "drv-user-leds-api",
+ "enum-map",
+ "multitimer",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "task-config"
 version = "0.1.0"
 dependencies = [
