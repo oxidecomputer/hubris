@@ -182,14 +182,17 @@ fn main() -> ! {
     // The echo server. `executor.recv` runs the async tasks until they're
     // all waiting, then blocks until a message arrives (`Some`) or something
     // an async task is waiting on happens (`None`, and already handled).
-    let mut buf = [0u8; ECHO_MAX];
+    // One byte longer than the longest message we accept: the kernel reports
+    // how much it copied, not how much was sent, so a message that fills the
+    // buffer may have been truncated.
+    let mut buf = [0u8; ECHO_MAX + 1];
     loop {
         let Some(msg) = executor.recv(&mut buf) else {
             continue;
         };
 
         let len = msg.message_len();
-        if len > buf.len() || len > msg.response_capacity() {
+        if len > ECHO_MAX || len > msg.response_capacity() {
             ringbuf_entry!(Trace::EchoRejected {
                 op: msg.operation(),
                 len,
