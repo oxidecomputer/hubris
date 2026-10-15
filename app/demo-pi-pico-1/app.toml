@@ -10,7 +10,6 @@ default-ram = "sram"
 name = "demo-pi-pico-1"
 requires = {flash = 20000, ram = 1136}
 stacksize = 640
-features = [ "no_kernel" ]
 
 [tasks.jefe]
 name = "task-jefe"

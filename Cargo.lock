@@ -1082,8 +1082,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "rp2040-boot2",
- "rp2040-pac",
+ "rp2040-hal",
 ]
 
 [[package]]
@@ -5432,6 +5431,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rp2040-hal"
+version = "0.1.0"
+dependencies = [
+ "rp2040-boot2",
+ "rp2040-hal-macros",
+ "rp2040-pac",
+]
+
+[[package]]
+name = "rp2040-hal-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "rp2040-pac"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6311,7 +6328,7 @@ dependencies = [
  "task-sensor-api",
  "task-validate-api",
  "task-vpd-api",
- "tlvc",
+ "tlvc 0.4.0",
  "update-buffer",
  "userlib",
  "zerocopy 0.8.27",
