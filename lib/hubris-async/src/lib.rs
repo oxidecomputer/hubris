@@ -8,11 +8,19 @@
 //! several cooperatively-scheduled futures ("async tasks"). It requires no
 //! kernel support beyond the ordinary task timer and notifications.
 //!
-//! The only "sync primitive" currently supported is waiting for time to pass,
-//! via [`time::Timer`] and [`time::Ticker`]. The executor tracks the earliest
-//! deadline each async task is waiting on, and when there is no work to do it
-//! sets the Hubris task timer for the earliest deadline across all async tasks
-//! and blocks in `sys_recv_notification` until it fires.
+//! Async tasks can wait for:
+//!
+//! - time to pass, via [`time::Timer`] and [`time::Ticker`],
+//! - notifications, via [`notification::wait`], and
+//! - incoming IPC messages, via [`ipc::recv`].
+//!
+//! These compose freely, e.g. with [`select`]. Each of these leaf futures
+//! records what it's waiting for on its async task when polled. When no task
+//! is ready to run, the executor combines all of that into a single
+//! `sys_recv`: the task timer is set for the earliest deadline, the
+//! notification mask covers every bit anyone is waiting on, and the receive
+//! is open only if someone is waiting for a message. Whatever wakes the
+//! executor up is then routed to the async tasks waiting on it.
 //!
 //! Async tasks are statically allocated, in the style of `embassy-executor`:
 //!
@@ -27,7 +35,7 @@
 //!     }
 //! }
 //!
-//! let executor = Executor::new(notifications::TIMER_MASK);
+//! let executor: Executor = Executor::new(notifications::TIMER_MASK);
 //! executor.spawn(blinky(500));
 //! executor.run()
 //! ```
@@ -41,10 +49,14 @@
 #![no_std]
 
 mod executor;
+pub mod ipc;
+pub mod notification;
+mod select;
 mod task;
 pub mod time;
 
 pub use executor::Executor;
+pub use select::{Either, Select, select};
 pub use task::{__future_size, SpawnToken, TaskFn, TaskStorage};
 
 /// Declares a statically-allocated async task.

@@ -29,10 +29,26 @@ pub(crate) struct TaskHeader {
     future: Cell<*mut ()>,
     /// Whether the task should be polled on the next executor pass.
     pub(crate) ready: Cell<bool>,
-    /// The earliest time this task has asked to be woken at, if any.
-    pub(crate) wake_at: Cell<Option<u64>>,
     /// Next task in the executor's task list.
     pub(crate) next: Cell<Option<&'static TaskHeader>>,
+
+    // The fields below record what the task is waiting on. They're cleared
+    // just before each poll, and leaf futures (`Timer`, `Notification`,
+    // `Recv`) re-register whatever they still need as they're polled. That
+    // way a future that has been dropped can't leave a stale registration
+    // behind.
+    /// The earliest time this task has asked to be woken at, if any.
+    pub(crate) wake_at: Cell<Option<u64>>,
+    /// Notification bits this task is waiting for.
+    pub(crate) notif_mask: Cell<u32>,
+    /// Whether this task is waiting to receive an IPC message.
+    pub(crate) wants_msg: Cell<bool>,
+
+    /// Notification bits delivered to this task but not yet consumed by a
+    /// `Notification` future. Unlike the fields above, this survives across
+    /// polls, so bits aren't lost if the future that asked for them is
+    /// dropped before it sees them.
+    pub(crate) notif_pending: Cell<u32>,
 }
 
 impl TaskHeader {
@@ -42,8 +58,11 @@ impl TaskHeader {
             poll_fn: Cell::new(None),
             future: Cell::new(core::ptr::null_mut()),
             ready: Cell::new(false),
-            wake_at: Cell::new(None),
             next: Cell::new(None),
+            wake_at: Cell::new(None),
+            notif_mask: Cell::new(0),
+            wants_msg: Cell::new(false),
+            notif_pending: Cell::new(0),
         }
     }
 
@@ -53,6 +72,14 @@ impl TaskHeader {
             Some(cur) if cur <= deadline => {}
             _ => self.wake_at.set(Some(deadline)),
         }
+    }
+
+    /// Forgets everything this task was waiting on, ahead of a poll that
+    /// will re-register it.
+    pub(crate) fn clear_interest(&self) {
+        self.wake_at.set(None);
+        self.notif_mask.set(0);
+        self.wants_msg.set(false);
     }
 }
 
