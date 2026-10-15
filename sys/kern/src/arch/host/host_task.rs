@@ -19,7 +19,6 @@ use abi::{
 };
 use hostcall::{IoError, Return, Syscall};
 use std::cell::UnsafeCell;
-use std::fmt::Debug;
 use std::io::BufReader;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -232,6 +231,7 @@ pub(crate) fn exit_fault(child: &mut Child) -> FaultInfo {
 /// process, [`Call`] acts as a proxy. This means the guts of [`Call`] are a
 /// little awkward, so that we can give the kernel reasonable pointers to
 /// (soundly) readable/writable memory!
+#[derive(Debug)]
 pub(crate) struct Call {
     /// The [`Syscall::nr`] requested
     pub(crate) syscall_nr: Sysnum,
@@ -252,34 +252,6 @@ pub(crate) struct Call {
     input: USlice<u8>,
     /// The `output` slice, pointing to the payload of [`Self::output_buf`].
     output: USlice<u8>,
-}
-
-impl Debug for Call {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Call {
-            syscall_nr,
-            args,
-            rets,
-            lease_bufs,
-            _input_buf,
-            output_buf,
-            lease_table,
-            input,
-            output,
-        } = self;
-
-        f.debug_struct("Call")
-            .field("syscall_nr", &(*syscall_nr as u32))
-            .field("args", args)
-            .field("rets", rets)
-            .field("lease_bufs", lease_bufs)
-            .field("_input_buf", _input_buf)
-            .field("output_buf", output_buf)
-            .field("lease_table", lease_table)
-            .field("input", input)
-            .field("output", output)
-            .finish()
-    }
 }
 
 impl Call {

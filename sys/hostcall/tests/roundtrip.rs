@@ -87,33 +87,7 @@ fn syscall_and_return_over_pipes() {
 
     // Closing the task's end is a clean end of stream for the helper.
     drop(to_helper_tx);
-
-    let a = helper.join().unwrap();
-    let b = vec![call, empty];
-    assert_eq!(a.len(), b.len());
-    for (a, b) in a.iter().zip(b.iter()) {
-        let Syscall {
-            nr: a_nr,
-            args: a_args,
-            input: a_input,
-            output_len: a_output_len,
-            leases: a_leases,
-        } = a;
-
-        let Syscall {
-            nr: b_nr,
-            args: b_args,
-            input: b_input,
-            output_len: b_output_len,
-            leases: b_leases,
-        } = b;
-
-        assert_eq!((*a_nr) as u32, (*b_nr) as u32);
-        assert_eq!(a_args, b_args);
-        assert_eq!(a_input, b_input);
-        assert_eq!(a_output_len, b_output_len);
-        assert_eq!(a_leases, b_leases);
-    }
+    assert_eq!(helper.join().unwrap(), vec![call, empty]);
     assert!(read_message::<Return>(&mut from_helper).unwrap().is_none());
 }
 

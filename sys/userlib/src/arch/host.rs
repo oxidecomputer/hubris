@@ -14,7 +14,7 @@ use std::io::{BufReader, Stdin, Stdout};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use abi::{
-    IrqControlArg, IrqStatus, LeaseAttributes, ReplyFaultReason, Sysnum, TaskId,
+    IrqControlArg, IrqStatus, LeaseAttributes, ReplyFaultReason, TaskId,
 };
 use hostcall::{IoError, Return, Syscall};
 
@@ -99,23 +99,7 @@ fn syscall(call: Syscall) -> Return {
 ///
 /// Print an error to stderr, and kill the task.
 fn fatal_syscall_error(what: abi::Sysnum, e: impl std::fmt::Debug) -> ! {
-    let s = match what {
-        Sysnum::Send => "send",
-        Sysnum::Recv => "recv",
-        Sysnum::Reply => "reply",
-        Sysnum::SetTimer => "set_timer",
-        Sysnum::BorrowRead => "borrow_read",
-        Sysnum::BorrowWrite => "borrow_write",
-        Sysnum::BorrowInfo => "borrow_info",
-        Sysnum::IrqControl => "irq_control",
-        Sysnum::Panic => "panic",
-        Sysnum::GetTimer => "get_timer",
-        Sysnum::RefreshTaskId => "refresh_task_id",
-        Sysnum::Post => "post",
-        Sysnum::ReplyFault => "reply_fault",
-        Sysnum::IrqStatus => "irq_status",
-    };
-    eprintln!("fatal error during syscall {s}: {e:?}");
+    eprintln!("fatal error during syscall {what}: {e:?}");
     std::process::exit(hostcall::EXIT_TRANSPORT);
 }
 

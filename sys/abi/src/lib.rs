@@ -630,7 +630,7 @@ pub enum ReplyFaultReason {
 
 /// Enumeration of syscall numbers.
 #[repr(u32)]
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Sysnum {
     Send = 0,
     Recv = 1,
@@ -646,6 +646,28 @@ pub enum Sysnum {
     Post = 11,
     ReplyFault = 12,
     IrqStatus = 13,
+}
+
+impl core::fmt::Display for Sysnum {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let s = match self {
+            Sysnum::Send => "send",
+            Sysnum::Recv => "recv",
+            Sysnum::Reply => "reply",
+            Sysnum::SetTimer => "set_timer",
+            Sysnum::BorrowRead => "borrow_read",
+            Sysnum::BorrowWrite => "borrow_write",
+            Sysnum::BorrowInfo => "borrow_info",
+            Sysnum::IrqControl => "irq_control",
+            Sysnum::Panic => "panic",
+            Sysnum::GetTimer => "get_timer",
+            Sysnum::RefreshTaskId => "refresh_task_id",
+            Sysnum::Post => "post",
+            Sysnum::ReplyFault => "reply_fault",
+            Sysnum::IrqStatus => "irq_status",
+        };
+        f.write_str(s)
+    }
 }
 
 /// We're using an explicit `TryFrom` impl for `Sysnum` instead of
