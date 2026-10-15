@@ -1,0 +1,37 @@
+# Clippy configuration for tasks that set `async = true` in their app.toml.
+#
+# `cargo xtask clippy` points CLIPPY_CONF_DIR here for those tasks, so these
+# lints apply to the task *and every workspace crate it depends on*. Each of
+# these syscalls interferes with the hubris-async executor; a deliberate use
+# needs `#[allow(clippy::disallowed_methods)]` and a comment saying why it's
+# safe. See the "Syscalls" section of the hubris-async crate docs.
+#
+# This file replaces any other clippy.toml for these runs, so keep it in sync
+# with workspace-wide clippy settings if any are added.
+
+disallowed-methods = [
+    # Receiving behind the executor's back steals messages or notification
+    # bits that async tasks are waiting for.
+    { path = "userlib::sys_recv", reason = "use Executor::recv or Executor::step + handle_notification" },
+    { path = "userlib::sys_recv_open", reason = "use Executor::recv" },
+    { path = "userlib::sys_recv_closed", reason = "closed receives aren't supported by the executor yet" },
+    { path = "userlib::sys_recv_notification", reason = "use hubris_async::notification::wait; this steals bits async tasks are waiting for" },
+    { path = "userlib::hl::recv", reason = "use Executor::recv" },
+    { path = "userlib::hl::recv_without_notification", reason = "use Executor::recv" },
+    { path = "userlib::hl::recv_from", reason = "closed receives aren't supported by the executor yet" },
+    { path = "userlib::hl::recv_from_without_notification", reason = "closed receives aren't supported by the executor yet" },
+    { path = "idol_runtime::dispatch", reason = "call Executor::step() first and forward notifications to Executor::handle_notification", allow-invalid = true },
+
+    # The executor owns the task timer.
+    { path = "userlib::sys_set_timer", reason = "the executor owns the timer; use hubris_async::time::Timer" },
+    { path = "userlib::set_timer_relative", reason = "the executor owns the timer; use hubris_async::time::Timer" },
+
+    # Sleeping blocks every async task, and sets the timer.
+    { path = "userlib::hl::sleep_for", reason = "blocks the executor; use hubris_async::time::Timer::after(..).await" },
+    { path = "userlib::hl::sleep_until", reason = "blocks the executor; use hubris_async::time::Timer::at(..).await" },
+
+    # Replies go through `hubris_async::Message`, which tracks that each
+    # message is replied to exactly once.
+    { path = "userlib::sys_reply", reason = "reply via the hubris_async::Message returned by Executor::recv" },
+    { path = "userlib::sys_reply_fault", reason = "use Message::reply_fault" },
+]
