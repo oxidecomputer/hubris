@@ -16,21 +16,24 @@
 //!
 //! The `async_demo_client` task sends the echo requests and posts `poke`.
 //!
-//! Watch it with `humility ringbuf async_demo`.
+//! On hardware, watch it with `humility ringbuf async_demo`. Built for the
+//! host (`cargo xtask host-run app/host/async-demo.toml`), every trace event
+//! is also printed to stderr, since there's no humility there.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use hubris_async::sys::task_slot;
 use hubris_async::time::{Ticker, Timer, now};
 use hubris_async::{Executor, notification};
-use ringbuf::{counted_ringbuf, ringbuf_entry};
+use ringbuf::counted_ringbuf;
 
 task_slot!(USER_LEDS, user_leds);
 
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[cfg_attr(not(target_os = "none"), derive(Debug))]
 enum Trace {
     #[count(skip)]
     None,
@@ -65,6 +68,7 @@ enum Trace {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[cfg_attr(not(target_os = "none"), derive(Debug))]
 enum Name {
     Fast,
     Medium,
@@ -72,6 +76,18 @@ enum Name {
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);
+
+/// Records a trace event in the ringbuf. On the host, where there's no
+/// humility to read the ringbuf, also prints it to stderr. (Stdout carries a
+/// host task's syscalls to the kernel, so it's not available for logging.)
+macro_rules! trace {
+    ($event:expr) => {{
+        let event = $event;
+        #[cfg(not(target_os = "none"))]
+        eprintln!("[async_demo] {event:?}");
+        ringbuf::ringbuf_entry!(event);
+    }};
+}
 
 /// Longest message the echo server accepts.
 const ECHO_MAX: usize = 32;
@@ -98,7 +114,7 @@ async fn tick_forever(name: Name, period: u64) {
     loop {
         ticker.next().await;
         count = count.wrapping_add(1);
-        ringbuf_entry!(Trace::Tick {
+        trace!(Trace::Tick {
             name,
             count,
             now: now()
@@ -133,7 +149,7 @@ hubris_async::task! {
         loop {
             ticker.next().await;
             count = count.wrapping_add(1);
-            ringbuf_entry!(Trace::LedToggle { count, now: now() });
+            trace!(Trace::LedToggle { count, now: now() });
             // This is a blocking IPC, which stalls the whole executor until
             // `user_leds` replies; that's fine for a quick GPIO toggle.
             let _ = leds.led_toggle(0);
@@ -149,7 +165,7 @@ hubris_async::task! {
             let before = ECHO_COUNT.load(Ordering::Relaxed);
             Timer::after(ECHO_IDLE_TIMEOUT).await;
             if ECHO_COUNT.load(Ordering::Relaxed) == before {
-                ringbuf_entry!(Trace::EchoIdle { now: now() });
+                trace!(Trace::EchoIdle { now: now() });
             }
         }
     }
@@ -162,14 +178,14 @@ hubris_async::task! {
         loop {
             notification::wait(notifications::POKE_MASK).await;
             count = count.wrapping_add(1);
-            ringbuf_entry!(Trace::Poked { count, now: now() });
+            trace!(Trace::Poked { count, now: now() });
         }
     }
 }
 
-#[unsafe(export_name = "main")]
+#[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {
-    ringbuf_entry!(Trace::Start);
+    trace!(Trace::Start);
 
     let executor = Executor::new();
     executor.spawn(ticker_fast());
@@ -193,7 +209,7 @@ fn main() -> ! {
 
         let len = msg.message_len();
         if len > ECHO_MAX || len > msg.response_capacity() {
-            ringbuf_entry!(Trace::EchoRejected {
+            trace!(Trace::EchoRejected {
                 op: msg.operation(),
                 len,
                 capacity: msg.response_capacity(),
@@ -202,7 +218,7 @@ fn main() -> ! {
             continue;
         }
 
-        ringbuf_entry!(Trace::Echo {
+        trace!(Trace::Echo {
             op: msg.operation(),
             len,
             now: now()

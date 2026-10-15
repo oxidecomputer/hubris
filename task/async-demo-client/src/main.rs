@@ -8,15 +8,16 @@
 //! comes back unchanged, posts the `poke` notification, then goes quiet for
 //! long enough that the echo server's idle timeout fires.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
-use ringbuf::{counted_ringbuf, ringbuf_entry};
+use ringbuf::counted_ringbuf;
 use userlib::{hl, sys_post, sys_send, task_slot};
 
 task_slot!(SERVER, async_demo);
 
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[cfg_attr(not(target_os = "none"), derive(Debug))]
 enum Trace {
     #[count(skip)]
     None,
@@ -44,13 +45,24 @@ enum Trace {
 
 counted_ringbuf!(Trace, 32, Trace::None);
 
+/// Records a trace event in the ringbuf, and on the host also prints it to
+/// stderr (stdout carries a host task's syscalls).
+macro_rules! trace {
+    ($event:expr) => {{
+        let event = $event;
+        #[cfg(not(target_os = "none"))]
+        eprintln!("[async_demo_client] {event:?}");
+        ringbuf::ringbuf_entry!(event);
+    }};
+}
+
 const OP_ECHO: u16 = 1;
 const BURST: u32 = 3;
 const BURST_GAP: u64 = 200;
 /// Longer than the echo server's 5s idle timeout.
 const QUIET: u64 = 8_000;
 
-#[unsafe(export_name = "main")]
+#[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {
     let mut seq = 0u32;
     loop {
@@ -66,9 +78,9 @@ fn main() -> ! {
         let mut resp = [0u8; 40];
         let (rc, _) =
             sys_send(SERVER.get_task_id(), OP_ECHO, &big, &mut resp, &[]);
-        ringbuf_entry!(Trace::TooLongRejected { rc });
+        trace!(Trace::TooLongRejected { rc });
 
-        ringbuf_entry!(Trace::Poke);
+        trace!(Trace::Poke);
         sys_post(SERVER.get_task_id(), notifications::async_demo::POKE_MASK);
 
         hl::sleep_for(QUIET);
@@ -86,11 +98,11 @@ fn echo(seq: u32) {
     let (rc, len) =
         sys_send(SERVER.get_task_id(), OP_ECHO, &msg, &mut resp, &[]);
     if rc != 0 {
-        ringbuf_entry!(Trace::EchoError { seq, rc });
+        trace!(Trace::EchoError { seq, rc });
     } else if resp[..len] != msg {
-        ringbuf_entry!(Trace::EchoMismatch { seq, len });
+        trace!(Trace::EchoMismatch { seq, len });
     } else {
-        ringbuf_entry!(Trace::EchoOk { seq, len });
+        trace!(Trace::EchoOk { seq, len });
     }
 }
 

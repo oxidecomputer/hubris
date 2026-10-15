@@ -1,0 +1,49 @@
+# The hubris-async demo (see app/grapefruit/async-demo.toml), under the real
+# kernel on the host:
+#
+#   cargo xtask host-run app/host/async-demo.toml --stop-at 20000
+#
+# Tasks print their trace events to stderr. Time is simulated, and runs as
+# fast as possible unless you pass `--realtime`.
+
+# The chip and memory-related settings are ignored in host builds.
+name = "host-async-demo"
+target = "host"
+board = "host"
+chip = "../../chips/host"
+stacksize = 1024
+
+[kernel]
+name = "host-demo"
+requires = {flash = 0, ram = 0}
+
+[tasks.async_demo]
+name = "task-async-demo"
+priority = 3
+async = true
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = ["user_leds"]
+notifications = ["timer", "poke"]
+
+# Must be lower priority than `async_demo`, since it sends to it.
+[tasks.async_demo_client]
+name = "task-async-demo-client"
+priority = 4
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = ["async_demo"]
+
+# Stands in for the LED driver: a server that answers every request with
+# success.
+[tasks.user_leds]
+name = "task-stub"
+priority = 2
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+[tasks.idle]
+name = "task-idle"
+priority = 5
+max-sizes = {flash = 0, ram = 0}
+start = true
