@@ -1,8 +1,9 @@
 # Minimal Grapefruit image demonstrating the `hubris-async` executor.
 #
-# The `async_demo` task runs six async tasks: three that log to its ringbuf at
-# different periods, one that blinks the user LED, an IPC echo server, and one
-# that waits on the `poke` notification. `async_demo_client` is an ordinary
+# The `async_demo` task is a synchronous IPC echo server whose receive loop
+# also drives six async tasks: three that log to its ringbuf at different
+# periods, one that blinks the user LED, one that logs when the echo server is
+# idle, and one that waits on the `poke` notification. `async_demo_client` is an ordinary
 # synchronous task that drives the echo server and posts `poke`. Watch them
 # with:
 #

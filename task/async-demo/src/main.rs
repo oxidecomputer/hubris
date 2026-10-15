@@ -4,23 +4,27 @@
 
 //! Demo of the `hubris-async` executor.
 //!
-//! Runs six async tasks inside this one Hubris task:
+//! The task's main loop is an ordinary synchronous IPC server that echoes
+//! every message back to its sender. Alongside it, the executor runs six
+//! async tasks:
 //!
 //! - three "tickers" that each log to the ringbuf at a different period,
 //! - a blinker that toggles user LED 0 via the `user_leds` task,
-//! - an echo server that replies to every IPC message with its own body, and
-//!   logs if it goes 5 seconds without receiving one, and
+//! - an idle watcher that logs if the echo server goes 5 seconds without a
+//!   message, and
 //! - a watcher that logs each time the `poke` notification is posted.
 //!
-//! The `async_demo_client` task drives the last two.
+//! The `async_demo_client` task sends the echo requests and posts `poke`.
 //!
 //! Watch it with `humility ringbuf async_demo`.
 
 #![no_std]
 #![no_main]
 
+use core::sync::atomic::{AtomicU32, Ordering};
+
 use hubris_async::time::{Ticker, Timer, now};
-use hubris_async::{Either, Executor, ipc, notification, select};
+use hubris_async::{Executor, notification};
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use userlib::{sys_reply, task_slot};
 
@@ -72,9 +76,13 @@ counted_ringbuf!(Trace, 32, Trace::None);
 /// Longest message the echo server accepts.
 const ECHO_MAX: usize = 32;
 
-/// How long the echo server waits for a message before logging that it's
-/// idle.
+/// How long the echo server can go without a message before the idle
+/// watcher logs it.
 const ECHO_IDLE_TIMEOUT: u64 = 5_000;
+
+/// Number of messages the echo server has handled. This is how the
+/// synchronous main loop talks to the idle watcher.
+static ECHO_COUNT: AtomicU32 = AtomicU32::new(0);
 
 /// Reply code for messages too long to echo.
 const ECHO_TOO_LONG: u32 = 1;
@@ -134,32 +142,15 @@ hubris_async::task! {
 }
 
 hubris_async::task! {
-    /// Replies to every IPC message with the message's own body.
-    async fn echo_server() {
-        let mut buf = [0u8; ECHO_MAX];
+    /// Logs whenever a whole `ECHO_IDLE_TIMEOUT` passes with no messages
+    /// echoed.
+    async fn echo_idle_watcher() {
         loop {
-            let recv = ipc::recv(&mut buf);
-            let msg = match select(recv, Timer::after(ECHO_IDLE_TIMEOUT)).await {
-                Either::First(msg) => msg,
-                Either::Second(()) => {
-                    ringbuf_entry!(Trace::EchoIdle { now: now() });
-                    continue;
-                }
-            };
-
-            let len = msg.message_len;
-            if len > buf.len() || len > msg.response_capacity {
-                ringbuf_entry!(Trace::EchoRejected {
-                    op: msg.operation,
-                    len,
-                    capacity: msg.response_capacity,
-                });
-                sys_reply(msg.sender, ECHO_TOO_LONG, &[]);
-                continue;
+            let before = ECHO_COUNT.load(Ordering::Relaxed);
+            Timer::after(ECHO_IDLE_TIMEOUT).await;
+            if ECHO_COUNT.load(Ordering::Relaxed) == before {
+                ringbuf_entry!(Trace::EchoIdle { now: now() });
             }
-
-            ringbuf_entry!(Trace::Echo { op: msg.operation, len, now: now() });
-            sys_reply(msg.sender, 0, &buf[..len]);
         }
     }
 }
@@ -180,14 +171,42 @@ hubris_async::task! {
 fn main() -> ! {
     ringbuf_entry!(Trace::Start);
 
-    let executor = Executor::<ECHO_MAX>::new(notifications::TIMER_MASK);
+    let executor = Executor::new(notifications::TIMER_MASK);
     executor.spawn(ticker_fast());
     executor.spawn(ticker_medium());
     executor.spawn(ticker_slow());
     executor.spawn(blinky(250));
-    executor.spawn(echo_server());
+    executor.spawn(echo_idle_watcher());
     executor.spawn(poke_watcher());
-    executor.run()
+
+    // The echo server. `executor.recv` runs the async tasks until they're
+    // all waiting, then blocks until a message arrives (`Some`) or something
+    // an async task is waiting on happens (`None`, and already handled).
+    let mut buf = [0u8; ECHO_MAX];
+    loop {
+        let Some(msg) = executor.recv(&mut buf) else {
+            continue;
+        };
+
+        let len = msg.message_len;
+        if len > buf.len() || len > msg.response_capacity {
+            ringbuf_entry!(Trace::EchoRejected {
+                op: msg.operation,
+                len,
+                capacity: msg.response_capacity,
+            });
+            sys_reply(msg.sender, ECHO_TOO_LONG, &[]);
+            continue;
+        }
+
+        ringbuf_entry!(Trace::Echo {
+            op: msg.operation,
+            len,
+            now: now()
+        });
+        sys_reply(msg.sender, 0, &buf[..len]);
+        ECHO_COUNT.fetch_add(1, Ordering::Relaxed);
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

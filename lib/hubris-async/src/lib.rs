@@ -10,17 +10,28 @@
 //!
 //! Async tasks can wait for:
 //!
-//! - time to pass, via [`time::Timer`] and [`time::Ticker`],
-//! - notifications, via [`notification::wait`], and
-//! - incoming IPC messages, via [`ipc::recv`].
+//! - time to pass, via [`time::Timer`] and [`time::Ticker`], and
+//! - notifications, via [`notification::wait`].
 //!
 //! These compose freely, e.g. with [`select`]. Each of these leaf futures
 //! records what it's waiting for on its async task when polled. When no task
-//! is ready to run, the executor combines all of that into a single
-//! `sys_recv`: the task timer is set for the earliest deadline, the
-//! notification mask covers every bit anyone is waiting on, and the receive
-//! is open only if someone is waiting for a message. Whatever wakes the
-//! executor up is then routed to the async tasks waiting on it.
+//! is ready to run, [`Executor::step`] sets the task timer for the earliest
+//! deadline and returns a notification mask covering every bit anyone is
+//! waiting on. The caller then blocks in `sys_recv` with that mask, and
+//! hands any notifications back to the executor to route to the async tasks
+//! waiting on them.
+//!
+//! IPC messages are *not* received by async tasks. The task's own receive
+//! loop handles them synchronously, typically via [`Executor::recv`], which
+//! does all of the above around a `sys_recv_open`:
+//!
+//! ```ignore
+//! loop {
+//!     if let Some(msg) = executor.recv(&mut buf) {
+//!         // handle the message and reply...
+//!     }
+//! }
+//! ```
 //!
 //! Async tasks are statically allocated, in the style of `embassy-executor`:
 //!
@@ -35,7 +46,7 @@
 //!     }
 //! }
 //!
-//! let executor: Executor = Executor::new(notifications::TIMER_MASK);
+//! let executor = Executor::new(notifications::TIMER_MASK);
 //! executor.spawn(blinky(500));
 //! executor.run()
 //! ```
@@ -49,7 +60,6 @@
 #![no_std]
 
 mod executor;
-pub mod ipc;
 pub mod notification;
 mod select;
 mod task;
