@@ -1,0 +1,24 @@
+[package]
+name = "task-async-demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+drv-user-leds-api = { path = "../../drv/user-leds-api" }
+
+counters = { path = "../../lib/counters" }
+hubris-async = { path = "../../lib/hubris-async" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[[bin]]
+name = "task-async-demo"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

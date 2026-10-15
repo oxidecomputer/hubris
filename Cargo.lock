@@ -6232,6 +6232,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-async-demo"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "counters",
+ "drv-user-leds-api",
+ "hubris-async",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "task-attest"
 version = "0.1.0"
 dependencies = [
