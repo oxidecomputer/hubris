@@ -14,6 +14,11 @@
 
 #![cfg_attr(target_os = "none", no_std)]
 #![forbid(clippy::wildcard_imports)]
+// Tasks using the hubris-async executor are linted against calling some of
+// the syscalls defined here (see `lib/hubris-async/lint/clippy.toml`), and
+// that lint also runs over this crate. The wrappers in here are built from
+// those syscalls, so they're exempt.
+#![allow(clippy::disallowed_methods)]
 
 #[macro_use]
 pub mod macros;

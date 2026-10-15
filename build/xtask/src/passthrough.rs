@@ -8,6 +8,10 @@ use anyhow::{Result, bail};
 
 use crate::dist::PackageConfig;
 
+/// Clippy configuration for tasks with `async = true`, relative to the root
+/// of the Hubris repo.
+const ASYNC_CLIPPY_CONF_DIR: &str = "lib/hubris-async/lint";
+
 /// A passthrough function for plumbing basic `cargo ...` commands in the
 /// context of a hubris build.
 ///
@@ -129,6 +133,17 @@ pub fn run(
         };
         let mut cmd = build_config.cmd(cargo_cmd);
         cmd.envs(env.iter().copied());
+
+        // Tasks using the hubris-async executor are linted against syscalls
+        // that interfere with it. Pointing clippy at that config (rather than
+        // putting a clippy.toml in the task's crate) applies it to every
+        // workspace crate the task pulls in, not just the task itself.
+        if cargo_cmd == "clippy"
+            && toml.tasks.get(name).is_some_and(|t| t.is_async)
+        {
+            let conf_dir = std::env::current_dir()?.join(ASYNC_CLIPPY_CONF_DIR);
+            cmd.env("CLIPPY_CONF_DIR", conf_dir);
+        }
 
         for opt in direct_opts {
             cmd.arg(opt);
