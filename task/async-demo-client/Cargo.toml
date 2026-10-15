@@ -1,0 +1,21 @@
+[package]
+name = "task-async-demo-client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+counters = { path = "../../lib/counters" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[[bin]]
+name = "task-async-demo-client"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

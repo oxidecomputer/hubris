@@ -6241,6 +6241,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-async-demo-client"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "counters",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "task-attest"
 version = "0.1.0"
 dependencies = [
