@@ -18,11 +18,11 @@ pub enum Either<A, B> {
 /// finishes first, dropping the other. If both are ready on the same poll,
 /// `a` wins.
 ///
-/// For example, a receive with a timeout:
+/// For example, waiting for a notification with a timeout:
 ///
 /// ```ignore
-/// match select(ipc::recv(&mut buf), Timer::after(1000)).await {
-///     Either::First(msg) => { /* got a message */ }
+/// match select(notification::wait(IRQ_MASK), Timer::after(1000)).await {
+///     Either::First(bits) => { /* got the notification */ }
 ///     Either::Second(()) => { /* timed out */ }
 /// }
 /// ```

@@ -4,44 +4,37 @@
 
 //! The executor run loop and its waker.
 
-use core::cell::{Cell, UnsafeCell};
+use core::cell::Cell;
 use core::task::{Context, RawWaker, RawWakerVTable, Waker};
 
 use userlib::{
-    TaskId, sys_get_timer, sys_recv_notification, sys_recv_open, sys_set_timer,
+    RecvMessage, TaskId, sys_get_timer, sys_recv_notification, sys_recv_open,
+    sys_set_timer,
 };
 
-use crate::ipc::INBOX;
 use crate::task::{SpawnToken, TaskHeader};
 
 /// A single-threaded executor that runs statically-allocated async tasks
 /// inside one Hubris task.
 ///
-/// `RECV_LEN` is the size of the executor's IPC receive buffer: the longest
-/// message that [`ipc::recv`](crate::ipc::recv) can deliver without
-/// truncation. Leave it at 0 if no async task acts as a server.
-pub struct Executor<const RECV_LEN: usize = 0> {
+/// The executor doesn't own the task's receive loop. Instead, it's driven
+/// from one of:
+///
+/// - [`Executor::run`], for tasks that don't serve IPC,
+/// - [`Executor::recv`], for a hand-written server loop that receives
+///   messages synchronously while async tasks run in the background, or
+/// - [`Executor::step`] and [`Executor::handle_notification`], for plugging
+///   into some other receive loop, such as `idol_runtime::dispatch`.
+pub struct Executor {
     /// Head of the intrusive list of spawned tasks.
     tasks: Cell<Option<&'static TaskHeader>>,
     /// The notification bit(s) to use for this task's timer.
     timer_mask: u32,
-    /// Incoming IPC messages land here, and wait until an `ipc::recv` future
-    /// copies them out.
-    recv_buf: UnsafeCell<[u8; RECV_LEN]>,
+    /// The notification mask computed by the last `step`.
+    mask: Cell<u32>,
 }
 
-/// Everything the spawned tasks are currently waiting on, collected just
-/// before the executor goes to sleep.
-struct Interest {
-    /// Earliest pending timer deadline.
-    deadline: Option<u64>,
-    /// Union of all notification bits being waited on.
-    notif_mask: u32,
-    /// Whether any task is waiting for an IPC message.
-    wants_msg: bool,
-}
-
-impl<const RECV_LEN: usize> Executor<RECV_LEN> {
+impl Executor {
     /// Creates an executor that will use `timer_mask` as the notification
     /// for the Hubris task timer.
     ///
@@ -52,46 +45,111 @@ impl<const RECV_LEN: usize> Executor<RECV_LEN> {
         Self {
             tasks: Cell::new(None),
             timer_mask,
-            recv_buf: UnsafeCell::new([0; RECV_LEN]),
+            mask: Cell::new(timer_mask),
         }
     }
 
-    /// Adds a task to the executor. It is first polled once [`run`] starts.
-    ///
-    /// [`run`]: Executor::run
+    /// Adds a task to the executor. It is first polled by the next
+    /// [`step`](Executor::step).
     pub fn spawn(&self, token: SpawnToken) {
         let header = token.header;
         header.next.set(self.tasks.get());
         self.tasks.set(Some(header));
     }
 
-    /// Runs all spawned tasks forever.
+    /// Runs async tasks until none of them can make progress, then gets
+    /// ready to block.
     ///
-    /// Each pass, tasks whose deadlines have passed are marked ready and all
-    /// ready tasks are polled. When no task is ready, the executor blocks in
-    /// a single `sys_recv` that covers everything the tasks are waiting on:
+    /// This sets the task timer for the earliest deadline any async task is
+    /// waiting on, and returns the notification mask to pass to `sys_recv`:
+    /// the timer bit, plus every bit any async task is waiting on. Pass
+    /// whatever notification bits `sys_recv` returns to
+    /// [`handle_notification`](Executor::handle_notification).
     ///
-    /// - the task timer is set for the earliest deadline,
-    /// - the notification mask is the timer bit plus every bit any task is
-    ///   waiting on, and
-    /// - if any task is waiting for a message (and none is already queued),
-    ///   the receive is open; otherwise it only accepts notifications.
-    pub fn run(&self) -> ! {
-        // This never returns, so `recv_buf` outlives every `Recv` future.
-        INBOX.set_buffer(self.recv_buf.get().cast(), RECV_LEN);
-
-        loop {
+    /// Call this before every receive. If code outside the executor could
+    /// have woken an async task since the last call, the receive might
+    /// otherwise block with that task still waiting to run.
+    pub fn step(&self) -> u32 {
+        let deadline = loop {
             let now = sys_get_timer().now;
-            let interest = self.scan(now);
-
-            if self.poll_ready() {
-                // Polling may have readied other tasks or changed what they're
-                // waiting on, so take another lap before sleeping.
-                continue;
+            let (deadline, notif_mask) = self.scan(now);
+            if !self.poll_ready() {
+                // Nothing was polled, so what we scanned is still accurate.
+                if notif_mask & self.timer_mask != 0 {
+                    panic!(
+                        "async task waited on the executor's timer \
+                         notification"
+                    );
+                }
+                self.mask.set(notif_mask | self.timer_mask);
+                break deadline;
             }
+            // Polling may have readied other tasks or changed what they're
+            // waiting on, so take another lap.
+        };
 
-            // Nothing was polled, so `interest` is still accurate.
-            self.sleep(interest);
+        // If `deadline` is `None`, the timer is disabled.
+        sys_set_timer(deadline, self.timer_mask);
+        self.mask.get()
+    }
+
+    /// The notification mask returned by the most recent
+    /// [`step`](Executor::step).
+    ///
+    /// This is handy for implementing `NotificationHandler` for use with
+    /// `idol_runtime::dispatch`, whose `current_notification_mask` is called
+    /// after `step`.
+    pub fn notification_mask(&self) -> u32 {
+        self.mask.get()
+    }
+
+    /// Hands notification bits returned by `sys_recv` to the async tasks
+    /// waiting on them, and marks those tasks ready.
+    ///
+    /// Timer bits are ignored; timers are checked against the clock in
+    /// `step`. Bits nobody is waiting on are dropped.
+    pub fn handle_notification(&self, bits: u32) {
+        for task in self.iter() {
+            let got = bits & task.notif_mask.get();
+            if got != 0 {
+                task.notif_pending.set(task.notif_pending.get() | got);
+                task.ready.set(true);
+            }
+        }
+    }
+
+    /// Runs async tasks until they're all waiting, then blocks until either
+    /// an IPC message arrives or something they're waiting on happens.
+    ///
+    /// Returns `Some` if a message was received into `buf`, which the caller
+    /// must reply to, as with `sys_recv_open`. Returns `None` if we were
+    /// woken by a timer or notification, which has already been routed to
+    /// the async tasks; just call `recv` again.
+    ///
+    /// ```ignore
+    /// loop {
+    ///     if let Some(msg) = executor.recv(&mut buf) {
+    ///         // handle the message and reply...
+    ///     }
+    /// }
+    /// ```
+    pub fn recv(&self, buf: &mut [u8]) -> Option<RecvMessage> {
+        let mask = self.step();
+        let msg = sys_recv_open(buf, mask);
+        if msg.sender == TaskId::KERNEL {
+            self.handle_notification(msg.operation);
+            None
+        } else {
+            Some(msg)
+        }
+    }
+
+    /// Runs async tasks forever, for tasks that don't serve IPC.
+    pub fn run(&self) -> ! {
+        loop {
+            let mask = self.step();
+            let bits = sys_recv_notification(mask).get_raw_bits();
+            self.handle_notification(bits);
         }
     }
 
@@ -100,72 +158,23 @@ impl<const RECV_LEN: usize> Executor<RECV_LEN> {
     }
 
     /// Marks every task whose deadline is at or before `now` as ready, and
-    /// collects what the remaining tasks are waiting on.
-    fn scan(&self, now: u64) -> Interest {
-        let mut interest = Interest {
-            deadline: None,
-            notif_mask: 0,
-            wants_msg: false,
-        };
+    /// returns the earliest deadline still pending, and the union of all
+    /// notification bits being waited on.
+    fn scan(&self, now: u64) -> (Option<u64>, u32) {
+        let mut deadline: Option<u64> = None;
+        let mut notif_mask = 0;
         for task in self.iter() {
             if let Some(at) = task.wake_at.get() {
                 if at <= now {
                     task.wake_at.set(None);
                     task.ready.set(true);
                 } else {
-                    interest.deadline =
-                        Some(interest.deadline.map_or(at, |n| n.min(at)));
+                    deadline = Some(deadline.map_or(at, |n| n.min(at)));
                 }
             }
-            interest.notif_mask |= task.notif_mask.get();
-            interest.wants_msg |= task.wants_msg.get();
+            notif_mask |= task.notif_mask.get();
         }
-        interest
-    }
-
-    /// Blocks until something the tasks are waiting on happens, and wakes
-    /// the tasks that were waiting on it.
-    fn sleep(&self, interest: Interest) {
-        if interest.notif_mask & self.timer_mask != 0 {
-            panic!("async task waited on the executor's timer notification");
-        }
-
-        // If `deadline` is `None`, the timer is disabled. If additionally no
-        // task wants a message or notification, every task is finished or
-        // waiting on something that can never happen, and we sleep forever.
-        sys_set_timer(interest.deadline, self.timer_mask);
-        let mask = interest.notif_mask | self.timer_mask;
-
-        // Only open our inbox if someone is waiting to take a message out of
-        // it, and the previous message has been taken. Otherwise senders
-        // stay queued in the kernel until we're ready for them.
-        let bits = if interest.wants_msg && !INBOX.is_full() {
-            // Safety: the buffer is only otherwise touched by `Recv::poll`,
-            // which can't run while we're blocked here.
-            let buf = unsafe { &mut *self.recv_buf.get() };
-            let msg = sys_recv_open(buf, mask);
-            if msg.sender == TaskId::KERNEL {
-                msg.operation
-            } else {
-                INBOX.put(msg);
-                for task in self.iter().filter(|t| t.wants_msg.get()) {
-                    task.ready.set(true);
-                }
-                0
-            }
-        } else {
-            sys_recv_notification(mask).get_raw_bits()
-        };
-
-        // Hand notification bits to whoever was waiting on them. Timer bits
-        // aren't anyone's; timers are checked against the clock in `scan`.
-        for task in self.iter() {
-            let got = bits & task.notif_mask.get();
-            if got != 0 {
-                task.notif_pending.set(task.notif_pending.get() | got);
-                task.ready.set(true);
-            }
-        }
+        (deadline, notif_mask)
     }
 
     /// Polls every ready task once. Returns whether any task was polled.
