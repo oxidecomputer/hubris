@@ -92,7 +92,7 @@ pub struct Lease {
 }
 
 /// A syscall request from `userlib` to `kern`
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Syscall {
     /// The syscall number
     pub nr: abi::Sysnum,
