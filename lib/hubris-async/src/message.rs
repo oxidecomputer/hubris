@@ -38,8 +38,13 @@ impl Message {
         self.inner.operation
     }
 
-    /// The length of the message the sender sent. If this is longer than the
-    /// buffer passed to `recv`, the message was truncated.
+    /// The number of bytes of the message received into the buffer passed to
+    /// `recv`.
+    ///
+    /// The kernel reports the length *copied*, not the length sent, so a
+    /// message too long for the buffer looks like one that exactly fills it.
+    /// To detect over-long messages, receive into a buffer one byte longer
+    /// than the longest message you accept, and reject any that fill it.
     pub fn message_len(&self) -> usize {
         self.inner.message_len
     }
