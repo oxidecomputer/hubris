@@ -5,8 +5,8 @@
 //! MWOCP67-5500 Murata power shelf
 
 use crate::mwocp6x::{
-    Error, FIRMWARE_REVISION_LEN, FirmwareImage, FirmwareRev, MfrId,
-    ModelNumber, SerialNumber, parse_firmware_revision,
+    Error, FIRMWARE_IMAGE_BLOCK_LEN, FIRMWARE_REVISION_LEN, FirmwareImage,
+    FirmwareRev, MfrId, ModelNumber, SerialNumber, parse_firmware_revision,
 };
 use crate::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, Validate,
@@ -24,7 +24,10 @@ use userlib::units::{Amperes, Volts};
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum UpdateState {
     EnteredUploadMode,
-    WroteBlock { block_index: usize },
+    WroteBlock {
+        /// The index of the block that was just sent to the PSU
+        block_index: usize,
+    },
     WroteLastBlock,
     UpdateSuccessful,
 }
@@ -595,28 +598,16 @@ impl Mwocp67 {
 
         // Sends one 32-byte block of the payload to the PSU
         let write_block = |block_index: usize| -> Result<UpdateState, Error> {
-            const BLOCK_LEN: usize = 32;
-            let mut blocks = firmware.payload.chunks(BLOCK_LEN);
-            let num_blocks = blocks.len();
-            let block = blocks
-                .nth(block_index)
-                .ok_or(Error::UpdateBlockOutOfBounds)?;
-
-            // All the binaries that we've seen so far have had lengths that are
-            // a multiple of 32 bytes, so they can be evenly divided into
-            // blocks. It's unclear what we should do if that's ever not true,
-            // but padding the end of the final block with 0xFF seems like a
-            // reasonable choice.
-            let mut data = [0xFFu8; BLOCK_LEN + 2];
+            let mut data = [0u8; FIRMWARE_IMAGE_BLOCK_LEN + 2];
             data[0] = pmbus::commands::mwocp67::CommandCode::MFR_FWUPLOAD as u8;
-            data[1] = BLOCK_LEN as u8;
-            data[2..2 + block.len()].copy_from_slice(block);
+            data[1] = FIRMWARE_IMAGE_BLOCK_LEN as u8;
+            data[2..].copy_from_slice(&firmware.payload[block_index]);
 
             self.device
                 .write(&data)
                 .map_err(|code| Error::BadWrite { cmd: data[0], code })?;
 
-            if block_index == num_blocks - 1 {
+            if block_index + 1 >= firmware.payload.len() {
                 Ok(UpdateState::WroteLastBlock)
             } else {
                 Ok(UpdateState::WroteBlock { block_index })

@@ -33,6 +33,8 @@ pub struct FirmwareRev {
     pub secondary: [u8; 4],
 }
 
+pub const FIRMWARE_IMAGE_BLOCK_LEN: usize = 32;
+
 /// A firmware image that can be installed on one of the PSU's MCUs.
 #[derive(Clone, Copy)]
 pub struct FirmwareImage {
@@ -42,9 +44,43 @@ pub struct FirmwareImage {
     /// revision contained within the payload, lest we will believe that the update
     /// has failed when it has in fact succeeded!
     pub revision: [u8; 4],
-    /// The firmware binary.
-    pub payload: &'static [u8],
+    /// The firmware binary, already split into the blocks that will be
+    /// individually sent to the PSU.
+    pub payload: &'static [[u8; FIRMWARE_IMAGE_BLOCK_LEN]],
 }
+
+/// A macro that will include a firmware binary and statically assert that it's
+/// the correct size. As far as we know, the binary must be a multiple of 32
+/// bytes long. The updater must send the binary to the PSU in 32-byte blocks,
+/// and every binary we've received from Murata has been a multiple of 32 bytes.
+/// If this assertion ever fails for a new binary, we should ask Murata what's
+/// going on and how we should handle the final, incomplete 32-byte block.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __mwocp6x_include_firmware {
+    ($path:literal) => {
+        const {
+            const PAYLOAD: &[u8] = include_bytes!($path);
+            assert!(
+                !PAYLOAD.is_empty(),
+                concat!("MWOCP6x firmware binary is empty: ", $path)
+            );
+            const BLOCKS_AND_REMAINDER: (
+                &[[u8; $crate::mwocp6x::FIRMWARE_IMAGE_BLOCK_LEN]],
+                &[u8],
+            ) = PAYLOAD.as_chunks();
+            assert!(
+                BLOCKS_AND_REMAINDER.1.is_empty(),
+                concat!(
+                    "MWOCP6x firmware binary is not a multiple of the block length: ",
+                    $path
+                )
+            );
+            BLOCKS_AND_REMAINDER.0
+        }
+    };
+}
+pub use crate::__mwocp6x_include_firmware as include_firmware;
 
 /// The unique serial number of a Murata PSU.
 #[derive(Copy, Clone, PartialEq, Eq, Default)]

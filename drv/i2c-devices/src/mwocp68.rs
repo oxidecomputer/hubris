@@ -5,8 +5,9 @@
 //! MWOCP68-3600 Murata power shelf
 
 use crate::mwocp6x::{
-    Error, FIRMWARE_REVISION_LEN, FirmwareImage, FirmwareRev, MfrId,
-    ModelNumber, PsuMcu, SerialNumber, parse_firmware_revision,
+    Error, FIRMWARE_IMAGE_BLOCK_LEN, FIRMWARE_REVISION_LEN, FirmwareImage,
+    FirmwareRev, MfrId, ModelNumber, PsuMcu, SerialNumber,
+    parse_firmware_revision,
 };
 use crate::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, Validate,
@@ -57,9 +58,8 @@ pub enum UpdateState {
     /// Programming of firmware has been indicated to have started
     StartedProgramming,
 
-    /// A block has been written; the next offset is at [`offset`], and the
-    /// running checksum is in [`checksum`]
-    WroteBlock { offset: usize, checksum: u64 },
+    /// This block has been written; the running checksum is in [`checksum`]
+    WroteBlock { block_index: usize, checksum: u64 },
 
     /// The last block has been written; the checksum is in [`checksum`]
     WroteLastBlock { checksum: u64 },
@@ -623,20 +623,19 @@ impl Mwocp68 {
         };
 
         let write_block = || -> Result<UpdateState, Error> {
-            const BLOCK_LEN: usize = 32;
-
-            let (mut offset, mut checksum) = match state {
-                Some(UpdateState::WroteBlock { offset, checksum }) => {
-                    (offset, checksum)
-                }
+            // Determine which block to send next
+            let (block_index, mut checksum) = match state {
+                Some(UpdateState::WroteBlock {
+                    block_index,
+                    checksum,
+                }) => (block_index + 1, checksum),
                 Some(UpdateState::StartedProgramming) => (0, 0),
                 _ => panic!(),
             };
 
-            let mut data = [0u8; BLOCK_LEN + 1];
+            let mut data = [0u8; FIRMWARE_IMAGE_BLOCK_LEN + 1];
             data[0] = CommandCode::BOOT_LOADER_MEMORY_BLOCK as u8;
-            data[1..]
-                .copy_from_slice(&firmware.payload[offset..offset + BLOCK_LEN]);
+            data[1..].copy_from_slice(&firmware.payload[block_index]);
 
             self.device
                 .write(&data)
@@ -645,12 +644,14 @@ impl Mwocp68 {
             checksum = data[1..]
                 .iter()
                 .fold(checksum, |c, &d| c.wrapping_add(d.into()));
-            offset += BLOCK_LEN;
 
-            if offset >= firmware.payload.len() {
+            if block_index + 1 >= firmware.payload.len() {
                 Ok(UpdateState::WroteLastBlock { checksum })
             } else {
-                Ok(UpdateState::WroteBlock { offset, checksum })
+                Ok(UpdateState::WroteBlock {
+                    block_index,
+                    checksum,
+                })
             }
         };
 

@@ -3,7 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 pub use drv_i2c_devices::mwocp6x::{
-    FirmwareImage, Mwocp68 as Mwocp6x, PsuMcu, mwocp68::UpdateState,
+    FirmwareImage, Mwocp68 as Mwocp6x, PsuMcu, include_firmware,
+    mwocp68::UpdateState,
 };
 
 use super::PSU_COUNT;
@@ -17,7 +18,7 @@ pub const MWOCP6X_PRIMARY_FIRMWARE: Option<FirmwareImage> =
     Some(FirmwareImage {
         mcu: PsuMcu::Primary,
         revision: *b"0762",
-        payload: include_bytes!(
+        payload: include_firmware!(
             "../../images/mwocp68/mwocp68-primary-0762.bin"
         ),
     });
