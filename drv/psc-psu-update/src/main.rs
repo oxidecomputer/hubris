@@ -146,11 +146,9 @@ impl Psu {
         }
     }
 
-    /// Clear every MCU's backoff, so that a mismatched firmware revision will
-    /// make us immediately retry the update.
-    fn clear_backoff(&mut self) {
-        self.primary.update_backoff = None;
-        self.secondary.update_backoff = None;
+    fn clear_status(&mut self) {
+        self.primary = UpdateStatus::new();
+        self.secondary = UpdateStatus::new();
     }
 }
 
@@ -209,11 +207,11 @@ impl Psu {
 
             //
             // If we are seeing our device as not present, we will clear our
-            // backoff values: if/when a PSU is plugged back in, we want to
-            // attempt to update it immediately if the firmware revision
-            // doesn't match our payload.
+            // update status including the backoff values: if/when a PSU is
+            // plugged back in, we want to attempt to update it immediately if
+            // the firmware revision doesn't match our payload.
             //
-            self.clear_backoff();
+            self.clear_status();
             return Vec::new();
         }
 
@@ -230,7 +228,7 @@ impl Psu {
         match (dev.serial_number(), self.serial_number) {
             (Ok(read), Some(stored)) if read != stored => {
                 ringbuf_entry!(Trace::PSUReplaced(ndx));
-                self.clear_backoff();
+                self.clear_status();
                 self.serial_number = Some(read);
             }
             (Ok(_), Some(_)) => {}
