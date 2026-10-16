@@ -64,6 +64,7 @@
 #![no_main]
 
 use core::convert::Infallible;
+use core::mem::MaybeUninit;
 use gateway_ereport_messages as ereport_messages;
 use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -84,6 +85,12 @@ mod spd_data;
 use bsp::{Bsp, BspImpl};
 use ereport::{Ereports, EreportsImpl};
 use spd_data::SpdStore;
+
+/// Store the entire server impl so that it is retrievable in system dumps
+#[unsafe(no_mangle)]
+static PACKRAT_SERVER_IMPL: ClaimOnceCell<
+    MaybeUninit<ServerImpl<BspImpl, EreportsImpl>>,
+> = ClaimOnceCell::new(MaybeUninit::uninit());
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum Trace {
@@ -152,17 +159,18 @@ fn main() -> ! {
         BUFS.claim()
     };
 
-    let mut server = ServerImpl {
+    let server = PACKRAT_SERVER_IMPL.claim();
+    let server = server.write(ServerImpl {
         mac_address_block,
         identity,
         restart_id: None,
         bsp: BspImpl::new(),
         ereports: EreportsImpl::new(),
-    };
+    });
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        idol_runtime::dispatch(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, server);
     }
 }
 
