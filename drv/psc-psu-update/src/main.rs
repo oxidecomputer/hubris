@@ -62,6 +62,8 @@ const TIMER_INTERVAL_MS: u64 = 10_000;
 // that'd require hardware changes.
 pub const PSU_COUNT: usize = 6;
 
+// The state of all PSUs (marked no_mangle so it can be read by humility)
+#[unsafe(no_mangle)]
 static PSU: ClaimOnceCell<[Psu; PSU_COUNT]> = ClaimOnceCell::new(
     [Psu {
         last_checked: None,
