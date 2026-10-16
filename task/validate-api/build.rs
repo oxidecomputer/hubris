@@ -251,4 +251,5 @@ const PMBUS_GENERATOR: &[PmbusDeviceRow] = &[
     pmbus_generator!("raa229618", raa229618),
     pmbus_generator!("raa229620a", raa229620a),
     pmbus_generator!("tps546b24a", tps546b24a),
+    pmbus_generator!("versal", versal),
 ];
