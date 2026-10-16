@@ -6295,6 +6295,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-blocking-demo-basic"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "counters",
+ "drv-user-leds-api",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "task-config"
 version = "0.1.0"
 dependencies = [
@@ -6383,17 +6394,6 @@ dependencies = [
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
-]
-
-[[package]]
-name = "task-demo-blocking-basic"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "counters",
- "drv-user-leds-api",
- "ringbuf",
- "userlib",
 ]
 
 [[package]]

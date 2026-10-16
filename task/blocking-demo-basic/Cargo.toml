@@ -1,5 +1,5 @@
 [package]
-name = "task-demo-blocking-basic"
+name = "task-blocking-demo-basic"
 version = "0.1.0"
 edition = "2024"
 
@@ -14,7 +14,7 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 build-util = { path = "../../build/util" }
 
 [[bin]]
-name = "task-demo-blocking-basic"
+name = "task-blocking-demo-basic"
 test = false
 doctest = false
 bench = false

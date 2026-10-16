@@ -1,4 +1,4 @@
-# Minimal Grapefruit image running `task-demo-blocking-basic`, the simplest
+# Minimal Grapefruit image running `task-blocking-demo-basic`, the simplest
 # blocking counterpart of `task-async-demo` (see async-demo.toml): one fixed
 # 250ms tick, with every slower activity counted off it. It behaves
 # identically to `task-async-demo` and `task-blocking-demo`; compare their
@@ -6,10 +6,10 @@
 #
 # Watch it with:
 #
-#   humility ringbuf demo_blocking_basic
+#   humility ringbuf blocking_demo_basic
 #   humility ringbuf demo_client
 #
-name = "grapefruit-demo-blocking-basic"
+name = "grapefruit-blocking-demo-basic"
 board = "grapefruit-a"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
@@ -50,8 +50,8 @@ start = true
 task-slots = ["sys"]
 notifications = ["timer"]
 
-[tasks.demo_blocking_basic]
-name = "task-demo-blocking-basic"
+[tasks.blocking_demo_basic]
+name = "task-blocking-demo-basic"
 priority = 3
 max-sizes = {flash = 8192, ram = 4096}
 stacksize = 1024
@@ -59,14 +59,14 @@ start = true
 task-slots = ["user_leds"]
 notifications = ["timer", "poke"]
 
-# Must be lower priority than `demo_blocking_basic`, since it sends to it.
+# Must be lower priority than `blocking_demo_basic`, since it sends to it.
 [tasks.demo_client]
 name = "task-demo-client"
 priority = 4
 max-sizes = {flash = 8192, ram = 2048}
 stacksize = 1024
 start = true
-task-slots = [{server = "demo_blocking_basic"}]
+task-slots = [{server = "blocking_demo_basic"}]
 
 [tasks.idle]
 name = "task-idle"
