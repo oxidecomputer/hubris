@@ -110,7 +110,7 @@ priority = 1
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
-features = ["grapefruit", "boot-kmdb"]
+features = ["boot-kmdb"]
 
 [tasks.hiffy]
 name = "task-hiffy"

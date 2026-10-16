@@ -128,7 +128,7 @@ priority = 1
 stacksize = 1616
 start = true
 task-slots = ["jefe"]
-features = ["gimlet", "ereport"]
+features = ["ereport"]
 notifications = ["task-faulted"]
 
 [tasks.thermal]
