@@ -6376,6 +6376,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-demo-blocking-basic"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "counters",
+ "drv-user-leds-api",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "task-demo-client"
 version = "0.1.0"
 dependencies = [
