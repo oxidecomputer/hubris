@@ -54,7 +54,6 @@ struct UploadStatus {
     command_format_mismatch: bool,
     image_unsupported: bool,
     image_corrupt: bool,
-    #[allow(unused)]
     full_image_not_received_yet: bool,
     full_image_received_successfully: bool,
 }
@@ -659,6 +658,8 @@ impl Mwocp67 {
                         return Err(Error::UpdateCommandFormatMismatch);
                     } else if status.image_unsupported {
                         return Err(Error::UpdateImageUnsupported);
+                    } else if status.full_image_not_received_yet {
+                        return Err(Error::UpdateIncomplete);
                     } else {
                         return Err(Error::UnknownUpdateError);
                     }

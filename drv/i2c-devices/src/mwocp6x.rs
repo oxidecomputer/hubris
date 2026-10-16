@@ -88,6 +88,7 @@ pub enum Error {
     UpdateBlockOutOfBounds,
     UpdateCommandFormatMismatch,
     UpdateImageUnsupported,
+    UpdateIncomplete,
     UnknownUpdateError,
     NotImplemented,
 }
