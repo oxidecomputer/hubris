@@ -81,7 +81,6 @@ enum Trace {
     None,
     FirmwareRevFailed(u8, Mwocp6xError),
     AttemptingUpdate(u8, PsuMcu),
-    BackingOff(u8, PsuMcu),
     UpdateFailed(u8, PsuMcu),
     UpdateFailedState(Option<bsp::UpdateState>),
     UpdateFailure(Mwocp6xError),
@@ -264,8 +263,6 @@ impl Psu {
                     }
                     if self.status(firmware.mcu).is_backoff_elapsed(now) {
                         let _ = to_update.push(firmware);
-                    } else {
-                        ringbuf_entry!(Trace::BackingOff(ndx, firmware.mcu));
                     }
                 }
                 to_update
