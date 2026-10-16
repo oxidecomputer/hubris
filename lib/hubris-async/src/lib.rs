@@ -37,13 +37,12 @@
 //! Async tasks are statically allocated, in the style of `embassy-executor`:
 //!
 //! ```ignore
-//! hubris_async::task! {
-//!     async fn blinky(period: u64) {
-//!         let mut ticker = Ticker::every(period);
-//!         loop {
-//!             ticker.next().await;
-//!             // ...
-//!         }
+//! #[hubris_async::task]
+//! async fn blinky(period: u64) {
+//!     let mut ticker = Ticker::every(period);
+//!     loop {
+//!         ticker.next().await;
+//!         // ...
 //!     }
 //! }
 //!
@@ -103,6 +102,7 @@ mod task;
 pub mod time;
 
 pub use executor::Executor;
+pub use hubris_async_macros::task;
 pub use message::Message;
 pub use select::{Either, Select, select};
 pub use task::{__future_size, SpawnToken, TaskFn, TaskStorage};
@@ -136,37 +136,5 @@ pub mod danger {
         RecvMessage, set_timer_relative, sys_recv, sys_recv_closed,
         sys_recv_notification, sys_recv_open, sys_reply, sys_reply_fault,
         sys_set_timer,
-    };
-}
-
-/// Declares a statically-allocated async task.
-///
-/// This turns an `async fn` into a plain `fn` with the same arguments that
-/// returns a [`SpawnToken`], which can be handed to [`Executor::spawn`]. The
-/// future's storage is a `static` sized exactly to fit the future, so no
-/// allocator is required.
-///
-/// Each task can only be spawned once; calling the function a second time
-/// panics.
-///
-/// Limitations of this proof-of-concept: arguments must be plain identifiers
-/// (no patterns), the function may not be generic, and the task must return
-/// `()`.
-#[macro_export]
-macro_rules! task {
-    (
-        $(#[$meta:meta])*
-        $vis:vis async fn $name:ident ( $($arg:ident : $ty:ty),* $(,)? ) $body:block
-    ) => {
-        $(#[$meta])*
-        $vis fn $name($($arg: $ty),*) -> $crate::SpawnToken {
-            async fn __task($($arg: $ty),*) $body
-
-            static STORAGE: $crate::TaskStorage<
-                { $crate::__future_size(&__task) },
-            > = $crate::TaskStorage::new();
-
-            STORAGE.spawn(__task($($arg),*))
-        }
     };
 }

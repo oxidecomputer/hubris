@@ -85,7 +85,7 @@ struct FutureBuf<const N: usize>([MaybeUninit<u8>; N]);
 /// Statically-allocated storage for one async task whose future fits in `N`
 /// bytes.
 ///
-/// You normally don't use this directly; the [`task!`](crate::task) macro
+/// You normally don't use this directly; the [`#[task]`](crate::task) macro
 /// declares one sized for your `async fn`.
 pub struct TaskStorage<const N: usize> {
     header: TaskHeader,
@@ -167,7 +167,7 @@ pub struct SpawnToken {
     pub(crate) header: &'static TaskHeader,
 }
 
-/// Helper trait used by [`task!`](crate::task) to name the future type
+/// Helper trait used by [`#[task]`](crate::task) to name the future type
 /// returned by an `async fn` with arguments `Args`.
 pub trait TaskFn<Args> {
     type Fut: Future<Output = ()>;
@@ -192,7 +192,7 @@ impl_task_fn!(A, B, C);
 impl_task_fn!(A, B, C, D);
 
 /// Returns the size of the future produced by `f`. Used by
-/// [`task!`](crate::task) to size a task's static storage.
+/// [`#[task]`](crate::task) to size a task's static storage.
 #[doc(hidden)]
 pub const fn __future_size<F: TaskFn<Args>, Args>(_f: &F) -> usize {
     core::mem::size_of::<F::Fut>()

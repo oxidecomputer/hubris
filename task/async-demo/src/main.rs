@@ -106,8 +106,8 @@ const ECHO_TOO_LONG: u32 = 1;
 /// Logs a `Trace::Tick` every `period` ticks, forever.
 ///
 /// This is an ordinary `async fn`, shared by the three ticker tasks below.
-/// Each `task!` declares exactly one static task, so running this three times
-/// takes three thin wrappers.
+/// Each `#[task]` declares exactly one static task, so running this three
+/// times takes three thin wrappers.
 async fn tick_forever(name: Name, period: u64) {
     let mut ticker = Ticker::every(period);
     let mut count = 0u32;
@@ -122,64 +122,58 @@ async fn tick_forever(name: Name, period: u64) {
     }
 }
 
-hubris_async::task! {
-    async fn ticker_fast() {
-        tick_forever(Name::Fast, 1_000).await
+#[hubris_async::task]
+async fn ticker_fast() {
+    tick_forever(Name::Fast, 1_000).await
+}
+
+#[hubris_async::task]
+async fn ticker_medium() {
+    tick_forever(Name::Medium, 2_500).await
+}
+
+#[hubris_async::task]
+async fn ticker_slow() {
+    tick_forever(Name::Slow, 7_000).await
+}
+
+/// Toggles user LED 0 every `period` ticks.
+#[hubris_async::task]
+async fn blinky(period: u64) {
+    let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+    let mut ticker = Ticker::every(period);
+    let mut count = 0u32;
+    loop {
+        ticker.next().await;
+        count = count.wrapping_add(1);
+        trace!(Trace::LedToggle { count, now: now() });
+        // This is a blocking IPC, which stalls the whole executor until
+        // `user_leds` replies; that's fine for a quick GPIO toggle.
+        let _ = leds.led_toggle(0);
     }
 }
 
-hubris_async::task! {
-    async fn ticker_medium() {
-        tick_forever(Name::Medium, 2_500).await
-    }
-}
-
-hubris_async::task! {
-    async fn ticker_slow() {
-        tick_forever(Name::Slow, 7_000).await
-    }
-}
-
-hubris_async::task! {
-    /// Toggles user LED 0 every `period` ticks.
-    async fn blinky(period: u64) {
-        let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
-        let mut ticker = Ticker::every(period);
-        let mut count = 0u32;
-        loop {
-            ticker.next().await;
-            count = count.wrapping_add(1);
-            trace!(Trace::LedToggle { count, now: now() });
-            // This is a blocking IPC, which stalls the whole executor until
-            // `user_leds` replies; that's fine for a quick GPIO toggle.
-            let _ = leds.led_toggle(0);
+/// Logs whenever a whole `ECHO_IDLE_TIMEOUT` passes with no messages
+/// echoed.
+#[hubris_async::task]
+async fn echo_idle_watcher() {
+    loop {
+        let before = ECHO_COUNT.load(Ordering::Relaxed);
+        Timer::after(ECHO_IDLE_TIMEOUT).await;
+        if ECHO_COUNT.load(Ordering::Relaxed) == before {
+            trace!(Trace::EchoIdle { now: now() });
         }
     }
 }
 
-hubris_async::task! {
-    /// Logs whenever a whole `ECHO_IDLE_TIMEOUT` passes with no messages
-    /// echoed.
-    async fn echo_idle_watcher() {
-        loop {
-            let before = ECHO_COUNT.load(Ordering::Relaxed);
-            Timer::after(ECHO_IDLE_TIMEOUT).await;
-            if ECHO_COUNT.load(Ordering::Relaxed) == before {
-                trace!(Trace::EchoIdle { now: now() });
-            }
-        }
-    }
-}
-
-hubris_async::task! {
-    /// Logs every time the `poke` notification is posted to us.
-    async fn poke_watcher() {
-        let mut count = 0u32;
-        loop {
-            notification::wait(notifications::POKE_MASK).await;
-            count = count.wrapping_add(1);
-            trace!(Trace::Poked { count, now: now() });
-        }
+/// Logs every time the `poke` notification is posted to us.
+#[hubris_async::task]
+async fn poke_watcher() {
+    let mut count = 0u32;
+    loop {
+        notification::wait(notifications::POKE_MASK).await;
+        count = count.wrapping_add(1);
+        trace!(Trace::Poked { count, now: now() });
     }
 }
 
