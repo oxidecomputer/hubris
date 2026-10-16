@@ -21,8 +21,8 @@
 //!
 //! The `demo_client` task sends the echo requests and posts `poke`.
 //!
-//! On hardware, watch it with `humility ringbuf demo_blocking_basic`. Built
-//! for the host (`cargo xtask host-run app/host/demo-blocking-basic.toml`),
+//! On hardware, watch it with `humility ringbuf blocking_demo_basic`. Built
+//! for the host (`cargo xtask host-run app/host/blocking-demo-basic.toml`),
 //! every trace event is also printed to stderr, since there's no humility
 //! there.
 
@@ -90,7 +90,7 @@ macro_rules! trace {
     ($event:expr) => {{
         let event = $event;
         #[cfg(not(target_os = "none"))]
-        eprintln!("[demo_blocking_basic] {event:?}");
+        eprintln!("[blocking_demo_basic] {event:?}");
         ringbuf::ringbuf_entry!(event);
     }};
 }
