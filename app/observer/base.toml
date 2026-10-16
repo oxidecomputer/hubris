@@ -318,7 +318,7 @@ start = true
 [tasks.sensor_polling]
 name = "task-sensor-polling"
 priority = 4
-max-sizes = {flash = 16384, ram = 2080 }
+max-sizes = {flash = 16384, ram = 2048 }
 start = true
 task-slots = ["i2c_driver", "sensor"]
 
