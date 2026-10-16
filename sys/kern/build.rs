@@ -398,7 +398,9 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
             base: #base,
             size: #size,
             attributes: #atts,
-            arch_data: crate::arch::compute_region_extension_data(
+
+            // TODO(AJM): create different kinds of arch data for each arch?
+            arch_data: crate::arch::arm_m::compute_region_extension_data(
                 #base, #size, #atts,
             ),
         }

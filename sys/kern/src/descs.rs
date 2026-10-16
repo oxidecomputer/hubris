@@ -4,6 +4,8 @@
 
 //! Descriptor types, used to statically define application resources.
 
+use crate::arch::{Arch, ArchImpl};
+
 pub(crate) const REGIONS_PER_TASK: usize = 8;
 
 /// Indicates priority of a task.
@@ -89,7 +91,7 @@ bitflags::bitflags! {
 pub struct RegionDesc {
     /// Architecture-specific additional data to make context switch cheaper.
     /// Should be first in the struct to improve context switch code generation.
-    pub arch_data: crate::arch::RegionDescExt,
+    pub arch_data: <ArchImpl as Arch>::RegionDescExt,
 
     /// Address of start of region. The platform likely has alignment
     /// requirements for this; it must meet them. (For example, on ARMv7-M, it
