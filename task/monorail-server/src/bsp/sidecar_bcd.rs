@@ -613,7 +613,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                         REINIT_LONG_WAIT
                     };
 
-                    if now.wrapping_sub(link_down_at) >= REINIT_SHORT_WAIT {
+                    if now.wrapping_sub(link_down_at) >= limit {
                         self.retry_10g_count =
                             self.retry_10g_count.saturating_add(1);
                         self.link_down_at = None;
