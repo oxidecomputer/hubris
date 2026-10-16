@@ -41,6 +41,11 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// without breaking CI.
 ///
 /// # Changelog
+/// ## Version 12 - 2026-10-16
+/// There have been a couple of changes since the last bump, including
+/// `SavedState` in the kernel being renamed, as well as changes to how packrat
+/// stores state.
+///
 /// ## Version 11
 /// Adds a `pwm` sensor, which requires Humility to either accept that sensor
 /// kind or accept unrecognized sensors without bailing.
@@ -50,7 +55,7 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// the RoT inform the SP when measurements have been taken.  If Humility is
 /// unaware of this feature, the SP will reset itself repeatedly, which
 /// interferes with subsequent programming of auxiliary flash.
-const HUBRIS_ARCHIVE_VERSION: u32 = 11;
+const HUBRIS_ARCHIVE_VERSION: u32 = 12;
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
