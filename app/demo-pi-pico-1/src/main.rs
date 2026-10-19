@@ -8,6 +8,7 @@
 // make sure the vector table gets linked in
 extern crate rp2040_hal;
 
+use cortex_m::iprintln;
 use hal::pac;
 use pac::generic::RawReg;
 use pac::resets::reset::RESET_SPEC;
@@ -26,14 +27,7 @@ fn main() -> ! {
     let p = unsafe { pac::Peripherals::steal() };
 
     // reset the io_bank and wait for it to be done resetting
-    // p.RESETS.reset().modify(|_, _| todo!());
-    // p.RESETS
-    //     .reset()
-    //     .modify(|_, writer| writer.io_bank0().set_bit());
-
-    // resets = p.RESETS.reset().read().bits();
-    // p.RESETS.reset().write(|w| w.io_bank0().clear_bit());
-    // while !p.RESETS.reset_done().read().io_bank0().bit() {}
+    hal::reset_hw!(p, [io_bank0]);
 
     // Set up the LED gpio pin
     // p.SIO
