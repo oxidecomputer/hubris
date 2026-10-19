@@ -27,7 +27,7 @@ fn main() -> ! {
     let p = unsafe { pac::Peripherals::steal() };
 
     // reset the io_bank and wait for it to be done resetting
-    hal::reset_hw!(p, [io_bank0]);
+    hal::reset_hw!(p.RESETS, [io_bank0]);
 
     // Set up the LED gpio pin
     // p.SIO
