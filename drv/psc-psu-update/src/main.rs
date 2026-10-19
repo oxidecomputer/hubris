@@ -417,12 +417,20 @@ fn main() -> ! {
             // We would rather not put the system in a compromised state by
             // continuing to potentially brick PSUs -- but we also want to
             // assure that we make progress should this ever resolve (e.g., by
-            // pulling the bricked PSU). We will remain here until we see the
-            // updated PSU go power-good; if it never does, we will at least not
-            // attempt to put the (potentially) bad update anywhere else! If the
-            // PSU was not power-good *before* the update, however, then it had
-            // some sort of pre-existing condition that is not the fault of the
-            // update, and we should continue applying the update to other PSUs.
+            // pulling the bricked PSU and replacing it with a working one). We
+            // will remain here until we see the updated PSU go power-good; if
+            // it never does, we will at least not attempt to put the
+            // (potentially) bad update anywhere else! If the PSU was not
+            // power-good *before* the update, however, then it had some sort of
+            // pre-existing condition that is not the fault of the update, and
+            // we should continue applying the update to other PSUs.
+            //
+            // Note that if a PSU is pulled during the update process, we will
+            // remain in this loop until a working PSU is inserted. Ideally we
+            // would detect the removal, log it, and continue updating the other
+            // PSUs. However, this task doesn't have access to the presence GPIO
+            // so it can't distinguish between a PSU that's been physically
+            // removed and one that's somehow been bricked by a failed update.
             //
             loop {
                 match dev.power_good() {
