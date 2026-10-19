@@ -17,3 +17,28 @@ device = "at24csw080"
 name = "fruid_vpd"
 description = "FRU ID EEPROM"
 refdes = "U32"
+
+[tasks.i2c_poller]
+name = "task-i2c-poller"
+priority = 4
+max-sizes = {flash = 4096, ram = 2048}
+stacksize = 512
+start = true
+task-slots = ["i2c_driver"]
+
+[[config.i2c.controllers]]
+controller = 2
+
+[config.i2c.controllers.ports.F]
+name = "i2c2"
+sda.pin = 0
+scl.pin = 1
+af = 4
+
+[[config.i2c.devices]]
+bus = "i2c2"
+address = 0x4c
+device = "i2c_poller_target"
+description = "Device polled by task-i2c-poller"
+refdes = "I2C2_POLL" # TODO: replace with the real reference designator
+validate-with-raw-read = true

@@ -6477,6 +6477,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-i2c-poller"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "drv-i2c-api",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "task-idle"
 version = "0.1.0"
 dependencies = [
