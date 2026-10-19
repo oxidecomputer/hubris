@@ -6,17 +6,20 @@ use enum_map::EnumArray;
 use userlib::FromPrimitive;
 
 // Select an impl and re-export based on coarse target features
-cfg_if::cfg_if! {
-    if #[cfg(any(feature = "stm32f3", feature = "stm32f4"))] {
+cfg_select! {
+    any(feature = "stm32f3", feature = "stm32f4") => {
         mod stm32fx;
         pub use stm32fx::BspImpl;
-    } else if #[cfg(any(feature = "stm32g0", feature = "stm32h7"))] {
+    }
+    any(feature = "stm32g0", feature = "stm32h7") => {
         mod stm32xx_sys;
         pub use stm32xx_sys::BspImpl;
-    } else if #[cfg(feature = "lpc55")] {
+    }
+    any(feature = "lpc55") => {
         mod lpc55;
         pub use lpc55::BspImpl;
-    } else {
+    }
+    _ => {
         compile_error!("Unknown board for user-leds!");
     }
 }
