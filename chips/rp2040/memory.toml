@@ -12,6 +12,6 @@ execute = true
 
 [[sram]]
 address = 0x2000_0000
-size = 0x800
+size = 0x4_2000 # 264kB
 read = true
 write = true
