@@ -230,4 +230,10 @@ fn system_init() {
             .pc3so()
             .set_bit()
     });
+
+    // Enable timing
+    let ptime = RollingTimer::new_tim5(&p, 200);
+    // SAFETY: we promise to never use TIM5 again.
+    let vtable = unsafe { ptime.into_ptimer() };
+    hubris_ptime::set_ptime_vtable(vtable);
 }
