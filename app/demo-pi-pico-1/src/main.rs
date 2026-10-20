@@ -8,18 +8,12 @@
 // make sure the vector table gets linked in
 extern crate rp2040_hal;
 
-use cortex_m::iprintln;
 use hal::pac;
-use pac::generic::RawReg;
-use pac::resets::reset::RESET_SPEC;
 use rp2040_hal as hal;
-use rp2040_hal::pac::generic::RegisterSpec;
 
 #[unsafe(link_section = ".boot2")]
 #[used]
 pub static BOOT_LOADER: [u8; 256] = hal::boot::BOOT_LOADER_W25Q080;
-
-const LED_GPIO_ID: usize = 25;
 
 #[hal::entry]
 fn main() -> ! {
@@ -28,22 +22,6 @@ fn main() -> ! {
 
     // reset the io_bank and wait for it to be done resetting
     hal::reset_hw!(p.RESETS, [io_bank0]);
-
-    // Set up the LED gpio pin
-    // p.SIO
-    //     .gpio_oe_set()
-    //     // SAFETY: LED is safe to set
-    //     .write(|w| unsafe { w.bits(1 << LED_GPIO_ID) });
-    // p.SIO
-    //     .gpio_out_set()
-    //     // SAFETY: LED is safe to set
-    //     .write(|w| unsafe { w.bits(1 << LED_GPIO_ID) });
-
-    // // turn the LED gpio pin to SIO (software control)
-    // p.IO_BANK0
-    //     .gpio(LED_GPIO_ID)
-    //     .gpio_ctrl()
-    //     .write(|w| w.funcsel().sio());
 
     // figure out what clock speed to use
     let cycles_per_ms = if p.CLOCKS.clk_sys_ctrl().read().src().is_clk_ref() {

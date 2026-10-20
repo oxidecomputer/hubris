@@ -272,7 +272,7 @@ const EXC_RETURN_CONST: u32 = 0xFFFFFFED;
 /// According to the ArmV6m manual, this is the value to use for "Return to thread mode"
 ///
 /// Having any other value is "unpredictable"
-#[cfg(any(armv6m))]
+#[cfg(armv6m)]
 const EXC_RETURN_CONST: u32 = 0xFFFFFFFD;
 
 /// The ARM-M implementation of the kernel's architecture interface.
