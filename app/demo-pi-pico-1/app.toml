@@ -14,10 +14,21 @@ stacksize = 640
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 4096, ram = 512}
+max-sizes = {flash = 4096, ram = 1024}
 start = true
 stacksize = 352
 notifications = ["fault", "timer"]
+
+[tasks.user_leds]
+name = "drv-user-leds"
+features = [ "rp2040" ]
+priority = 2
+max-sizes = {flash = 4096, ram = 1024}
+uses = [ "sio", "io_bank0" ]
+start = true
+task-slots = []
+notifications = ["timer"]
+config = { blink_at_start = [ "Led::Zero" ] }
 
 [tasks.idle]
 name = "task-idle"

@@ -19,6 +19,10 @@ cfg_select! {
         mod lpc55;
         pub use lpc55::BspImpl;
     }
+    any(feature = "rp2040") => {
+        mod rp2040;
+        pub use rp2040::BspImpl;
+    }
     _ => {
         compile_error!("Unknown board for user-leds!");
     }

@@ -2997,6 +2997,7 @@ dependencies = [
  "idol-runtime",
  "lpc55-pac",
  "num-traits",
+ "rp2040-hal",
  "stm32f3",
  "stm32f4",
  "task-config",
