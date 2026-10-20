@@ -1,0 +1,10 @@
+Interface(
+    name: "Pins",
+    ops: {
+        "enable_out": (
+            args: {},
+            reply: Simple("()"),
+            idempotent: true, 
+        ),
+    },
+)

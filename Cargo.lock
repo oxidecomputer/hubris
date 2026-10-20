@@ -2320,6 +2320,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-rp2040-gpio"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
 name = "drv-sbrmi"
 version = "0.1.0"
 dependencies = [

@@ -19,6 +19,14 @@ start = true
 stacksize = 352
 notifications = ["fault", "timer"]
 
+[tasks.gpio_driver]
+name = "drv-rp2040-gpio"
+priority = 1
+max-sizes = {flash = 4096, ram = 2048}
+start = true
+uses = []
+task-slots = []
+
 [tasks.user_leds]
 name = "drv-user-leds"
 features = [ "rp2040" ]
