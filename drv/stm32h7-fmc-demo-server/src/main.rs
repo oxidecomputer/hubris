@@ -154,6 +154,7 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         _msg: &RecvMessage,
         addr: u32,
     ) -> Result<u16, RequestError<Infallible>> {
+        let addr = translate_addr(addr as usize);
         let ptr = addr as *const u16;
         let val = unsafe { ptr.read_volatile() };
         Ok(val)
@@ -175,6 +176,7 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         _msg: &RecvMessage,
         addr: u32,
     ) -> Result<u64, RequestError<Infallible>> {
+        let addr = translate_addr(addr as usize);
         let ptr = addr as *const u64;
         let val = unsafe { ptr.read_volatile() };
         Ok(val)
@@ -186,6 +188,7 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         addr: u32,
         value: u16,
     ) -> Result<(), RequestError<Infallible>> {
+        let addr = translate_addr(addr as usize);
         let ptr = addr as *mut u16;
         unsafe { ptr.write_volatile(value) }
         Ok(())
@@ -209,9 +212,24 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         addr: u32,
         value: u64,
     ) -> Result<(), RequestError<Infallible>> {
+        let addr = translate_addr(addr as usize);
         let ptr = addr as *mut u64;
         unsafe { ptr.write_volatile(value) }
         Ok(())
+    }
+
+    fn get_bcr1(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<u32, RequestError<Infallible>> {
+        Ok(self.fmc.bcr1.read().bits())
+    }
+
+    fn get_btr1(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<u32, RequestError<Infallible>> {
+        Ok(self.fmc.btr1.read().bits())
     }
 
     fn set_burst_enable(
@@ -266,7 +284,9 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         n: u8,
     ) -> Result<(), RequestError<Infallible>> {
         let value = n.saturating_sub(2).min(15);
-        self.fmc.btr1.write(|w| {
+        // modify, not write: these fields share BTR1, and write() would
+        // reset the others (notably CLKDIV) as a side effect.
+        self.fmc.btr1.modify(|_, w| {
             unsafe {
                 w.datlat().bits(value);
             }
@@ -280,12 +300,22 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         n: u8,
     ) -> Result<(), RequestError<Infallible>> {
         let value = n.saturating_sub(1).clamp(1, 15);
-        self.fmc.btr1.write(|w| {
+        // The continuous-clock divider is only sampled when the clock
+        // generator starts, so a live CLKDIV write leaves FMC_CLK at its
+        // boot frequency; drop FMCEN and CCLKEN across the change to make
+        // it take. (Boot-time setup is unaffected: the kernel programs BTR1
+        // before setting FMCEN.) FMC_CLK stops briefly here, and any
+        // concurrent FMC user racing this window is on its own.
+        self.fmc.bcr1.modify(|_, w| w.fmcen().clear_bit());
+        self.fmc.bcr1.modify(|_, w| w.cclken().clear_bit());
+        self.fmc.btr1.modify(|_, w| {
             unsafe {
                 w.clkdiv().bits(value);
             }
             w
         });
+        self.fmc.bcr1.modify(|_, w| w.cclken().set_bit());
+        self.fmc.bcr1.modify(|_, w| w.fmcen().set_bit());
         Ok(())
     }
     fn set_bus_turnaround_cycles(
@@ -293,8 +323,8 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         _msg: &RecvMessage,
         n: u8,
     ) -> Result<(), RequestError<Infallible>> {
-        let value = n.max(15);
-        self.fmc.btr1.write(|w| {
+        let value = n.min(15);
+        self.fmc.btr1.modify(|_, w| {
             unsafe {
                 w.busturn().bits(value);
             }
@@ -402,6 +432,48 @@ fn process_network_packet(
                 }
                 if byte == 16 {
                     address += 8;
+                }
+            }
+            17 | 18 => {
+                // PeekBlockChecksum / PeekBlockChecksumFixed: read `count`
+                // 32-bit words and reply with only a wrapping-sum checksum.
+                // The constant-size reply means the request's duration is
+                // dominated by the FMC accesses, which makes bus line rate
+                // measurable from the host; per-word peek ops can't do that
+                // because their network cost swamps the bus time. Op 17
+                // advances through memory, op 18 re-reads one address.
+                let count = u16::from_le_bytes(read_chunk(&mut packet)?);
+                let mut sum: u32 = 0;
+                if byte == 17 {
+                    for _ in 0..count {
+                        let b = unsafe {
+                            core::ptr::read_volatile(address as *const u32)
+                        };
+                        sum = sum.wrapping_add(b);
+                        address += 4;
+                    }
+                } else {
+                    for _ in 0..count {
+                        let b = unsafe {
+                            core::ptr::read_volatile(address as *const u32)
+                        };
+                        sum = sum.wrapping_add(b);
+                    }
+                }
+                write_chunk(sum.to_le_bytes(), &mut response)?;
+            }
+            19 => {
+                // PokeBlockFill: write `value` to the current address
+                // `count` times without advancing -- the write-side twin of
+                // op 18. Repeating one address exercises the write path the
+                // same as distinct addresses would, and a single scratch
+                // register is the only bulk-writable FMC target anyway.
+                let count = u16::from_le_bytes(read_chunk(&mut packet)?);
+                let x = u32::from_le_bytes(read_chunk(&mut packet)?);
+                for _ in 0..count {
+                    unsafe {
+                        core::ptr::write_volatile(address as *mut u32, x);
+                    }
                 }
             }
             _ => return Err(NetworkError::NotUnderstood),

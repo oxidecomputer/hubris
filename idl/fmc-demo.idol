@@ -89,6 +89,16 @@ Interface(
             },
             reply: Simple("()"),
         ),
+        "get_bcr1": (
+            encoding: Hubpack,
+            args: {},
+            reply: Simple("u32"),
+        ),
+        "get_btr1": (
+            encoding: Hubpack,
+            args: {},
+            reply: Simple("u32"),
+        ),
         "set_clock_divider": (
             encoding: Hubpack,
             args: {

@@ -412,7 +412,7 @@ fn system_init() {
     //
     // Note from the clock config earlier in this function that AHB3 is running
     // at 200 MHz.
-    const CLKDIV: u8 = 3; // /4, for 50 MHz -- field is divisor minus 1
+    const CLKDIV: u8 = 2; // /3, for 66.67 MHz -- field is divisor minus 1
 
     // Bus turnaround time in FMC_CLK cycles, 0..=15
     const BUSTURN: u8 = 0;
