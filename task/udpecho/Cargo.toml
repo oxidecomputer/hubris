@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 num-traits = { workspace = true }
 serde = { workspace = true }
-ssmarshal = { workspace = true }
 
 task-net-api = { path = "../net-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
