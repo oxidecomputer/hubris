@@ -41,6 +41,10 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// without breaking CI.
 ///
 /// # Changelog
+/// ## Version 13 - 2026-10-21
+/// We never released v12, but have noticed some regressions with respect to
+/// getting SPD data, as well as reworked how packrat is structured.
+///
 /// ## Version 12 - 2026-10-16
 /// There have been a couple of changes since the last bump, including
 /// `SavedState` in the kernel being renamed, as well as changes to how packrat
@@ -55,7 +59,7 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// the RoT inform the SP when measurements have been taken.  If Humility is
 /// unaware of this feature, the SP will reset itself repeatedly, which
 /// interferes with subsequent programming of auxiliary flash.
-const HUBRIS_ARCHIVE_VERSION: u32 = 12;
+const HUBRIS_ARCHIVE_VERSION: u32 = 13;
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
