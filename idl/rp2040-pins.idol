@@ -1,9 +1,40 @@
 Interface(
     name: "Pins",
     ops: {
-        "enable_out": (
-            args: {},
+        "set_dir": (
+            args: {
+                "pin": (type: "Gpio", recv: FromPrimitive("u8")),
+                "dir": (type: "Direction", recv: FromPrimitive("u8")),
+            },
             reply: Simple("()"),
+            idempotent: true, 
+        ),
+        "set_pin": (
+            args: {
+                "pin": (type: "Gpio", recv: FromPrimitive("u8")),
+            },
+            reply: Simple("()"),
+            idempotent: true, 
+        ),
+        "clear_pin": (
+            args: {
+                "pin": (type: "Gpio", recv: FromPrimitive("u8")),
+            },
+            reply: Simple("()"),
+            idempotent: true, 
+        ),
+        "toggle_pin": (
+            args: {
+                "pin": (type: "Gpio", recv: FromPrimitive("u8")),
+            },
+            reply: Simple("()"),
+            idempotent: true, 
+        ),
+        "read_pin": (
+            args: {
+                "pin": (type: "Gpio", recv: FromPrimitive("u8")),
+            },
+            reply: Simple((type: "Value", recv: FromPrimitive("u8"))),
             idempotent: true, 
         ),
     },

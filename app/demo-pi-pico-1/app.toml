@@ -8,7 +8,7 @@ default-ram = "sram"
 
 [kernel]
 name = "demo-pi-pico-1"
-requires = {flash = 20000, ram = 1136}
+requires = {flash = 20000, ram = 1232}
 stacksize = 640
 
 [tasks.jefe]
@@ -24,7 +24,7 @@ name = "drv-rp2040-gpio"
 priority = 1
 max-sizes = {flash = 4096, ram = 2048}
 start = true
-uses = []
+uses = [ "sio", "io_bank0" ]
 task-slots = []
 
 [tasks.user_leds]
@@ -32,9 +32,9 @@ name = "drv-user-leds"
 features = [ "rp2040" ]
 priority = 2
 max-sizes = {flash = 4096, ram = 1024}
-uses = [ "sio", "io_bank0" ]
+uses = []
 start = true
-task-slots = []
+task-slots = [ "gpio_driver" ]
 notifications = ["timer"]
 config = { blink_at_start = [ "Led::Zero" ] }
 

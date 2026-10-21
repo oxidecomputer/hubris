@@ -10,6 +10,8 @@ num-traits = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
+drv-rp2040-gpio-api = { path = "../rp2040-gpio-api" }
+rp2040-hal = { path = "../../lib/rp2040-hal" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]

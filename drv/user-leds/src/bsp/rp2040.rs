@@ -1,11 +1,14 @@
 use crate::bsp::{self, Led1};
 use bsp::Bsp;
-use rp2040_hal::pac;
+use drv_rp2040_gpio_api::{Direction, Gpio, Pins};
+
+userlib::task_slot!(GPIO, gpio_driver);
 
 const LED_GPIO_ID: usize = 25;
+const LED_GPIO: Gpio = Gpio::Gpio25;
 
 pub struct BspImpl {
-    sio: pac::SIO,
+    pins: Pins,
 }
 
 impl Bsp for BspImpl {
@@ -13,53 +16,32 @@ impl Bsp for BspImpl {
 
     fn new() -> Self {
         Self {
-            // SAFETY: this probably isn't actually safe and we should think of a better approach
-            sio: unsafe { pac::SIO::steal() },
+            pins: Pins::from(GPIO.get_task_id()),
         }
     }
 
     fn enable_led_pins(&self) {
+        self.pins.set_dir(LED_GPIO, Direction::Out);
         // enable the gpio SIO for the GPIO
-
-        // setup io bank with sio
-        let io_bank0 = unsafe { pac::IO_BANK0::steal() };
-        io_bank0
-            .gpio(LED_GPIO_ID)
-            .gpio_ctrl()
-            .modify(|_, w| w.funcsel().sio());
-
-        // output enable
-        self.sio
-            .gpio_oe_set()
-            .write(|w| unsafe { w.bits(1 << LED_GPIO_ID) });
 
         self.led_off(Led1::Zero);
     }
 
     fn led_on(&self, led: Self::Led) {
         match led {
-            Led1::Zero => self
-                .sio
-                .gpio_out_set()
-                .write(|w| unsafe { w.bits(1 << LED_GPIO_ID) }),
+            Led1::Zero => self.pins.set_pin(LED_GPIO),
         }
     }
 
     fn led_off(&self, led: Self::Led) {
         match led {
-            Led1::Zero => self
-                .sio
-                .gpio_out_clr()
-                .write(|w| unsafe { w.bits(1 << LED_GPIO_ID) }),
+            Led1::Zero => self.pins.clear_pin(LED_GPIO),
         }
     }
 
     fn led_toggle(&self, led: Self::Led) {
         match led {
-            Led1::Zero => self
-                .sio
-                .gpio_out_xor()
-                .write(|w| unsafe { w.bits(1 << LED_GPIO_ID) }),
+            Led1::Zero => self.pins.toggle_pin(LED_GPIO),
         }
     }
 }

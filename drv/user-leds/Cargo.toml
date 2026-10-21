@@ -10,10 +10,10 @@ lpc55-pac = { workspace = true, optional = true }
 num-traits.workspace = true
 stm32f3 = { workspace = true, optional = true, features = ["stm32f303"] }
 stm32f4 = { workspace = true, optional = true, features = ["stm32f407"] }
-rp2040-hal = { path = "../../lib/rp2040-hal", optional = true }
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
+drv-rp2040-gpio-api = { path = "../rp2040-gpio-api", optional = true }
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api", optional = true }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", optional = true }
 drv-user-leds-api.path = "../user-leds-api"
@@ -28,7 +28,7 @@ idol.workspace = true
 stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
 stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7"]
 lpc55 = ["lpc55-pac", "drv-lpc55-gpio-api"]
-rp2040 = [ "rp2040-hal" ]
+rp2040 = [ "drv-rp2040-gpio-api" ]
 panic-messages = ["userlib/panic-messages"]
 no-ipc-counters = ["idol/no-counters"]
 
