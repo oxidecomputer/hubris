@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+cfg-if.workspace = true
 gateway-ereport-messages.workspace = true
 idol-runtime.workspace = true
 num-traits.workspace = true
@@ -14,7 +15,6 @@ zerocopy-derive.workspace = true
 hubpack.workspace = true
 serde.workspace = true
 
-drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 drv-caboose = { path = "../../drv/caboose", optional = true }
 drv-caboose-pos = { path = "../../drv/caboose-pos", optional = true }
 hubris-task-names = { path = "../../sys/task-names" }
@@ -32,16 +32,11 @@ minicbor-lease = { path = "../../lib/minicbor-lease", optional = true }
 
 [build-dependencies]
 anyhow.workspace = true
-cfg-if.workspace = true
 idol.workspace = true
 quote = { workspace = true, optional = true }
 build-util = { path = "../../build/util" }
 
 [features]
-cosmo = ["drv-cpu-seq-api"]
-metro = ["drv-cpu-seq-api"]
-gimlet = ["drv-cpu-seq-api"]
-grapefruit = []
 boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
 ereport = [
