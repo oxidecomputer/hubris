@@ -42,13 +42,20 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 ///
 /// # Changelog
 /// ## Version 13 - 2026-10-21
-/// We never released v12, but have noticed some regressions with respect to
-/// getting SPD data, as well as reworked how packrat is structured.
+/// We never released v12, but have noticed some (old) regressions with respect
+/// to getting SPD data, as well as reworked how packrat is structured. Context:
+/// - https://github.com/oxidecomputer/humility/issues/741
+/// - https://github.com/oxidecomputer/hubris/pull/2724
+/// - https://github.com/oxidecomputer/hubris/pull/2710
+/// - https://github.com/oxidecomputer/hubris/pull/2701
 ///
 /// ## Version 12 - 2026-10-16
 /// There have been a couple of changes since the last bump, including
 /// `SavedState` in the kernel being renamed, as well as changes to how packrat
-/// stores state.
+/// stores state. Context:
+/// - https://github.com/oxidecomputer/humility/issues/727
+/// - https://github.com/oxidecomputer/hubris/pull/2704
+/// - https://github.com/oxidecomputer/hubris/pull/2518
 ///
 /// ## Version 11
 /// Adds a `pwm` sensor, which requires Humility to either accept that sensor
