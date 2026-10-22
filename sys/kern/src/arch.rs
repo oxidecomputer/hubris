@@ -27,10 +27,14 @@ cfg_if::cfg_if! {
     //
     // NOTE: kept identical with detection method used in
     // `userlib/src/arch/mod.rs`.
-    if #[cfg(not(target_pointer_width = "32"))] {
-        compile_error!(
-            "non-32-bit targets not supported (even for simulation)"
-        );
+    if #[cfg(not(target_os = "none"))] {
+        // Host-native (on-std) kernel
+        pub mod host;
+
+        /// The architecture the kernel is being built for.
+        pub use host::Host as ArchImpl;
+    } else if #[cfg(not(target_pointer_width = "32"))] {
+        compile_error!("non-32-bit targets not supported");
     } else if #[cfg(target_arch = "arm")] {
         pub mod arm_m;
 

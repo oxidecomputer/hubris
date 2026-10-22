@@ -38,7 +38,6 @@ pub mod arch;
 pub mod atomic;
 mod descs;
 pub mod err;
-pub mod fail;
 pub mod header;
 pub mod kipc;
 pub mod profiling;
@@ -48,3 +47,7 @@ pub mod task;
 pub mod time;
 pub mod umem;
 pub mod util;
+
+// The `fail` module defines the panic handler used by non-hosted targets.
+#[cfg(target_os = "none")]
+pub mod fail;

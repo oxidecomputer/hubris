@@ -791,6 +791,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
+name = "cobs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "cobs"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd93fd2c1b27acd030440c9dbd9d14c1122aad622374fe05a670b67a4bc034be"
+dependencies = [
+ "heapless 0.9.3",
+ "thiserror",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3102,6 +3121,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-io"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef1a6892d9eef45c8fa6b9e0086428a2cca8491aca8f787c534a3d6d0bcb3ced"
+
+[[package]]
+name = "embedded-io"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3530,6 +3561,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3561,10 +3601,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdc6457c0eb62c71aac4bc17216026d8410337c4126773b9c5daba343f17964f"
 dependencies = [
  "atomic-polyfill",
- "hash32",
+ "hash32 0.2.1",
  "rustc_version 0.4.0",
  "serde",
  "spin 0.9.4",
+ "stable_deref_trait",
+]
+
+[[package]]
+name = "heapless"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25ba4bd83f9415b58b4ed8dc5714c76e626a105be4646c02630ad730ad3b5aa4"
+dependencies = [
+ "hash32 0.3.1",
  "stable_deref_trait",
 ]
 
@@ -3601,7 +3651,7 @@ version = "0.3.1"
 source = "git+https://github.com/oxidecomputer/hif#0e9a9d0774afe3c4eca5cb147fb64ad05d0bfcd8"
 dependencies = [
  "pkg-version",
- "postcard",
+ "postcard 0.7.2",
  "serde",
 ]
 
@@ -3633,6 +3683,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "host-demo"
+version = "0.1.0"
+dependencies = [
+ "kern",
+]
+
+[[package]]
 name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
@@ -3652,6 +3709,16 @@ dependencies = [
  "unwrap-lite",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "hostcall"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "cobs 0.5.1",
+ "postcard 1.1.3",
+ "serde",
 ]
 
 [[package]]
@@ -4032,6 +4099,7 @@ dependencies = [
  "call_rustfmt",
  "cfg-if",
  "cortex-m",
+ "hostcall",
  "indexmap 1.9.1",
  "kerncore",
  "phash",
@@ -4956,8 +5024,20 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8863e251332eb18520388099b8b0acc4810ed6e602e3b6f674e8a46ba20e15c"
 dependencies = [
- "heapless",
+ "heapless 0.7.17",
  "postcard-cobs",
+ "serde",
+]
+
+[[package]]
+name = "postcard"
+version = "1.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6764c3b5dd454e283a30e6dfe78e9b31096d9e32036b5d1eaac7a6119ccb9a24"
+dependencies = [
+ "cobs 0.3.0",
+ "embedded-io 0.4.0",
+ "embedded-io 0.6.1",
  "serde",
 ]
 
@@ -5825,7 +5905,7 @@ dependencies = [
  "bitflags 1.3.2",
  "byteorder",
  "cfg-if",
- "heapless",
+ "heapless 0.7.17",
  "managed",
 ]
 
@@ -5834,7 +5914,7 @@ name = "snitch-core"
 version = "0.1.0"
 dependencies = [
  "counters",
- "heapless",
+ "heapless 0.7.17",
  "minicbor-serde",
  "serde",
  "unwrap-lite",
@@ -6212,7 +6292,7 @@ dependencies = [
  "dump-agent-api",
  "enum-map",
  "gateway-messages",
- "heapless",
+ "heapless 0.7.17",
  "host-sp-messages",
  "hubpack",
  "humpty",
@@ -6432,7 +6512,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "enum-map",
  "ereports",
- "heapless",
+ "heapless 0.7.17",
  "host-sp-messages",
  "hubpack",
  "idol",
@@ -6578,7 +6658,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
  "enum-map",
- "heapless",
+ "heapless 0.7.17",
  "hubpack",
  "hubris-num-tasks",
  "idol",
@@ -6892,6 +6972,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-stub"
+version = "0.1.0"
+dependencies = [
+ "userlib",
+]
+
+[[package]]
 name = "task-template"
 version = "0.1.0"
 dependencies = [
@@ -6959,7 +7046,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "drv-stm32h7-usart",
- "heapless",
+ "heapless 0.7.17",
  "idol",
  "ringbuf",
  "userlib",
@@ -7613,6 +7700,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "critical-section",
+ "hostcall",
  "num-derive",
  "num-traits",
  "paste",

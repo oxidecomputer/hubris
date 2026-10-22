@@ -38,6 +38,49 @@ enum Xtask {
         caboose_args: CabooseArgs,
     },
 
+    /// Builds one or more tasks for the host machine without running them.
+    HostBuild {
+        /// Request verbosity from tools we shell out to.
+        #[clap(short)]
+        verbose: bool,
+        /// Build with the release profile instead of dev.
+        #[clap(long)]
+        release: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+        /// Name of task(s) to build.
+        #[clap(min_values = 1)]
+        tasks: Vec<String>,
+    },
+
+    /// Builds and runs the kernel and tasks on the host machine.
+    HostRun {
+        /// Request verbosity from tools we shell out to.
+        #[clap(short)]
+        verbose: bool,
+        /// Build with the release profile instead of dev.
+        #[clap(long)]
+        release: bool,
+        /// Log every syscall the kernel handles to stderr.
+        #[clap(long)]
+        trace: bool,
+        /// Log only syscalls made by, or addressed to, these tasks
+        /// (comma-separated names); implies --trace.
+        #[clap(long, value_name = "TASKS")]
+        trace_only: Option<String>,
+        /// Stop once time would pass this many ticks (milliseconds).
+        #[clap(long)]
+        stop_at: Option<u64>,
+        /// Run at the wall clock speed, instead of as fast as possible.
+        #[clap(long)]
+        realtime: bool,
+        /// Build everything and write the run configuration, but don't run.
+        #[clap(long)]
+        no_run: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+    },
+
     /// Builds one or more cross-compiled binary as it would appear in the
     /// output of `dist`, but without all the other binaries or the final build
     /// archive. This is useful for iterating on a single task.
@@ -371,6 +414,45 @@ fn run(xtask: Xtask) -> Result<()> {
                     CabooseArgs::default(),
                 )?;
             }
+        }
+        Xtask::HostBuild {
+            verbose,
+            release,
+            cfg,
+            tasks,
+        } => {
+            let exes = host::build(
+                &cfg,
+                &tasks,
+                host::HostBuildFlags { verbose, release },
+            )?;
+            for exe in exes {
+                println!("{}", exe.display());
+            }
+        }
+        Xtask::HostRun {
+            verbose,
+            release,
+            trace,
+            trace_only,
+            stop_at,
+            realtime,
+            no_run,
+            cfg,
+        } => {
+            host::run(
+                &cfg,
+                host::HostRunFlags {
+                    build: host::HostBuildFlags { verbose, release },
+                    trace: match trace_only {
+                        Some(tasks) => Some(tasks),
+                        None => trace.then(|| "all".to_string()),
+                    },
+                    stop_at,
+                    realtime,
+                    no_run,
+                },
+            )?;
         }
         Xtask::Flash {
             dirty,
