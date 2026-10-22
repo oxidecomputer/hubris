@@ -118,6 +118,9 @@ pub struct Bsp<'a, R> {
     /// Time at which the 10G link went down
     link_down_at: Option<u64>,
 
+    /// Number of times we've rebooted the 10g link
+    retry_10g_count: u32,
+
     /// VLAN lock state
     vlan_mode: VLanMode,
 }
@@ -223,6 +226,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             vlan_mode: VLanMode::Locked,
             seq: Sequencer::from(SEQ.get_task_id()),
             front_io,
+            retry_10g_count: 0,
         };
 
         out.reinit()?;
@@ -582,12 +586,44 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 if let Some(link_down_at) = self.link_down_at {
                     // We can use wrapping arithmetic here because the timer is
                     // monotonic.
-                    if now.wrapping_sub(link_down_at) >= 20_000 {
+
+                    // If it's been more than some minutes, then let's cool
+                    // down on this re-init, because it is likely that
+                    // something else has gone wrong. Slow down the restarting
+                    // to give an operator a chance to use the management
+                    // network to recover the system.
+
+                    // The number of minutes we will do SHORT_WAITs, afterward
+                    // doing LONG_WAITs.
+                    const REINIT_SHORT_DURATION_MINS: u64 = 15;
+                    // The SHORT_WAIT time (ms)
+                    const REINIT_SHORT_WAIT: u64 = 20_000;
+                    // The LONG_WAIT time (ms)
+                    const REINIT_LONG_WAIT: u64 = 5 * 60_000;
+                    // How many times should we SHORT_WAIT
+                    const REINIT_SHORT_ATTEMPTS: u32 = ((60_000
+                        / REINIT_SHORT_WAIT)
+                        * REINIT_SHORT_DURATION_MINS)
+                        as u32;
+
+                    let limit = if self.retry_10g_count < REINIT_SHORT_ATTEMPTS
+                    {
+                        REINIT_SHORT_WAIT
+                    } else {
+                        REINIT_LONG_WAIT
+                    };
+
+                    if now.wrapping_sub(link_down_at) >= limit {
+                        self.retry_10g_count =
+                            self.retry_10g_count.saturating_add(1);
                         self.link_down_at = None;
                         // This logs Trace::Reinit in the ringbuf
                         self.reinit()?;
                     }
                 } else {
+                    // re-init to the default attempt count once the link goes
+                    // down.
+                    self.retry_10g_count = 0;
                     self.link_down_at = Some(now);
                 }
             } else {
