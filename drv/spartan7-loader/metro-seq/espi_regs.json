@@ -84,7 +84,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Allow the host to write and erase the flash over the eSPI flash\nchannel. Only has effect on a build whose FLASH_WRITES_ALLOWED generic is\nset; elsewhere writes are refused regardless. A refused write or erase is\nanswered with an unsuccessful completion."
+                    "desc": "Allow the host to write and erase the flash over the eSPI flash\nchannel. Only has effect on a build whose FLASH_WRITES_ALLOWED generic is\nset; elsewhere writes are refused regardless. A refused write or erase is\nanswered with an unsuccessful completion. Resets to 1 on a build with\nFLASH_WRITES_ALLOWED set (metro's eSPI1), so the host can write without the\nSP doing anything; the SP clears it to lock writes out. The reset value\nbelow is the read-only build's."
                 },
                 {
                     "type": "field",
