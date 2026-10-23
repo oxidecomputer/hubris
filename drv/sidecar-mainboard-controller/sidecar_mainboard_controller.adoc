@@ -1,0 +1,537 @@
+
+Test Output:
+
+Identification 0
+[caption="Address: "]
+.0x0000 - ID0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID0 | Byte 0 of ID
+|===
+
+Identification 1
+[caption="Address: "]
+.0x0001 - ID1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID1 | Byte 1 of ID
+|===
+
+Identification 2
+[caption="Address: "]
+.0x0002 - ID2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID2 | Byte 2 of ID
+|===
+
+Identification 3
+[caption="Address: "]
+.0x0003 - ID3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID3 | Byte 3 of ID
+|===
+
+Checksum 0
+[caption="Address: "]
+.0x0004 - CS0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS0 | checksum[31..24]
+|===
+
+Checksum 1
+[caption="Address: "]
+.0x0005 - CS1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS1 | checksum[23..16]
+|===
+
+Checksum 2
+[caption="Address: "]
+.0x0006 - CS2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS2 | checksum[15..8]
+|===
+
+Checksum 3
+[caption="Address: "]
+.0x0007 - CS3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS3 | checksum[7..0]
+|===
+
+Version 0
+[caption="Address: "]
+.0x0008 - VERSION0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[31..24]
+|===
+
+Version 1
+[caption="Address: "]
+.0x0009 - VERSION1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[23..16]
+|===
+
+Version 2
+[caption="Address: "]
+.0x000a - VERSION2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[15..8]
+|===
+
+Version 3
+[caption="Address: "]
+.0x000b - VERSION3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[7..0]
+|===
+
+Short SHA 0
+[caption="Address: "]
+.0x000c - SHA0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[31..24]
+|===
+
+Short SHA 1
+[caption="Address: "]
+.0x000d - SHA1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[23..16]
+|===
+
+Short SHA 2
+[caption="Address: "]
+.0x000e - SHA2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[15..8]
+|===
+
+Short SHA 3
+[caption="Address: "]
+.0x000f - SHA3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[7..0]
+|===
+
+Scratchpad
+[caption="Address: "]
+.0x0010 - SCRATCHPAD Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | SCRATCHPAD | Scribble Register for read-write use
+|===
+
+Fan 0 State
+[caption="Address: "]
+.0x0020 - FAN0_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | PG_TIMED_OUT | FANx_HSC_TO_FPGA_PG was not released within timeout period.
+|[4] | r | POWER_FAULT | PG was lost during normal operation.
+|[3] | r | PG | Value of FANx_HSC_TO_FPGA_PG.
+|[2] | r | PRESENT | Debounced value of FANx_TO_FPGA_PRESENT_2V5.
+|[1] | rw | LED | Drives FPGA_TO_FANx_LED_L (not actually active low).
+|[0] | rw | ENABLE | Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set.
+|===
+
+Fan 1 State
+[caption="Address: "]
+.0x0021 - FAN1_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | PG_TIMED_OUT | FANx_HSC_TO_FPGA_PG was not released within timeout period.
+|[4] | r | POWER_FAULT | PG was lost during normal operation.
+|[3] | r | PG | Value of FANx_HSC_TO_FPGA_PG.
+|[2] | r | PRESENT | Debounced value of FANx_TO_FPGA_PRESENT_2V5.
+|[1] | rw | LED | Drives FPGA_TO_FANx_LED_L (not actually active low).
+|[0] | rw | ENABLE | Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set.
+|===
+
+Fan 2 State
+[caption="Address: "]
+.0x0022 - FAN2_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | PG_TIMED_OUT | FANx_HSC_TO_FPGA_PG was not released within timeout period.
+|[4] | r | POWER_FAULT | PG was lost during normal operation.
+|[3] | r | PG | Value of FANx_HSC_TO_FPGA_PG.
+|[2] | r | PRESENT | Debounced value of FANx_TO_FPGA_PRESENT_2V5.
+|[1] | rw | LED | Drives FPGA_TO_FANx_LED_L (not actually active low).
+|[0] | rw | ENABLE | Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set.
+|===
+
+Fan 3 State
+[caption="Address: "]
+.0x0023 - FAN3_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | PG_TIMED_OUT | FANx_HSC_TO_FPGA_PG was not released within timeout period.
+|[4] | r | POWER_FAULT | PG was lost during normal operation.
+|[3] | r | PG | Value of FANx_HSC_TO_FPGA_PG.
+|[2] | r | PRESENT | Debounced value of FANx_TO_FPGA_PRESENT_2V5.
+|[1] | rw | LED | Drives FPGA_TO_FANx_LED_L (not actually active low).
+|[0] | rw | ENABLE | Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set.
+|===
+
+Front IO State
+[caption="Address: "]
+.0x0030 - FRONT_IO_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
+Tofino Sequencer Control
+[caption="Address: "]
+.0x0100 - TOFINO_SEQ_CTRL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | ACK_VID | Acknowledge that VDDCORE has been adjusted according to the VID
+|[1] | rw | EN | Set bit to power up Tofino, clear bit to power down Tofino
+|[0] | rw | CLEAR_ERROR | Set self clearing bit to clear Tofino sequencer error state
+|===
+
+Tofino Sequencer State
+[caption="Address: "]
+.0x0101 - TOFINO_SEQ_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2:0] | r | STATE | Tofino Sequencer State
+|===
+
+Tofino Sequencing Step
+[caption="Address: "]
+.0x0102 - TOFINO_SEQ_STEP Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] |  | - | Reserved
+|[3:0] | r | STEP | Sequencing Step
+|===
+
+Tofino Sequencing Error
+[caption="Address: "]
+.0x0103 - TOFINO_SEQ_ERROR Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2:0] | r | ERROR | Sequencing Error
+|===
+
+Tofino Sequencer Error State
+[caption="Address: "]
+.0x0104 - TOFINO_SEQ_ERROR_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2:0] | r | STATE | Sequencer state when error occured
+|===
+
+Tofino Sequencing Error Step
+[caption="Address: "]
+.0x0105 - TOFINO_SEQ_ERROR_STEP Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] |  | - | Reserved
+|[3:0] | r | STEP | Sequencing step when error occured
+|===
+
+VDD18 State
+[caption="Address: "]
+.0x0106 - TOFINO_POWER_VDD18_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
+VDDCORE State
+[caption="Address: "]
+.0x0107 - TOFINO_POWER_VDDCORE_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
+VDDPCIE State
+[caption="Address: "]
+.0x0108 - TOFINO_POWER_VDDPCIE_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
+VDDT State
+[caption="Address: "]
+.0x0109 - TOFINO_POWER_VDDT_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
+VDDA15 State
+[caption="Address: "]
+.0x010a - TOFINO_POWER_VDDA15_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
+VDDA18 State
+[caption="Address: "]
+.0x010b - TOFINO_POWER_VDDA18_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
+Tofino VID Value
+[caption="Address: "]
+.0x010c - TOFINO_POWER_VID Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | VID_VALID | VID Valid
+|[6:4] | r | RESERVED | Reserved
+|[3:0] | r | VID | VID Value
+|===
+
+Tofino Reset
+[caption="Address: "]
+.0x010d - TOFINO_RESET Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | r | PCIE | Tofino PCIe link is in reset
+|[0] | r | PWRON | Tofino package is in reset
+|===
+
+Tofino Misc
+[caption="Address: "]
+.0x010e - TOFINO_MISC Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | r | CLOCKS_EN | Clocks Enable
+|[0] | r | THERMAL_ALERT | Thermal Alert
+|===
+
+PCIe Hotplug Control
+[caption="Address: "]
+.0x010f - PCIE_HOTPLUG_CTRL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | w | OVERRIDE_SEQ_POWER_FAULT | Override sequencer power fault
+|[3] | w | POWER_FAULT | Bit indicating the desired state of PCIe Power Fault, valid if sequencer override bit set
+|[2] | w | OVERRIDE_HOST_RESET | Override host PCIe Reset
+|[1] | w | RESET | Bit indicating the desired state of Tofino PCIe Reset, valid if host override bit set
+|[0] | w | PRESENT | Bit indicating Tofino Present
+|===
+
+PCIe Hotplug Status
+[caption="Address: "]
+.0x0110 - PCIE_HOTPLUG_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POWER_FAULT | State of PCIe Power Fault signal
+|[1] | r | HOST_RESET | State of PCIe Reset signal
+|[0] | r | PRESENT | State of PCIe Present signal
+|===
+
+Tofino Debug Port Data
+[caption="Address: "]
+.0x0200 - TOFINO_DEBUG_PORT_BUFFER Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | DATA | Send/receive buffer read/write port
+|===
+
+Tofino Debug Port Status
+[caption="Address: "]
+.0x0201 - TOFINO_DEBUG_PORT_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] |  | - | Reserved
+|[6] | r | ERROR_DETAILS | Field indicating the type of I2C error occured
+|[5] | r | ERROR_VALID | Flag indicating an I2C error occured
+|[4] | r | REQUEST_IN_PROGRESS | Flag indicating the port is busy processing requests
+|[3] | r | RECEIVE_BUFFER_FULL | Receive buffer full
+|[2] | r | RECEIVE_BUFFER_EMPTY | Receive buffer empty
+|[1] | r | SEND_BUFFER_FULL | Send buffer full
+|[0] | r | SEND_BUFFER_EMPTY | Send buffer empty
+|===
+
+Ignition Controllers Count
+[caption="Address: "]
+.0x0300 - IGNITION_CONTROLLERS_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of present/active Ignition Controllers
+|===
+
+Ignition Targets Present 0
+[caption="Address: "]
+.0x0301 - IGNITION_TARGETS_PRESENT0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | PRESENT_SUMMARY0 | Byte 0 of Ignition Target Present summary
+|===
+
+Ignition Targets Present 1
+[caption="Address: "]
+.0x0302 - IGNITION_TARGETS_PRESENT1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | PRESENT_SUMMARY1 | Byte 1 of Ignition Target Present summary
+|===
+
+Ignition Targets Present 2
+[caption="Address: "]
+.0x0303 - IGNITION_TARGETS_PRESENT2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | PRESENT_SUMMARY2 | Byte 2 of Ignition Target Present summary
+|===
+
+Ignition Targets Present 3
+[caption="Address: "]
+.0x0304 - IGNITION_TARGETS_PRESENT3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | PRESENT_SUMMARY3 | Byte 3 of Ignition Target Present summary
+|===
+
+Ignition Targets Present 4
+[caption="Address: "]
+.0x0305 - IGNITION_TARGETS_PRESENT4 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | PRESENT_SUMMARY4 | Byte 4 of Ignition Target Present summary
+|===
+
+Ignition Targets Present 5
+[caption="Address: "]
+.0x0306 - IGNITION_TARGETS_PRESENT5 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | PRESENT_SUMMARY5 | Byte 5 of Ignition Target Present summary
+|===
+
+Ignition Targets Present 6
+[caption="Address: "]
+.0x0307 - IGNITION_TARGETS_PRESENT6 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | PRESENT_SUMMARY6 | Byte 6 of Ignition Target Present summary
+|===
+
+Ignition Targets Present 7
+[caption="Address: "]
+.0x0308 - IGNITION_TARGETS_PRESENT7 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | PRESENT_SUMMARY7 | Byte 7 of Ignition Target Present summary
+|===
+
+
+
+
