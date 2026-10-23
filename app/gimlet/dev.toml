@@ -1,5 +1,7 @@
 # Configuration fragment for -dev images
 
+tasks.sbirpc.features = ["unsafe-raw-commands"]
+
 [tasks.jefe.config.allowed-callers]
 request_reset = ["udprpc"]
 
@@ -19,21 +21,3 @@ owner = {name = "udprpc", notification = "socket"}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
-
-[tasks.sbirpc]
-name = "task-sbi-rpc"
-priority = 9
-max-sizes = {flash = 16384, ram = 2048}
-stacksize = 1280
-start = true
-task-slots = ["net", "i2c_driver"]
-notifications = ["socket"]
-features = ["vlan"]
-
-[config.net.sockets.sbirpc]
-kind = "udp"
-owner = {name = "sbirpc", notification = "socket"}
-port = 5501
-# Our buffers are very small
-tx = { packets = 3, bytes = 24 }
-rx = { packets = 3, bytes = 24 }

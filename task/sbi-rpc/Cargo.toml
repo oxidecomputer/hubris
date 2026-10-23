@@ -20,6 +20,10 @@ default-features = false
 [features]
 vlan = ["task-net-api/vlan"]
 
+# Enable raw commands on SB-RMI and SB-TSI. Should only be enabled in `-dev`
+# builds.
+unsafe-raw-commands = []
+
 [build-dependencies]
 build-util = { path = "../../build/util" }
 build-i2c = { path = "../../build/i2c" }

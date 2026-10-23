@@ -2,18 +2,23 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! RPC access to SBI (SB-RMI and SB-TSI) SP3 interfaces.
+
 #![no_std]
 #![no_main]
 
-use nprpc::{autobuffer, compose_interfaces};
+use nprpc::{Request, autobuffer, compose_interfaces};
 use nprpc_net::{NetBackend, UdpSocket};
 use static_cell::ClaimOnceCell;
 use task_net_api::SocketName;
-use task_sbi_rpc_api::{
-    SbRmiCallError, SbRmiCallWriteReadRequest, SbTsiWriteRequest,
-    sp3_raw_sb_rmi, sp3_raw_sb_tsi,
-};
+use task_sbi_rpc_api::{SbRmiCallError, sp3_sb_rmi, sp3_sb_tsi};
 use userlib::{hl::sleep_for, sys_get_timer, task_slot};
+
+#[cfg(feature = "unsafe-raw-commands")]
+use task_sbi_rpc_api::{
+    SbRmiCallWriteReadRequest, SbTsiWriteRequest, sp3_raw_sb_rmi,
+    sp3_raw_sb_tsi,
+};
 
 task_slot!(NET, net);
 task_slot!(I2C, i2c_driver);
@@ -46,47 +51,24 @@ const _: () = {
 //
 // TODO: Have one version for `-dev` that includes the `raw` commands, and
 // another that only accepts a pre-enumerated list.
+#[cfg(feature = "unsafe-raw-commands")]
 compose_interfaces! {
     mod: composite,
     interfaces: [
         task_sbi_rpc_api::sp3_raw_sb_rmi,
         task_sbi_rpc_api::sp3_raw_sb_tsi,
+        task_sbi_rpc_api::sp3_sb_tsi,
+        task_sbi_rpc_api::sp3_sb_rmi,
     ]
 }
 
-impl sp3_raw_sb_rmi::Server for ServerImpl {
-    fn smm_read_word(
-        &mut self,
-        rqst: nprpc::Request<'_, u8>,
-    ) -> Result<u32, SbRmiCallError> {
-        smm_helper32(*rqst.body, None)
-    }
-
-    fn smm_write_read_word(
-        &mut self,
-        rqst: nprpc::Request<'_, SbRmiCallWriteReadRequest>,
-    ) -> Result<u32, SbRmiCallError> {
-        smm_helper32(rqst.body.command, Some(rqst.body.arg))
-    }
-}
-
-impl sp3_raw_sb_tsi::Server for ServerImpl {
-    fn read_byte(&mut self, rqst: nprpc::Request<'_, u8>) -> Result<u8, u32> {
-        let task = I2C.get_task_id();
-        let sbtsi = crate::i2c_config::devices::sbtsi_cpu(task);
-        sbtsi.read_reg(*rqst.body).map_err(|code| code as u32)
-    }
-
-    fn write_byte(
-        &mut self,
-        rqst: nprpc::Request<'_, SbTsiWriteRequest>,
-    ) -> Result<(), u32> {
-        let task = I2C.get_task_id();
-        let sbtsi = crate::i2c_config::devices::sbtsi_cpu(task);
-        sbtsi
-            .write(&[rqst.body.reg, rqst.body.val])
-            .map_err(|code| code as u32)
-    }
+#[cfg(not(feature = "unsafe-raw-commands"))]
+compose_interfaces! {
+    mod: composite,
+    interfaces: [
+        task_sbi_rpc_api::sp3_sb_tsi,
+        task_sbi_rpc_api::sp3_sb_rmi,
+    ]
 }
 
 /// Check a condition until the given timeout time, sleeping for 5ms between
@@ -104,6 +86,200 @@ where
         }
         // Random guess of a reasonable sampling time
         sleep_for(5);
+    }
+}
+
+fn tsi_helper(reg: u8) -> Result<u8, u32> {
+    let task = I2C.get_task_id();
+    let sbtsi = crate::i2c_config::devices::sbtsi_cpu(task);
+    sbtsi.read_reg(reg).map_err(|code| code as u32)
+}
+
+impl sp3_sb_tsi::Server for ServerImpl {
+    fn read_cpu_temp(&mut self, _: Request<'_, ()>) -> Result<f32, u32> {
+        let task = I2C.get_task_id();
+        let sbtsi = crate::i2c_config::devices::sbtsi_cpu(task);
+        // integer
+        let itg: u8 = sbtsi.read_reg(0x01).map_err(|code| code as u32)?;
+        // upper 3 bits increment of 0.125
+        let dec: u8 = sbtsi.read_reg(0x10).map_err(|code| code as u32)?;
+        Ok((itg as f32) + (((dec >> 5) as f32) / 8.0))
+    }
+
+    fn read_status(&mut self, _: Request<'_, ()>) -> Result<u8, u32> {
+        tsi_helper(0x02)
+    }
+
+    fn read_config(&mut self, _: Request<'_, ()>) -> Result<u8, u32> {
+        tsi_helper(0x03)
+    }
+
+    fn read_update_rate(&mut self, _: Request<'_, ()>) -> Result<u8, u32> {
+        tsi_helper(0x04)
+    }
+
+    fn read_high_temp_threshold(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<f32, u32> {
+        let task = I2C.get_task_id();
+        let sbtsi = crate::i2c_config::devices::sbtsi_cpu(task);
+        // integer
+        let itg: u8 = sbtsi.read_reg(0x07).map_err(|code| code as u32)?;
+        // upper 3 bits increment of 0.125
+        let dec: u8 = sbtsi.read_reg(0x13).map_err(|code| code as u32)?;
+        Ok((itg as f32) + (((dec >> 5) as f32) / 8.0))
+    }
+
+    fn read_low_temp_threshold(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<f32, u32> {
+        let task = I2C.get_task_id();
+        let sbtsi = crate::i2c_config::devices::sbtsi_cpu(task);
+        // integer
+        let itg: u8 = sbtsi.read_reg(0x08).map_err(|code| code as u32)?;
+        // upper 3 bits increment of 0.125
+        let dec: u8 = sbtsi.read_reg(0x14).map_err(|code| code as u32)?;
+        Ok((itg as f32) + (((dec >> 5) as f32) / 8.0))
+    }
+
+    fn read_timeout_config(&mut self, _: Request<'_, ()>) -> Result<u8, u32> {
+        tsi_helper(0x22)
+    }
+
+    fn read_alert_threshold(&mut self, _: Request<'_, ()>) -> Result<u8, u32> {
+        tsi_helper(0x32)
+    }
+
+    fn read_alert_config(&mut self, _: Request<'_, ()>) -> Result<u8, u32> {
+        tsi_helper(0xBF)
+    }
+
+    fn read_manufacture_id(&mut self, _: Request<'_, ()>) -> Result<u8, u32> {
+        tsi_helper(0xFE)
+    }
+
+    fn read_revision(&mut self, _: Request<'_, ()>) -> Result<u8, u32> {
+        tsi_helper(0xFF)
+    }
+}
+
+impl sp3_sb_rmi::Server for ServerImpl {
+    fn read_package_power_consumption(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x01, None)
+    }
+
+    fn read_package_power_limit(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x03, None)
+    }
+
+    fn read_max_package_power_limit(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x04, None)
+    }
+
+    fn read_tdp(&mut self, _: Request<'_, ()>) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x05, None)
+    }
+
+    fn read_max_ctdp(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x06, None)
+    }
+
+    fn read_min_ctdp(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x07, None)
+    }
+
+    fn read_bios_boost_fmax(
+        &mut self,
+        rqst: Request<'_, u16>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x08, Some((*rqst.body as u32) << 16))
+    }
+
+    fn read_apml_boost_limit(
+        &mut self,
+        rqst: Request<'_, u16>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x09, Some((*rqst.body as u32) << 16))
+    }
+
+    fn read_dram_throttle(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x0C, None)
+    }
+
+    fn read_prochot_status(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x0E, None)
+    }
+
+    fn read_prochot_residency(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x0F, None)
+    }
+
+    fn read_vddio_mem_power(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x10, None)
+    }
+
+    fn read_nbio_error_logging(
+        &mut self,
+        rqst: Request<'_, u32>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x11, Some(*rqst.body))
+    }
+
+    fn read_iod_bist_result(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x10, None)
+    }
+
+    fn read_ccd_bist_result(
+        &mut self,
+        rqst: Request<'_, u32>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x14, Some(*rqst.body))
+    }
+
+    fn read_ccx_bist_result(
+        &mut self,
+        rqst: Request<'_, u32>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x15, Some(*rqst.body))
+    }
+
+    fn read_max_ddr_bw_util(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x18, None)
     }
 }
 
@@ -210,6 +386,43 @@ fn smm_helper32(cmd: u8, arg: Option<u32>) -> Result<u32, SbRmiCallError> {
         0x02 => Err(SbRmiCallError::CmdUnknown { payload }),
         0x03 => Err(SbRmiCallError::CmdBadCore { payload }),
         code => Err(SbRmiCallError::UnexpectedStatus { payload, code }),
+    }
+}
+
+#[cfg(feature = "unsafe-raw-commands")]
+impl sp3_raw_sb_rmi::Server for ServerImpl {
+    fn smm_read_word(
+        &mut self,
+        rqst: Request<'_, u8>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(*rqst.body, None)
+    }
+
+    fn smm_write_read_word(
+        &mut self,
+        rqst: Request<'_, SbRmiCallWriteReadRequest>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(rqst.body.command, Some(rqst.body.arg))
+    }
+}
+
+#[cfg(feature = "unsafe-raw-commands")]
+impl sp3_raw_sb_tsi::Server for ServerImpl {
+    fn read_byte(&mut self, rqst: Request<'_, u8>) -> Result<u8, u32> {
+        let task = I2C.get_task_id();
+        let sbtsi = crate::i2c_config::devices::sbtsi_cpu(task);
+        sbtsi.read_reg(*rqst.body).map_err(|code| code as u32)
+    }
+
+    fn write_byte(
+        &mut self,
+        rqst: Request<'_, SbTsiWriteRequest>,
+    ) -> Result<(), u32> {
+        let task = I2C.get_task_id();
+        let sbtsi = crate::i2c_config::devices::sbtsi_cpu(task);
+        sbtsi
+            .write(&[rqst.body.reg, rqst.body.val])
+            .map_err(|code| code as u32)
     }
 }
 

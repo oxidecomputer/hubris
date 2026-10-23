@@ -67,3 +67,41 @@ interface! {
         fn write_byte(SbTsiWriteRequest) -> Result<(), u32>;
     }
 }
+
+interface! {
+    mod sp3_sb_rmi {
+        fn read_package_power_consumption(()) -> Result<u32, SbRmiCallError>;
+        fn read_package_power_limit(()) -> Result<u32, SbRmiCallError>;
+        fn read_max_package_power_limit(()) -> Result<u32, SbRmiCallError>;
+        fn read_tdp(()) -> Result<u32, SbRmiCallError>;
+        fn read_max_ctdp(()) -> Result<u32, SbRmiCallError>;
+        fn read_min_ctdp(()) -> Result<u32, SbRmiCallError>;
+        fn read_bios_boost_fmax(u16) -> Result<u32, SbRmiCallError>;
+        fn read_apml_boost_limit(u16) -> Result<u32, SbRmiCallError>;
+        fn read_dram_throttle(()) -> Result<u32, SbRmiCallError>;
+        fn read_prochot_status(()) -> Result<u32, SbRmiCallError>;
+        fn read_prochot_residency(()) -> Result<u32, SbRmiCallError>;
+        fn read_vddio_mem_power(()) -> Result<u32, SbRmiCallError>;
+        fn read_nbio_error_logging(u32) -> Result<u32, SbRmiCallError>;
+        fn read_iod_bist_result(()) -> Result<u32, SbRmiCallError>;
+        fn read_ccd_bist_result(u32) -> Result<u32, SbRmiCallError>;
+        fn read_ccx_bist_result(u32) -> Result<u32, SbRmiCallError>;
+        fn read_max_ddr_bw_util(()) -> Result<u32, SbRmiCallError>;
+    }
+}
+
+interface! {
+    mod sp3_sb_tsi {
+        fn read_cpu_temp(()) -> Result<f32, u32>;
+        fn read_status(()) -> Result<u8, u32>;
+        fn read_config(()) -> Result<u8, u32>;
+        fn read_update_rate(()) -> Result<u8, u32>;
+        fn read_high_temp_threshold(()) -> Result<f32, u32>;
+        fn read_low_temp_threshold(()) -> Result<f32, u32>;
+        fn read_timeout_config(()) -> Result<u8, u32>;
+        fn read_alert_threshold(()) -> Result<u8, u32>;
+        fn read_alert_config(()) -> Result<u8, u32>;
+        fn read_manufacture_id(()) -> Result<u8, u32>;
+        fn read_revision(()) -> Result<u8, u32>;
+    }
+}
