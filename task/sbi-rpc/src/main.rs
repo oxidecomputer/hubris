@@ -342,7 +342,7 @@ fn smm_helper32(cmd: u8, arg: Option<u32>) -> Result<u32, SbRmiCallError> {
     // ...
     // 6. Firmware writes the original command to outbound message register
     //    SBRMI::OutBndMsg_inst0 (SBRMI_x30).
-    sbrmi_wait_for(timeout, || Ok(byte_read(0x32)? == cmd))?;
+    sbrmi_wait_for(timeout, || Ok(byte_read(0x30)? == cmd))?;
 
     // 7. Firmware writes SBRMI::Status[SwAlertSts] = 1 to generate an
     //    ALERT (if enabled) to initiator (BMC) to indicate completion of
