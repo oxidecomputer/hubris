@@ -19,8 +19,8 @@ pub use counters_derive::Count;
 ///
 /// A countable event.
 ///
-/// This trait can (and generally should) be derived for an `enum`
-/// type using the [`#[derive(Count)]`][drv] attribute.
+/// This trait can (and generally should) be derived for `enum`
+/// and `struct` types using the [`#[derive(Count)]`][drv] attribute.
 ///
 /// [drv]: counters_derive::Count
 pub trait Count {
