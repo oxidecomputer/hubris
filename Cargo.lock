@@ -5548,6 +5548,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sbi-rpc-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 3.2.23",
+ "nprpc",
+ "serde",
+ "task-sbi-rpc-api",
+ "toml 1.1.2+spec-1.1.0",
+]
+
+[[package]]
 name = "schemars"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

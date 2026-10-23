@@ -42,7 +42,8 @@ const _: () = {
     let is_sp3 = cfg!(target_board = "gimlet-b")
         || cfg!(target_board = "gimlet-c")
         || cfg!(target_board = "gimlet-d")
-        || cfg!(target_board = "gimlet-e");
+        || cfg!(target_board = "gimlet-e")
+        || cfg!(target_board = "gimlet-f");
     assert!(is_sp3, "Not an SP3-based device!");
 };
 
@@ -258,7 +259,7 @@ impl sp3_sb_rmi::Server for ServerImpl {
         &mut self,
         _: Request<'_, ()>,
     ) -> Result<u32, SbRmiCallError> {
-        smm_helper32(0x10, None)
+        smm_helper32(0x13, None)
     }
 
     fn read_ccd_bist_result(
