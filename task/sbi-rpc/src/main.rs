@@ -276,6 +276,20 @@ impl sp3_sb_rmi::Server for ServerImpl {
         smm_helper32(0x15, Some(*rqst.body))
     }
 
+    fn read_cclk_freq_limit(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x16, None)
+    }
+
+    fn read_socket_c0_residency(
+        &mut self,
+        _: Request<'_, ()>,
+    ) -> Result<u32, SbRmiCallError> {
+        smm_helper32(0x17, None)
+    }
+
     fn read_max_ddr_bw_util(
         &mut self,
         _: Request<'_, ()>,

@@ -86,6 +86,8 @@ interface! {
         fn read_iod_bist_result(()) -> Result<u32, SbRmiCallError>;
         fn read_ccd_bist_result(u32) -> Result<u32, SbRmiCallError>;
         fn read_ccx_bist_result(u32) -> Result<u32, SbRmiCallError>;
+        fn read_cclk_freq_limit(()) -> Result<u32, SbRmiCallError>;
+        fn read_socket_c0_residency(()) -> Result<u32, SbRmiCallError>;
         fn read_max_ddr_bw_util(()) -> Result<u32, SbRmiCallError>;
     }
 }
