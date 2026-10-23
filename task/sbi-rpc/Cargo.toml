@@ -1,0 +1,36 @@
+[package]
+name = "task-sbi-rpc"
+version = "0.1.0"
+authors = ["James Munns <james.munns@oxide.computer>"]
+edition = "2024"
+
+[dependencies]
+heapless.workspace = true
+nprpc.workspace = true
+nprpc-net = { path = "../../lib/nprpc-net" }
+static-cell = { path = "../../lib/static-cell" }
+task-net-api = { path = "../../task/net-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+drv-i2c-api = { path = "../../drv/i2c-api" }
+
+[dependencies.task-sbi-rpc-api]
+path = "../../task/sbi-rpc-api"
+default-features = false
+
+[features]
+vlan = ["task-net-api/vlan"]
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+build-i2c = { path = "../../build/i2c" }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-sbi-rpc"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

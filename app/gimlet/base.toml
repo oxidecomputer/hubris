@@ -358,7 +358,7 @@ stacksize = 800
 
 [tasks.idle]
 name = "task-idle"
-priority = 9
+priority = 10
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
