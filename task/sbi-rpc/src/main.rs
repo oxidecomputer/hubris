@@ -50,8 +50,9 @@ const _: () = {
 // Combine interfaces into a single composite interface, serving requests from
 // all of the given interfaces.
 //
-// TODO: Have one version for `-dev` that includes the `raw` commands, and
-// another that only accepts a pre-enumerated list.
+// When "unsafe-raw-commands" is set (for -dev builds), we also include the
+// accurately named "unsafe raw" commands, which allow for generally arbitrary
+// access to the SBI interface.
 #[cfg(feature = "unsafe-raw-commands")]
 compose_interfaces! {
     mod: composite,
@@ -63,6 +64,10 @@ compose_interfaces! {
     ]
 }
 
+// Combine interfaces into a single composite interface, serving requests from
+// all of the given interfaces.
+//
+// Only expose the safe, read versions of these interfaces.
 #[cfg(not(feature = "unsafe-raw-commands"))]
 compose_interfaces! {
     mod: composite,
@@ -72,8 +77,12 @@ compose_interfaces! {
     ]
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// Misc helpers
+//////////////////////////////////////////////////////////////////////////////
+
 /// Check a condition until the given timeout time, sleeping for 5ms between
-/// checks.
+/// checks. Used to wait for the system to finish processing our request
 fn sbrmi_wait_for<F>(timeout: u64, is_done: F) -> Result<(), SbRmiCallError>
 where
     F: Fn() -> Result<bool, SbRmiCallError>,
@@ -90,11 +99,123 @@ where
     }
 }
 
+/// Read a single byte register on the SB-TSI bus
 fn tsi_helper(reg: u8) -> Result<u8, u32> {
     let task = I2C.get_task_id();
     let sbtsi = crate::i2c_config::devices::sbtsi_cpu(task);
     sbtsi.read_reg(reg).map_err(|code| code as u32)
 }
+
+/// Perform a "SB-RMI Mailbox Sequence" as per AMD's PPR.
+///
+/// Works with or without a 32-bit arg.
+///
+/// See https://docs.amd.com/v/u/en-US/55898_B1_pub_0_50.
+fn smm_helper32(cmd: u8, arg: Option<u32>) -> Result<u32, SbRmiCallError> {
+    let task = I2C.get_task_id();
+    let sbrmi = crate::i2c_config::devices::sbrmi_rmi(task);
+
+    // Read a 1-byte value from the given register
+    let byte_read = |reg: u8| -> Result<u8, SbRmiCallError> {
+        sbrmi
+            .read_reg(reg)
+            .map_err(|code| SbRmiCallError::I2cError { code: code as u32 })
+    };
+
+    // Write a 1-byte value to the given register
+    let byte_write = |reg: u8, val: u8| -> Result<(), SbRmiCallError> {
+        sbrmi
+            .write(&[reg, val])
+            .map_err(|code| SbRmiCallError::I2cError { code: code as u32 })
+    };
+
+    // The sequence is as follows:
+    //
+    // 1. The initiator (BMC) indicates that command is to be serviced by
+    //    firmware by writing 80h to SBRMI::InBndMsg_inst7 (SBRMI_x3F). This
+    //    register must be set to 80h after reset.
+    byte_write(0x3F, 0x80)?;
+
+    // 2. The initiator (BMC) writes the command to SBRMI::InBndMsg_inst0
+    //    (SBRMI_x38).
+    byte_write(0x38, cmd)?;
+
+    // 3. For Write operations or Read operations, which require additional
+    //    addressing information as shown in Table 127 (SB-RMI Soft Mailbox
+    //    Message) above, the initiator (BMC) writes Command Data In[31:0]
+    //    to SBRMI::InBndMsg_inst[4:1] {SBRMI_x3C(MSB):SBRMI_x39(LSB)}.
+    if let Some(arg) = arg {
+        let [a, b, c, d] = arg.to_le_bytes();
+        byte_write(0x39, a)?; // LSB
+        byte_write(0x3A, b)?;
+        byte_write(0x3B, c)?;
+        byte_write(0x3C, d)?; // MSB
+    }
+
+    // 4. The initiator (BMC) writes 01h to SBRMI::SoftwareInterrupt to
+    //    notify firmware to perform the requested Read or Write command.
+    byte_write(0x40, 0x01)?;
+
+    // For now, assume that 500ms is too long.
+    let now = sys_get_timer().now;
+    let timeout = now.saturating_add(500);
+
+    // 5. Firmware reads the message and performs the defined action.
+    // ...
+    // 6. Firmware writes the original command to outbound message register
+    //    SBRMI::OutBndMsg_inst0 (SBRMI_x30).
+    sbrmi_wait_for(timeout, || Ok(byte_read(0x30)? == cmd))?;
+
+    // 7. Firmware writes SBRMI::Status[SwAlertSts] = 1 to generate an
+    //    ALERT (if enabled) to initiator (BMC) to indicate completion of
+    //    the requested command. Firmware must (if applicable) put the
+    //    message data into the message registers
+    //    SBRMI::OutBndMsg_inst[4:1] {SBRMI_x34(MSB):SBRMI_x31(LSB)}.
+    sbrmi_wait_for(timeout, || {
+        let val = byte_read(0x02)?;
+        // SwAlertSts is bit 1
+        Ok((val & 0x02) != 0)
+    })?;
+
+    // 8. Firmware clears the interrupt on SBRMI::SoftwareInterrupt.
+    sbrmi_wait_for(timeout, || {
+        let val = byte_read(0x40)?;
+        // SwInt is bit 0
+        Ok((val & 0x01) == 0)
+    })?;
+
+    // 9. For a Read operation, the initiator (BMC) reads the firmware
+    //    response Command Data Out[31:0] from
+    //    SBRMI::OutBndMsg_inst[4:1] {SBRMI_x34(MSB):SBRMI_x31(LSB)}.
+    let payload = [
+        byte_read(0x31)?, // LSB
+        byte_read(0x32)?,
+        byte_read(0x33)?,
+        byte_read(0x34)?, // MSB
+    ];
+    let payload = u32::from_le_bytes(payload);
+    let mb_errcode = byte_read(0x37)?;
+
+    // 10. BMC must write 1'b1 to SBRMI::Status[SwAlertSts] to clear the
+    //     ALERT to initiator (BMC). It is recommended to clear the ALERT
+    //     upon completion of the current mailbox command.
+    byte_write(0x02, 0x02)?;
+
+    match mb_errcode {
+        0x00 => Ok(payload),
+        0x01 => Err(SbRmiCallError::CmdAborted { payload }),
+        0x02 => Err(SbRmiCallError::CmdUnknown { payload }),
+        0x03 => Err(SbRmiCallError::CmdBadCore { payload }),
+        code => Err(SbRmiCallError::UnexpectedStatus { payload, code }),
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// "Safe"(-er) SB-TSI and SB-RMI server impls
+//
+// These are a little verbose, in the name of allow-listing the register
+// accesses that we let users do.
+//////////////////////////////////////////////////////////////////////////////
 
 impl sp3_sb_tsi::Server for ServerImpl {
     fn read_cpu_temp(&mut self, _: Request<'_, ()>) -> Result<f32, u32> {
@@ -298,111 +419,11 @@ impl sp3_sb_rmi::Server for ServerImpl {
     }
 }
 
-/// Perform a "SB-RMI Mailbox Sequence" as per AMD's PPR.
-///
-/// Works with or without a 32-bit arg.
-///
-/// See https://docs.amd.com/v/u/en-US/55898_B1_pub_0_50.
-fn smm_helper32(cmd: u8, arg: Option<u32>) -> Result<u32, SbRmiCallError> {
-    let task = I2C.get_task_id();
-    let sbrmi = crate::i2c_config::devices::sbrmi_rmi(task);
-
-    // Read a 1-byte value from the given register
-    let byte_read = |reg: u8| -> Result<u8, SbRmiCallError> {
-        sbrmi
-            .read_reg(reg)
-            .map_err(|code| SbRmiCallError::I2cError { code: code as u32 })
-    };
-
-    // Write a 1-byte value to the given register
-    let byte_write = |reg: u8, val: u8| -> Result<(), SbRmiCallError> {
-        sbrmi
-            .write(&[reg, val])
-            .map_err(|code| SbRmiCallError::I2cError { code: code as u32 })
-    };
-
-    // The sequence is as follows:
-    //
-    // 1. The initiator (BMC) indicates that command is to be serviced by
-    //    firmware by writing 80h to SBRMI::InBndMsg_inst7 (SBRMI_x3F). This
-    //    register must be set to 80h after reset.
-    byte_write(0x3F, 0x80)?;
-
-    // 2. The initiator (BMC) writes the command to SBRMI::InBndMsg_inst0
-    //    (SBRMI_x38).
-    byte_write(0x38, cmd)?;
-
-    // 3. For Write operations or Read operations, which require additional
-    //    addressing information as shown in Table 127 (SB-RMI Soft Mailbox
-    //    Message) above, the initiator (BMC) writes Command Data In[31:0]
-    //    to SBRMI::InBndMsg_inst[4:1] {SBRMI_x3C(MSB):SBRMI_x39(LSB)}.
-    if let Some(arg) = arg {
-        let [a, b, c, d] = arg.to_le_bytes();
-        byte_write(0x39, a)?; // LSB
-        byte_write(0x3A, b)?;
-        byte_write(0x3B, c)?;
-        byte_write(0x3C, d)?; // MSB
-    }
-
-    // 4. The initiator (BMC) writes 01h to SBRMI::SoftwareInterrupt to
-    //    notify firmware to perform the requested Read or Write command.
-    byte_write(0x40, 0x01)?;
-
-    // For now, assume that 500ms is too long.
-    let now = sys_get_timer().now;
-    let timeout = now.saturating_add(500);
-
-    // 5. Firmware reads the message and performs the defined action.
-    // ...
-    // 6. Firmware writes the original command to outbound message register
-    //    SBRMI::OutBndMsg_inst0 (SBRMI_x30).
-    sbrmi_wait_for(timeout, || Ok(byte_read(0x30)? == cmd))?;
-
-    // 7. Firmware writes SBRMI::Status[SwAlertSts] = 1 to generate an
-    //    ALERT (if enabled) to initiator (BMC) to indicate completion of
-    //    the requested command. Firmware must (if applicable) put the
-    //    message data into the message registers
-    //    SBRMI::OutBndMsg_inst[4:1] {SBRMI_x34(MSB):SBRMI_x31(LSB)}.
-    sbrmi_wait_for(timeout, || {
-        let val = byte_read(0x02)?;
-        // SwAlertSts is bit 1
-        Ok((val & 0x02) != 0)
-    })?;
-
-    // 8. Firmware clears the interrupt on SBRMI::SoftwareInterrupt.
-    sbrmi_wait_for(timeout, || {
-        let val = byte_read(0x40)?;
-        // SwInt is bit 0
-        Ok((val & 0x01) == 0)
-    })?;
-
-    // 9. For a Read operation, the initiator (BMC) reads the firmware
-    //    response Command Data Out[31:0] from
-    //    SBRMI::OutBndMsg_inst[4:1] {SBRMI_x34(MSB):SBRMI_x31(LSB)}.
-    let payload = [
-        byte_read(0x31)?, // LSB
-        byte_read(0x32)?,
-        byte_read(0x33)?,
-        byte_read(0x34)?, // MSB
-    ];
-    let payload = u32::from_le_bytes(payload);
-    let mb_errcode = byte_read(0x37)?;
-
-    // 10. BMC must write 1'b1 to SBRMI::Status[SwAlertSts] to clear the
-    //     ALERT to initiator (BMC). It is recommended to clear the ALERT
-    //     upon completion of the current mailbox command.
-    //
-    // TODO: We should probably on_drop this so it happens regardless.
-    byte_write(0x02, 0x02)?;
-
-    match mb_errcode {
-        0x00 => Ok(payload),
-        0x01 => Err(SbRmiCallError::CmdAborted { payload }),
-        0x02 => Err(SbRmiCallError::CmdUnknown { payload }),
-        0x03 => Err(SbRmiCallError::CmdBadCore { payload }),
-        code => Err(SbRmiCallError::UnexpectedStatus { payload, code }),
-    }
-}
+//////////////////////////////////////////////////////////////////////////////
+// "Unsafe"(-er) SB-TSI and SB-RMI server impls
+//
+// These allow pretty much anything, so it's a bit more succinct.
+//////////////////////////////////////////////////////////////////////////////
 
 #[cfg(feature = "unsafe-raw-commands")]
 impl sp3_raw_sb_rmi::Server for ServerImpl {
@@ -440,6 +461,10 @@ impl sp3_raw_sb_tsi::Server for ServerImpl {
             .map_err(|code| code as u32)
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// Finally, do our server loop.
+//////////////////////////////////////////////////////////////////////////////
 
 #[unsafe(export_name = "main")]
 fn main() -> ! {

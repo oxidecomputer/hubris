@@ -69,6 +69,7 @@ interface! {
 }
 
 interface! {
+    /// Allow-listed interfaces for SB-RMI consumption
     mod sp3_sb_rmi {
         fn read_package_power_consumption(()) -> Result<u32, SbRmiCallError>;
         fn read_package_power_limit(()) -> Result<u32, SbRmiCallError>;
@@ -93,6 +94,9 @@ interface! {
 }
 
 interface! {
+    /// Allow-listed interfaces for SB-TSI consumption
+    ///
+    /// The `Result::Err(u32)` here represents a raw i2c-server response code.
     mod sp3_sb_tsi {
         fn read_cpu_temp(()) -> Result<f32, u32>;
         fn read_status(()) -> Result<u8, u32>;
