@@ -23,17 +23,7 @@ use task_sbi_rpc_api::{
 task_slot!(NET, net);
 task_slot!(I2C, i2c_driver);
 
-// Automatically sized buffers
-autobuffer!(ApiBufs, composite);
-
 struct ServerImpl;
-
-// If these start failing, go bump the size of the buffers in various app tomls
-const _: () = {
-    let socket_idx = task_net_api::SocketName::sbirpc as usize;
-    assert!(ApiBufs::_RQST_SIZE < task_net_api::SOCKET_RX_SIZE[socket_idx]);
-    assert!(ApiBufs::_RESP_SIZE < task_net_api::SOCKET_TX_SIZE[socket_idx]);
-};
 
 // This has only been checked for SP3-based sleds, e.g. `gimlet`. Other
 // processor families should be reviewed for SBI changes. If we want to support
@@ -47,7 +37,7 @@ const _: () = {
 )))]
 compile_error!("Not an SP3-based device!");
 
-// Combine interfaces into a single composite interface, serving requests from
+// Combine interfaces into a single `all_rpcs` interface, serving requests from
 // all of the given interfaces.
 //
 // When "unsafe-raw-commands" is set (for -dev builds), we also include the
@@ -55,7 +45,7 @@ compile_error!("Not an SP3-based device!");
 // access to the SBI interface.
 #[cfg(feature = "unsafe-raw-commands")]
 compose_interfaces! {
-    mod: composite,
+    mod: all_rpcs,
     interfaces: [
         task_sbi_rpc_api::sp3_raw_sb_rmi,
         task_sbi_rpc_api::sp3_raw_sb_tsi,
@@ -64,18 +54,29 @@ compose_interfaces! {
     ]
 }
 
-// Combine interfaces into a single composite interface, serving requests from
+// Combine interfaces into a single `all_rpcs` interface, serving requests from
 // all of the given interfaces.
 //
 // Only expose the safe, read versions of these interfaces.
 #[cfg(not(feature = "unsafe-raw-commands"))]
 compose_interfaces! {
-    mod: composite,
+    mod: all_rpcs,
     interfaces: [
         task_sbi_rpc_api::sp3_sb_tsi,
         task_sbi_rpc_api::sp3_sb_rmi,
     ]
 }
+
+// Automatically sized buffers, based on the `all_rpcs` interfaces defined
+// above.
+autobuffer!(ApiBufs, all_rpcs);
+
+// If these start failing, go bump the size of the buffers in various app tomls
+const _: () = {
+    let socket_idx = task_net_api::SocketName::sbirpc as usize;
+    assert!(ApiBufs::_RQST_SIZE < task_net_api::SOCKET_RX_SIZE[socket_idx]);
+    assert!(ApiBufs::_RESP_SIZE < task_net_api::SOCKET_TX_SIZE[socket_idx]);
+};
 
 //////////////////////////////////////////////////////////////////////////////
 // Misc helpers
@@ -476,7 +477,7 @@ fn main() -> ! {
     let mut backend = NetBackend::new(socket, BUFS.claim());
     let mut server = ServerImpl;
 
-    backend.serve_forever(|b| composite::Server::serve_one(&mut server, b))
+    backend.serve_forever(|b| all_rpcs::Server::serve_one(&mut server, b))
 }
 
 // Needed to get notification mask for net pingbacks

@@ -43,6 +43,8 @@ use userlib::sys_recv_notification;
 enum Trace {
     #[count(skip)]
     None,
+    /// A request was received, served, and replied to.
+    Processed,
     /// A request was received but could not be served. The client was sent a
     /// `WireError` response.
     Rejected(#[count(children)] Rejection),
@@ -211,7 +213,9 @@ impl<S: Storage> NetBackend<S> {
                 Ok(Served::Idle) => {
                     sys_recv_notification(self.socket.notification_mask);
                 }
-                Ok(Served::Responded) => {}
+                Ok(Served::Responded) => {
+                    ringbuf_entry!(Trace::Processed);
+                }
                 Ok(Served::Rejected(e)) => {
                     ringbuf_entry!(Trace::Rejected((&e).into()));
                 }

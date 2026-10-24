@@ -28,10 +28,10 @@ use task_sbi_rpc_api::{
     sp3_sb_tsi::Client as _,
 };
 
-// Everything the server might serve, so our buffers are big enough for any
-// of it. The raw interfaces are only served by `-dev` images.
+// Every interface the server might serve, so our buffers are big enough for any
+// request/response. The raw interfaces are only served by `-dev` images.
 compose_interfaces! {
-    mod: composite,
+    mod: all_rpcs,
     interfaces: [
         task_sbi_rpc_api::sp3_raw_sb_rmi,
         task_sbi_rpc_api::sp3_raw_sb_tsi,
@@ -39,7 +39,7 @@ compose_interfaces! {
         task_sbi_rpc_api::sp3_sb_rmi,
     ]
 }
-autobuffer!(ApiBufs, composite);
+autobuffer!(ApiBufs, all_rpcs);
 
 /// Issue SB-RMI and SB-TSI commands to a Hubris `sbi-rpc` server over UDP.
 ///
