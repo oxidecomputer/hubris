@@ -5,6 +5,7 @@ members = [
     "lib/*",
     "app/*",
     "task/*",
+    "tools/*",
     "drv/*",
     "test/*",
 ]
