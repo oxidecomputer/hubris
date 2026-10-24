@@ -74,6 +74,20 @@ jobs:
       - name: Clippy check
         run:  cargo clippy -pxtask -- --deny warnings
 
+  check-tools:
+    name: Check host tools
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v6
+
+      - name: cargo check
+        run: build/check-tools.sh --locked
+        env:
+          CARGO_TERM_COLOR: always
+
   format:
     name: Check formatting
     runs-on: ubuntu-latest
@@ -347,6 +361,7 @@ jobs:
       - docs-build
       - docs-deploy
       - clippy-xtask
+      - check-tools
       - reproducible-check
     if: "${{ !cancelled() }}"
     steps:
