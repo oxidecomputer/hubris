@@ -43,7 +43,7 @@ use userlib::sys_recv_notification;
 enum Trace {
     #[count(skip)]
     None,
-    /// A request was received but could not be served; the client was sent a
+    /// A request was received but could not be served. The client was sent a
     /// `WireError` response.
     Rejected(#[count(children)] Rejection),
     /// We failed to produce any response at all, nothing was sent.

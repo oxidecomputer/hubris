@@ -63,10 +63,17 @@ struct Args {
 enum Cmd {
     /// Issue a sequence of commands from a TOML file
     Batch {
-        /// TOML file containing an array of `[[op]]` tables, issued in order.
-        /// Each op names a command in `cmd`, in `snake_case`, along with that
-        /// command's arguments, e.g. `cmd = "read_cpu_temp"`, or
-        /// `cmd = "smm_write_read_word"`, `command = N`, `arg = N`
+        /// The path to a TOML file containing an array of `[[op]]` tables. 
+        /// 
+        /// Each op table represents a command to send to the SP. Commands 
+        /// are sent in the order they are defined in the TOML file.
+        /// 
+        /// Op tables consist of a `cmd` key, which indicates the command
+        /// to send (in `snake_case`), followed by keys for that command's
+        /// arguments. For example:
+        /// 
+        /// `{ cmd = "read_cpu_temp" }`
+        /// `{ cmd = "smm_write_read_word", command = N, arg = N }`
         #[clap(long)]
         ops: PathBuf,
 
