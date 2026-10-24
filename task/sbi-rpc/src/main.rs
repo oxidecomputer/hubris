@@ -38,14 +38,14 @@ const _: () = {
 // This has only been checked for SP3-based sleds, e.g. `gimlet`. Other
 // processor families should be reviewed for SBI changes. If we want to support
 // other processors, we probably need a `bsp` selection here instead.
-const _: () = {
-    let is_sp3 = cfg!(target_board = "gimlet-b")
-        || cfg!(target_board = "gimlet-c")
-        || cfg!(target_board = "gimlet-d")
-        || cfg!(target_board = "gimlet-e")
-        || cfg!(target_board = "gimlet-f");
-    assert!(is_sp3, "Not an SP3-based device!");
-};
+#[cfg(not(any(
+    target_board = "gimlet-b",
+    target_board = "gimlet-c",
+    target_board = "gimlet-d",
+    target_board = "gimlet-e",
+    target_board = "gimlet-f",
+)))]
+compile_error!("Not an SP3-based device!");
 
 // Combine interfaces into a single composite interface, serving requests from
 // all of the given interfaces.
