@@ -8,7 +8,7 @@
 #![no_main]
 
 use nprpc::{Request, autobuffer, compose_interfaces};
-use nprpc_net::{NetBackend, UdpSocket};
+use nprpc_net::{NetBackend, UdpSocket, expose_interface};
 use static_cell::ClaimOnceCell;
 use task_net_api::SocketName;
 use task_sbi_rpc_api::{SbRmiCallError, sp3_sb_rmi, sp3_sb_tsi};
@@ -70,6 +70,9 @@ compose_interfaces! {
 // Automatically sized buffers, based on the `all_rpcs` interfaces defined
 // above.
 autobuffer!(ApiBufs, all_rpcs);
+
+// Make the schemas of `all_rpcs` available to debuggers.
+expose_interface!(all_rpcs);
 
 // If these start failing, go bump the size of the buffers in various app tomls
 const _: () = {

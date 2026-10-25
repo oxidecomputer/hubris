@@ -86,6 +86,13 @@ SECTIONS
     KEEP(*(.idolatry));
   }
 
+  /* ## .nprpc_schema */
+  /* Exported `nprpc` interface schemas, see `nprpc_net::expose_interface!`. */
+  .nprpc_schema (INFO) : {
+    . = .;
+    KEEP(*(.nprpc_schema));
+  }
+
   /* ## Discarded sections */
   /DISCARD/ :
   {

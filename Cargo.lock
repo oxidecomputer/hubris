@@ -4566,9 +4566,9 @@ checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 
 [[package]]
 name = "nprpc"
-version = "2.0.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32be5456933b7d2625b9440d31a0f36a1d9c49ae555e91094ed09db4cd217279"
+checksum = "06db6639da9e9cc69f6ded68ed8d0ec0d8f25b9bc5f70168bb2b4b8d0534639a"
 dependencies = [
  "postcard 1.1.3",
  "postcard-schema-ng",

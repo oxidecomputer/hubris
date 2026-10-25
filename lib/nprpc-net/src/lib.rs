@@ -12,7 +12,10 @@
 //! A minimal server task looks like:
 //!
 //! ```ignore
-//! nprpc::autobuffer!(ApiBufs, my_api::composite);
+//! nprpc::autobuffer!(ApiBufs, my_api::all_rpcs);
+//!
+//! // (optional): Make schemas available to humility
+//! expose_interface!(my_api::all_rpcs);
 //!
 //! static BUFS: ClaimOnceCell<ApiBufs> = ClaimOnceCell::new(ApiBufs::new());
 //! let mut backend = NetBackend::new(
@@ -20,7 +23,7 @@
 //!     BUFS.claim(),
 //! );
 //! backend.serve_forever(|b| {
-//!     my_api::composite::Server::serve_one(&mut server, b)
+//!     my_api::all_rpcs::Server::serve_one(&mut server, b)
 //! })
 //! ```
 
@@ -38,6 +41,37 @@ use task_net_api::{
     LargePayloadBehavior, Net, RecvError, SendError, SocketName, UdpMetadata,
 };
 use userlib::sys_recv_notification;
+
+/// Not covered by semver, re-exported items for macros
+#[doc(hidden)]
+pub mod __private {
+    pub use nprpc;
+}
+
+/// Records the names, keys, and schemas of all methods of an `nprpc` interface
+/// for debuggers.
+///
+/// This places an [`nprpc::flat::FlatInterface`] in the `.nprpc_schema`
+/// section, which is not loaded. Tools like `humility` can read it out of the
+/// archive to find out how to call the interface.
+///
+/// ## Example
+///
+/// ```ignore
+/// expose_interface!(all_rpcs);
+/// ```
+#[macro_export]
+macro_rules! expose_interface {
+    ($($segment:ident)::+) => {
+        const _: () = {
+            $crate::__private::nprpc::flat_interface! {
+                #[used]
+                #[unsafe(link_section = ".nprpc_schema")]
+                static NPRPC_SCHEMA = $($segment)::+;
+            }
+        };
+    };
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, counters::Count)]
 enum Trace {
