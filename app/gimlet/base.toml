@@ -349,6 +349,16 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
+[tasks.sbirpc]
+name = "task-sbi-rpc"
+priority = 9
+max-sizes = {flash = 16384, ram = 2048}
+stacksize = 1280
+start = true
+task-slots = ["net", "i2c_driver"]
+notifications = ["socket"]
+features = ["vlan"]
+
 [tasks.snitch]
 name = "task-snitch"
 # The snitch should have a priority immediately below that of the net task,
@@ -370,7 +380,7 @@ stacksize = 800
 
 [tasks.idle]
 name = "task-idle"
-priority = 9
+priority = 10
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -1379,3 +1389,11 @@ tx = { packets = 3, bytes = 1024 }
 # v0 ereport requests are always 35B, so just make the buffer exactly
 # that size...
 rx = { packets = 3, bytes = 35 }
+
+[config.net.sockets.sbirpc]
+kind = "udp"
+owner = {name = "sbirpc", notification = "socket"}
+port = 5501
+# Our buffers are very small
+tx = { packets = 3, bytes = 24 }
+rx = { packets = 3, bytes = 24 }

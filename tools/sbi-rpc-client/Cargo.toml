@@ -1,0 +1,16 @@
+[package]
+name = "sbi-rpc-client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+nprpc = { workspace = true, features = ["std"] }
+nprpc-udp.workspace = true
+serde.workspace = true
+task-sbi-rpc-api = { path = "../../task/sbi-rpc-api", features = ["std"] }
+toml.workspace = true
+
+[lints]
+workspace = true
