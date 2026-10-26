@@ -17,7 +17,6 @@ pub use drv_sidecar_mainboard_controller::{
     },
 };
 
-pub use drv_sidecar_mainboard_controller::reg_map;
 use drv_sidecar_mainboard_controller::tofino2::TofinoBar0Registers;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};

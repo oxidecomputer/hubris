@@ -83,6 +83,7 @@ enum Trace {
     TofinoSequencerAbort {
         state: TofinoSeqState,
         step: TofinoSeqStep,
+        #[count(children)]
         error: TofinoSeqError,
     },
     TofinoPowerRail(TofinoPowerRailId, #[count(children)] PowerRailStatus),
@@ -105,7 +106,7 @@ enum Trace {
     SetVddCoreVout(userlib::units::Volts),
     SetPCIePresent,
     ClearPCIePresent,
-    ClearingTofinoSequencerFault(TofinoSeqError),
+    ClearingTofinoSequencerFault(#[count(children)] TofinoSeqError),
     FrontIOBoardPowerEnable(#[count(children)] bool),
     FrontIOBoardPowerFault,
     FrontIOBoardPowerNotGood,
@@ -1176,8 +1177,8 @@ ereports::declare_ereporter! {
 mod idl {
     use super::{
         DebugPortState, DirectBarSegment, FanModuleIndex, FanModulePresence,
-        FanModuleStatus, FpgaError, SeqError, TofinoPcieReset,
-        TofinoSequencerPolicy,
+        FanModuleStatus, FpgaError, SeqError, TofinoPcieReset, TofinoSeqError,
+        TofinoSeqState, TofinoSeqStep, TofinoSequencerPolicy,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

@@ -10,12 +10,86 @@ use drv_fpga_user_api::power_rail::*;
 use userlib::FromPrimitive;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
-// Types to provide more ergonomic access to RDL defined types
-pub type TofinoSeqState = Reg::TOFINO_SEQ_STATE::ValueEncoded;
-pub type TofinoSeqStep = Reg::TOFINO_SEQ_STEP::ValueEncoded;
-pub type TofinoSeqError = Reg::TOFINO_SEQ_ERROR::ValueEncoded;
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
+#[repr(u8)]
+pub enum TofinoSeqState {
+    #[default]
+    Init = 0,
+    A2 = 1,
+    A0 = 2,
+    InPowerUp = 3,
+    InPowerDown = 4,
+}
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
+#[repr(u8)]
+pub enum TofinoSeqStep {
+    #[default]
+    Init = 0,
+    AwaitPowerUp = 1,
+    AwaitVdd18PowerGood = 2,
+    AwaitVddCorePowerGood = 3,
+    AwaitVddPciePowerGood = 4,
+    AwaitVddtPowerGood = 5,
+    AwaitVdda15PowerGood = 6,
+    AwaitVdda18PowerGood = 7,
+    AwaitPoR = 8,
+    AwaitVidValid = 9,
+    AwaitVidAck = 10,
+    AwaitPowerUpComplete = 11,
+    AwaitPowerDown = 12,
+    AwaitPowerDownComplete = 13,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[repr(u8)]
+pub enum TofinoSeqError {
+    #[default]
+    None = 0,
+    PowerGoodTimeout = 1,
+    PowerFault = 2,
+    PowerVrHot = 3,
+    PowerAbort = 4,
+    SoftwareAbort = 5,
+    VidAckTimeout = 6,
+    ThermalAlert = 7,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 #[repr(C)]
 pub struct TofinoSeqStatus {
     pub state: TofinoSeqState,
@@ -32,35 +106,35 @@ impl TryFrom<[u8; 6]> for TofinoSeqStatus {
             data[(addr as usize) - (Addr::TOFINO_SEQ_CTRL as usize)] & mask
         };
 
-        let state = TofinoSeqState::try_from(value(
+        let state = TofinoSeqState::from_u8(value(
             Addr::TOFINO_SEQ_STATE,
-            Reg::TOFINO_SEQ_STATE::VALUE,
+            Reg::TOFINO_SEQ_STATE::STATE,
         ))
-        .map_err(|_| FpgaError::InvalidValue)?;
+        .ok_or(FpgaError::InvalidValue)?;
 
-        let step = TofinoSeqStep::try_from(value(
+        let step = TofinoSeqStep::from_u8(value(
             Addr::TOFINO_SEQ_STEP,
-            Reg::TOFINO_SEQ_STEP::VALUE,
+            Reg::TOFINO_SEQ_STEP::STEP,
         ))
-        .map_err(|_| FpgaError::InvalidValue)?;
+        .ok_or(FpgaError::InvalidValue)?;
 
-        let error = TofinoSeqError::try_from(value(
+        let error = TofinoSeqError::from_u8(value(
             Addr::TOFINO_SEQ_ERROR,
-            Reg::TOFINO_SEQ_ERROR::VALUE,
+            Reg::TOFINO_SEQ_ERROR::ERROR,
         ))
-        .map_err(|_| FpgaError::InvalidValue)?;
+        .ok_or(FpgaError::InvalidValue)?;
 
-        let error_state = TofinoSeqState::try_from(value(
+        let error_state = TofinoSeqState::from_u8(value(
             Addr::TOFINO_SEQ_ERROR_STATE,
-            Reg::TOFINO_SEQ_ERROR_STATE::VALUE,
+            Reg::TOFINO_SEQ_ERROR_STATE::STATE,
         ))
-        .map_err(|_| FpgaError::InvalidValue)?;
+        .ok_or(FpgaError::InvalidValue)?;
 
-        let error_step = TofinoSeqStep::try_from(value(
+        let error_step = TofinoSeqStep::from_u8(value(
             Addr::TOFINO_SEQ_ERROR_STEP,
-            Reg::TOFINO_SEQ_ERROR_STEP::VALUE,
+            Reg::TOFINO_SEQ_ERROR_STEP::STEP,
         ))
-        .map_err(|_| FpgaError::InvalidValue)?;
+        .ok_or(FpgaError::InvalidValue)?;
 
         Ok(TofinoSeqStatus {
             state,
@@ -77,7 +151,7 @@ impl TryFrom<[u8; 6]> for TofinoSeqStatus {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 #[repr(C)]
 pub struct TofinoSeqAbort {
     pub state: TofinoSeqState,
@@ -199,25 +273,25 @@ impl Sequencer {
     pub fn state(&self) -> Result<TofinoSeqState, FpgaError> {
         let v = self.read_masked(
             Addr::TOFINO_SEQ_STATE,
-            Reg::TOFINO_SEQ_STATE::VALUE,
+            Reg::TOFINO_SEQ_STATE::STATE,
         )?;
-        TofinoSeqState::try_from(v).map_err(|_| FpgaError::InvalidValue)
+        TofinoSeqState::from_u8(v).ok_or(FpgaError::InvalidValue)
     }
 
     pub fn error(&self) -> Result<TofinoSeqError, FpgaError> {
         let v = self.read_masked(
             Addr::TOFINO_SEQ_ERROR,
-            Reg::TOFINO_SEQ_ERROR::VALUE,
+            Reg::TOFINO_SEQ_ERROR::ERROR,
         )?;
-        TofinoSeqError::try_from(v).map_err(|_| FpgaError::InvalidValue)
+        TofinoSeqError::from_u8(v).ok_or(FpgaError::InvalidValue)
     }
 
     pub fn error_step(&self) -> Result<TofinoSeqStep, FpgaError> {
         let v = self.read_masked(
             Addr::TOFINO_SEQ_ERROR_STEP,
-            Reg::TOFINO_SEQ_ERROR_STEP::VALUE,
+            Reg::TOFINO_SEQ_ERROR_STEP::STEP,
         )?;
-        TofinoSeqStep::try_from(v).map_err(|_| FpgaError::InvalidValue)
+        TofinoSeqStep::from_u8(v).ok_or(FpgaError::InvalidValue)
     }
 
     #[inline]
