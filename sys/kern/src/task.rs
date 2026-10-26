@@ -10,6 +10,7 @@ use abi::{
     Addr, FaultInfo, FaultSource, Generation, ReplyFaultReason, SchedState,
     TaskId, TaskState, ULease, UsageError,
 };
+use hubris_ptime::{Duration, Instant};
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::arch::{Arch, ArchImpl};
@@ -21,6 +22,13 @@ use crate::err::UserError;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;
 use crate::time::Timestamp;
 use crate::umem::USlice;
+
+/// The last time the kernel stored off the "now", which is used to calculate
+/// time-deltas spent servicing a syscall or within a task itself.
+///
+/// no-mangle'd to allow humility to read this
+#[unsafe(no_mangle)]
+pub(crate) static mut PTIME_LAST_SWITCH: Instant = Instant(0);
 
 /// Internal representation of a task.
 ///
@@ -47,6 +55,9 @@ pub struct Task {
     /// Notification status.
     notifications: u32,
 
+    /// Time active in this task
+    active: Duration,
+
     /// Pointer to the ROM descriptor used to create this task, so it can be
     /// restarted.
     descriptor: &'static TaskDesc,
@@ -66,6 +77,7 @@ impl Task {
 
             descriptor,
 
+            active: Duration::ZERO,
             generation: 0,
             notifications: 0,
             save: <ArchImpl as Arch>::SavedState::default(),
@@ -418,6 +430,27 @@ impl Task {
         // Safety: our contract above is sufficient to ensure that this is safe.
         unsafe {
             crate::arch::ArchImpl::set_current_task(self);
+        }
+    }
+
+    /// Account for the time spent in the current task. We assume that this is
+    /// called shortly after returning to the kernel in `self`'s task, so we
+    /// assign the time since the last switch to this task.
+    pub(crate) fn account_task_active_time(&mut self) {
+        if let Some(ptimer) = hubris_ptime::ptimer() {
+            let now = (ptimer.now)();
+            let mut old = now;
+
+            // SAFETY: Only the kernel has access to PTIME_LAST_SWITCH, and
+            // we only access it long enough here to update with a new value.
+            unsafe {
+                core::ptr::swap(&mut old, &raw mut PTIME_LAST_SWITCH);
+            }
+            // Time *should* never flow backwards, but if it does, just truncate
+            let elapsed = now.0.saturating_sub(old.0);
+            // Similarly, we don't expect to run for ~hundreds of thousands of
+            // years, but if we do, just wrap around.
+            self.active.0 = self.active.0.wrapping_add(elapsed);
         }
     }
 }
