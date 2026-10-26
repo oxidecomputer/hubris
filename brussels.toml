@@ -56,6 +56,8 @@ cosmo-a-lab = {}
 cosmo-b = {}
 cosmo-b-lab = {}
 observer-a = { corim = false, omicron = false }
+metro-a = {}
+metro-a-lab = {}
 
 [groups.rot]
 tag-bump = "minor"
