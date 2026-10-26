@@ -7,6 +7,7 @@ edition = "2024"
 anyhow.workspace = true
 clap.workspace = true
 nprpc = { workspace = true, features = ["std"] }
+nprpc-udp.workspace = true
 serde.workspace = true
 task-sbi-rpc-api = { path = "../../task/sbi-rpc-api", features = ["std"] }
 toml.workspace = true

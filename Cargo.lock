@@ -4566,9 +4566,9 @@ checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 
 [[package]]
 name = "nprpc"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06db6639da9e9cc69f6ded68ed8d0ec0d8f25b9bc5f70168bb2b4b8d0534639a"
+checksum = "5de7612675f1a6bbe42d912873e080203fdb98ed3292bb4b4ca5eaf6cf4ca9df"
 dependencies = [
  "postcard 1.1.3",
  "postcard-schema-ng",
@@ -4584,6 +4584,15 @@ dependencies = [
  "ringbuf",
  "task-net-api",
  "userlib",
+]
+
+[[package]]
+name = "nprpc-udp"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce6bbc8a4457eeee1b482ceb201b818fe86936766630352d98e8e1b41d97090"
+dependencies = [
+ "nprpc",
 ]
 
 [[package]]
@@ -5554,6 +5563,7 @@ dependencies = [
  "anyhow",
  "clap 3.2.23",
  "nprpc",
+ "nprpc-udp",
  "serde",
  "task-sbi-rpc-api",
  "toml 1.1.2+spec-1.1.0",

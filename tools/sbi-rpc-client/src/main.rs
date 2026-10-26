@@ -5,21 +5,15 @@
 //! Client for the `sbi-rpc` task, which exposes SB-RMI and SB-TSI commands
 //! over UDP.
 
-use std::{
-    fmt::Debug,
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
-    num::Wrapping,
-    path::PathBuf,
-    time::Duration,
-};
+use std::{fmt::Debug, net::SocketAddr, path::PathBuf, time::Duration};
 
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, Subcommand};
 use nprpc::{
     ClientError, ClientIoError, Response, autobuffer, compose_interfaces,
-    io::client::{Backend, Io},
     wire::WireError,
 };
+use nprpc_udp::UdpClient;
 use serde::Deserialize;
 
 use task_sbi_rpc_api::{
@@ -40,6 +34,8 @@ compose_interfaces! {
     ]
 }
 autobuffer!(ApiBufs, all_rpcs);
+
+type MyClient = UdpClient<ApiBufs>;
 
 /// Issue SB-RMI and SB-TSI commands to a Hubris `sbi-rpc` server over UDP.
 ///
@@ -270,27 +266,14 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Connects a UDP socket to the server at `target`.
+/// Connects to the server at `target`.
 fn connect(target: SocketAddr, timeout_ms: u64) -> Result<MyClient> {
-    // Let the OS pick a local address and port in the target's family
-    let local: SocketAddr = match target {
-        SocketAddr::V4(_) => (Ipv4Addr::UNSPECIFIED, 0).into(),
-        SocketAddr::V6(_) => (Ipv6Addr::UNSPECIFIED, 0).into(),
-    };
-    let socket = UdpSocket::bind(local)
-        .with_context(|| format!("binding to {local}"))?;
-    socket
-        .connect(target)
+    let client = UdpClient::connect(target, ApiBufs::new())
         .with_context(|| format!("connecting to {target}"))?;
-    socket
-        .set_read_timeout(Some(Duration::from_millis(timeout_ms)))
+    client
+        .set_timeout(Some(Duration::from_millis(timeout_ms)))
         .context("setting read timeout")?;
-
-    Ok(MyClient {
-        buf: ApiBufs::new(),
-        socket: ConnectedUdpSocket(socket),
-        ctr: Wrapping(0),
-    })
+    Ok(client)
 }
 
 /// Issues one op, printing its result on success.
@@ -410,50 +393,5 @@ impl Value for u32 {
 impl Value for f32 {
     fn display(&self) -> String {
         format!(", read {self}")
-    }
-}
-
-/////
-// TODO: Items below here should probably be in `nprpc` as standard interface
-// impls.
-//
-struct ConnectedUdpSocket(UdpSocket);
-
-impl Io for ConnectedUdpSocket {
-    type Error = std::io::Error;
-    fn send_then_receive_raw_frames<'a>(
-        &mut self,
-        outgoing: &[u8],
-        incoming: &'a mut [u8],
-    ) -> Result<&'a [u8], Self::Error> {
-        self.0.send(outgoing)?;
-        let used = self.0.recv(incoming)?;
-        Ok(&incoming[..used])
-    }
-}
-
-struct MyClient {
-    ctr: Wrapping<u16>,
-    buf: ApiBufs,
-    socket: ConnectedUdpSocket,
-}
-
-impl Backend for MyClient {
-    type Storage = ApiBufs;
-    type Io = ConnectedUdpSocket;
-
-    fn next_sequence_number(&mut self) -> u16 {
-        let now = self.ctr;
-        self.ctr += 1;
-        now.0
-    }
-
-    fn parts(&mut self) -> (&mut Self::Storage, &mut Self::Io) {
-        let Self {
-            ctr: _,
-            buf,
-            socket,
-        } = self;
-        (buf, socket)
     }
 }
