@@ -1,0 +1,19 @@
+[package]
+name = "nprpc-net"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+counters = { path = "../counters", features = ["derive"] }
+nprpc.workspace = true
+ringbuf = { path = "../ringbuf" }
+task-net-api = { path = "../../task/net-api" }
+userlib = { path = "../../sys/userlib" }
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

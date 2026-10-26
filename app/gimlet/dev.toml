@@ -1,5 +1,7 @@
 # Configuration fragment for -dev images
 
+tasks.sbirpc.features = ["unsafe-raw-commands"]
+
 [tasks.jefe.config.allowed-callers]
 request_reset = ["udprpc"]
 
