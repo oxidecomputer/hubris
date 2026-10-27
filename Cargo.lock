@@ -1548,6 +1548,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "sha2 0.11.0",
+ "static-cell",
  "stm32h7",
  "userlib",
  "zerocopy 0.8.27",
