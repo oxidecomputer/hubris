@@ -199,8 +199,8 @@ task-slots = ["sys", "packrat"]
 name = "drv-gimlet-hf-server"
 features = ["h753"]
 priority = 3
-max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 6000
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 3000
 start = true
 uses = ["quadspi", "hash"]
 interrupts = {"quadspi.irq" = "qspi-irq", "hash.irq" = "hash-irq"}

@@ -184,6 +184,7 @@ fn main() -> ! {
         hash: HashData::new(),
         hash_block,
         measurement: [0; 32],
+        measurement_block: MEASUREMENT_BLOCK.claim(),
     };
 
     server.ensure_persistent_data_is_redundant().unwrap(); // TODO: log this?
@@ -228,12 +229,20 @@ struct ServerImpl {
     hash: HashData,
     hash_block: drv_stm32h7_hash::Hash,
     measurement: [u8; 32],
+    measurement_block: &'static mut [u8; MEASUREMENT_BLOCK_SIZE],
 }
 
 /// This tunes how many bytes we hash in a single async timer notification
 /// call. Making this bigger has a significant impact on hash speed at the
 /// cost of blocking the SP. Sector size has been a reasonable setting.
 const BLOCK_STEP_SIZE: usize = SECTOR_SIZE_BYTES;
+
+const MEASUREMENT_BLOCK_SIZE: usize = 4096;
+
+/// Measurement performance is signficiantly improved with a large block size
+static MEASUREMENT_BLOCK: static_cell::ClaimOnceCell<
+    [u8; MEASUREMENT_BLOCK_SIZE],
+> = static_cell::ClaimOnceCell::new([0; MEASUREMENT_BLOCK_SIZE]);
 
 impl ServerImpl {
     ///
@@ -1008,23 +1017,24 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
 
         // We purposely initialize the block to `0xff` so we can
         // represent the first sector which is not measured
-        let mut block: [u8; 4096] = [0xFF; 4096];
-        for _ in (0..SECTOR_SIZE_BYTES).step_by(block.len()) {
+        self.measurement_block.fill(0xff);
+
+        for _ in (0..SECTOR_SIZE_BYTES).step_by(self.measurement_block.len()) {
             self.hash_block
-                .update_exact(&block)
+                .update_exact(self.measurement_block)
                 .map_err(|_| RequestError::Runtime(HfError::HashError))?;
         }
 
         let begin = SECTOR_SIZE_BYTES;
         let end = self.capacity;
 
-        for addr in (begin..end).step_by(block.len()) {
-            let size = block.len().min(end - addr);
+        for addr in (begin..end).step_by(self.measurement_block.len()) {
+            let size = self.measurement_block.len().min(end - addr);
             self.qspi
-                .read_memory(addr as u32, &mut block[..size])
+                .read_memory(addr as u32, &mut self.measurement_block[..size])
                 .map_err(qspi_to_hf)?;
             self.hash_block
-                .update_exact(&block[..size])
+                .update_exact(&self.measurement_block[..size])
                 .map_err(|_| HfError::HashError)?;
         }
 
