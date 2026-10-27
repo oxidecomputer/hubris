@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 124,
+    "addr_span_bytes": 128,
     "inst_name": "sequencer_regs",
     "addr_offset": 0,
     "children": [
@@ -3064,7 +3064,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Ignore sp5 allows the sequencer to bypass any SP5-related handshakes\nfor power debugging. Some rails may not completely power up without a load-slammer\nor other feedback device in place."
+                    "desc": "Ignore sp5 allows the sequencer to bypass any SP5-related handshakes\nfor power debugging. Some rails may not completely power up without a load-slammer\nor other feedback device in place.\nWhile set, neither A0 nor the NIC MAPOs: a rail fault, upstream loss or\nnic_test_mapo leaves everything enabled and raises no A0MAPO/NICMAPO interrupt,\nand is recorded in mapo_suppressed instead. Metro's POR_B stays interlocked with\nthe Versal rails. Clearing the bit with a fault still present MAPOs at once."
                 },
                 {
                     "type": "field",
@@ -4093,6 +4093,37 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "FPGA1_VERSION_ID[1:0] strap value"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "mapo_suppressed",
+            "addr_offset": 124,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "a0",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A0 would have MAPO'd"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The NIC (A0HP) would have MAPO'd"
                 }
             ]
         }
