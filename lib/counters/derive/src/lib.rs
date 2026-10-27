@@ -13,10 +13,15 @@ use syn::{
     parse_macro_input,
 };
 
-/// Derives an implementation of the `Count` trait for the annotated
-/// `enum` type.
+/// Derives an implementation of the `Count` trait for the annotated type.
 ///
-/// Note that this macro can currently only be used on `enum` types.
+/// `Count` can be derived for `enum` types (one counter per variant), and
+/// for newtype structs around integer types with a bounded range, via the
+/// `#[count(max = N)]` attribute.
+///
+/// Note that deriving `Count` for structs with `#[count(children)]` fields
+/// (i.e. structs with multiple fields) is not yet supported; see
+/// <https://github.com/oxidecomputer/hubris/pull/2727>.
 ///
 /// # Variant Attributes
 ///
@@ -36,6 +41,21 @@ use syn::{
 ///   `Count` trait, however, the `#[count(children)]` attribute can be used to
 ///   generate an instance of the field type's counter struct, and implement
 ///   those counters instead.
+///
+/// # Struct Attributes
+///
+/// The following attribute may be added to a *newtype* struct (a tuple struct
+/// with exactly one field of an *unsigned* integer type) when deriving `Count`:
+///
+/// - `#[count(max = N)]`: Declare that the wrapped integer is always in the
+///   range `0..=N`. Rather than generating a counter table sized for the full
+///   integer type (e.g. 256 counters for a `u8`, or over four billion for a
+///   `u32`), this generates one counter per value in `0..=N`, named `_0`
+///   through `_N`, plus an `_other` counter for out-of-range values. `N`
+///   must be no larger than the wrapped type's maximum value. Rather than
+///   being dropped (or panicking), values outside `0..=N` are accumulated
+///   in the `_other` counter, so a range violation is still visible in the
+///   counters.
 #[proc_macro_derive(Count, attributes(count))]
 pub fn derive_count(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -45,21 +65,185 @@ pub fn derive_count(input: TokenStream) -> TokenStream {
     }
 }
 
-fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
-    let syn::Data::Enum(ref data_enum) = input.data else {
-        return Err(syn::Error::new_spanned(
-            input,
-            "`Count` can only be derived for enums",
-        ));
-    };
-    let variants = &data_enum.variants;
-    let mut state = CountGenerator::new(&input, variants.len());
+fn gen_count_impl(
+    input: DeriveInput,
+) -> Result<proc_macro2::TokenStream, syn::Error> {
+    match &input.data {
+        syn::Data::Enum(data_enum) => {
+            let variants = &data_enum.variants;
+            let mut state = CountGenerator::new(&input, variants.len());
 
-    for variant in variants {
-        state.add_variant(variant)?;
+            for variant in variants {
+                state.add_variant(variant)?;
+            }
+
+            Ok(state.generate().to_token_stream())
+        }
+        syn::Data::Struct(_) => gen_newtype_count_impl(input),
+        syn::Data::Union(_) => Err(syn::Error::new_spanned(
+            input,
+            "`Count` can only be derived for enums or newtype structs",
+        )),
+    }
+}
+
+/// Derive `Count` for a newtype struct wrapping an integer with a bounded
+/// range.
+///
+/// The struct must be a tuple struct with exactly one field of an *unsigned*
+/// integer type, and must be annotated with `#[count(max = N)]`, where `N` is
+/// the largest value the wrapped integer can take on. This generates a counter
+/// struct with one `AtomicU32` per value in `0..=N`, and a `count`
+/// implementation that increments the counter for the wrapped value. Values
+/// outside `0..=N` are accumulated in a single `_other` bucket counter, so a
+/// range violation is still reflected in the counters.
+fn gen_newtype_count_impl(
+    input: DeriveInput,
+) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let name = &input.ident;
+    let vis = &input.vis;
+
+    if !input.generics.params.is_empty() {
+        return Err(syn::Error::new_spanned(
+            &input.generics,
+            "`Count` cannot currently be derived for generic newtype structs",
+        ));
     }
 
-    Ok(state.generate())
+    let syn::Data::Struct(ref data) = input.data else {
+        unreachable!("`gen_newtype_count_impl` called on non-struct input");
+    };
+    let field = match &data.fields {
+        syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+            fields.unnamed.first().unwrap()
+        }
+        syn::Fields::Unnamed(fields) => {
+            let n = fields.unnamed.len();
+            return Err(syn::Error::new_spanned(
+                &input,
+                format!(
+                    "`Count` can only be derived for enums or for newtypes \
+                    (tuple structs with exactly one field); `{name}` has {n} \
+                    fields",
+                ),
+            ));
+        }
+        _ => {
+            return Err(syn::Error::new_spanned(
+                &input,
+                "`Count` can only be derived for enums or for newtypes \
+                (tuple structs with exactly one field)",
+            ));
+        }
+    };
+
+    let Some((int_ty, type_max)) = int_name_and_bound(&field.ty) else {
+        return Err(syn::Error::new_spanned(
+            &field.ty,
+            format!(
+                "`Count` can only be derived for newtypes around unsigned \
+                integers annotated with `#[count(max = N)]`; `{name}` must \
+                wrap an unsigned integer type",
+            ),
+        ));
+    };
+
+    let max = max_attr(&input)?;
+    if max >= 1024 {
+        return Err(syn::Error::new_spanned(
+            &input,
+            "`#[count(max = N)]` with `N >= 1024` would generate a very large \
+            counter struct (N + 1 `AtomicU32`s); consider a `#[repr(uN)]` \
+            enum instead",
+        ));
+    }
+    if max as u64 > type_max {
+        return Err(syn::Error::new_spanned(
+            &field.ty,
+            format!(
+                "`#[count(max = {max})]` exceeds the range of `{int_ty}`, \
+                which can only hold values up to `{type_max}`",
+            ),
+        ));
+    }
+
+    let counts_ty = counts_ty(name);
+    let field_defs = (0..=max).map(|i| {
+        let field_name = Ident::new(&format!("_{i}"), Span::call_site());
+        quote! {
+            #[doc = concat!(
+                " The total number of times the value `",
+                stringify!(#field_name),
+                "` has been recorded by this set of counters."
+            )]
+            pub #field_name: core::sync::atomic::AtomicU32
+        }
+    });
+    let field_inits = (0..=max).map(|i| {
+        let field_name = Ident::new(&format!("_{i}"), Span::call_site());
+        quote! { #field_name: core::sync::atomic::AtomicU32::new(0) }
+    });
+    let count_arms = (0..=max).map(|i| {
+        let value = proc_macro2::Literal::u64_unsuffixed(i as u64);
+        let field_name = Ident::new(&format!("_{i}"), Span::call_site());
+        quote! {
+            #value => {
+                counters.#field_name.fetch_add(
+                    1,
+                    core::sync::atomic::Ordering::Relaxed,
+                );
+            }
+        }
+    });
+    let bucket_def = quote! {
+        #[doc = concat!(
+            " The total number of times a value outside `0..=",
+            stringify!(#max),
+            "` was recorded by this set of counters."
+        )]
+        pub _other: core::sync::atomic::AtomicU32
+    };
+    let bucket_init = quote! {
+        _other: core::sync::atomic::AtomicU32::new(0)
+    };
+
+    Ok(quote! {
+        #[doc = concat!("Total counts for [`", stringify!(#name), "`].")]
+        #[allow(nonstandard_style)]
+        #vis struct #counts_ty {
+            #(#field_defs,)*
+            #bucket_def,
+        }
+
+        #[automatically_derived]
+        impl counters::Count for #name {
+            type Counters = #counts_ty;
+
+            #[allow(clippy::declare_interior_mutable_const)]
+            const NEW_COUNTERS: #counts_ty = #counts_ty {
+                #(#field_inits,)*
+                #bucket_init,
+            };
+
+            fn count(&self, counters: &Self::Counters) {
+                // This extension trait may not be used on non-v6m targets.
+                #[allow(unused_imports)]
+                use counters::armv6m_atomic_hack::AtomicU32Ext;
+
+                match self.0 {
+                    #(#count_arms)*
+                    // Out-of-range values are bucketed into `_other`, rather
+                    // than being silently dropped.
+                    _ => {
+                        counters._other.fetch_add(
+                            1,
+                            core::sync::atomic::Ordering::Relaxed,
+                        );
+                    }
+                }
+            }
+        }
+    })
 }
 
 struct CountGenerator<'input> {
@@ -357,6 +541,85 @@ impl Parse for ChildrenAttr {
             ))
         }
     }
+}
+
+/// The `#[count(max = N)]` struct-level attribute, used with newtype structs
+/// around integers to declare that the wrapped value is always in `0..=N`.
+#[derive(Copy, Clone, PartialEq, Eq)]
+struct MaxAttr {
+    max: usize,
+}
+
+fn max_attr(input: &DeriveInput) -> syn::Result<usize> {
+    let mut found = None;
+    for attr in &input.attrs {
+        if !attr.path().is_ident("count") {
+            continue;
+        }
+        let attr = attr.parse_args_with(MaxAttr::parse)?;
+        if found.replace(attr.max).is_some() {
+            return Err(syn::Error::new_spanned(
+                input,
+                "multiple `#[count(max = N)]` attributes",
+            ));
+        }
+    }
+    found.ok_or_else(|| {
+        syn::Error::new_spanned(
+            input,
+            "`Count` can only be derived for enums or for newtypes around \
+            integers annotated with `#[count(max = N)]`",
+        )
+    })
+}
+
+impl Parse for MaxAttr {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let ident = input.fork().parse::<syn::Ident>()?;
+        if ident != "max" {
+            return Err(syn::Error::new(
+                ident.span(),
+                format!(
+                    "unrecognized `#[count]` attribute, expected \
+                    `#[count(max = N)]`, but found `#[count({ident})]`",
+                ),
+            ));
+        }
+        // consume `max`
+        let _: syn::Ident = input.parse()?;
+        // consume `=`
+        input.parse::<syn::Token![=]>()?;
+        // consume `N`
+        let lit: syn::LitInt = input.parse()?;
+        lit.base10_parse().map(|max| MaxAttr { max })
+    }
+}
+
+/// Returns the name and maximum value of the primitive *unsigned* integer type
+/// wrapped by `ty`, or `None` if `ty` is not a bare unsigned integer type.
+///
+/// `u64`, `u128`, and `usize` can never collide with `#[count(max = N)]` in
+/// practice (the counter table is already capped at `N < 1024`), so a
+/// `u64::MAX` sentinel is fine for those.
+fn int_name_and_bound(ty: &syn::Type) -> Option<(&'static str, u64)> {
+    const INTS: &[(&str, u64)] = &[
+        ("u8", u8::MAX as u64),
+        ("u16", u16::MAX as u64),
+        ("u32", u32::MAX as u64),
+        ("u64", u64::MAX),
+        ("u128", u64::MAX),
+        ("usize", u64::MAX),
+    ];
+    let syn::Type::Path(syn::TypePath { qself: None, path }) = ty else {
+        return None;
+    };
+    // Only accept a bare path (e.g. `u8`); a path like `foo::u8` is not a
+    // primitive.
+    if path.segments.len() != 1 {
+        return None;
+    }
+    let name = path.segments.first()?.ident.to_string();
+    INTS.iter().copied().find(|(n, _)| *n == name)
 }
 
 fn counts_ty(ident: &Ident) -> Ident {
