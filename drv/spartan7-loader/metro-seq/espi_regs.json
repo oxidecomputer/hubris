@@ -84,7 +84,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Allow the host to write and erase the flash over the eSPI flash\nchannel. Only has effect on a build whose FLASH_WRITES_ALLOWED generic is\nset; elsewhere writes are refused regardless. A refused write or erase is\nanswered with an unsuccessful completion."
+                    "desc": "Allow the host to write and erase the flash over the eSPI flash\nchannel. Only has effect on a build whose FLASH_WRITES_ALLOWED generic is\nset; elsewhere writes are refused regardless. A refused write or erase is\nanswered with an unsuccessful completion. Resets to 1 on a build with\nFLASH_WRITES_ALLOWED set (metro's eSPI1), so the host can write without the\nSP doing anything; the SP clears it to lock writes out. The reset value\nbelow is the read-only build's."
                 },
                 {
                     "type": "field",
@@ -1275,7 +1275,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Flash Access Channel Maximum Payload Size Supported:\nThis field advertises the Maximum Payload Size supported by the slave.\n** Note that the erase block does nothing in the Oxide implementation\nas we do not allow the big CPU to modify flash at all\n000b: Reserved\n001b: 4 Kbytes\n010b: 64 Kbytes\n011b: Both 4 Kbytes and 64 Kbytes are supported\n100b: 128 Kbytes\n101b: 256 Kbytes\n110b \u2013 111b: Reserved"
+                    "desc": "Flash Block Erase Size: eSPI controller sets this field to\ncommunicate the block erase size to the target. This field is\napplicable only to the controller attached flash sharing scheme;\nfor target attached flash see the EBS field at 0x44. Oxide only\ndoes target attached, so this holds its default and ignores writes.\n000b: Reserved\n001b: 4 Kbytes\n010b: 64 Kbytes\n011b: Both 4 Kbytes and 64 Kbytes are supported\n100b: 128 Kbytes\n101b: 256 Kbytes\n110b - 111b: Reserved"
                 },
                 {
                     "type": "field",
@@ -1357,11 +1357,11 @@
                     "inst_name": "ebs_sup",
                     "lsb": 8,
                     "msb": 15,
-                    "reset": 0,
+                    "reset": 68,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Target Flash Erase Block Size for Master\u2019s Regions:\nThis field indicates the sizes of the erase commands the\nmaster may issue. If multiple bits are set then the master\nmay issue an erase using any of the indicated sizes.\nIf multiple regions are accessible by the master, this field\nadvertises the common erase block sizes for these\nregions.\n** Note that the erase block does nothing in the Oxide implementation\nThis field is only applicable when slave attached flash\nsharing scheme is selected.\nBit 0: 1 Kbytes EBS supported\nBit 1: 2 Kbytes EBS supported\nBit 2: 4 Kbytes EBS supported\nBit 3: 8 Kbytes EBS supported\nBit 4: 16 Kbytes EBS supported\nBit 5: 32 Kbytes EBS supported\nBit 6: 64 Kbytes EBS supported\nBit 7: 128 Kbytes EBS supported"
+                    "desc": "Target Flash Erase Block Size: This field indicates the\nsizes of the erase commands the controller may issue. If multiple\nbits are set then the controller may issue an erase using any of\nthe indicated sizes.\nThis field is only applicable when the target attached flash\nsharing scheme is selected.\nOxide advertises 4 Kbytes and 64 Kbytes, the sizes with a 4-byte\naddress erase opcode; other sizes get an unsuccessful completion.\nBit 0: Reserved\nBit 1: Reserved\nBit 2: 4 Kbytes EBS supported\nBit 3: Reserved\nBit 4: Reserved\nBit 5: 32 Kbytes EBS supported\nBit 6: 64 Kbytes EBS supported\nBit 7: 128 Kbytes EBS supported"
                 },
                 {
                     "type": "field",

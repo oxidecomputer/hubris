@@ -129,6 +129,17 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Show used FIFO words in TX_FIFO (word = 32bits/4 bytes),\nmax of 256 bytes, so 64 words"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "espi_owns_flash",
+                    "lsb": 31,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The eSPI path owns the flash right now: SPICR.sp5_owns_flash, or the design's\nown hardware grant where it has one (metro's Versal flash, once the Versal has\nbooted). While set, commands issued through these registers do not reach the flash.\nChanges only between transactions."
                 }
             ]
         },
