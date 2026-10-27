@@ -61,9 +61,8 @@ fn main() -> ! {
     // concern. Were it literally a static, we could just reference it.
     let usart = unsafe { &*device::USART2::ptr() };
 
-    // The UART has clock and is out of reset, but isn't actually on until we:
-    usart.cr1.write(|w| w.ue().enabled());
-    // Work out our baud rate divisor.
+    // Work out our baud rate divisor. This must happen before setting UE, as
+    // BRR may only be written while the USART is disabled (RM0316).
     const BAUDRATE: u32 = 115_200;
 
     #[cfg(feature = "stm32f3")]
@@ -85,6 +84,9 @@ fn main() -> ! {
                 .bits(CYCLES_PER_BIT as u8 & 0xF)
         });
     }
+
+    // The UART has clock and is out of reset, but isn't actually on until we:
+    usart.cr1.write(|w| w.ue().enabled());
 
     // Enable the transmitter.
     usart.cr1.modify(|_, w| w.te().enabled());
