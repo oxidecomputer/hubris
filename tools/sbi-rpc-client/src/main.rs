@@ -173,6 +173,10 @@ enum Op {
         #[clap(long, value_parser = parse_int::<u32>)]
         arg: u32,
     },
+
+    /// Read Socket C0 Residency
+    ReadSocketC0Residency {},
+
     /// Read the maximum DDR bandwidth utilization
     ReadMaxDdrBwUtil {},
 
@@ -326,6 +330,9 @@ fn run_op(client: &mut MyClient, op: &Op) -> Result<()> {
         }
         Op::ReadCcxBistResult { arg } => {
             show(client.read_ccx_bist_result(&arg))
+        }
+        Op::ReadSocketC0Residency {} => {
+            show(client.read_socket_c0_residency(&()))
         }
         Op::ReadMaxDdrBwUtil {} => show(client.read_max_ddr_bw_util(&())),
 
