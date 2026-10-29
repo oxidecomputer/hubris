@@ -1,0 +1,18 @@
+[package]
+name = "task-sbi-rpc-api"
+version = "0.1.0"
+authors = ["James Munns <james.munns@oxide.computer>"]
+edition = "2024"
+
+[dependencies]
+heapless.workspace = true
+nprpc.workspace = true
+postcard-schema-ng = { version = "0.4.0", default-features = false }
+serde.workspace = true
+
+[features]
+default = []
+std = []
+
+[lints]
+workspace = true

@@ -52,6 +52,9 @@ The repo is laid out as follows.
 - `test/` contains the test framework and binary crates for building it for
   various boards.
 
+- `tools/` contains host tools that don't run on the hubris system, but instead
+  on a host system.
+
 - `website/` contains the source code for the
   [hubris website](https://hubris.oxide.computer/)
 
@@ -454,14 +457,14 @@ $ cargo xtask humility app/demo-stm32f4-discovery/app.toml -- tasks
     Finished dev [optimized + debuginfo] target(s) in 0.17s
      Running `target/debug/xtask humility demo/app.toml -- tasks`
 humility: attached via ST-Link
-ID ADDR     TASK               GEN STATE    
- 0 20000108 jefe                 0 Healthy(InRecv(None))     
- 1 20000178 rcc_driver           0 Healthy(InRecv(None))     
- 2 200001e8 usart_driver         0 Healthy(InRecv(None))     
+ID ADDR     TASK               GEN STATE
+ 0 20000108 jefe                 0 Healthy(InRecv(None))
+ 1 20000178 rcc_driver           0 Healthy(InRecv(None))
+ 2 200001e8 usart_driver         0 Healthy(InRecv(None))
  3 20000258 user_leds            0 Healthy(Runnable)          <-
- 4 200002c8 ping                48 Healthy(Runnable)         
- 5 20000338 pong                 0 Healthy(InRecv(None))     
- 6 200003a8 idle                 0 Healthy(Runnable)         
+ 4 200002c8 ping                48 Healthy(Runnable)
+ 5 20000338 pong                 0 Healthy(InRecv(None))
+ 6 200003a8 idle                 0 Healthy(Runnable)
 ```
 
 ### Debugging with GDB
@@ -500,7 +503,7 @@ runs the equivalent of `cargo xtask dist`, `cargo xtask flash`
 and `cargo xtask humility test`.  The exact invocation depends on the board:
 
 - LPCXpresso55S69: `cargo xtask test test/tests-lpc55xpresso/app.toml`
-- STM32F3 Discovery board: `cargo xtask test test/tests-stm32fx/app-f3.toml`  
+- STM32F3 Discovery board: `cargo xtask test test/tests-stm32fx/app-f3.toml`
   **Note: for this board, SB10 must be soldered closed for ITM to work**
 - STM32F4 Discovery board: `cargo xtask test test/tests-stm32fx/app.toml`
 - ST Nucleo-H743ZI2 board: `cargo xtask test test/tests-stm32h7/app-h743.toml`
@@ -558,7 +561,7 @@ and details.
 The LPCXpresso55S69 is somewhat of a mess because the built-on on-chip
 debugger, LPC-Link2, [does not correctly support SWO/SWV](https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442)
 
-If you have the stock LPC-Link2, it will report itself this way via 
+If you have the stock LPC-Link2, it will report itself this way via
 [`probe-rs list`](https://probe.rs/docs/tools/probe-rs/) or `humility lsusb`:
 
 
@@ -580,7 +583,7 @@ $ pyocd list
 ```
 
 In either of these cases you must -- as a one-time step -- install new
-firmware on the LPC-Link2.  The new firmware is a build of the (open source) 
+firmware on the LPC-Link2.  The new firmware is a build of the (open source)
 [DAPLink](https://github.com/oxidecomputer/DAPLink), which
 we affectionally call **RickLink** after
 the engineer who managed to get it all built -- no small feat!
@@ -601,7 +604,7 @@ left side of the board; it is labelled "DFU".
 2. Run `scripts/boot_lpcscrypt` from the installed LPCScrypt software:
 
 ```console
-$ /usr/local/lpcscrypt/scripts/boot_lpcscrypt 
+$ /usr/local/lpcscrypt/scripts/boot_lpcscrypt
 Looking for DFU devices with VID 1fc9 PID 000c ...
 dfu-util -d 1fc9:000c -c 1 -i 0 -t 2048 -R  -D /usr/local/lpcscrypt/scripts/../bin/LPCScrypt_228.bin.hdr
 Booted LPCScrypt target (1fc9:000c) with /usr/local/lpcscrypt/scripts/../bin/LPCScrypt_228.bin.hdr
@@ -698,19 +701,19 @@ $
 
 10. Unplug and replug the USB cable.
 
-Verify that you are on the new firmware by running `pyocd list` or 
+Verify that you are on the new firmware by running `pyocd list` or
 `probe-rs list`:
 
 ```console
 $ pyocd list
-  #   Probe                        Unique ID                                         
+  #   Probe                        Unique ID
 -------------------------------------------------------------------------------------
   0   LPCXpresso55S69 [lpc55s69]   02360b000d96e4fc00000000000000000000000097969905
 ```
 
 ## LPC55S28 on Gemini carrier board
 
-Note that the RickLink running on the LPCXpresso55S69 can *also* be used 
+Note that the RickLink running on the LPCXpresso55S69 can *also* be used
 as the debugger for the LPC55S28 on the Gemini carrier board.  To do this,
 first, follow all of the instructions above to get RickLink onto your
 LPCXpresso55S69.  Then:

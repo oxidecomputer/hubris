@@ -1,4 +1,4 @@
-# Configuration for oxidecomputer/brussels, the SP and Rot release tool. 
+# Configuration for oxidecomputer/brussels, the SP and Rot release tool.
 #
 # Each group will publish all boards within it as part of a single tag and GitHub release, creating
 # the tag according to the defined rules. The hubris-app-dirs key defines the list of directores
@@ -20,6 +20,7 @@ hubris-app-dirs = [
     "app/psc/",
     "app/cosmo/",
     "app/observer/",
+    "app/metro/",
 ]
 
 release-title = "SP release {version}"
@@ -56,6 +57,8 @@ cosmo-a-lab = {}
 cosmo-b = {}
 cosmo-b-lab = {}
 observer-a = { corim = false, omicron = false }
+metro-a = {}
+metro-a-lab = {}
 
 [groups.rot]
 tag-bump = "minor"
