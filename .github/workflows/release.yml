@@ -21,7 +21,7 @@ concurrency:
   group: release-${{ github.event.inputs.group }}
 
 env:
-  BRUSSELS_VERSION: v0.6.0
+  BRUSSELS_VERSION: v0.7.0
 
 jobs:
   init:
