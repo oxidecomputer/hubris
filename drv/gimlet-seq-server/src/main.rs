@@ -777,7 +777,14 @@ impl<S: SpiServer> ServerImpl<S> {
 
         match (self.state, state) {
             (PowerState::A2, PowerState::A0) => {
+                // Take our measurement for attestation purposes. We don't
+                // want to block sequencing if there is a measurement error
+                // so we ignore it for now (maybe we will make a different
+                // choice in the future!)
+                //
+                // Measurement must happen before we give control to the HostCPU
                 let _ = self.hf.measure();
+
                 //
                 // First, set our mux state to be the HostCPU
                 //

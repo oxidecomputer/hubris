@@ -93,7 +93,7 @@ impl ServerImpl {
             apob_state,
             abl0_version: None,
             buf,
-            measurement: [0; 32],
+            measurement: [0; SHA256_SZ],
         };
         out.drv.set_flash_mux_state(HfMuxState::SP);
         out.ensure_persistent_data_is_redundant();
@@ -855,7 +855,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         let base =
             Self::flash_addr_for(SECTOR_SIZE_BYTES, self.dev).unwrap_lite();
-        let hash = self.drv.sha3(base, SECTOR_SIZE_BYTES, SLOT_SIZE_BYTES)?;
+        let hash =
+            self.drv
+                .sha3_256(base, SECTOR_SIZE_BYTES, SLOT_SIZE_BYTES)?;
 
         self.measurement.copy_from_slice(&hash);
         Ok(())

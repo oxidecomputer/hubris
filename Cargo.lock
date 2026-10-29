@@ -2627,25 +2627,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-stm32h7-hash-server"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "cfg-if",
- "cortex-m",
- "drv-hash-api",
- "drv-stm32h7-hash",
- "drv-stm32xx-sys-api",
- "idol",
- "idol-runtime",
- "num-traits",
- "stm32h7",
- "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
-]
-
-[[package]]
 name = "drv-stm32h7-qspi"
 version = "0.1.0"
 dependencies = [
