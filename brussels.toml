@@ -12,6 +12,7 @@ workflow-file = ".github/workflows/release.yml"
 runner-environment = "self-hosted"
 
 [groups.all-sp]
+project = "sp"
 tag-bump = "minor"
 tag-prefix = "all-sp-v"
 hubris-app-dirs = [
@@ -61,6 +62,7 @@ metro-a = {}
 metro-a-lab = {}
 
 [groups.rot]
+project = "rot"
 tag-bump = "minor"
 tag-prefix = "oxide-rot-1-v"
 hubris-app-dirs = ["app/oxide-rot-1/"]

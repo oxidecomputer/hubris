@@ -642,6 +642,13 @@ impl ServerImpl {
                 // Turn on the voltage regulator undervolt alerts.
                 self.enable_sequencer_interrupts();
 
+                // Take our measurement for attestation purposes. We don't
+                // want to block sequencing if there is a measurement error
+                // so we ignore it for now (maybe we will make a different
+                // choice in the future!)
+                //
+                // Measurement must happen before we give control to the HostCPU
+                let _ = self.hf.measure();
                 // Flip the host flash mux so the CPU can read from it
                 // (this is secretly infallible on Cosmo, so we can unwrap it)
                 self.hf.set_mux(drv_hf_api::HfMuxState::HostCPU).unwrap();
