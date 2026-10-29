@@ -5,8 +5,9 @@
 //! MWOCP68-3600 Murata power shelf
 
 use crate::mwocp6x::{
-    BootLoaderCommand, Error, FIRMWARE_REVISION_LEN, FirmwareRev, MfrId,
-    ModelNumber, SerialNumber, UpdateState, parse_firmware_revision,
+    Error, FIRMWARE_IMAGE_BLOCK_LEN, FIRMWARE_REVISION_LEN, FirmwareImage,
+    FirmwareRev, MfrId, ModelNumber, PsuMcu, SerialNumber,
+    parse_firmware_revision,
 };
 use crate::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, Validate,
@@ -20,6 +21,83 @@ use pmbus::units::{Celsius, Rpm};
 use pmbus::*;
 use task_power_api::PmbusValue;
 use userlib::units::{Amperes, Volts};
+
+//
+// The boot loader command -- sent via BOOT_LOADER_CMD -- is unfortunately odd
+// in that its command code is overloaded with BOOT_LOADER_STATUS.  (That is,
+// a read to the command code is BOOT_LOADER_STATUS, a write is
+// BOOT_LOADER_CMD.)  This is behavior that the PMBus crate didn't necessarily
+// envision, so it can't necessarily help us out; we define the single-byte
+// payload codes here rather than declaratively in the PMBus crate.
+//
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum BootLoaderCommand {
+    ClearStatus = 0x00,
+    RestartProgramming = 0x01,
+    BootPrimary = 0x12,
+    BootSecondary = 0x02,
+    BootPSUFirmware = 0x03,
+}
+
+///
+/// Defines the state of the firmware update.  Once `UpdateSuccessful`
+/// has been returned, the update is complete.
+///
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum UpdateState {
+    /// The boot loader key has been written
+    WroteBootLoaderKey,
+
+    /// The product key has been written
+    WroteProductKey,
+
+    /// The boot loader has been booted
+    BootedBootLoader,
+
+    /// Programming of firmware has been indicated to have started
+    StartedProgramming,
+
+    /// This block has been written; the running checksum is in [`checksum`]
+    WroteBlock { block_index: usize, checksum: u64 },
+
+    /// The last block has been written; the checksum is in [`checksum`]
+    WroteLastBlock { checksum: u64 },
+
+    /// The checksum has been sent for verification
+    SentChecksum,
+
+    /// The checksum has been verified
+    VerifiedChecksum,
+
+    /// The PSU has been rebooted
+    RebootedPSU,
+
+    /// The entire update is complete and successful
+    UpdateSuccessful,
+}
+
+impl UpdateState {
+    ///
+    /// Return the milliseconds of delay associated with the current state.
+    /// Note that some of these values differ slightly from Murata's "PSU
+    /// Firmware Update Process" document in that they reflect revised
+    /// guidance from Murata.
+    ///
+    pub(crate) fn delay_ms(&self) -> u64 {
+        match self {
+            Self::WroteBootLoaderKey => 3_000,
+            Self::WroteProductKey => 3_000,
+            Self::BootedBootLoader => 1_000,
+            Self::StartedProgramming => 2_000,
+            Self::WroteBlock { .. } | Self::WroteLastBlock { .. } => 100,
+            Self::SentChecksum => 2_000,
+            Self::VerifiedChecksum => 4_000,
+            Self::RebootedPSU => 5_000,
+            Self::UpdateSuccessful => 0,
+        }
+    }
+}
 
 pub struct Mwocp68 {
     device: I2cDevice,
@@ -340,7 +418,7 @@ impl Mwocp68 {
     }
 
     ///
-    /// Returns the firmware revision of the primary MCU (AC input side).
+    /// Returns the firmware revision of the primary and secondary MCUs.
     ///
     pub fn firmware_revision(&self) -> Result<FirmwareRev, Error> {
         let mut data = [0u8; FIRMWARE_REVISION_LEN];
@@ -466,29 +544,44 @@ impl Mwocp68 {
         //
         let data = [CommandCode::BOOT_LOADER_STATUS as u8, 1, cmd as u8];
 
-        self.device
-            .write(&data)
-            .map_err(|code| Error::BadBootLoaderCommand { cmd, code })?;
+        self.device.write(&data).map_err(|code| {
+            Error::BadBootLoaderCommand {
+                cmd: cmd as u8,
+                code,
+            }
+        })?;
 
         Ok(())
     }
 
     ///
-    /// Perform a firmware update, implementating the procedure contained
+    /// Perform a firmware update, implementing the procedure contained
     /// within Murata's "PSU Firmware Update Process" document.  Note that
     /// this function must be called initially with a state of `None`; it will
     /// return either an error, or the next state in the update process,
     /// along with a specified delay in milliseconds.  It is up to the caller
     /// to assure that the returned delay has been observed before calling
-    /// back into continue the update.
+    /// back in to continue the update.
+    ///
+    /// Currently, this function is only capable of updating the primary MCU and
+    /// will return a `NotImplemented` error if you give it firmware for the
+    /// secondary MCU.
     ///
     pub fn update(
         &self,
         state: Option<UpdateState>,
-        payload: &[u8],
+        firmware: FirmwareImage,
     ) -> Result<(UpdateState, u64), Error> {
         use BOOT_LOADER_STATUS::Mode;
         use pmbus::commands::mwocp68::CommandCode;
+
+        if !matches!(firmware.mcu, PsuMcu::Primary) {
+            // At the time this function was written, there was no need to
+            // update the secondary MCU. It would not be difficult to implement
+            // if we actually had a firmware binary for the secondary MCU. It
+            // just requires sending slightly different pmbus commands.
+            return Err(Error::NotImplemented);
+        }
 
         let write_boot_loader_key = || -> Result<UpdateState, Error> {
             const MWOCP68_BOOT_LOADER_KEY: &[u8] = b"InVe";
@@ -530,19 +623,19 @@ impl Mwocp68 {
         };
 
         let write_block = || -> Result<UpdateState, Error> {
-            const BLOCK_LEN: usize = 32;
-
-            let (mut offset, mut checksum) = match state {
-                Some(UpdateState::WroteBlock { offset, checksum }) => {
-                    (offset, checksum)
-                }
+            // Determine which block to send next
+            let (block_index, mut checksum) = match state {
+                Some(UpdateState::WroteBlock {
+                    block_index,
+                    checksum,
+                }) => (block_index + 1, checksum),
                 Some(UpdateState::StartedProgramming) => (0, 0),
                 _ => panic!(),
             };
 
-            let mut data = [0u8; BLOCK_LEN + 1];
+            let mut data = [0u8; FIRMWARE_IMAGE_BLOCK_LEN + 1];
             data[0] = CommandCode::BOOT_LOADER_MEMORY_BLOCK as u8;
-            data[1..].copy_from_slice(&payload[offset..offset + BLOCK_LEN]);
+            data[1..].copy_from_slice(&firmware.payload[block_index]);
 
             self.device
                 .write(&data)
@@ -551,12 +644,14 @@ impl Mwocp68 {
             checksum = data[1..]
                 .iter()
                 .fold(checksum, |c, &d| c.wrapping_add(d.into()));
-            offset += BLOCK_LEN;
 
-            if offset >= payload.len() {
+            if block_index + 1 >= firmware.payload.len() {
                 Ok(UpdateState::WroteLastBlock { checksum })
             } else {
-                Ok(UpdateState::WroteBlock { offset, checksum })
+                Ok(UpdateState::WroteBlock {
+                    block_index,
+                    checksum,
+                })
             }
         };
 
