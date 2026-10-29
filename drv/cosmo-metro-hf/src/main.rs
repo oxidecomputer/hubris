@@ -478,7 +478,7 @@ impl FlashDriver {
         self.drv.apob_flash_len.set_offset(0);
     }
 
-    pub(crate) fn sha3(
+    pub(crate) fn sha3_256(
         &self,
         start_addr: FlashAddr,
         prepend_cnt: u32,
@@ -498,9 +498,6 @@ impl FlashDriver {
         });
         loop {
             let status = self.hash.status.view();
-            if status.done {
-                break;
-            }
             if status.cfg_err {
                 ringbuf_entry!(Trace::FpgaHashCfgErr);
                 return Err(drv_hf_api::HfError::HashError);
@@ -508,6 +505,9 @@ impl FlashDriver {
             if status.aborted {
                 ringbuf_entry!(Trace::FpgaHashAborted);
                 return Err(drv_hf_api::HfError::HashError);
+            }
+            if status.done {
+                break;
             }
         }
 
@@ -522,6 +522,7 @@ impl FlashDriver {
             u32::from_le(self.hash.digest7.view().data),
         ];
 
+        // `IntoBytes` supplies the as_bytes
         sha256_sum.copy_from_slice(result.as_bytes());
         Ok(sha256_sum)
     }
