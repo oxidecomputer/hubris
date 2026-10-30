@@ -7,7 +7,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use crate::{Addr, FrontIOError, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
 use drv_transceivers_api::{ModuleStatus, NUM_PORTS};
-use ringbuf::Count;
+use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 use transceiver_messages::ModuleId;
 use userlib::UnwrapLite;
 use zerocopy::{
@@ -700,6 +700,34 @@ impl core::ops::Index<LogicalPort> for LogicalPortFailureTypes {
     }
 }
 
+/// Time in ms the SP is willing to wait for an I2C transaction to complete
+/// before deciding to bail. The FPGA *should* be giving up after roughly
+/// 27ms (https://github.com/oxidecomputer/quartz/pull/452), but we are
+/// not seeing this happen in all failure modes. Rather than get stuck,
+/// the SP will declare a timeout on its own when necessary.
+///
+/// See: https://github.com/oxidecomputer/hubris/issues/2070
+const I2C_BUSY_TIMEOUT_MS: u64 = 50;
+
+#[derive(Copy, Clone, PartialEq, Count)]
+enum Trace {
+    #[count(skip)]
+    None,
+    /// We timed out while attempting to poll a port.
+    PollTimeout { port: PortLocation, status: u8 },
+    /// A port was busy when we tried to start a transaction.
+    StillBusy { port: PortLocation, status: u8 },
+}
+counted_ringbuf!(Trace, 16, Trace::None);
+
+/// Busy flags and port status as reported by the front-io FPGA.
+#[derive(IntoBytes, Default, FromBytes)]
+#[repr(C)]
+struct BusyAndPortStatus {
+    busy: u16,
+    status: [u8; 16],
+}
+
 #[derive(Copy, Clone)]
 pub struct PortI2CStatus {
     pub stretching_seen: bool,
@@ -1079,6 +1107,12 @@ impl Transceivers {
         buf: &mut [u8],
     ) -> Result<PortI2CStatus, FpgaError> {
         let port_loc = port.into();
+
+        // Set an upper deadline on how long we will wait for the FPGA to
+        // complete a transaction, before we declare it failed ourselves.
+        let deadline = userlib::sys_get_timer()
+            .now
+            .saturating_add(I2C_BUSY_TIMEOUT_MS);
         loop {
             let status_byte = self.get_i2c_status(port_loc)?;
             let status = PortI2CStatus::new(status_byte);
@@ -1092,6 +1126,13 @@ impl Transceivers {
                 return Ok(status);
             }
 
+            if userlib::sys_get_timer().now >= deadline {
+                ringbuf_entry!(Trace::PollTimeout {
+                    port: port_loc,
+                    status: status_byte,
+                });
+                return Err(FpgaError::BusyTimeout);
+            }
             userlib::hl::sleep_for(1);
         }
     }
@@ -1189,6 +1230,51 @@ impl Transceivers {
         Ok(())
     }
 
+    /// Check if the given i2c ports are idle, or are in a stuck-busy state.
+    pub fn check_i2c_idle(&self, mask: LogicalPortMask) -> ModuleResult {
+        let mut physical_failure = FpgaPortMasks::default();
+        let mut physical_error = FpgaPortMasks::default();
+        let phys_mask: FpgaPortMasks = mask.into();
+        let mut failure_types = LogicalPortFailureTypes::default();
+
+        for fpga_index in phys_mask.iter_fpgas() {
+            let status_all: BusyAndPortStatus =
+                match self.fpga(fpga_index).read(Addr::QSFP_I2C_BUSY0) {
+                    Ok(data) => data,
+                    Err(_) => {
+                        *physical_error.get_mut(fpga_index) =
+                            PhysicalPortMask(0xffff);
+                        continue;
+                    }
+                };
+
+            let busy = PhysicalPortMask(
+                status_all.busy & phys_mask.get(fpga_index).get(),
+            );
+            for port in (0..16).map(PhysicalPort) {
+                if !busy.is_set(port) {
+                    continue;
+                }
+                ringbuf_entry!(Trace::StillBusy {
+                    port: PortLocation {
+                        controller: fpga_index,
+                        port,
+                    },
+                    status: status_all.status[port.0 as usize],
+                });
+                physical_failure.get_mut(fpga_index).set(port);
+                let logical_port =
+                    port.to_logical_port(fpga_index).unwrap_lite();
+                failure_types.0[logical_port.0 as usize] =
+                    FpgaI2CFailure::I2CTransactionTimeout;
+            }
+        }
+        let error = mask & LogicalPortMask::from(physical_error);
+        let failure = mask & LogicalPortMask::from(physical_failure);
+        let success = mask & !(error | failure);
+        ModuleResult::new(success, failure, error, failure_types).unwrap_lite()
+    }
+
     /// Waits for all of the I2C busy bits to go low
     ///
     /// Returns a set of masks indicating which channels (among the ones active
@@ -1206,14 +1292,12 @@ impl Transceivers {
         let phys_mask: FpgaPortMasks = mask.into();
         let mut failure_types = LogicalPortFailureTypes::default();
 
-        #[derive(IntoBytes, Default, FromBytes)]
-        #[repr(C)]
-        struct BusyAndPortStatus {
-            busy: u16,
-            status: [u8; 16],
-        }
         for fpga_index in phys_mask.iter_fpgas() {
             let fpga = self.fpga(fpga_index);
+            let mut timed_out = PhysicalPortMask(0);
+            let deadline = userlib::sys_get_timer()
+                .now
+                .saturating_add(I2C_BUSY_TIMEOUT_MS);
             // This loop should break immediately, because I2C is fast
             let status_all = loop {
                 // Two bytes of BUSY, followed by 816bytes of port status
@@ -1227,7 +1311,18 @@ impl Transceivers {
                         BusyAndPortStatus::default()
                     }
                 };
-                if status_all.busy == 0 {
+                // Are any items still busy? If not, we're done here!
+                let busy = status_all.busy & phys_mask.get(fpga_index).get();
+                if busy == 0 {
+                    break status_all;
+                }
+
+                // If anything is still busy, AND it has been more than the
+                // chosen deadline, declare those ports as a "failure", which
+                // is an emulated FPGA timeout.
+                // See https://github.com/oxidecomputer/hubris/issues/2070
+                if userlib::sys_get_timer().now >= deadline {
+                    timed_out = PhysicalPortMask(busy);
                     break status_all;
                 }
                 userlib::hl::sleep_for(1);
@@ -1245,10 +1340,19 @@ impl Transceivers {
                 }
 
                 // cast status byte into a type
-                let failure = FpgaI2CFailure::try_from(
-                    status_all.status[port.0 as usize],
-                )
-                .unwrap_lite();
+                let failure = if timed_out.is_set(port) {
+                    ringbuf_entry!(Trace::PollTimeout {
+                        port: PortLocation {
+                            controller: fpga_index,
+                            port,
+                        },
+                        status: status_all.status[port.0 as usize],
+                    });
+                    FpgaI2CFailure::I2CTransactionTimeout
+                } else {
+                    FpgaI2CFailure::try_from(status_all.status[port.0 as usize])
+                        .unwrap_lite()
+                };
 
                 // if a failure occurred, mark it and record the failure type
                 if failure != FpgaI2CFailure::NoError {

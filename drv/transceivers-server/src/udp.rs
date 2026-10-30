@@ -12,6 +12,7 @@
 //! ports, i.e. an FPGA paired by a physical port index (or mask).
 //!
 use counters::Count;
+use drv_fpga_api::FpgaError;
 use hubpack::SerializedSize;
 use ringbuf::*;
 use userlib::UnwrapLite;
@@ -1099,37 +1100,26 @@ impl ServerImpl {
         const BANK_SELECT: u8 = 0x7E;
         const PAGE_SELECT: u8 = 0x7F;
 
-        let mut result = ModuleResult::new(
-            mask,
-            LogicalPortMask(0),
-            LogicalPortMask(0),
-            LogicalPortFailureTypes::default(),
-        )
-        .unwrap_lite();
+        // Check whether any of the requested ports are still stuck-busy.
+        // `result.success()` filters out any of these ports.
+        let mut result = self.transceivers().check_i2c_idle(mask);
 
         // We can always write the lower page; upper pages require modifying
         // registers in the transceiver to select it.
         if let Some(page) = page.page() {
-            self.transceivers().set_i2c_write_buffer(&[page], mask);
+            self.transceivers()
+                .set_i2c_write_buffer(&[page], result.success());
             result = result.chain(self.transceivers().setup_i2c_write(
                 PAGE_SELECT,
                 1,
-                mask,
+                result.success(),
             ));
             result = result.chain(self.wait_and_check_i2c(result.success()));
-        } else {
-            // If the request is to the lower page it is always successful
-            result = ModuleResult::new(
-                mask,
-                LogicalPortMask(0),
-                LogicalPortMask(0),
-                LogicalPortFailureTypes::default(),
-            )
-            .unwrap_lite();
         }
 
         if let Some(bank) = page.bank() {
-            self.transceivers().set_i2c_write_buffer(&[bank], mask);
+            self.transceivers()
+                .set_i2c_write_buffer(&[bank], result.success());
             result = result.chain(self.transceivers().setup_i2c_write(
                 BANK_SELECT,
                 1,
@@ -1190,6 +1180,17 @@ impl ServerImpl {
                 .get_i2c_status_and_read_buffer(port_loc, &mut buf[0..buf_len])
             {
                 Ok(status) => status,
+                // Transactions via the FPGA over I2C can hard-hang sometimes.
+                // See: https://github.com/oxidecomputer/hubris/issues/2070
+                //
+                // In this case where the SP decided to bail, emulate an
+                // FPGA reported i2c transaction timeout.
+                Err(FpgaError::BusyTimeout) => {
+                    failure.set(port);
+                    failure_types.0[port.0 as usize] =
+                        FpgaI2CFailure::I2CTransactionTimeout;
+                    continue;
+                }
                 Err(_) => {
                     error.set(port);
                     break;
@@ -1234,9 +1235,13 @@ impl ServerImpl {
     ) -> ModuleResult {
         let mut result = self.select_page(*mem.page(), modules);
 
-        // Copy data into the FPGA write buffer
-        self.transceivers()
-            .set_i2c_write_buffer(&data[..mem.len() as usize], modules);
+        // Copy data into the FPGA write buffer. This is filtered to ONLY
+        // apply to ports that were set successfully (not including any
+        // stuck-busy ports).
+        self.transceivers().set_i2c_write_buffer(
+            &data[..mem.len() as usize],
+            result.success(),
+        );
 
         // Trigger a multicast write to all transceivers in the mask
         result = result.chain(self.transceivers().setup_i2c_write(
