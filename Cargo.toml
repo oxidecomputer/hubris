@@ -140,6 +140,10 @@ zerocopy-derive = { version = "0.8.25", default-features = false }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
 zip = { version = "8", default-features = false, features = ["bzip2"] }
 
+# sys/hostcall
+cobs = { version = "0.5.1", default-features = false, features = ["std"] }
+postcard = { version = "1.1.3", default-features = false }
+
 # Oxide forks and repos
 apob = { git = "https://github.com/oxidecomputer/apob", default-features = false }
 # Pin the dice-util crates to specific commits. Their versions were bumped upstream, and although
