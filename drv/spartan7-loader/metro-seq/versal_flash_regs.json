@@ -107,6 +107,17 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Live readback of whether the sequencer is holding the Versal\nin reset, i.e. whether a request would be granted."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "espi_owns_flash",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set while the eSPI1 target owns the flash: the Versal has booted and the\nSP has not taken the mux by hand with request or to_fpga."
                 }
             ]
         }
