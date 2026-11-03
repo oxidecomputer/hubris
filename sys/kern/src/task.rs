@@ -333,7 +333,7 @@ impl Task {
 
     /// Returns a reference to the task's memory region descriptor table.
     pub fn region_table(&self) -> &[&'static RegionDesc; REGIONS_PER_TASK] {
-        &self.descriptor.regions
+        self.descriptor.regions.get()
     }
 
     /// Returns this task's current generation number.
