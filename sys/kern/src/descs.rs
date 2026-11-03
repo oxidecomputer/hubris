@@ -214,9 +214,3 @@ bitflags::bitflags! {
         const RESERVED = !((1 << 5) - 1);
     }
 }
-
-impl RegionAttributes {
-    pub const unsafe fn from_bits_unchecked(bits: u32) -> Self {
-        Self(bits)
-    }
-}
