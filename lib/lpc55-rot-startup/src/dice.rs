@@ -39,14 +39,12 @@ fn gen_mfg_artifacts(
 ) -> MfgResult {
     // Select manufacturing process based on feature. This module assumes
     // that one of the manufacturing flavors has been enabled.
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "dice-mfg")] {
+    cfg_select! {
+        feature = "dice-mfg" => {
             dice_mfg_usart::gen_mfg_artifacts_usart(peripherals, flash)
-        } else if #[cfg(feature = "dice-self")] {
-            gen_mfg_artifacts_self(peripherals, flash)
-        } else {
-            compile_error!("No DICE manufacturing process selected.");
         }
+        feature = "dice-self" => gen_mfg_artifacts_self(peripherals, flash),
+        _ => compile_error!("No DICE manufacturing process selected."),
     }
 }
 

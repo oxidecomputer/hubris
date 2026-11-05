@@ -7,7 +7,6 @@ edition = "2024"
 target = "thumbv7em-none-eabihf"
 
 [dependencies]
-cfg-if.workspace = true
 cortex-m.workspace = true
 hubpack.workspace = true
 humpty.workspace = true
@@ -40,7 +39,6 @@ no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]
 anyhow.workspace = true
-cfg-if.workspace = true
 idol.workspace = true
 
 build-util.path = "../../build/util"

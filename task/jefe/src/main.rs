@@ -244,8 +244,8 @@ impl idl::InOrderJefeImpl for ServerImpl {
         ))
     }
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "dump")] {
+    cfg_select! {
+        feature = "dump" => {
             fn get_dump_area(
                 &mut self,
                 _msg: &userlib::RecvMessage,
@@ -335,7 +335,8 @@ impl idl::InOrderJefeImpl for ServerImpl {
                 dump::reinitialize_dump_from(self.dump_areas, index)
                     .map_err(|e| e.into())
             }
-        } else {
+        }
+        _ => {
             fn get_dump_area(
                 &mut self,
                 _msg: &userlib::RecvMessage,

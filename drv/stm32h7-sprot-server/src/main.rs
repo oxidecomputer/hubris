@@ -25,9 +25,9 @@ use userlib::{
     sys_set_timer, task_slot,
 };
 
-cfg_if::cfg_if! {
+cfg_select! {
     // Select local vs server SPI communication
-    if #[cfg(feature = "use-spi-core")] {
+    feature = "use-spi-core" => {
         /// Claims the SPI core.
         ///
         /// This function can only be called once, and will panic otherwise!
@@ -37,7 +37,8 @@ cfg_if::cfg_if! {
             drv_stm32h7_spi_server_core::declare_spi_core!(
                 sys.clone(), notifications::SPI_IRQ_MASK)
         }
-    } else {
+    }
+    _ => {
         pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
             task_slot!(SPI, spi_driver);
             drv_spi_api::Spi::from(SPI.get_task_id())
@@ -113,8 +114,8 @@ use gpio_irq_pins::ROT_IRQ;
 // You should be able to move the RoT board between SPI3, SPI4, and SPI6
 // without much trouble even though SPI3 is the preferred connector and
 // SPI4 is connected to the NET board.
-cfg_if::cfg_if! {
-    if #[cfg(any(
+cfg_select! {
+    any(
         target_board = "gimlet-b",
         target_board = "gimlet-c",
         target_board = "gimlet-d",
@@ -134,15 +135,16 @@ cfg_if::cfg_if! {
         target_board = "cosmo-a",
         target_board = "cosmo-b",
         target_board = "metro-a",
-    ))] {
+    ) => {
         const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::ROT;
         fn debug_config(_sys: &sys_api::Sys) { }
         fn debug_set(_sys: &sys_api::Sys, _asserted: bool) { }
-    } else if #[cfg(any(
+    }
+    any(
             target_board = "gimletlet-2",
             target_board = "nucleo-h743zi2",
             target_board = "nucleo-h753zi",
-            ))] {
+            ) => {
         const DEBUG_PIN: sys_api::PinSet = sys_api::PinSet {
             port: sys_api::Port::E,
             pin_mask: 1 << 6,
@@ -162,7 +164,8 @@ cfg_if::cfg_if! {
             sys.gpio_set_to(DEBUG_PIN, asserted);
         }
         const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::SPI3_HEADER;
-    } else {
+    }
+    _ => {
         compile_error!("No configuration for ROT_SPI_DEVICE");
     }
 }

@@ -1322,32 +1322,29 @@ fn read_spd_data_and_load_packrat(
 
     type SpdBank = (Controller, PortIndex, Option<(Mux, Segment)>);
 
-    cfg_if::cfg_if! {
-        if #[cfg(any(
-            target_board = "gimlet-b",
-            target_board = "gimlet-c",
-            target_board = "gimlet-d",
-            target_board = "gimlet-e",
-            target_board = "gimlet-f",
-        ))] {
-            //
-            // On Gimlet, we have two banks of up to 8 DIMMs apiece:
-            //
-            // - ABCD DIMMs are on the mid bus (I2C3, port H)
-            // - EFGH DIMMS are on the rear bus (I2C4, port F)
-            //
-            // It should go without saying that the ordering here is essential
-            // to assure that the SPD data that we return for a DIMM corresponds
-            // to the correct DIMM from the SoC's perspective.
-            //
-            const BANKS: [SpdBank; NUM_SPD_BANKS] = [
-                (Controller::I2C3, i2c_config::ports::i2c3_h(), None),
-                (Controller::I2C4, i2c_config::ports::i2c4_f(), None),
-            ];
-        } else {
-            compile_error!("I2C target unsupported for this board");
-        }
-    }
+    #[cfg(not(any(
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d",
+        target_board = "gimlet-e",
+        target_board = "gimlet-f",
+    )))]
+    compile_error!("I2C target unsupported for this board");
+
+    //
+    // On Gimlet, we have two banks of up to 8 DIMMs apiece:
+    //
+    // - ABCD DIMMs are on the mid bus (I2C3, port H)
+    // - EFGH DIMMS are on the rear bus (I2C4, port F)
+    //
+    // It should go without saying that the ordering here is essential
+    // to assure that the SPD data that we return for a DIMM corresponds
+    // to the correct DIMM from the SoC's perspective.
+    //
+    const BANKS: [SpdBank; NUM_SPD_BANKS] = [
+        (Controller::I2C3, i2c_config::ports::i2c3_h(), None),
+        (Controller::I2C4, i2c_config::ports::i2c4_f(), None),
+    ];
 
     let mut npresent = 0;
     let mut present = [false; BANKS.len() * spd::MAX_DEVICES as usize];
@@ -1480,175 +1477,167 @@ fn reprogram_fpga<S: SpiServer>(
 static COMPRESSED_BITSTREAM: &[u8] =
     include_bytes!(env!("GIMLET_FPGA_IMAGE_PATH"));
 
-cfg_if::cfg_if! {
-    if #[cfg(any(
-        target_board = "gimlet-b",
-        target_board = "gimlet-c",
-        target_board = "gimlet-d",
-        target_board = "gimlet-e",
-        target_board = "gimlet-f",
-    ))] {
-        const A0_TIMEOUT_MILLIS: u64 = 2000;
+#[cfg(not(any(
+    target_board = "gimlet-b",
+    target_board = "gimlet-c",
+    target_board = "gimlet-d",
+    target_board = "gimlet-e",
+    target_board = "gimlet-f",
+)))]
+compile_error!("unsupported target board");
 
-        const ICE40_CONFIG: ice40::Config = ice40::Config {
-            // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
-            creset: sys_api::Port::D.pin(5),
+const A0_TIMEOUT_MILLIS: u64 = 2000;
 
-            // CDONE net is SEQ_TO_SP_CDONE_L and hits PB4.
-            cdone: sys_api::Port::B.pin(4),
-        };
+const ICE40_CONFIG: ice40::Config = ice40::Config {
+    // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
+    creset: sys_api::Port::D.pin(5),
 
-        const GLOBAL_RESET: Option<sys_api::PinSet> = Some(
-            sys_api::Port::A.pin(6)
-        );
+    // CDONE net is SEQ_TO_SP_CDONE_L and hits PB4.
+    cdone: sys_api::Port::B.pin(4),
+};
 
-        const SP_TO_SP3_NMI_SYNC_FLOOD_L: sys_api::PinSet =
-            sys_api::Port::J.pin(2);
+const GLOBAL_RESET: Option<sys_api::PinSet> = Some(sys_api::Port::A.pin(6));
 
-        //
-        // SP_TO_SP3_UARTA_OE_L must be driven low to allow for transmission
-        // into the SP3's UART
-        //
-        const UART_TX_ENABLE: sys_api::PinSet = sys_api::Port::A.pin(5);
+const SP_TO_SP3_NMI_SYNC_FLOOD_L: sys_api::PinSet = sys_api::Port::J.pin(2);
 
-        fn uart_sp_to_sp3_enable() {
-            let sys = sys_api::Sys::from(SYS.get_task_id());
+//
+// SP_TO_SP3_UARTA_OE_L must be driven low to allow for transmission
+// into the SP3's UART
+//
+const UART_TX_ENABLE: sys_api::PinSet = sys_api::Port::A.pin(5);
 
-            sys.gpio_configure_output(
-                UART_TX_ENABLE,
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-            );
+fn uart_sp_to_sp3_enable() {
+    let sys = sys_api::Sys::from(SYS.get_task_id());
 
-            sys.gpio_reset(UART_TX_ENABLE);
-        }
+    sys.gpio_configure_output(
+        UART_TX_ENABLE,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
 
-        fn uart_sp_to_sp3_disable() {
-            let sys = sys_api::Sys::from(SYS.get_task_id());
+    sys.gpio_reset(UART_TX_ENABLE);
+}
 
-            sys.gpio_configure_output(
-                UART_TX_ENABLE,
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-            );
+fn uart_sp_to_sp3_disable() {
+    let sys = sys_api::Sys::from(SYS.get_task_id());
 
-            sys.gpio_set(UART_TX_ENABLE);
-        }
-        const ENABLES_PORT: sys_api::Port = sys_api::Port::A;
-        const ENABLE_V1P2_MASK: u16 = 1 << 15;
-        const ENABLE_V3P3_MASK: u16 = 1 << 4;
+    sys.gpio_configure_output(
+        UART_TX_ENABLE,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
 
-        const ENABLES: sys_api::PinSet = sys_api::PinSet {
-            port: ENABLES_PORT,
-            pin_mask: ENABLE_V1P2_MASK | ENABLE_V3P3_MASK,
-        };
+    sys.gpio_set(UART_TX_ENABLE);
+}
+const ENABLES_PORT: sys_api::Port = sys_api::Port::A;
+const ENABLE_V1P2_MASK: u16 = 1 << 15;
+const ENABLE_V3P3_MASK: u16 = 1 << 4;
 
-        const ENABLE_V1P2: sys_api::PinSet = sys_api::PinSet {
-            port: ENABLES_PORT,
-            pin_mask: ENABLE_V1P2_MASK,
-        };
+const ENABLES: sys_api::PinSet = sys_api::PinSet {
+    port: ENABLES_PORT,
+    pin_mask: ENABLE_V1P2_MASK | ENABLE_V3P3_MASK,
+};
 
-        const ENABLE_V3P3: sys_api::PinSet = sys_api::PinSet {
-            port: ENABLES_PORT,
-            pin_mask: ENABLE_V3P3_MASK,
-        };
+const ENABLE_V1P2: sys_api::PinSet = sys_api::PinSet {
+    port: ENABLES_PORT,
+    pin_mask: ENABLE_V1P2_MASK,
+};
 
-        const PGS_PORT: sys_api::Port = sys_api::Port::C;
-        const PG_V1P2_MASK: u16 = 1 << 7;
-        const PG_V3P3_MASK: u16 = 1 << 6;
+const ENABLE_V3P3: sys_api::PinSet = sys_api::PinSet {
+    port: ENABLES_PORT,
+    pin_mask: ENABLE_V3P3_MASK,
+};
 
-        const PGS_PINS: sys_api::PinSet = sys_api::PinSet {
-            port: PGS_PORT,
-            pin_mask: PG_V1P2_MASK | PG_V3P3_MASK
-        };
+const PGS_PORT: sys_api::Port = sys_api::Port::C;
+const PG_V1P2_MASK: u16 = 1 << 7;
+const PG_V3P3_MASK: u16 = 1 << 6;
 
-        // SP_STATUS_LED
-        const CHASSIS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
-        // SP_TO_IGNIT_FAULT_L
-        const FAULT_PIN_L: sys_api::PinSet = sys_api::Port::A.pin(15);
+const PGS_PINS: sys_api::PinSet = sys_api::PinSet {
+    port: PGS_PORT,
+    pin_mask: PG_V1P2_MASK | PG_V3P3_MASK,
+};
 
-        // Gimlet provides external pullups.
-        const PGS_PULL: sys_api::Pull = sys_api::Pull::None;
+// SP_STATUS_LED
+const CHASSIS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
+// SP_TO_IGNIT_FAULT_L
+const FAULT_PIN_L: sys_api::PinSet = sys_api::Port::A.pin(15);
 
-        const NIC_PWREN_L_PINS: sys_api::PinSet = sys_api::Port::F.pin(4);
+// Gimlet provides external pullups.
+const PGS_PULL: sys_api::Pull = sys_api::Pull::None;
 
-        // Externally pulled to V3P3_SYS_A0
-        const NIC_PWREN_L_PULL: sys_api::Pull = sys_api::Pull::None;
+const NIC_PWREN_L_PINS: sys_api::PinSet = sys_api::Port::F.pin(4);
 
-        // Pins related to core type and presence
-        const CORETYPE: sys_api::PinSet = sys_api::Port::I.pin(5);
-        const CPU_PRESENT_L: sys_api::PinSet = sys_api::Port::C.pin(13);
-        const SP3R1: sys_api::PinSet = sys_api::Port::I.pin(4);
-        const SP3R2: sys_api::PinSet = sys_api::Port::H.pin(13);
+// Externally pulled to V3P3_SYS_A0
+const NIC_PWREN_L_PULL: sys_api::Pull = sys_api::Pull::None;
 
-        // All of these are externally pulled to V3P3_SP3_VDD_33_S5_A1
-        const CORETYPE_PULL: sys_api::Pull = sys_api::Pull::None;
-        const CPU_PRESENT_L_PULL: sys_api::Pull = sys_api::Pull::None;
-        const SP3R1_PULL: sys_api::Pull = sys_api::Pull::None;
-        const SP3R2_PULL: sys_api::Pull = sys_api::Pull::None;
+// Pins related to core type and presence
+const CORETYPE: sys_api::PinSet = sys_api::Port::I.pin(5);
+const CPU_PRESENT_L: sys_api::PinSet = sys_api::Port::C.pin(13);
+const SP3R1: sys_api::PinSet = sys_api::Port::I.pin(4);
+const SP3R2: sys_api::PinSet = sys_api::Port::H.pin(13);
 
-        fn vcore_soc_off() -> Result<(), i2c::ResponseCode> {
-            use drv_i2c_devices::raa229618::Raa229618;
-            let i2c = I2C.get_task_id();
+// All of these are externally pulled to V3P3_SP3_VDD_33_S5_A1
+const CORETYPE_PULL: sys_api::Pull = sys_api::Pull::None;
+const CPU_PRESENT_L_PULL: sys_api::Pull = sys_api::Pull::None;
+const SP3R1_PULL: sys_api::Pull = sys_api::Pull::None;
+const SP3R2_PULL: sys_api::Pull = sys_api::Pull::None;
 
-            let (device, opt_rail) = i2c_config::pmbus::vdd_vcore(i2c);
-            let rail = opt_rail.unwrap_or(0);
-            let mut vdd_vcore = Raa229618::new(&device, rail);
+fn vcore_soc_off() -> Result<(), i2c::ResponseCode> {
+    use drv_i2c_devices::raa229618::Raa229618;
+    let i2c = I2C.get_task_id();
 
-            let (device, opt_rail) = i2c_config::pmbus::vddcr_soc(i2c);
-            let rail = opt_rail.unwrap_or(0);
-            let mut vddcr_soc = Raa229618::new(&device, rail);
+    let (device, opt_rail) = i2c_config::pmbus::vdd_vcore(i2c);
+    let rail = opt_rail.unwrap_or(0);
+    let mut vdd_vcore = Raa229618::new(&device, rail);
 
-            retry_i2c_txn(I2cTxn::VCoreOff, || vdd_vcore.turn_off())?;
-            retry_i2c_txn(I2cTxn::SocOff, || vddcr_soc.turn_off())?;
-            Ok(())
-        }
+    let (device, opt_rail) = i2c_config::pmbus::vddcr_soc(i2c);
+    let rail = opt_rail.unwrap_or(0);
+    let mut vddcr_soc = Raa229618::new(&device, rail);
 
-        fn vcore_soc_on() -> Result<(), i2c::ResponseCode> {
-            use drv_i2c_devices::raa229618::Raa229618;
-            let i2c = I2C.get_task_id();
+    retry_i2c_txn(I2cTxn::VCoreOff, || vdd_vcore.turn_off())?;
+    retry_i2c_txn(I2cTxn::SocOff, || vddcr_soc.turn_off())?;
+    Ok(())
+}
 
-            let (device, opt_rail) = i2c_config::pmbus::vdd_vcore(i2c);
-            let rail = opt_rail.unwrap_or(0);
-            let mut vdd_vcore = Raa229618::new(&device, rail);
+fn vcore_soc_on() -> Result<(), i2c::ResponseCode> {
+    use drv_i2c_devices::raa229618::Raa229618;
+    let i2c = I2C.get_task_id();
 
-            let (device, opt_rail) = i2c_config::pmbus::vddcr_soc(i2c);
-            let rail = opt_rail.unwrap_or(0);
-            let mut vddcr_soc = Raa229618::new(&device, rail);
+    let (device, opt_rail) = i2c_config::pmbus::vdd_vcore(i2c);
+    let rail = opt_rail.unwrap_or(0);
+    let mut vdd_vcore = Raa229618::new(&device, rail);
 
-            retry_i2c_txn(I2cTxn::VCoreOn, || vdd_vcore.turn_on())?;
-            retry_i2c_txn(I2cTxn::SocOn, || vddcr_soc.turn_on())?;
-            Ok(())
-        }
+    let (device, opt_rail) = i2c_config::pmbus::vddcr_soc(i2c);
+    let rail = opt_rail.unwrap_or(0);
+    let mut vddcr_soc = Raa229618::new(&device, rail);
 
-        //
-        // We have had issues whereby V3P3_SYS_A0 is inadvertently driven by a
-        // pin on the SP (e.g., a pin that is pulled up to V3P3_SYS_A0 being
-        // configured as a push/pull GPIO rather than open drain).  The side
-        // effects of this are nasty from the SP3 side, so to help debug any
-        // such inadvertent driving, we record the Vout of V3P3_SYS_A0 after
-        // arriving in A2 and then before starting any state transition; this
-        // convenience routine makes these recordings easy to sprinkle as
-        // needed.
-        //
-        fn ringbuf_entry_v3p3_sys_a0_vout() {
-            use drv_i2c_devices::tps546b24a::Tps546B24A;
-            use drv_i2c_devices::VoltageSensor;
+    retry_i2c_txn(I2cTxn::VCoreOn, || vdd_vcore.turn_on())?;
+    retry_i2c_txn(I2cTxn::SocOn, || vddcr_soc.turn_on())?;
+    Ok(())
+}
 
-            let i2c = I2C.get_task_id();
+//
+// We have had issues whereby V3P3_SYS_A0 is inadvertently driven by a
+// pin on the SP (e.g., a pin that is pulled up to V3P3_SYS_A0 being
+// configured as a push/pull GPIO rather than open drain).  The side
+// effects of this are nasty from the SP3 side, so to help debug any
+// such inadvertent driving, we record the Vout of V3P3_SYS_A0 after
+// arriving in A2 and then before starting any state transition; this
+// convenience routine makes these recordings easy to sprinkle as
+// needed.
+//
+fn ringbuf_entry_v3p3_sys_a0_vout() {
+    use drv_i2c_devices::VoltageSensor;
+    use drv_i2c_devices::tps546b24a::Tps546B24A;
 
-            let (device, _rail) = i2c_config::pmbus::v3p3_sys_a0(i2c);
-            let v3p3_sys_a0 = Tps546B24A::new(&device);
+    let i2c = I2C.get_task_id();
 
-            ringbuf_entry!(
-                Trace::V3P3SysA0VOut(v3p3_sys_a0.read_vout().unwrap_lite())
-            );
-        }
-    } else {
-        compile_error!("unsupported target board");
-    }
+    let (device, _rail) = i2c_config::pmbus::v3p3_sys_a0(i2c);
+    let v3p3_sys_a0 = Tps546B24A::new(&device);
+
+    ringbuf_entry!(Trace::V3P3SysA0VOut(v3p3_sys_a0.read_vout().unwrap_lite()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

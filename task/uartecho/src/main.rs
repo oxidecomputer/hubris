@@ -186,8 +186,8 @@ fn configure_uart_device() -> Usart {
 
     let hardware_flow_control = cfg!(feature = "hardware_flow_control");
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "usart1")] {
+    cfg_select! {
+        feature = "usart1" => {
             const PINS: &[(PinSet, Alternate)] = {
                 if cfg!(feature = "hardware_flow_control") {
                     // NOTE: These pins are for gimletlet, not gimlet!
@@ -210,7 +210,8 @@ fn configure_uart_device() -> Usart {
             // just reference it.
             let usart = unsafe { &*device::USART1::ptr() };
             let peripheral = Peripheral::Usart1;
-        } else if #[cfg(feature = "usart2")] {
+        }
+        feature = "usart2" => {
             const PINS: &[(PinSet, Alternate)] = {
                 if cfg!(feature = "hardware_flow_control") {
                     &[(
@@ -223,7 +224,8 @@ fn configure_uart_device() -> Usart {
             };
             let usart = unsafe { &*device::USART2::ptr() };
             let peripheral = Peripheral::Usart2;
-        } else if #[cfg(feature = "uart7")] {
+        }
+        feature = "uart7" => {
             const PINS: &[(PinSet, Alternate)] = {
                 if cfg!(feature = "hardware_flow_control") {
                     &[(
@@ -236,7 +238,8 @@ fn configure_uart_device() -> Usart {
             };
             let usart = unsafe { &*device::UART7::ptr() };
             let peripheral = Peripheral::Uart7;
-        } else {
+        }
+        _ => {
             compile_error!("no usartX/uartX feature specified");
         }
     }

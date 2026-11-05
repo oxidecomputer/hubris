@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 bitflags = { workspace = true }
 byteorder = { workspace = true }
-cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }

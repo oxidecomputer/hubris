@@ -6,14 +6,16 @@
 
 #![no_std]
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "family-stm32g0")] {
+cfg_select! {
+    feature = "family-stm32g0" => {
         mod g0;
         pub use self::g0::*;
-    } else if #[cfg(feature = "family-stm32h7")] {
+    }
+    feature = "family-stm32h7" => {
         mod h7;
         pub use self::h7::*;
-    } else {
+    }
+    _ => {
         compile_error!("unsupported SoC family");
     }
 }
