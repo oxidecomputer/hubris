@@ -266,7 +266,7 @@ impl I2cController<'_> {
         // configuration!
         cfg_select! {
             any(feature = "h743", feature = "h753") => {
-                cfg_select! {
+                let scldel = cfg_select! {
                     // Due to AMD Milan erratum 1394, the processor needs an
                     // abnormally long data setup time from an I2C target
                     // sending an ACK. (According to the erratum,
@@ -281,13 +281,9 @@ impl I2cController<'_> {
                     // therefore set SCLDEL to a value that will amount to a
                     // 560 ns setup time; if it is not set, we set SCLDEL to
                     // the ST-prescribed value of 280 ns.
-                    feature = "amd_erratum_1394" => {
-                        let scldel = 13;
-                    }
-                    _ => {
-                        let scldel = 6;
-                    }
-                }
+                    feature = "amd_erratum_1394" => 13,
+                    _ => 6,
+                };
 
                 // Here our APB1 peripheral clock is 100MHz, yielding the
                 // following:

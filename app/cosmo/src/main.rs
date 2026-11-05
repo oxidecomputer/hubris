@@ -80,17 +80,11 @@ fn system_init() {
     // Okay! What does the fox^Wpins say?
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
-    cfg_select! {
-        target_board = "cosmo-a" => {
-            let expected_rev = 0b000;
-        }
-        target_board = "cosmo-b" => {
-            let expected_rev = 0b001;
-        }
-        _ => {
-            compile_error!("not a recognized cosmo board")
-        }
-    }
+    let expected_rev = cfg_select! {
+        target_board = "cosmo-a" => 0b000,
+        target_board = "cosmo-b" => 0b001,
+        _ => compile_error!("not a recognized cosmo board"),
+    };
 
     assert_eq!(rev, expected_rev);
 

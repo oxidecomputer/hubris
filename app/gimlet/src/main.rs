@@ -152,26 +152,14 @@ fn system_init() {
     // Pull CRESET high for a clean handoff to user code
     p.GPIOD.bsrr.write(|w| w.bs5().set());
 
-    cfg_select! {
-        target_board = "gimlet-b" => {
-            let expected_rev = 0b001;
-        }
-        target_board = "gimlet-c" => {
-            let expected_rev = 0b010;
-        }
-        target_board = "gimlet-d" => {
-            let expected_rev = 0b011;
-        }
-        target_board = "gimlet-e" => {
-            let expected_rev = 0b111; // hardware-gimlet#1952
-        }
-        target_board = "gimlet-f" => {
-            let expected_rev = 0b101;
-        }
-        _ => {
-            compile_error!("not a recognized gimlet board")
-        }
-    }
+    let expected_rev = cfg_select! {
+        target_board = "gimlet-b" => 0b001,
+        target_board = "gimlet-c" => 0b010,
+        target_board = "gimlet-d" => 0b011,
+        target_board = "gimlet-e" => 0b111, // hardware-gimlet#1952
+        target_board = "gimlet-f" => 0b101,
+        _ => compile_error!("not a recognized gimlet board"),
+    };
 
     assert_eq!(rev, expected_rev);
 

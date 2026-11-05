@@ -65,17 +65,11 @@ fn system_init() {
     timer.blocking_delay_micros(100);
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
-    cfg_select! {
-        target_board = "psc-b" => {
-            let expected_rev = 0b001;
-        }
-        target_board = "psc-c" => {
-            let expected_rev = 0b010;
-        }
-        _ => {
-            compile_error!("not a recognized psc board")
-        }
-    }
+    let expected_rev = cfg_select! {
+        target_board = "psc-b" => 0b001,
+        target_board = "psc-c" => 0b010,
+        _ => compile_error!("not a recognized psc board"),
+    };
     assert_eq!(rev, expected_rev);
 
     // Drop the timer since we're passing the peripherals by ownership here.
