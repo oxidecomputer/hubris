@@ -874,130 +874,126 @@ fn exti_dispatch_for(
     })
 }
 
+#[cfg(feature = "exti")]
 impl NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
-        cfg_select! {
-            feature = "exti" => notifications::EXTI_WILDCARD_IRQ_MASK,
-            // We don't use notifications, don't listen for any.
-            _ => 0,
-        }
+        notifications::EXTI_WILDCARD_IRQ_MASK
     }
 
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
-        cfg_select! {
-            feature = "exti" => {
-                if bits.check_notification_mask(
-                    notifications::EXTI_WILDCARD_IRQ_MASK
-                ) {
-                    // Some combination of external pin change interrupts have
-                    // been triggered! Our first task is to determine which.
-                    // Fortunately, that's easy; the peripheral has a "pending"
-                    // register that mirrors the NVIC's, and latches events when
-                    // they occur.
-                    let pending = self.exti.cpupr1.read();
-                    // We'll cross-correlate that with the mask register so we
-                    // only deliver events a task is actually interested in.
-                    let enabled = self.exti.cpuimr1.read();
+        if !bits.check_notification_mask(notifications::EXTI_WILDCARD_IRQ_MASK)
+        {
+            return;
+        }
+        // Some combination of external pin change interrupts have
+        // been triggered! Our first task is to determine which.
+        // Fortunately, that's easy; the peripheral has a "pending"
+        // register that mirrors the NVIC's, and latches events when
+        // they occur.
+        let pending = self.exti.cpupr1.read();
+        // We'll cross-correlate that with the mask register so we
+        // only deliver events a task is actually interested in.
+        let enabled = self.exti.cpuimr1.read();
 
-                    // The EXTI bits corresponding to pin events are in the
-                    // lower 16 bits. The PAC didn't expect us to use these as a
-                    // group, so we must bypass it here manually:
-                    let pending = pending.bits() as u16;
-                    let enabled = enabled.bits() as u16;
+        // The EXTI bits corresponding to pin events are in the
+        // lower 16 bits. The PAC didn't expect us to use these as a
+        // group, so we must bypass it here manually:
+        let pending = pending.bits() as u16;
+        let enabled = enabled.bits() as u16;
 
-                    let pending_and_enabled = pending & enabled;
+        let pending_and_enabled = pending & enabled;
 
-                    let mut bits_to_acknowledge = 0u16;
+        let mut bits_to_acknowledge = 0u16;
 
-                    for pin_idx in 0..16 {
-                        // TODO: this sure looks like it should be using
-                        // iter.enumerate, doesn't it? Unfortunately that's not
-                        // currently getting inlined by rustc, resulting in rather
-                        // silly code containing panics. This is significantly
-                        // smaller.
-                        let entry = &generated::EXTI_DISPATCH_TABLE[pin_idx];
-                        if pending_and_enabled & 1 << pin_idx != 0 {
-                            // A channel is pending! We need to handle this
-                            // basically like the kernel handles native hardware
-                            // interrupts, which means
-                            // - Post the event to the owning task
-                            // - Mask the interrupt
-                            // - Clear the pending bit (we have to do this
-                            //   manually unlike native interrupts).
+        for pin_idx in 0..16 {
+            // TODO: this sure looks like it should be using
+            // iter.enumerate, doesn't it? Unfortunately that's not
+            // currently getting inlined by rustc, resulting in rather
+            // silly code containing panics. This is significantly
+            // smaller.
+            let entry = &generated::EXTI_DISPATCH_TABLE[pin_idx];
+            if pending_and_enabled & 1 << pin_idx != 0 {
+                // A channel is pending! We need to handle this
+                // basically like the kernel handles native hardware
+                // interrupts, which means
+                // - Post the event to the owning task
+                // - Mask the interrupt
+                // - Clear the pending bit (we have to do this
+                //   manually unlike native interrupts).
 
-                            if let &Some(ExtiDispatch { task, mask, name, .. }) = entry {
-                                counters::count!(__EXTI_IRQ_COUNTERS, name);
+                if let &Some(ExtiDispatch {
+                    task, mask, name, ..
+                }) = entry
+                {
+                    counters::count!(__EXTI_IRQ_COUNTERS, name);
 
-                                let task = sys_refresh_task_id(task);
-                                sys_post(task, mask);
-                            } else {
-                                // spurious interrupt.
-                                // TODO: probably add this to a counter; it's
-                                // almost certainly a bug, but panicking would
-                                // be rude since this is a shared service.
-                            }
-
-                            bits_to_acknowledge |= 1 << pin_idx;
-                        }
-                    }
-
-                    if bits_to_acknowledge != 0 {
-                        // Save pending bits so that when the tasks that own the
-                        // interrupt(s) that fired call `Sys.gpio_irq_control` to
-                        // check if their IRQs fired, we'll be able to tell them.
-                        self.exti_cpupr_2 |= bits_to_acknowledge;
-
-                        // Mask and unpend interrupts en masse to save like six
-                        // cycles because we'll totally notice in practice
-                        // </mild-sarcasm>
-
-                        // Zero-extend for convenience below:
-                        let bits_to_acknowledge = u32::from(bits_to_acknowledge);
-
-                        // Mask the sources we're handling by clearing the
-                        // corresponding mask bits. The EXTI unfortunately has
-                        // no way to do this atomically, we need to RMW.
-                        // Fortunately the mask bits are only changed by
-                        // software, and only by _this_ software.
-                        self.exti.cpuimr1.modify(|r, w| {
-                            let new_value = r.bits() & !bits_to_acknowledge;
-                            // Safety: this operation is unsafe because the PAC
-                            // hasn't thought about it. Enabling an interrupt
-                            // source is basically always "safe" in the Rust
-                            // sense on Hubris.
-                            unsafe {
-                                w.bits(new_value)
-                            }
-                        });
-
-                        // Clear pending. This _can_ be done atomically without
-                        // risk of losing events, thank the maker. The register
-                        // is a write-1-to-clear register.
-                        self.exti.cpupr1.write(|w| {
-                            // Safety: this is unsafe because the PAC hasn't
-                            // thought about it. Clearing pending interrupt
-                            // sources is safe-in-the-Rust sense in our
-                            // application (and, in practice, probably in all
-                            // applications).
-                            unsafe {
-                                w.bits(bits_to_acknowledge)
-                            }
-                        });
-                    }
-
-                    // Make sure we always turn this source back on.
-                    sys_irq_control(
-                        notifications::EXTI_WILDCARD_IRQ_MASK,
-                        true,
-                    );
+                    let task = sys_refresh_task_id(task);
+                    sys_post(task, mask);
+                } else {
+                    // spurious interrupt.
+                    // TODO: probably add this to a counter; it's
+                    // almost certainly a bug, but panicking would
+                    // be rude since this is a shared service.
                 }
-            }
-            _ => {
-                // prevent unused variable warning:
-                let _ = bits;
-                unreachable!()
+
+                bits_to_acknowledge |= 1 << pin_idx;
             }
         }
+
+        if bits_to_acknowledge != 0 {
+            // Save pending bits so that when the tasks that own the
+            // interrupt(s) that fired call `Sys.gpio_irq_control` to
+            // check if their IRQs fired, we'll be able to tell them.
+            self.exti_cpupr_2 |= bits_to_acknowledge;
+
+            // Mask and unpend interrupts en masse to save like six
+            // cycles because we'll totally notice in practice
+            // </mild-sarcasm>
+
+            // Zero-extend for convenience below:
+            let bits_to_acknowledge = u32::from(bits_to_acknowledge);
+
+            // Mask the sources we're handling by clearing the
+            // corresponding mask bits. The EXTI unfortunately has
+            // no way to do this atomically, we need to RMW.
+            // Fortunately the mask bits are only changed by
+            // software, and only by _this_ software.
+            self.exti.cpuimr1.modify(|r, w| {
+                let new_value = r.bits() & !bits_to_acknowledge;
+                // Safety: this operation is unsafe because the PAC
+                // hasn't thought about it. Enabling an interrupt
+                // source is basically always "safe" in the Rust
+                // sense on Hubris.
+                unsafe { w.bits(new_value) }
+            });
+
+            // Clear pending. This _can_ be done atomically without
+            // risk of losing events, thank the maker. The register
+            // is a write-1-to-clear register.
+            self.exti.cpupr1.write(|w| {
+                // Safety: this is unsafe because the PAC hasn't
+                // thought about it. Clearing pending interrupt
+                // sources is safe-in-the-Rust sense in our
+                // application (and, in practice, probably in all
+                // applications).
+                unsafe { w.bits(bits_to_acknowledge) }
+            });
+        }
+
+        // Make sure we always turn this source back on.
+        sys_irq_control(notifications::EXTI_WILDCARD_IRQ_MASK, true);
+    }
+}
+
+#[cfg(not(feature = "exti"))]
+impl NotificationHandler for ServerImpl<'_> {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+        unreachable!()
     }
 }
 

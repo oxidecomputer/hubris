@@ -80,10 +80,10 @@ fn system_init() {
     // Okay! What does the fox^Wpins say?
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
-    #[cfg(not(target_board = "metro-a"))]
-    compile_error!("not a recognized metro board");
-
-    let expected_rev = 0b000;
+    let expected_rev = cfg_select! {
+        target_board = "metro-a" => 0b000,
+        _ => compile_error!("not a recognized metro board"),
+    };
 
     assert_eq!(rev, expected_rev);
 

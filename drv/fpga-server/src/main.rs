@@ -24,25 +24,24 @@ task_slot!(I2C, i2c_driver);
 #[cfg(feature = "front_io")]
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-cfg_select! {
-    // Select local vs server SPI communication
-    feature = "use-spi-core" => {
-        /// Claims the SPI core.
-        ///
-        /// This function can only be called once, and will panic otherwise!
-        pub fn claim_spi(sys: &sys_api::Sys)
-            -> drv_stm32h7_spi_server_core::SpiServerCore
-        {
-            drv_stm32h7_spi_server_core::declare_spi_core!(
-                sys.clone(), notifications::SPI_IRQ_MASK)
-        }
-    }
-    _ => {
-        pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
-            task_slot!(SPI, spi_driver);
-            drv_spi_api::Spi::from(SPI.get_task_id())
-        }
-    }
+/// Claims the SPI core.
+///
+/// This function can only be called once, and will panic otherwise!
+#[cfg(feature = "use-spi-core")]
+pub fn claim_spi(
+    sys: &sys_api::Sys,
+) -> drv_stm32h7_spi_server_core::SpiServerCore {
+    drv_stm32h7_spi_server_core::declare_spi_core!(
+        sys.clone(),
+        notifications::SPI_IRQ_MASK
+    )
+}
+
+/// Non-local version of the above.
+#[cfg(not(feature = "use-spi-core"))]
+pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
+    task_slot!(SPI, spi_driver);
+    drv_spi_api::Spi::from(SPI.get_task_id())
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

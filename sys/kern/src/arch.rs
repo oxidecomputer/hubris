@@ -22,9 +22,6 @@ use crate::task::{ArchState, Task};
 use crate::time::Timestamp;
 
 cfg_select! {
-    // Note: cfg_if! is slightly touchy about ordering and expression
-    // complexity; this chain seems to be the best compromise.
-    //
     // NOTE: kept identical with detection method used in
     // `userlib/src/arch/mod.rs`.
     not(target_pointer_width = "32") => {

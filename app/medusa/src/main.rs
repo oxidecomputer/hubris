@@ -82,10 +82,10 @@ fn system_init() {
     let id_mask = (1 << 6) | (1 << 7) | (1 << 13);
     let model = p.GPIOC.idr.read().bits() & id_mask;
 
-    #[cfg(not(target_board = "medusa-a"))]
-    compile_error!("not a recognized medusa board");
-
-    let expected_model = 0b000;
+    let expected_model = cfg_select! {
+        target_board = "medusa-a" => 0b000,
+        _ => compile_error!("not a recognized medusa board"),
+    };
 
     assert_eq!(model, expected_model);
 
