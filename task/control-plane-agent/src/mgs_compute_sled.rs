@@ -1625,49 +1625,32 @@ fn configure_usart() -> Usart {
         " should be enabled",
     ));
 
-    cfg_select! {
-        feature = "usart1" => {
-            const PINS: &[(PinSet, Alternate)] = &[(
-                Port::A.pin(9).and_pin(10).and_pin(11).and_pin(12),
-                Alternate::AF7
-            )];
+    const PINS: &[(PinSet, Alternate)] = cfg_select! {
+        feature = "usart1" => &[(
+            Port::A.pin(9).and_pin(10).and_pin(11).and_pin(12),
+            Alternate::AF7
+        )],
+        feature = "usart1-gimletlet" => &[
+            (Port::A.pin(11).and_pin(12), Alternate::AF7),
+            (Port::B.pin(6).and_pin(7), Alternate::AF7),
+        ],
+        _ => compile_error!("no usartX feature specified"),
+    };
 
-            // From thin air, pluck a pointer to the USART register block.
-            //
-            // Safety: this is needlessly unsafe in the API. The USART is
-            // essentially a static, and we access it through a & reference so
-            // aliasing is not a concern. Were it literally a static, we could
-            // just reference it.
-            let usart = unsafe { &*device::USART1::ptr() };
-            let peripheral = Peripheral::Usart1;
-            let pins = PINS;
-        }
-        feature = "usart1-gimletlet" => {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::A.pin(11).and_pin(12), Alternate::AF7),
-                (Port::B.pin(6).and_pin(7), Alternate::AF7),
-            ];
-
-            // From thin air, pluck a pointer to the USART register block.
-            //
-            // Safety: this is needlessly unsafe in the API. The USART is
-            // essentially a static, and we access it through a & reference so
-            // aliasing is not a concern. Were it literally a static, we could
-            // just reference it.
-            let usart = unsafe { &*device::USART1::ptr() };
-            let peripheral = Peripheral::Usart1;
-            let pins = PINS;
-        }
-        _ => {
-            compile_error!("no usartX feature specified");
-        }
-    }
+    // From thin air, pluck a pointer to the USART register block.
+    //
+    // Safety: this is needlessly unsafe in the API. The USART is
+    // essentially a static, and we access it through a & reference so
+    // aliasing is not a concern. Were it literally a static, we could
+    // just reference it.
+    let usart = unsafe { &*device::USART1::ptr() };
+    let peripheral = Peripheral::Usart1;
 
     Usart::turn_on(
         &Sys::from(SYS.get_task_id()),
         usart,
         peripheral,
-        pins,
+        PINS,
         CLOCK_HZ,
         BAUD_RATE,
         true, // hardware_flow_control

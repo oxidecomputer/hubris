@@ -43,12 +43,8 @@ fn gen_mfg_artifacts(
         feature = "dice-mfg" => {
             dice_mfg_usart::gen_mfg_artifacts_usart(peripherals, flash)
         }
-        feature = "dice-self" => {
-            gen_mfg_artifacts_self(peripherals, flash)
-        }
-        _ => {
-            compile_error!("No DICE manufacturing process selected.");
-        }
+        feature = "dice-self" => gen_mfg_artifacts_self(peripherals, flash),
+        _ => compile_error!("No DICE manufacturing process selected."),
     }
 }
 

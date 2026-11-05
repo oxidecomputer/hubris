@@ -1991,7 +1991,6 @@ cfg_select! {
                 self.swap(value, ordering)
             }
         }
-
     }
 }
 

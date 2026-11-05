@@ -386,84 +386,82 @@ fn main() -> ! {
     // concern. Were it literally a static, we could just reference it.
     let rcc = unsafe { &*device::RCC::ptr() };
 
-    cfg_select! {
-        feature = "exti" => {
-            // EXTI routing global setup.
+    #[cfg(feature = "exti")]
+    {
+        // EXTI routing global setup.
 
-            // Set up external interrupt routing. This routing is not in EXTI --
-            // that would be too easy! It's in SYSCFG.
-            //
-            // Over in SYSCFG we assign one GPIO port to each of 16 channels, or
-            // rather, to the subset of channels that are actually being used in
-            // our configuration table.
+        // Set up external interrupt routing. This routing is not in EXTI --
+        // that would be too easy! It's in SYSCFG.
+        //
+        // Over in SYSCFG we assign one GPIO port to each of 16 channels, or
+        // rather, to the subset of channels that are actually being used in
+        // our configuration table.
 
-            // Safety: same complaint as above, this is needlessly unsafe in the
-            // API the way we use peripherals.
-            let syscfg = unsafe { &*device::SYSCFG::ptr() };
+        // Safety: same complaint as above, this is needlessly unsafe in the
+        // API the way we use peripherals.
+        let syscfg = unsafe { &*device::SYSCFG::ptr() };
 
-            for (i, entry) in dispatch_table_iter() {
-                // Process entries that are filled in...
-                if let &Some(ExtiDispatch { port, .. }) = entry {
-                    let register = i >> 2;
-                    let slot = i & 0b11;
+        for (i, entry) in dispatch_table_iter() {
+            // Process entries that are filled in...
+            if let &Some(ExtiDispatch { port, .. }) = entry {
+                let register = i >> 2;
+                let slot = i & 0b11;
 
-                    // This is an array of 4-bit fields spread across 4 32-bit
-                    // registers. We're indexing them with i. There is really no
-                    // good way to do this with the PAC, so we get the vaguely
-                    // horrible nest of match statements you see below. Its goal
-                    // is to
-                    // 1. Select a register based on the top two bits of the
-                    //    index, and then
-                    // 2. Select a field within that register based on the
-                    //    bottom two.
-                    // 3. Stuff the port number into that field.
-                    // 4. Write it back.
-                    match register {
-                        0 => syscfg.exticr1.modify(|_, w| match slot {
-                            // Safety: field modeled incorrectly in PAC
-                            0 => unsafe { w.exti0().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            1 => unsafe { w.exti1().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            2 => unsafe { w.exti2().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            _ => unsafe { w.exti3().bits(port as u8) },
-                        }),
-                        1 => syscfg.exticr2.modify(|_, w| match slot {
-                            // Safety: field modeled incorrectly in PAC
-                            0 => unsafe { w.exti4().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            1 => unsafe { w.exti5().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            2 => unsafe { w.exti6().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            _ => unsafe { w.exti7().bits(port as u8) },
-                        }),
-                        2 => syscfg.exticr3.modify(|_, w| match slot {
-                            // Safety: field modeled incorrectly in PAC
-                            0 => unsafe { w.exti8().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            1 => unsafe { w.exti9().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            2 => unsafe { w.exti10().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            _ => unsafe { w.exti11().bits(port as u8) },
-                        }),
-                        _ => syscfg.exticr4.modify(|_, w| match slot {
-                            // Safety: field modeled incorrectly in PAC
-                            0 => unsafe { w.exti12().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            1 => unsafe { w.exti13().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            2 => unsafe { w.exti14().bits(port as u8) },
-                            // Safety: field modeled incorrectly in PAC
-                            _ => unsafe { w.exti15().bits(port as u8) },
-                        }),
-                    }
+                // This is an array of 4-bit fields spread across 4 32-bit
+                // registers. We're indexing them with i. There is really no
+                // good way to do this with the PAC, so we get the vaguely
+                // horrible nest of match statements you see below. Its goal
+                // is to
+                // 1. Select a register based on the top two bits of the
+                //    index, and then
+                // 2. Select a field within that register based on the
+                //    bottom two.
+                // 3. Stuff the port number into that field.
+                // 4. Write it back.
+                match register {
+                    0 => syscfg.exticr1.modify(|_, w| match slot {
+                        // Safety: field modeled incorrectly in PAC
+                        0 => unsafe { w.exti0().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        1 => unsafe { w.exti1().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        2 => unsafe { w.exti2().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        _ => unsafe { w.exti3().bits(port as u8) },
+                    }),
+                    1 => syscfg.exticr2.modify(|_, w| match slot {
+                        // Safety: field modeled incorrectly in PAC
+                        0 => unsafe { w.exti4().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        1 => unsafe { w.exti5().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        2 => unsafe { w.exti6().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        _ => unsafe { w.exti7().bits(port as u8) },
+                    }),
+                    2 => syscfg.exticr3.modify(|_, w| match slot {
+                        // Safety: field modeled incorrectly in PAC
+                        0 => unsafe { w.exti8().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        1 => unsafe { w.exti9().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        2 => unsafe { w.exti10().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        _ => unsafe { w.exti11().bits(port as u8) },
+                    }),
+                    _ => syscfg.exticr4.modify(|_, w| match slot {
+                        // Safety: field modeled incorrectly in PAC
+                        0 => unsafe { w.exti12().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        1 => unsafe { w.exti13().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        2 => unsafe { w.exti14().bits(port as u8) },
+                        // Safety: field modeled incorrectly in PAC
+                        _ => unsafe { w.exti15().bits(port as u8) },
+                    }),
                 }
             }
         }
-        _ => {}
     }
 
     // Global setup.
@@ -753,7 +751,6 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                 self.exti_cpupr_2 &= !slot_mask;
 
                 Ok(pending)
-
             }
             _ => {
                 // Suppress unused variable warnings (yay conditional
@@ -834,7 +831,6 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                 } else {
                     Ok(())
                 }
-
             }
             _ => {
                 // Suppress unused variable warnings (yay conditional
@@ -881,13 +877,9 @@ fn exti_dispatch_for(
 impl NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
         cfg_select! {
-            feature = "exti" => {
-                notifications::EXTI_WILDCARD_IRQ_MASK
-            }
-            _ => {
-                // We don't use notifications, don't listen for any.
-                0
-            }
+            feature = "exti" => notifications::EXTI_WILDCARD_IRQ_MASK,
+            // We don't use notifications, don't listen for any.
+            _ => 0,
         }
     }
 

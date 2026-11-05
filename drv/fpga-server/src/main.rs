@@ -19,13 +19,10 @@ use idol_runtime::{ClientError, Leased, LenLimit, R, W};
 
 task_slot!(SYS, sys);
 
-cfg_select! {
-    feature = "front_io" => {
-        task_slot!(I2C, i2c_driver);
-        include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
-    }
-    _ => {}
-}
+#[cfg(feature = "front_io")]
+task_slot!(I2C, i2c_driver);
+#[cfg(feature = "front_io")]
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 cfg_select! {
     // Select local vs server SPI communication
@@ -67,12 +64,18 @@ fn main() -> ! {
 
     cfg_select! {
         all(feature = "mainboard", feature = "front_io") => {
-            compile_error!("Cannot enable both mainboard and front_io simultaneously");
+            compile_error!(
+                "Cannot enable both mainboard and front_io simultaneously"
+            );
         }
-        all(any(target_board = "sidecar-b",
-                                target_board = "sidecar-c",
-                                target_board = "sidecar-d"),
-                            feature = "mainboard") => {
+        all(
+            any(
+                target_board = "sidecar-b",
+                target_board = "sidecar-c",
+                target_board = "sidecar-d",
+            ),
+            feature = "mainboard",
+        ) => {
             let configuration_port =
                 spi.device(drv_spi_api::devices::ECP5_MAINBOARD_FPGA);
             let user_design =
@@ -92,11 +95,15 @@ fn main() -> ! {
 
             let devices = [ecp5::Ecp5::new(driver)];
         }
-        all(any(target_board = "sidecar-b",
-                                target_board = "sidecar-c",
-                                target_board = "sidecar-d",
-                                target_board = "medusa-a"),
-                            feature = "front_io") => {
+        all(
+            any(
+                target_board = "sidecar-b",
+                target_board = "sidecar-c",
+                target_board = "sidecar-d",
+                target_board = "medusa-a",
+            ),
+            feature = "front_io",
+        ) => {
             let configuration_port =
                 spi.device(drv_spi_api::devices::ECP5_FRONT_IO_FPGA);
             let user_design =

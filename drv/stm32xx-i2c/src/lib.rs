@@ -352,7 +352,7 @@ impl I2cController<'_> {
     }
 
     fn configure_timeouts(&self, i2c: &RegisterBlock) {
-        cfg_select! {
+        let timeouta = cfg_select! {
             //
             // The timeout value is defined to be:
             //
@@ -363,24 +363,17 @@ impl I2cController<'_> {
             // (196). Note that these numbers make assumptions about the
             // system's clocking and clock tree configuration; TODO.
             //
-            any(feature = "h743", feature = "h753") => {
-                i2c.timeoutr.write(|w| { w
-                    .timouten().set_bit()           // Enable SCL timeout
-                    .timeouta().bits(1220)          // Timeout value
-                    .tidle().clear_bit()            // Want SCL, not IDLE
-                });
-            }
-            any(feature = "g030", feature = "g031") => {
-                i2c.timeoutr.write(|w| { w
-                    .timouten().set_bit()           // Enable SCL timeout
-                    .timeouta().bits(196)           // Timeout value
-                    .tidle().clear_bit()            // Want SCL, not IDLE
-                });
-            }
-            _ => {
-                compile_error!("unknown STM32xx variant");
-            }
-        }
+            any(feature = "h743", feature = "h753") => 1220,
+            any(feature = "g030", feature = "g031") => 196,
+            _ => compile_error!("unknown STM32xx variant"),
+        };
+
+        #[rustfmt::skip]
+        i2c.timeoutr.write(|w| { w
+            .timouten().set_bit()           // Enable SCL timeout
+            .timeouta().bits(timeouta)      // Timeout value
+            .tidle().clear_bit()            // Want SCL, not IDLE
+        });
     }
 
     pub fn configure(&self) {
