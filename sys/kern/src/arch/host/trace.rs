@@ -9,30 +9,12 @@
 //! Currently, this is pretty basic `strace`-like output, printing a line for
 //! each system call that occurs.
 
+use crate::arch::host::config::{TraceFilter, options};
 use crate::arch::host::{Call, task_name_from_idx};
 use abi::{Sysnum, TaskId};
-use std::collections::HashSet;
-use std::sync::OnceLock;
-
-/// What `HUBRIS_HOST_TRACE` asked for.
-enum TraceFilter {
-    /// Don't emit any traces.
-    Off,
-    /// Emit traces for all tasks.
-    All,
-    /// Only syscalls involving one of these tasks.
-    Tasks(HashSet<String>),
-}
 
 fn trace_filter() -> &'static TraceFilter {
-    static FILTER: OnceLock<TraceFilter> = OnceLock::new();
-    FILTER.get_or_init(|| match std::env::var("HUBRIS_HOST_TRACE") {
-        Err(_) => TraceFilter::Off,
-        Ok(v) if v.is_empty() || v == "1" || v == "all" => TraceFilter::All,
-        Ok(v) => TraceFilter::Tasks(
-            v.split(',').map(|s| s.trim().to_string()).collect(),
-        ),
-    })
+    &options().trace
 }
 
 pub(crate) fn tracing() -> bool {
@@ -45,9 +27,9 @@ pub(crate) fn traced(participants: &[usize]) -> bool {
     match trace_filter() {
         TraceFilter::Off => false,
         TraceFilter::All => true,
-        TraceFilter::Tasks(names) => participants
-            .iter()
-            .any(|&i| names.contains(task_name_from_idx(i))),
+        TraceFilter::Tasks(indices) => {
+            participants.iter().any(|i| indices.contains(i))
+        }
     }
 }
 

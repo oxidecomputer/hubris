@@ -21,10 +21,10 @@ cortex-m = { workspace = true }
 armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
 
 # The host architecture: tasks are child processes speaking the hostcall
-# protocol, and the run is described by a RON configuration file.
+# protocol. TODO: Discuss command line options.
 [target.'cfg(not(target_os = "none"))'.dependencies]
+clap = { workspace = true }
 hostcall = { path = "../hostcall" }
-ron = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }

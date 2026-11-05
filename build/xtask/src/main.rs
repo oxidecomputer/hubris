@@ -61,24 +61,14 @@ enum Xtask {
         /// Build with the release profile instead of dev.
         #[clap(long)]
         release: bool,
-        /// Log every syscall the kernel handles to stderr.
-        #[clap(long)]
-        trace: bool,
-        /// Log only syscalls made by, or addressed to, these tasks
-        /// (comma-separated names); implies --trace.
-        #[clap(long, value_name = "TASKS")]
-        trace_only: Option<String>,
-        /// Stop once time would pass this many ticks (milliseconds).
-        #[clap(long)]
-        stop_at: Option<u64>,
-        /// Run at the wall clock speed, instead of as fast as possible.
-        #[clap(long)]
-        realtime: bool,
-        /// Build everything and write the run configuration, but don't run.
+        /// Build everything, but don't run.
         #[clap(long)]
         no_run: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
+        /// TODO: Add help text
+        #[clap(last = true)]
+        kernel_args: Vec<String>,
     },
 
     /// Builds one or more cross-compiled binary as it would appear in the
@@ -427,23 +417,15 @@ fn run(xtask: Xtask) -> Result<()> {
         Xtask::HostRun {
             verbose,
             release,
-            trace,
-            trace_only,
-            stop_at,
-            realtime,
             no_run,
             cfg,
+            kernel_args,
         } => {
             host::run(
                 &cfg,
                 host::HostRunFlags {
                     build: host::HostBuildFlags { verbose, release },
-                    trace: match trace_only {
-                        Some(tasks) => Some(tasks),
-                        None => trace.then(|| "all".to_string()),
-                    },
-                    stop_at,
-                    realtime,
+                    kernel_args,
                     no_run,
                 },
             )?;

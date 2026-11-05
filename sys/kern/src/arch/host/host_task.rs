@@ -8,7 +8,8 @@
 //! and all task processes.
 
 use crate::arch::Arch;
-use crate::arch::host::{Host, config::config, fatal, task_name_from_idx};
+use crate::arch::host::config::{HOST_TASKS, options};
+use crate::arch::host::{Host, fatal, task_name_from_idx};
 use crate::task::{
     ArchState, BorrowArgs, PanicArgs, RecvArgs, ReplyArgs, SendArgs,
 };
@@ -139,11 +140,8 @@ pub(crate) fn processes() -> MutexGuard<'static, Vec<Option<TaskProcess>>> {
 
 /// Starts (or restarts) the process for task `index`.
 pub(crate) fn spawn_task(index: usize) {
-    let cfg = config();
-    let Some(desc) = cfg.tasks.get(index) else {
-        fatal(format_args!(
-            "task {index} is not described in the host configuration"
-        ))
+    let Some(desc) = HOST_TASKS.get(index) else {
+        fatal(format_args!("task {index} is not in the host task table"))
     };
     let mut procs = processes();
     if procs.len() <= index {
@@ -158,21 +156,28 @@ pub(crate) fn spawn_task(index: usize) {
     if desc.idle {
         return;
     }
-    let Some(exe) = &desc.executable else {
-        fatal(format_args!("task {} has no executable", desc.name))
-    };
-    let mut cmd = Command::new(exe);
+    let exe = options().task_dir.join(desc.name);
+    let mut cmd = Command::new(&exe);
 
     // Child tasks can use our stderr, we talk to them via piped stdio.
     cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
     let mut child = cmd.spawn().unwrap_or_else(|e| {
-        fatal(format_args!("launching {exe} for task {}: {e}", desc.name))
+        fatal(format_args!(
+            "launching {} for task {}: {e}",
+            exe.display(),
+            desc.name
+        ))
     });
     let stdout = child.stdout.take().expect("stdout was piped");
     let stdin = child.stdin.take().expect("stdin was piped");
-    trace!("task {} started: {exe} (pid {})", desc.name, child.id());
+    trace!(
+        "task {} started: {} (pid {})",
+        desc.name,
+        exe.display(),
+        child.id()
+    );
 
     procs[index] = Some(TaskProcess {
         child,

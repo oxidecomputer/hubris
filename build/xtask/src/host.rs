@@ -14,7 +14,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
-use serde::Serialize;
 
 use crate::config::BuildConfig;
 use crate::dist::PackageConfig;
@@ -69,6 +68,32 @@ fn build_crate(
     Ok(exe)
 }
 
+/// Name used for the kernel binary.
+const KERNEL_EXE: &str = "kernel";
+
+/// Path to the location where all host-built binaries are placed.
+fn run_dir(cfg: &PackageConfig) -> PathBuf {
+    Path::new(TARGET_DIR).join(&cfg.toml.name)
+}
+
+/// Build a single task, placing it in the location specifed by `run_dir()`.
+fn build_task(
+    cfg: &PackageConfig,
+    task: &str,
+    flags: &HostBuildFlags,
+) -> Result<PathBuf> {
+    if task == KERNEL_EXE {
+        bail!("a host app can't have a task named `{KERNEL_EXE}`");
+    }
+    let build_config = cfg.task_build_config(task).map_err(|e| anyhow!(e))?;
+    let built = build_crate(&build_config, flags)?;
+    let exe = run_dir(cfg).join(task);
+    std::fs::copy(&built, &exe).with_context(|| {
+        format!("copying {} to {}", built.display(), exe.display())
+    })?;
+    Ok(exe)
+}
+
 /// Builds each named task of `app_toml` for the host.
 pub fn build(
     app_toml: &Path,
@@ -76,13 +101,10 @@ pub fn build(
     flags: HostBuildFlags,
 ) -> Result<Vec<PathBuf>> {
     let cfg = PackageConfig::new(app_toml, flags.verbose, false)?;
+    std::fs::create_dir_all(run_dir(&cfg))?;
     tasks
         .iter()
-        .map(|task| {
-            let build_config =
-                cfg.task_build_config(task).map_err(|e| anyhow!(e))?;
-            build_crate(&build_config, &flags)
-        })
+        .map(|task| build_task(&cfg, task, &flags))
         .collect()
 }
 
@@ -90,61 +112,37 @@ pub fn build(
 /// and is handled specially by the kernel.
 const IDLE_TASK: &str = "idle";
 
-/// What `cargo xtask host-run` writes for the kernel; see `HostConfig` in
-/// `kern::arch::host`, which this must match.
+/// Arguments for `host-run` invocation.
 ///
-/// TODO: bring this out somewhere shared?
-#[derive(Serialize)]
-struct HostConfig {
-    tasks: Vec<HostTask>,
-    stop_at: Option<u64>,
-    realtime: bool,
-}
-
-/// TODO: bring this out somewhere shared? Same notes as `HostConfig`.
-#[derive(Serialize)]
-struct HostTask {
-    name: String,
-    executable: Option<String>,
-    idle: bool,
-}
-
-/// TODO: bring this out somewhere shared? Same notes as `HostConfig`.
+/// Includes args that will be passed through to the kernel.
 pub struct HostRunFlags {
     pub build: HostBuildFlags,
-    /// Value for `HUBRIS_HOST_TRACE`: `all`, or the tasks to trace.
-    pub trace: Option<String>,
-    /// Stop when time would pass this tick.
-    pub stop_at: Option<u64>,
-    /// Run at the wall clock's pace instead of as fast as possible.
-    pub realtime: bool,
+    /// Arguments for the kernel.
+    pub kernel_args: Vec<String>,
     /// Build everything but don't launch the kernel.
     pub no_run: bool,
 }
 
-/// Builds every task and the kernel of `app_toml` for the host, writes the
-/// kernel's run configuration, and launches the kernel.
+/// Builds every task and the kernel of `app_toml` for the host into one
+/// directory, and launches the kernel.
 pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
     let cfg = PackageConfig::new(app_toml, flags.build.verbose, false)?;
     let toml = &cfg.toml;
 
-    let mut host_tasks = Vec::new();
+    let run_dir = run_dir(&cfg);
+    if run_dir.exists() {
+        std::fs::remove_dir_all(&run_dir)
+            .with_context(|| format!("removing {}", run_dir.display()))?;
+    }
+    std::fs::create_dir_all(&run_dir)?;
+
     let mut kconfig_tasks = Vec::new();
     for (name, task) in &toml.tasks {
-        let idle = name == IDLE_TASK;
-        let executable = if idle {
-            None
-        } else {
-            let build_config =
-                cfg.task_build_config(name).map_err(|e| anyhow!(e))?;
-            let exe = build_crate(&build_config, &flags.build)?;
-            Some(dunce::canonicalize(&exe)?.display().to_string())
-        };
-        host_tasks.push(HostTask {
-            name: name.clone(),
-            executable,
-            idle,
-        });
+        // Skip building the idle task, as it will be faked by the kernel
+        // instead.
+        if name != IDLE_TASK {
+            build_task(&cfg, name, &flags.build)?;
+        }
         // Memory placement is all kind of made up on the host, since everything
         // is in separate tasks that share nothing anyway.
         let placeholder = build_kconfig::OwnedAddress {
@@ -180,40 +178,29 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
         ("HUBRIS_KCONFIG", &kconfig),
         ("HUBRIS_IMAGE_ID", &image_id),
     ]);
-    let kernel = build_crate(&kernel_config, &flags.build)?;
-
-    let run_dir = Path::new(TARGET_DIR).join(&toml.name);
-    std::fs::create_dir_all(&run_dir)?;
-    let config_path = run_dir.join("host-config.ron");
-    let host_config = HostConfig {
-        tasks: host_tasks,
-        stop_at: flags.stop_at,
-        realtime: flags.realtime,
-    };
-    std::fs::write(
-        &config_path,
-        ron::ser::to_string_pretty(&host_config, Default::default())?,
-    )?;
-    println!("wrote {}", config_path.display());
+    let built = build_crate(&kernel_config, &flags.build)?;
+    let kernel = run_dir.join(KERNEL_EXE);
+    std::fs::copy(&built, &kernel).with_context(|| {
+        format!("copying {} to {}", built.display(), kernel.display())
+    })?;
 
     if flags.no_run {
         println!(
-            "run with: HUBRIS_HOST_CONFIG={} {}",
-            config_path.display(),
-            kernel.display()
+            "run with: {} {}",
+            kernel.display(),
+            flags.kernel_args.join(" ")
         );
         return Ok(());
     }
 
-    let mut cmd = std::process::Command::new(&kernel);
-    cmd.env("HUBRIS_HOST_CONFIG", &config_path);
-    if let Some(trace) = &flags.trace {
-        cmd.env("HUBRIS_HOST_TRACE", trace);
-    }
     println!("running {}", kernel.display());
-    let status = cmd.status().context("launching the kernel")?;
-    if !status.success() {
-        bail!("the kernel exited with {status}");
+    let status = std::process::Command::new(&kernel)
+        .args(&flags.kernel_args)
+        .status()
+        .context("launching the kernel")?;
+    match status.code() {
+        Some(0) => Ok(()),
+        Some(code) => std::process::exit(code),
+        None => bail!("the kernel exited with {status}"),
     }
-    Ok(())
 }

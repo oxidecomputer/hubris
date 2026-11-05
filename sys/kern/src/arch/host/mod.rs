@@ -52,7 +52,7 @@ mod config;
 /// Interactions with task processes
 mod host_task;
 
-use config::config;
+use config::{HOST_TASKS, options};
 use host_task::{Call, SavedState, processes, spawn_task};
 use trace::{describe_syscall, syscall_name, tracing};
 
@@ -70,8 +70,8 @@ fn finish(msg: impl Display) -> ! {
 
 /// Get the name of the task based on its index.
 fn task_name_from_idx(index: usize) -> &'static str {
-    match config().tasks.get(index) {
-        Some(task) => &task.name,
+    match HOST_TASKS.get(index) {
+        Some(task) => task.name,
         None if index == TaskId::KERNEL.index() => "kernel",
         None => "?",
     }
@@ -113,7 +113,6 @@ fn current_task_index() -> (*mut Task, usize) {
 /// next syscall, and run the kernel for it.
 fn step() {
     let (current, index) = current_task_index();
-    let cfg = config();
 
     // Calculate task name width. This is a little extra, but it also seemed
     // wasteful to me to iterate the list of tasks and calculate the max name
@@ -127,10 +126,9 @@ fn step() {
         // are no tasks, or all tasks have a zero length name (???), then just
         // report the max width as 1 to avoid re-calculating.
         if width == 0 {
-            width = cfg
-                .tasks
+            width = HOST_TASKS
                 .iter()
-                .map(|t| t.name.as_str().len())
+                .map(|t| t.name.len())
                 .max()
                 .unwrap_or(0)
                 .max(1);
@@ -142,7 +140,7 @@ fn step() {
 
     // If this is an "idle" task, we're not going to call into it and return,
     // just do the appropriate book-keeping, and return from the current step.
-    if cfg.tasks.get(index).is_some_and(|t| t.idle) {
+    if HOST_TASKS.get(index).is_some_and(|t| t.idle) {
         idle_step(index, width);
         return;
     }
@@ -170,7 +168,7 @@ fn step() {
             trace_task!(
                 &[index],
                 "task {:>width$}: resumed from {} with {:02X?}",
-                cfg.tasks[index].name,
+                HOST_TASKS[index].name,
                 syscall_name(call.syscall_nr),
                 call.rets
             );
@@ -194,7 +192,7 @@ fn step() {
                 trace_task!(
                     &participants,
                     "task {:>width$}: {what}",
-                    cfg.tasks[index].name
+                    HOST_TASKS[index].name
                 );
             }
 
@@ -214,7 +212,7 @@ fn step() {
             trace_task!(
                 &[index],
                 "task {:>width$}: process ended, {fault:?}",
-                cfg.tasks[index].name
+                HOST_TASKS[index].name
             );
 
             // Oh no, the interaction went poorly. Let's tell the kernel that
@@ -248,7 +246,7 @@ fn idle_step(idle_index: usize, width: usize) {
             finish("every task is blocked and no timer is pending")
         };
         let target = deadline.max(Host::now());
-        if let Some(stop) = config().stop_at
+        if let Some(stop) = options().stop_at
             && u64::from(target) > stop
         {
             finish(format_args!(
@@ -256,7 +254,7 @@ fn idle_step(idle_index: usize, width: usize) {
             ))
         }
 
-        if config().realtime {
+        if options().realtime {
             // If we're in "realtime" mode, we want to appear to operate at
             // normal speed, so wait for the deadline to actually arrive.
             let wait = u64::from(target).saturating_sub(u64::from(Host::now()));
@@ -347,7 +345,7 @@ impl Arch for Host {
     /// Loads the run configuration, so a misconfigured run fails before any
     /// task starts, and starts the clock. Tick divisor unused.
     unsafe fn set_clock_freq(_tick_divisor: u32) {
-        let _ = config();
+        let _ = options();
         let _ = START.get_or_init(Instant::now);
     }
 
@@ -381,7 +379,7 @@ impl Arch for Host {
     }
 
     fn now() -> Timestamp {
-        if config().realtime {
+        if options().realtime {
             let start = START.get_or_init(Instant::now);
             Timestamp::from(start.elapsed().as_millis() as u64)
         } else {

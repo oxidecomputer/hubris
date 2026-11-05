@@ -4025,6 +4025,7 @@ dependencies = [
  "build-util",
  "byteorder",
  "call_rustfmt",
+ "clap 3.2.23",
  "cortex-m",
  "hostcall",
  "indexmap 1.9.1",

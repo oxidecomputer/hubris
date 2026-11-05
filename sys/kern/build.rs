@@ -414,11 +414,51 @@ fn host_config(kconfig: &KernelConfig) -> Result<Generated> {
         });
     }
 
+    generate_host_tasks(kconfig)?;
+
     Ok(Generated {
         tasks,
         regions,
         irq_code: generate_irq_code(kconfig)?,
     })
+}
+
+/// For the host, we generate a list of tasks that we will spawn, baked into
+/// the kernel image itself.
+fn generate_host_tasks(kconfig: &KernelConfig) -> Result<()> {
+    let names = build_util::env_var("HUBRIS_TASKS")?;
+    let names: Vec<&str> = names.split(',').collect();
+    if names.len() != kconfig.tasks.len() {
+        bail!(
+            "HUBRIS_TASKS names {} tasks, but HUBRIS_KCONFIG has {}",
+            names.len(),
+            kconfig.tasks.len()
+        );
+    }
+    let idle_count = names.iter().filter(|&&name| name == "idle").count();
+    if idle_count != 1 {
+        bail!(
+            "a host app needs exactly one task named `idle`, found {idle_count}"
+        );
+    }
+
+    let task_count = names.len();
+    let entries = names.iter().map(|&name| {
+        let idle = name == "idle";
+        quote::quote! {
+            HostTaskDesc { name: #name, idle: #idle }
+        }
+    });
+    let code = quote::quote! {
+        pub(crate) static HOST_TASKS: [HostTaskDesc; #task_count] = [
+            #(#entries),*
+        ];
+    };
+
+    let path = build_util::out_dir().join("host_tasks.rs");
+    std::fs::write(&path, code.to_string())
+        .with_context(|| format!("writing {}", path.display()))?;
+    Ok(())
 }
 
 fn translate_address(
