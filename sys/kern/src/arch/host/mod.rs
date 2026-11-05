@@ -230,7 +230,9 @@ fn step() {
         }
     }
 
-    deliver_pending_irqs();
+    // Ignore whether delivering IRQs changed the "next" task, since we're going
+    // to go back around to the scheduler anyway.
+    _ = deliver_pending_irqs();
 }
 
 /// The idle task was selected: nothing can run until a timer fires. Advance
@@ -277,6 +279,7 @@ fn idle_step(idle_index: usize, width: usize) {
 
 /// Posts any software-pended interrupts to their owners. Returns whether
 /// that changed which task is current.
+#[must_use]
 fn deliver_pending_irqs() -> bool {
     let irqs = std::mem::take(
         &mut *PENDING_IRQS.lock().unwrap_or_else(|e| e.into_inner()),

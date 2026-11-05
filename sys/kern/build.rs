@@ -355,13 +355,9 @@ fn generate_irq_code(kconfig: &KernelConfig) -> Result<TokenStream> {
 /// fake data designed to mimic real data.
 fn host_config(kconfig: &KernelConfig) -> Result<Generated> {
     let all_access = quote::quote! {
-        unsafe {
-            RegionAttributes::from_bits_unchecked(
-                RegionAttributes::READ.bits()
-                    | RegionAttributes::WRITE.bits()
-                    | RegionAttributes::EXECUTE.bits()
-            )
-        }
+        RegionAttributes::READ
+            .union(RegionAttributes::WRITE)
+            .union(RegionAttributes::EXECUTE)
     };
     let regions = vec![
         quote::quote! {
@@ -399,7 +395,7 @@ fn host_config(kconfig: &KernelConfig) -> Result<Generated> {
         // fills the unused slots.
         tasks.push(quote::quote! {
             TaskDesc {
-                regions: [
+                regions: crate::descs::SortedRegions::new([
                     &HUBRIS_REGION_DESCS[0],
                     &HUBRIS_REGION_DESCS[0],
                     &HUBRIS_REGION_DESCS[0],
@@ -408,7 +404,7 @@ fn host_config(kconfig: &KernelConfig) -> Result<Generated> {
                     &HUBRIS_REGION_DESCS[0],
                     &HUBRIS_REGION_DESCS[0],
                     &HUBRIS_REGION_DESCS[1],
-                ],
+                ]),
                 entry_point: 0u32,
                 initial_stack: 0u32,
                 priority: #priority,

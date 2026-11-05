@@ -243,12 +243,13 @@ pub(crate) struct Call {
     // by the kernel. Don't touch these until we're turning these back into the
     // [`Return`] when consuming [`Call`]!
     lease_bufs: Vec<UnsafeCell<Vec<u8>>>,
-    _input_buf: UnsafeCell<Vec<u8>>,
+    #[expect(unused)]
+    input_buf: UnsafeCell<Vec<u8>>,
     output_buf: UnsafeCell<Vec<u8>>,
     /// The lease table of a SEND, as the array of `ULease` the kernel
     /// expects to find in task memory.
     pub(crate) lease_table: Vec<ULease>,
-    /// The `input` slice, pointing to the payload of [`Self::_input_buf`].
+    /// The `input` slice, pointing to the payload of [`Self::input_buf`].
     input: USlice<u8>,
     /// The `output` slice, pointing to the payload of [`Self::output_buf`].
     output: USlice<u8>,
@@ -322,7 +323,7 @@ impl Call {
 
         // We also put the input/output into an unsafecell, they will be
         // accessed spookily by the kernel.
-        let _input_buf = UnsafeCell::new(syscall.input);
+        let input_buf = UnsafeCell::new(syscall.input);
         let output_buf = UnsafeCell::new(vec![0; syscall.output_len as usize]);
 
         // Now that the buffers are in an unsafecell, create the uslice from
@@ -336,7 +337,7 @@ impl Call {
                 .expect("Making a USlice from a vec should never fail")
         };
         let input = {
-            let i: &mut Vec<u8> = unsafe { &mut *_input_buf.get() };
+            let i: &mut Vec<u8> = unsafe { &mut *input_buf.get() };
             let len = i.len();
             let iptr: *const u8 = i.as_ptr();
             USlice::from_raw(iptr as usize, len)
@@ -347,7 +348,7 @@ impl Call {
             args: syscall.args,
             syscall_nr: syscall.nr,
             rets: [0; 6],
-            _input_buf,
+            input_buf,
             output_buf,
             lease_bufs,
             lease_table,
