@@ -104,10 +104,10 @@ quote = { version = "1", default-features = false }
 rand = { version = "0.10", default-features = false }
 rand_chacha = { version = "0.10", default-features = false }
 rangemap = { version = "1.3", default-features = false }
-rats-corim =  { git  = "https://github.com/oxidecomputer/rats-corim", rev = "f0d5d5168d3d31487a56df32c676b0c6240bcc6b" }
 regex = { version = "1", default-features = false, features = ["std", "perf", "unicode-perl"] }
 ron = { version = "0.8", default-features = false }
 rustc-demangle = { version = "0.1.24", default-features = false }
+salty = { version = "0.3", default-features = false }
 scroll = { version = "0.10", default-features = false }
 serde = { version = "1.0.114", default-features = false, features = ["derive"] }
 serde-big-array = { version = "0.4", default-features = false }
@@ -140,30 +140,27 @@ zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_de
 zip = { version = "8", default-features = false, features = ["bzip2"] }
 
 # Oxide forks and repos
-apob = { git = "https://github.com/oxidecomputer/apob", default-features = false }
-# Pin the dice-util crates to specific commits. Their versions were bumped upstream, and although
-# Cargo.lock has the correct commit hash, rust-analyzer can't find the old versions. See hubris#2408
-# for the migration.
+apob = { git = "https://github.com/oxidecomputer/apob", default-features = false, rev = "cc0755a5dc891b27b45a1d6ec6728e49bc1a991b" }
 attest-data = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.4.0", rev = "a0811d06c75c757a6e12c91ed6ea81fde137ba43" }
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.2.1", rev = "a0811d06c75c757a6e12c91ed6ea81fde137ba43" }
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
-gateway-ereport-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false }
-gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
-hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
-humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.3" }
-hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, version = "0.4.8" }
-idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
-idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
-lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
-measurement-token = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
-ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
-pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
-salty = { version = "0.3", default-features = false }
-spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
-tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.4.0" }
-tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.4.0" }
-transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
-vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], rev ="438cd185666d5f164548885873f0f5df9a38eed1" }
+gateway-ereport-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, rev = "438cd185666d5f164548885873f0f5df9a38eed1" }
+gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", rev = "030004d082f4ec70e33cbc00886096b15ef3c2cc" }
+hif = { git = "https://github.com/oxidecomputer/hif", default-features = false, rev = "0e9a9d0774afe3c4eca5cb147fb64ad05d0bfcd8" }
+humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, rev = "d9ffbaacbc20c0061a073163ab11a8601317613c" }
+hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, rev = "d1f846091f8caae180329904555e09fd857b9604" }
+idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false, rev = "1ea0bb50d93156de976b2415e5cc6177181ff9d8" }
+idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false, rev = "1ea0bb50d93156de976b2415e5cc6177181ff9d8" }
+lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false, rev = "fc64732faf5511850b35f1734d572b9953d73374" }
+measurement-token = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false, rev = "fc64732faf5511850b35f1734d572b9953d73374" }
+ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false, rev = "3fdce7ade3610b84e2bbd0130442be76cb0f8210" }
+pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false, rev = "1679df79aa11870e936db330c8c4861322848bef" }
+rats-corim =  { git  = "https://github.com/oxidecomputer/rats-corim", rev = "f0d5d5168d3d31487a56df32c676b0c6240bcc6b" }
+spd = { git = "https://github.com/oxidecomputer/spd", default-features = false, rev = "b4b97e7f9540969dfce129d88c0ed3f68fd5fe9b" }
+tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, rev = "12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca" }
+tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, rev = "12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca" }
+transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false, rev = "17ed8f739fa9f21d6a82e032e876fd4a12fe7af3" }
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false, rev = "a9e71588498885e9a77282186f2bb576812f1af2" }
 
 [patch.crates-io]
 # See https://gitlab.com/robigalia/ssmarshal/-/merge_requests/2
