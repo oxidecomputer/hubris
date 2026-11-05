@@ -32,6 +32,37 @@ impl Priority {
     }
 }
 
+/// Container for a set of sorted [`RegionDesc`] handles
+#[derive(Copy, Clone, Debug)]
+pub struct SortedRegions<'a, const N: usize>([&'a RegionDesc; N]);
+
+impl<'a, const N: usize> SortedRegions<'a, N> {
+    /// Builds a new [`SortedRegions`] object
+    ///
+    /// # Panics
+    /// If the regions are not actually sorted
+    #[inline]
+    pub const fn new(regions: [&'a RegionDesc; N]) -> Self {
+        let mut i = 1;
+        while i < regions.len() {
+            if regions[i - 1].base > regions[i].base {
+                panic!(
+                    "region list is not sorted; \
+                     this is a bug in the generated kconfig.rs"
+                );
+            }
+            i += 1;
+        }
+        Self(regions)
+    }
+
+    /// Returns a handle to the inner array
+    #[inline(always)]
+    pub const fn get(&self) -> &[&'a RegionDesc; N] {
+        &self.0
+    }
+}
+
 /// Record describing a single task.
 #[derive(Clone, Debug)]
 pub struct TaskDesc {
@@ -41,7 +72,10 @@ pub struct TaskDesc {
     /// no access; by convention, this region is usually entry 0 in the table.
     /// (This is why we use pointers into a table, to avoid making many copies
     /// of that region.)
-    pub regions: [&'static RegionDesc; REGIONS_PER_TASK],
+    ///
+    /// The region list must be sorted, which is checked by the `SortedRegions`
+    /// constructor; the kernel relies on this to do cheaper access tests.
+    pub regions: SortedRegions<'static, REGIONS_PER_TASK>,
     /// Address of the task's entry point. This is the first instruction that
     /// will be executed whenever the task is (re)started. It must be within one
     /// of the task's memory regions (the kernel *will* check this).
@@ -178,11 +212,5 @@ bitflags::bitflags! {
         const DMA = 1 << 4;
 
         const RESERVED = !((1 << 5) - 1);
-    }
-}
-
-impl RegionAttributes {
-    pub const unsafe fn from_bits_unchecked(bits: u32) -> Self {
-        Self(bits)
     }
 }
