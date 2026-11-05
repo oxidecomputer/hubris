@@ -9,7 +9,7 @@
 
 use crate::arch::Arch;
 use crate::arch::host::config::{HOST_TASKS, options};
-use crate::arch::host::{Host, fatal, task_name_from_idx};
+use crate::arch::host::{Host, task_name_from_idx};
 use crate::task::{
     ArchState, BorrowArgs, PanicArgs, RecvArgs, ReplyArgs, SendArgs,
 };
@@ -141,7 +141,7 @@ pub(crate) fn processes() -> MutexGuard<'static, Vec<Option<TaskProcess>>> {
 /// Starts (or restarts) the process for task `index`.
 pub(crate) fn spawn_task(index: usize) {
     let Some(desc) = HOST_TASKS.get(index) else {
-        fatal(format_args!("task {index} is not in the host task table"))
+        fatal!("task {index} is not in the host task table")
     };
     let mut procs = processes();
     if procs.len() <= index {
@@ -164,11 +164,7 @@ pub(crate) fn spawn_task(index: usize) {
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
     let mut child = cmd.spawn().unwrap_or_else(|e| {
-        fatal(format_args!(
-            "launching {} for task {}: {e}",
-            exe.display(),
-            desc.name
-        ))
+        fatal!("launching {} for task {}: {e}", exe.display(), desc.name)
     });
     let stdout = child.stdout.take().expect("stdout was piped");
     let stdin = child.stdin.take().expect("stdin was piped");
@@ -391,7 +387,7 @@ impl SavedState {
     fn call(&self) -> &Call {
         match &self.call {
             Some(call) => call,
-            None => fatal(
+            None => fatal!(
                 "the kernel asked for the syscall arguments of a task that \
                  is not in a syscall",
             ),
@@ -404,7 +400,7 @@ impl SavedState {
     fn call_mut(&mut self) -> &mut Call {
         match &mut self.call {
             Some(call) => call,
-            None => fatal(
+            None => fatal!(
                 "the kernel asked for the syscall arguments of a task that \
                  is not in a syscall",
             ),

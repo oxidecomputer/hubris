@@ -26,7 +26,6 @@
 //! be resumed when the kernel yields.
 
 use std::collections::BTreeSet;
-use std::fmt::Display;
 use std::sync::atomic::{
     AtomicBool, AtomicPtr, AtomicU64, AtomicUsize, Ordering,
 };
@@ -42,6 +41,22 @@ use crate::startup::with_task_table;
 use crate::task::{self, NotificationSet, Task};
 use crate::time::Timestamp;
 
+/// Something has gone terribly wrong, and it is time for the kernel to stop.
+macro_rules! fatal {
+    ($($arg:tt)*) => {{
+        eprintln!("kernel: {}", format_args!($($arg)*));
+        std::process::exit(2)
+    }};
+}
+
+/// Ends the run normally: the simulated system has nothing left to do.
+macro_rules! finish {
+    ($($arg:tt)*) => {{
+        eprintln!("kernel: stopping: {}", format_args!($($arg)*));
+        std::process::exit(0)
+    }};
+}
+
 /// The kernel's tracing output
 #[macro_use]
 mod trace;
@@ -55,18 +70,6 @@ mod host_task;
 use config::{HOST_TASKS, options};
 use host_task::{Call, SavedState, processes, spawn_task};
 use trace::{describe_syscall, syscall_name, tracing};
-
-/// Something has gone terribly wrong, and it is time for the kernel to stop.
-fn fatal(msg: impl Display) -> ! {
-    eprintln!("kernel: {msg}");
-    std::process::exit(2)
-}
-
-/// Ends the run normally: the simulated system has nothing left to do.
-fn finish(msg: impl Display) -> ! {
-    eprintln!("kernel: stopping: {msg}");
-    std::process::exit(0)
-}
 
 /// Get the name of the task based on its index.
 fn task_name_from_idx(index: usize) -> &'static str {
@@ -100,7 +103,7 @@ static ENABLED_IRQS: Mutex<BTreeSet<u32>> = Mutex::new(BTreeSet::new());
 fn current_task_index() -> (*mut Task, usize) {
     let current = CURRENT_TASK_PTR.load(Ordering::Relaxed);
     if current.is_null() {
-        fatal("no current task");
+        fatal!("no current task");
     }
     // Safety: the pointer came from a `&mut Task` in the task table (see
     // `set_current_task`), and this is only called between kernel entries,
@@ -154,7 +157,7 @@ fn step() {
         // Get the process handle we are about to interact with
         let mut procs = processes();
         let Some(proc) = procs.get_mut(index).and_then(Option::as_mut) else {
-            fatal(format_args!("task {index} has no process to resume"))
+            fatal!("task {index} has no process to resume")
         };
 
         // Obtain the finished task call, if any.
@@ -243,15 +246,13 @@ fn idle_step(idle_index: usize, width: usize) {
     with_task_table(|tasks| {
         let next_deadline = tasks.iter().filter_map(|t| t.timer().0).min();
         let Some(deadline) = next_deadline else {
-            finish("every task is blocked and no timer is pending")
+            finish!("every task is blocked and no timer is pending")
         };
         let target = deadline.max(Host::now());
         if let Some(stop) = options().stop_at
             && u64::from(target) > stop
         {
-            finish(format_args!(
-                "time reached the configured stop at {stop} ticks"
-            ))
+            finish!("time reached the configured stop at {stop} ticks")
         }
 
         if options().realtime {
@@ -433,7 +434,7 @@ impl Arch for Host {
     }
 
     fn reset() -> ! {
-        finish("the supervisor asked for a system reset")
+        finish!("the supervisor asked for a system reset")
     }
 }
 

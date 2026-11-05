@@ -6,7 +6,6 @@
 //!
 //! CLI and runtime configuration settings for the kernel's execution.
 
-use crate::arch::host::fatal;
 use clap::Parser;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -89,9 +88,7 @@ pub(crate) fn options() -> &'static HostOptions {
                         .iter()
                         .position(|t| t.name == name)
                         .unwrap_or_else(|| {
-                            fatal(format_args!(
-                                "--trace-only names unknown task {name:?}"
-                            ))
+                            fatal!("--trace-only names unknown task {name:?}")
                         })
                 })
                 .collect();
@@ -100,14 +97,14 @@ pub(crate) fn options() -> &'static HostOptions {
 
         let task_dir = args.task_dir.unwrap_or_else(|| {
             let exe = std::env::current_exe().unwrap_or_else(|e| {
-                fatal(format_args!("finding the kernel executable: {e}"))
+                fatal!("finding the kernel executable: {e}")
             });
             match exe.parent() {
                 Some(dir) => dir.to_path_buf(),
-                None => fatal(format_args!(
+                None => fatal!(
                     "kernel executable {} has no parent directory",
                     exe.display()
-                )),
+                ),
             }
         });
 
