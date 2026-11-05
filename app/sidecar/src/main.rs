@@ -99,14 +99,17 @@ fn system_init() {
         .map(|(i, bit)| if (rev & (1 << bit)) != 0 { 1 << i } else { 0 })
         .fold(0, |acc, v| acc | v);
 
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "sidecar-b")] {
+    cfg_select! {
+        target_board = "sidecar-b" => {
             let expected_rev = 0b001;
-        } else if #[cfg(target_board = "sidecar-c")] {
+        }
+        target_board = "sidecar-c" => {
             let expected_rev = 0b010;
-        } else if #[cfg(target_board = "sidecar-d")] {
+        }
+        target_board = "sidecar-d" => {
             let expected_rev = 0b011;
-        } else {
+        }
+        _ => {
             compile_error!("not a recognized sidecar board")
         }
     }

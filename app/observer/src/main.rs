@@ -42,10 +42,11 @@ fn system_init() {
 
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "observer-a")] {
+    cfg_select! {
+        target_board = "observer-a" => {
             let expected_rev = 0b000;
-        } else {
+        }
+        _ => {
             compile_error!("not a recognized psc board")
         }
     }

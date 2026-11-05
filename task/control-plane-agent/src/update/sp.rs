@@ -57,7 +57,6 @@
 use crate::mgs_common::UPDATE_SERVER;
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use crate::update::ComponentUpdater;
-use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_caboose::CabooseReader;
 use drv_stm32h7_update_api::{BLOCK_SIZE_BYTES, SlotId, Update};
@@ -67,14 +66,15 @@ use gateway_messages::{
     UpdateInProgressStatus, UpdateStatus,
 };
 
-cfg_if! {
-    if #[cfg(feature = "auxflash")] {
+cfg_select! {
+    feature = "auxflash" => {
         use drv_auxflash_api::AuxFlash;
 
         mod auxflash;
 
         userlib::task_slot!(AUX_FLASH_SERVER, auxflash);
-    } else {
+    }
+    _ => {
         mod stub_auxflash;
         use stub_auxflash as auxflash;
 

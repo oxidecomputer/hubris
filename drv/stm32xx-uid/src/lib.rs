@@ -10,12 +10,14 @@
 
 // The UID address is in System (flash) Memory, rather than in a peripheral,
 // so it's not documented in the SVD or `stm32` crate.
-cfg_if::cfg_if! {
-    if #[cfg(feature = "family-stm32g0")] {
+cfg_select! {
+    feature = "family-stm32g0" => {
         const UID_ADDR: u32 = 0x1FFF_7590;
-    } else if #[cfg(feature = "family-stm32h7")] {
+    }
+    feature = "family-stm32h7" => {
         const UID_ADDR: u32 = 0x1FF1_E800;
-    } else {
+    }
+    _ => {
         compile_error!("unsupported SoC family");
         const UID_ADDR: u32 = 0; // Prevents a second error below
     }

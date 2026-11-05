@@ -20,7 +20,6 @@ task-sensor-api = { path = "../../task/sensor-api" }
 task-thermal-api = { path = "../../task/thermal-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
-cfg-if = { workspace = true }
 enum-map = { workspace = true }
 hubpack = { workspace = true }
 idol-runtime = { workspace = true }

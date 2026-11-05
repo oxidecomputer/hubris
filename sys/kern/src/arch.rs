@@ -21,22 +21,24 @@ use abi::{InterruptNum, IrqStatus, UsageError};
 use crate::task::{ArchState, Task};
 use crate::time::Timestamp;
 
-cfg_if::cfg_if! {
+cfg_select! {
     // Note: cfg_if! is slightly touchy about ordering and expression
     // complexity; this chain seems to be the best compromise.
     //
     // NOTE: kept identical with detection method used in
     // `userlib/src/arch/mod.rs`.
-    if #[cfg(not(target_pointer_width = "32"))] {
+    not(target_pointer_width = "32") => {
         compile_error!(
             "non-32-bit targets not supported (even for simulation)"
         );
-    } else if #[cfg(target_arch = "arm")] {
+    }
+    target_arch = "arm" => {
         pub mod arm_m;
 
         /// The architecture the kernel is being built for.
         pub use arm_m::ArmM as ArchImpl;
-    } else {
+    }
+    _ => {
         compile_error!("support for this architecture not implemented");
     }
 }

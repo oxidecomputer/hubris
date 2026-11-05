@@ -9,12 +9,14 @@
 // gets linked in.
 extern crate stm32h7;
 
-cfg_if::cfg_if! {
-    if #[cfg(target_board = "nucleo-h743zi2")] {
+cfg_select! {
+    target_board = "nucleo-h743zi2" => {
         use stm32h7::stm32h743 as device;
-    } else if #[cfg(target_board = "nucleo-h753zi")] {
+    }
+    target_board = "nucleo-h753zi" => {
         use stm32h7::stm32h753 as device;
-    } else {
+    }
+    _ => {
         compile_error!("target_board unknown or missing");
     }
 }
@@ -24,8 +26,8 @@ use drv_stm32h7_startup::{ClockConfig, system_init};
 
 #[entry]
 fn main() -> ! {
-    cfg_if::cfg_if! {
-        if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
+    cfg_select! {
+        any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi") => {
             const CYCLES_PER_MS: u32 = 400_000;
             const CLOCKS: ClockConfig = ClockConfig {
                 // The Nucleo board doesn't include an external crystal, so we
@@ -69,7 +71,8 @@ fn main() -> ! {
                 flash_latency: 2,
                 flash_write_delay: 2,
             };
-        } else {
+        }
+        _ => {
             compile_error!("target_board unknown or missing");
         }
     }

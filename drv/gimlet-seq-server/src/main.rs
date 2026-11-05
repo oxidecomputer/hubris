@@ -1322,14 +1322,14 @@ fn read_spd_data_and_load_packrat(
 
     type SpdBank = (Controller, PortIndex, Option<(Mux, Segment)>);
 
-    cfg_if::cfg_if! {
-        if #[cfg(any(
+    cfg_select! {
+        any(
             target_board = "gimlet-b",
             target_board = "gimlet-c",
             target_board = "gimlet-d",
             target_board = "gimlet-e",
             target_board = "gimlet-f",
-        ))] {
+        ) => {
             //
             // On Gimlet, we have two banks of up to 8 DIMMs apiece:
             //
@@ -1344,7 +1344,8 @@ fn read_spd_data_and_load_packrat(
                 (Controller::I2C3, i2c_config::ports::i2c3_h(), None),
                 (Controller::I2C4, i2c_config::ports::i2c4_f(), None),
             ];
-        } else {
+        }
+        _ => {
             compile_error!("I2C target unsupported for this board");
         }
     }
@@ -1480,14 +1481,14 @@ fn reprogram_fpga<S: SpiServer>(
 static COMPRESSED_BITSTREAM: &[u8] =
     include_bytes!(env!("GIMLET_FPGA_IMAGE_PATH"));
 
-cfg_if::cfg_if! {
-    if #[cfg(any(
+cfg_select! {
+    any(
         target_board = "gimlet-b",
         target_board = "gimlet-c",
         target_board = "gimlet-d",
         target_board = "gimlet-e",
         target_board = "gimlet-f",
-    ))] {
+    ) => {
         const A0_TIMEOUT_MILLIS: u64 = 2000;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
@@ -1646,7 +1647,8 @@ cfg_if::cfg_if! {
                 Trace::V3P3SysA0VOut(v3p3_sys_a0.read_vout().unwrap_lite())
             );
         }
-    } else {
+    }
+    _ => {
         compile_error!("unsupported target board");
     }
 }

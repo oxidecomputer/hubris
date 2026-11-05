@@ -12,7 +12,6 @@ ipv6 = []
 vlan = []
 
 [dependencies]
-cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 stm32h7 = { workspace = true }
 

@@ -291,10 +291,8 @@
 #![no_main]
 #![deny(unsafe_op_in_unsafe_fn)]
 
-use cfg_if::cfg_if;
-
-cfg_if! {
-    if #[cfg(feature = "family-stm32g0")] {
+cfg_select! {
+    feature = "family-stm32g0" => {
         use stm32g0 as pac;
 
         #[cfg(feature = "g030")]
@@ -308,14 +306,16 @@ cfg_if! {
 
         #[cfg(feature = "g0b1")]
         use stm32g0::stm32g0b1 as device;
-    } else if #[cfg(feature = "family-stm32h7")] {
+    }
+    feature = "family-stm32h7" => {
         use stm32h7 as pac;
 
         #[cfg(feature = "h743")]
         use stm32h7::stm32h743 as device;
         #[cfg(feature = "h753")]
         use stm32h7::stm32h753 as device;
-    } else {
+    }
+    _ => {
         compile_error!("unsupported SoC family");
     }
 }
@@ -386,8 +386,8 @@ fn main() -> ! {
     // concern. Were it literally a static, we could just reference it.
     let rcc = unsafe { &*device::RCC::ptr() };
 
-    cfg_if! {
-        if #[cfg(feature = "exti")] {
+    cfg_select! {
+        feature = "exti" => {
             // EXTI routing global setup.
 
             // Set up external interrupt routing. This routing is not in EXTI --
@@ -463,11 +463,12 @@ fn main() -> ! {
                 }
             }
         }
+        _ => {}
     }
 
     // Global setup.
-    cfg_if! {
-        if #[cfg(feature = "family-stm32g0")] {
+    cfg_select! {
+        feature = "family-stm32g0" => {
             rcc.iopenr.write(|w| {
                 w.iopaen()
                     .set_bit()
@@ -483,7 +484,8 @@ fn main() -> ! {
                 w.iopeen().set_bit();
                 w
             });
-        } else if #[cfg(feature = "family-stm32h7")] {
+        }
+        feature = "family-stm32h7" => {
             rcc.ahb4enr.write(|w| {
                 w.gpioaen()
                     .set_bit()
@@ -509,6 +511,7 @@ fn main() -> ! {
                     .set_bit()
             });
         }
+        _ => {}
     }
 
     // Read RCC_RSR and inform Jefe why we reset.
@@ -674,8 +677,8 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         // We want to only include code for this if exti is requested.
         // Unfortunately the _operation_ is available unconditionally, but we'll
         // fault any clients who call it if it's unsupported (below).
-        cfg_if! {
-            if #[cfg(feature = "exti")] {
+        cfg_select! {
+            feature = "exti" => {
                 // This mask will later be used for checking the stored
                 // interrupt pending state in `self.exti_cpupr_2` --- we'll put
                 // a 1 here for the index of every slot that's mapped to a
@@ -751,7 +754,8 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
 
                 Ok(pending)
 
-            } else {
+            }
+            _ => {
                 // Suppress unused variable warnings (yay conditional
                 // compilation)
                 let _ = (rm, mask, op);
@@ -772,8 +776,8 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         // We want to only include code for this if exti is requested.
         // Unfortunately the _operation_ is available unconditionally, but we'll
         // fault any clients who call it if it's unsupported (below).
-        cfg_if! {
-            if #[cfg(feature = "exti")] {
+        cfg_select! {
+            feature = "exti" => {
 
                 // Keep track of which bits in the caller-provided masks
                 // actually matched things.
@@ -831,7 +835,8 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                     Ok(())
                 }
 
-            } else {
+            }
+            _ => {
                 // Suppress unused variable warnings (yay conditional
                 // compilation)
                 let _ = (rm, mask, edge);
@@ -875,10 +880,11 @@ fn exti_dispatch_for(
 
 impl NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
-        cfg_if! {
-            if #[cfg(feature = "exti")] {
+        cfg_select! {
+            feature = "exti" => {
                 notifications::EXTI_WILDCARD_IRQ_MASK
-            } else {
+            }
+            _ => {
                 // We don't use notifications, don't listen for any.
                 0
             }
@@ -886,8 +892,8 @@ impl NotificationHandler for ServerImpl<'_> {
     }
 
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
-        cfg_if! {
-            if #[cfg(feature = "exti")] {
+        cfg_select! {
+            feature = "exti" => {
                 if bits.check_notification_mask(
                     notifications::EXTI_WILDCARD_IRQ_MASK
                 ) {
@@ -993,7 +999,8 @@ impl NotificationHandler for ServerImpl<'_> {
                         true,
                     );
                 }
-            } else {
+            }
+            _ => {
                 // prevent unused variable warning:
                 let _ = bits;
                 unreachable!()
@@ -1002,8 +1009,8 @@ impl NotificationHandler for ServerImpl<'_> {
     }
 }
 
-cfg_if! {
-    if #[cfg(feature = "family-stm32g0")] {
+cfg_select! {
+    feature = "family-stm32g0" => {
         fn enable_clock(
             rcc: &device::rcc::RegisterBlock,
             group: Group,
@@ -1064,7 +1071,8 @@ cfg_if! {
             let bits = rcc.csr.read().bits();
             Some(ResetReason::Other(bits))
         }
-    } else if #[cfg(feature = "family-stm32h7")] {
+    }
+    feature = "family-stm32h7" => {
         fn enable_clock(
             rcc: &device::rcc::RegisterBlock,
             group: Group,
@@ -1226,7 +1234,8 @@ cfg_if! {
 
             Some(reason)
         }
-    } else {
+    }
+    _ => {
         compile_error!("unsupported SoC family");
     }
 }

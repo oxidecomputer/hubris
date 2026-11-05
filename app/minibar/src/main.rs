@@ -98,12 +98,14 @@ fn system_init() {
         .map(|(i, bit)| if (rev & (1 << bit)) != 0 { 1 << i } else { 0 })
         .fold(0, |acc, v| acc | v);
 
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "minibar-a")] {
+    cfg_select! {
+        target_board = "minibar-a" => {
             let expected_rev = 0b000;
-        } else if #[cfg(target_board = "minibar-b")] {
+        }
+        target_board = "minibar-b" => {
             let expected_rev = 0b001;
-        } else {
+        }
+        _ => {
             compile_error!("not a recognized minibar board")
         }
     }

@@ -82,10 +82,11 @@ fn system_init() {
     let id_mask = (1 << 6) | (1 << 7) | (1 << 13);
     let model = p.GPIOC.idr.read().bits() & id_mask;
 
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "medusa-a")] {
+    cfg_select! {
+        target_board = "medusa-a" => {
             let expected_model = 0b000;
-        } else {
+        }
+        _ => {
             compile_error!("not a recognized medusa board");
         }
     }

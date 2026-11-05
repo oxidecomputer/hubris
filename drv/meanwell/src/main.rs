@@ -28,8 +28,8 @@ struct ServerImpl {
     led_on: bool,
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(any(target_board = "gimletlet-1", target_board = "gimletlet-2"))] {
+cfg_select! {
+    any(target_board = "gimletlet-1", target_board = "gimletlet-2") => {
         const MEANWELL_PINS: &[sys_api::PinSet] = &[
             sys_api::Port::B.pin(14),
             sys_api::Port::B.pin(15),
@@ -43,7 +43,8 @@ cfg_if::cfg_if! {
         // In keeping with the Meanwell's blue indicator LED, we use only the
         // blue LED to indicate that this is a Meanwell management Gimletlet.
         const LED_INDEX: usize = 3;
-    } else {
+    }
+    _ => {
         compile_error!("unsupported Meanwell board");
     }
 }

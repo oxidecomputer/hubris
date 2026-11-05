@@ -1984,16 +1984,17 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
 
     let hardware_flow_control = cfg!(feature = "hardware_flow_control");
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "uart7")] {
+    cfg_select! {
+        feature = "uart7" => {
             const PINS: &[(PinSet, Alternate)] = {
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "hardware_flow_control")] {
+                cfg_select! {
+                    feature = "hardware_flow_control" => {
                         &[(
                             Port::E.pin(7).and_pin(8).and_pin(9).and_pin(10),
                             Alternate::AF7
                         )]
-                    } else {
+                    }
+                    _ => {
                         compile_error!("hardware_flow_control should be enabled");
                     }
                 }
@@ -2001,15 +2002,17 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
             let usart = unsafe { &*device::UART7::ptr() };
             let peripheral = Peripheral::Uart7;
             let pins = PINS;
-        } else if #[cfg(feature = "usart6")] {
+        }
+        feature = "usart6" => {
             const PINS: &[(PinSet, Alternate)] = {
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "hardware_flow_control")] {
+                cfg_select! {
+                    feature = "hardware_flow_control" => {
                         &[(
                             Port::G.pin(8).and_pin(9).and_pin(14).and_pin(15),
                             Alternate::AF7
                         )]
-                    } else {
+                    }
+                    _ => {
                         compile_error!("hardware_flow_control should be enabled");
                     }
                 }
@@ -2017,12 +2020,14 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
             let usart = unsafe { &*device::USART6::ptr() };
             let peripheral = Peripheral::Usart6;
             let pins = PINS;
-        } else if #[cfg(feature = "uart8")] {
+        }
+        feature = "uart8" => {
             const PINS: &[(PinSet, Alternate)] = {
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "hardware_flow_control")] {
+                cfg_select! {
+                    feature = "hardware_flow_control" => {
                         compile_error!("hardware_flow_control should be disabled");
-                    } else {
+                    }
+                    _ => {
                         &[(
                             Port::J.pin(8).and_pin(9),
                             Alternate::AF8
@@ -2033,7 +2038,8 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
             let usart = unsafe { &*device::UART8::ptr() };
             let peripheral = Peripheral::Uart8;
             let pins = PINS;
-        } else {
+        }
+        _ => {
             compile_error!("no usartX/uartX feature specified");
         }
     }

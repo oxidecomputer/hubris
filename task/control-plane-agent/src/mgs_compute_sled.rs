@@ -1625,8 +1625,8 @@ fn configure_usart() -> Usart {
         " should be enabled",
     ));
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "usart1")] {
+    cfg_select! {
+        feature = "usart1" => {
             const PINS: &[(PinSet, Alternate)] = &[(
                 Port::A.pin(9).and_pin(10).and_pin(11).and_pin(12),
                 Alternate::AF7
@@ -1641,7 +1641,8 @@ fn configure_usart() -> Usart {
             let usart = unsafe { &*device::USART1::ptr() };
             let peripheral = Peripheral::Usart1;
             let pins = PINS;
-        } else if #[cfg(feature = "usart1-gimletlet")] {
+        }
+        feature = "usart1-gimletlet" => {
             const PINS: &[(PinSet, Alternate)] = &[
                 (Port::A.pin(11).and_pin(12), Alternate::AF7),
                 (Port::B.pin(6).and_pin(7), Alternate::AF7),
@@ -1656,7 +1657,8 @@ fn configure_usart() -> Usart {
             let usart = unsafe { &*device::USART1::ptr() };
             let peripheral = Peripheral::Usart1;
             let pins = PINS;
-        } else {
+        }
+        _ => {
             compile_error!("no usartX feature specified");
         }
     }

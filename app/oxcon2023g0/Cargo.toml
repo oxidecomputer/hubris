@@ -9,7 +9,6 @@ version = "0.1.0"
 [dependencies]
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
-cfg-if = { workspace = true }
 stm32g0 = { workspace = true, features = ["rt", "stm32g030"] }
 
 kern = { path = "../../sys/kern", features = ["nano"] }

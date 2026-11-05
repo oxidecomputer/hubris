@@ -14,8 +14,8 @@ use zerocopy::{Immutable, IntoBytes, KnownLayout};
 //
 // These are encoded so port 0 goes from 0 - 31 and port 1
 // goes 0 - 64
-cfg_if::cfg_if! {
-    if #[cfg(any(target_board = "lpcxpresso55s69"))] {
+cfg_select! {
+    any(target_board = "lpcxpresso55s69") => {
         #[derive(
             Copy,
             Clone,
@@ -97,7 +97,8 @@ cfg_if::cfg_if! {
             PIO1_31 = 63,
         }
 
-    } else {
+    }
+    _ => {
         #[derive(Copy, Clone, Debug, FromPrimitive, IntoBytes, Immutable, KnownLayout, Deserialize, Serialize, SerializedSize)]
         #[repr(u32)]
         pub enum Pin {

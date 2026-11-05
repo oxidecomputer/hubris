@@ -65,12 +65,14 @@ fn system_init() {
     timer.blocking_delay_micros(100);
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "psc-b")] {
+    cfg_select! {
+        target_board = "psc-b" => {
             let expected_rev = 0b001;
-        } else if #[cfg(target_board = "psc-c")] {
+        }
+        target_board = "psc-c" => {
             let expected_rev = 0b010;
-        } else {
+        }
+        _ => {
             compile_error!("not a recognized psc board")
         }
     }

@@ -122,16 +122,17 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.0);
 ///
 const VCORE_NSAMPLES: usize = 50;
 
-cfg_if::cfg_if! {
-    if #[cfg(not(any(
+cfg_select! {
+    not(any(
         target_board = "gimlet-b",
         target_board = "gimlet-c",
         target_board = "gimlet-d",
         target_board = "gimlet-e",
         target_board = "gimlet-f",
-    )))] {
+    )) => {
         compile_error!("RAA229618 VIN monitoring unsupported for this board");
     }
+    _ => {}
 }
 
 impl VCore {

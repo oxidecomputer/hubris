@@ -230,8 +230,8 @@ pub struct BaseExceptionFrame {
     xpsr: u32,
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(any(armv7m, armv8m))] {
+cfg_select! {
+    any(armv7m, armv8m) => {
         /// Extended version for FPU.
         #[derive(Debug, FromBytes, Immutable, KnownLayout, Default)]
         #[repr(C)]
@@ -241,14 +241,16 @@ cfg_if::cfg_if! {
             fpscr: u32,
             reserved: u32,
         }
-    } else if #[cfg(armv6m)] {
+    }
+    armv6m => {
         /// Wee version for non-FPU.
         #[derive(Debug, FromBytes, Immutable, KnownLayout, Default)]
         #[repr(C)]
         pub struct ExtendedExceptionFrame {
             base: BaseExceptionFrame,
         }
-    } else {
+    }
+    _ => {
         compile_error!("unknown M-profile");
     }
 }
@@ -511,27 +513,31 @@ impl Arch for ArmM {
             //
             // - ARMv7+: MEMFAULT, BUSFAULT, USGFAULT
             // - ARMv8: SECUREFAULT
-            cfg_if::cfg_if! {
-                if #[cfg(armv7m)] {
+            cfg_select! {
+                armv7m => {
                     scb.shcsr.modify(|x| x | 0b111 << 16);
-                } else if #[cfg(armv8m)] {
+                }
+                armv8m => {
                     scb.shcsr.modify(|x| x | 0b1111 << 16);
-                } else if #[cfg(armv6m)] {
+                }
+                armv6m => {
                     // This facility is missing.
-                } else {
+                }
+                _ => {
                     compile_error!("missing fault setup for ARM profile");
                 }
             }
 
             // Set fault and standard exception priorities.
-            cfg_if::cfg_if! {
-                if #[cfg(armv6m)] {
+            cfg_select! {
+                armv6m => {
                     // ARMv6 only has 4 priority levels and no configurable
                     // fault priorities. Set priorities of SVCall, SysTick and
                     // PendSV to 3 (the lowest configurable).
                     scb.shpr[0].modify(|x| x | 0b11 << 30);
                     scb.shpr[1].modify(|x| x | 0b11 << 22 | 0b11 << 30);
-                } else if #[cfg(any(armv7m, armv8m))] {
+                }
+                any(armv7m, armv8m) => {
                     // Set priority of Usage, Bus, MemManage to 0 (highest
                     // configurable).
                     scb.shpr[0].write(0x00);
@@ -542,7 +548,8 @@ impl Arch for ArmM {
                     // SysTick and PendSV also to 0xFF
                     scb.shpr[10].write(0xFF);
                     scb.shpr[11].write(0xFF);
-                } else {
+                }
+                _ => {
                     compile_error!("missing fault priorities for ARM profile");
                 }
             }
@@ -562,8 +569,8 @@ impl Arch for ArmM {
             // can't preempt the kernel.
             let nvic = &*cortex_m::peripheral::NVIC::PTR;
 
-            cfg_if::cfg_if! {
-                if #[cfg(armv6m)] {
+            cfg_select! {
+                armv6m => {
                     // On ARMv6 there are 8 IPR registers, each containing 4
                     // interrupt priorities.  Only 2 bits, stored at bits[7:6],
                     // are used for the priority level, giving a range of 0-192
@@ -578,7 +585,8 @@ impl Arch for ArmM {
                     for i in 0..8 {
                         nvic.ipr[i].write(0xFFFF_FFFF);
                     }
-                } else if #[cfg(any(armv7m, armv8m))] {
+                }
+                any(armv7m, armv8m) => {
                     // How many IRQs have we got on ARMv7+? This information is
                     // stored in a separate area of the address space, away from
                     // the NVIC
@@ -595,7 +603,8 @@ impl Arch for ArmM {
                     for i in 0..irq_count {
                         nvic.ipr[i].write(0xFFu8);
                     }
-                } else {
+                }
+                _ => {
                     compile_error!("missing IRQ priorities for ARM profile");
                 }
             }
@@ -690,8 +699,8 @@ impl Arch for ArmM {
         // SVC, which we also use for system calls; the SVC entry sequence (also
         // in this file) has code to detect this condition and do kernel startup
         // rather than processing it as a syscall.
-        cfg_if::cfg_if! {
-            if #[cfg(armv6m)] {
+        cfg_select! {
+            armv6m => {
                 unsafe {
                     arch::asm!("
                     @ restore the callee-save registers
@@ -709,7 +718,8 @@ impl Arch for ArmM {
                         options(noreturn),
                     )
                 }
-            } else if #[cfg(any(armv7m, armv8m))] {
+            }
+            any(armv7m, armv8m) => {
                 unsafe {
                     arch::asm!("
                     @ Restore callee-save registers.
@@ -722,7 +732,8 @@ impl Arch for ArmM {
                         options(noreturn),
                     )
                 }
-            } else {
+            }
+            _ => {
                 compile_error!("missing kernel bootstrap sequence for \
                     ARM profile");
             }
@@ -1015,7 +1026,7 @@ pub const fn compute_region_extension_data(
 
 // Handler that gets linked into the vector table for the Supervisor Call (SVC)
 // instruction. (Name is dictated by the `cortex_m` crate.)
-cfg_if::cfg_if! {
+cfg_select! {
     // TODO: could shave several cycles off SVC entry with more careful ordering
     // of instructions below, though the precise details depend on how complex
     // of an M-series processor you're targeting -- so I've punted on this for
@@ -1035,7 +1046,7 @@ cfg_if::cfg_if! {
     //
     // After that, we repeat the same steps in the opposite order to restore
     // task context (possibly for a different task!).
-    if #[cfg(armv6m)] {
+    armv6m => {
         global_asm!{"
             .section .text.SVCall
             .globl SVCall
@@ -1112,7 +1123,8 @@ cfg_if::cfg_if! {
         ",
         exc_return = const EXC_RETURN_CONST,
         }
-    } else if #[cfg(any(armv7m, armv8m))] {
+    }
+    any(armv7m, armv8m) => {
         global_asm!{"
             .section .text.SVCall
             .globl SVCall
@@ -1173,7 +1185,8 @@ cfg_if::cfg_if! {
             ",
             exc_return = const EXC_RETURN_CONST,
         }
-    } else {
+    }
+    _ => {
         compile_error!("missing SVCall impl for ARM profile.");
     }
 }
@@ -1240,8 +1253,8 @@ fn pend_context_switch_from_isr() {
     cortex_m::peripheral::SCB::set_pendsv();
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(armv6m)] {
+cfg_select! {
+    armv6m => {
         global_asm!{"
             .section .text.PendSV
             .globl PendSV
@@ -1289,7 +1302,8 @@ cfg_if::cfg_if! {
                 bx lr
             ",
         }
-    } else if #[cfg(any(armv7m, armv8m))] {
+    }
+    any(armv7m, armv8m) => {
         global_asm!{"
             .section .text.PendSV
             .globl PendSV
@@ -1322,7 +1336,8 @@ cfg_if::cfg_if! {
                 bx lr
             ",
         }
-    } else {
+    }
+    _ => {
         compile_error!("missing PendSV impl for ARM profile.");
     }
 }
@@ -1910,8 +1925,8 @@ unsafe extern "C" fn handle_fault(
     });
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(armv6m)] {
+cfg_select! {
+    armv6m => {
         // The ARMv6M atomic operations are implemented by disabling interrupts
         // globally. In a normal configuration the kernel arranges priorities so
         // that it's never preempted, making this moot. However, it's entirely
@@ -1964,7 +1979,8 @@ cfg_if::cfg_if! {
                 _ => panic!(),
             }
         }
-    } else {
+    }
+    _ => {
         impl AtomicExt for AtomicBool {
             type Primitive = bool;
 
