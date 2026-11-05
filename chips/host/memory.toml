@@ -2,14 +2,13 @@
 # but the manifest loader expects every chip to describe one.
 [[flash]]
 address = 0x08000000
-size = 131072
+size = 0x100000 # 1MiB
 read = true
 execute = true
 
 [[ram]]
 address = 0x20000000
-size = 36864
+size = 0x100000 # 1MiB
 read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
-

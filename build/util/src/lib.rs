@@ -30,7 +30,7 @@ pub fn out_dir() -> std::path::PathBuf {
 /// Reads the `TARGET` environment variable
 ///
 /// This function goes through `std::env::var` directly, rather than our own
-/// `env_var`, because Cargo should know when `OUT_DIR` changes.
+/// `env_var`, because Cargo should know when it changes.
 pub fn target() -> String {
     std::env::var("TARGET").unwrap()
 }
@@ -38,7 +38,9 @@ pub fn target() -> String {
 /// Reads the `HOST` environment variable
 ///
 /// This function goes through `std::env::var` directly, rather than our own
-/// `env_var`, because Cargo should know when `OUT_DIR` changes.
+/// `env_var`, because this variable is exported by Cargo , and it seems
+/// unlikely that the host architecture (e.g. the user's machine) is likely to
+/// change.
 pub fn host() -> String {
     std::env::var("HOST").unwrap()
 }

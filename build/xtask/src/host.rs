@@ -7,8 +7,8 @@
 //! A task built this way gets the same features and `HUBRIS_*` environment as
 //! it would in `dist` for the given app, so its build script sees the same
 //! configuration (task slots, notifications, `[config]` sections). It is then
-//! compiled for the host with userlib's host Arch implementation, and can
-//! be run as a host app using the kernel's host Arch implementation.
+//! compiled for the host with `userlib`'s host `Arch` implementation, and can
+//! be run as a host app using the kernel's host `Arch` implementation.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
