@@ -64,14 +64,6 @@ SECTIONS
     __sheap = .;
   } > RAM
 
-  /* ## .task_slot_table */
-  /* Table of TaskSlot instances and their names. Used to resolve task
-     dependencies during packaging. */
-  .task_slot_table (INFO) : {
-    . = .;
-    KEEP(*(.task_slot_table));
-  }
-
   /* ## .caboose_pos_table */
   /* Table of CaboosePos instances and their names. Used to record caboose
      position during packaging. */
