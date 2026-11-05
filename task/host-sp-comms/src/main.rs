@@ -1986,37 +1986,37 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
 
     cfg_select! {
         feature = "uart7" => {
-            const PINS: &[(PinSet, Alternate)] = cfg_select! {
-                feature = "hardware_flow_control" => &[(
-                    Port::E.pin(7).and_pin(8).and_pin(9).and_pin(10),
-                    Alternate::AF7
-                )],
-                _ => compile_error!("hardware_flow_control should be enabled"),
-            };
+            #[cfg(not(feature = "hardware_flow_control"))]
+            compile_error!("hardware_flow_control should be enabled");
+
+            const PINS: &[(PinSet, Alternate)] = &[(
+                Port::E.pin(7).and_pin(8).and_pin(9).and_pin(10),
+                Alternate::AF7
+            )];
             let usart = unsafe { &*device::UART7::ptr() };
             let peripheral = Peripheral::Uart7;
             let pins = PINS;
         }
         feature = "usart6" => {
-            const PINS: &[(PinSet, Alternate)] = cfg_select! {
-                feature = "hardware_flow_control" => &[(
-                    Port::G.pin(8).and_pin(9).and_pin(14).and_pin(15),
-                    Alternate::AF7
-                )],
-                _ => compile_error!("hardware_flow_control should be enabled"),
-            };
+            #[cfg(not(feature = "hardware_flow_control"))]
+            compile_error!("hardware_flow_control should be enabled");
+
+            const PINS: &[(PinSet, Alternate)] = &[(
+                Port::G.pin(8).and_pin(9).and_pin(14).and_pin(15),
+                Alternate::AF7
+            )];
             let usart = unsafe { &*device::USART6::ptr() };
             let peripheral = Peripheral::Usart6;
             let pins = PINS;
         }
         feature = "uart8" => {
-            const PINS: &[(PinSet, Alternate)] = cfg_select! {
-                feature = "hardware_flow_control" => compile_error!("hardware_flow_control should be disabled"),
-                _ => &[(
-                    Port::J.pin(8).and_pin(9),
-                    Alternate::AF8
-                )],
-            };
+            #[cfg(feature = "hardware_flow_control")]
+            compile_error!("hardware_flow_control should be disabled");
+
+            const PINS: &[(PinSet, Alternate)] = &[(
+                Port::J.pin(8).and_pin(9),
+                Alternate::AF8
+            )];
             let usart = unsafe { &*device::UART8::ptr() };
             let peripheral = Peripheral::Uart8;
             let pins = PINS;

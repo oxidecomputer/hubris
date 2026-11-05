@@ -42,10 +42,10 @@ fn system_init() {
 
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
-    let expected_rev = cfg_select! {
-        target_board = "observer-a" => 0b000,
-        _ => compile_error!("not a recognized psc board"),
-    };
+    #[cfg(not(target_board = "observer-a"))]
+    compile_error!("not a recognized psc board");
+
+    let expected_rev = 0b000;
     assert_eq!(rev, expected_rev);
 
     drv_stm32h7_startup::system_init_custom(
