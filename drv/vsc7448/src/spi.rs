@@ -38,21 +38,7 @@ impl<S: SpiServer> Vsc7448Spi<S> {
             return Err(VscError::BadRegAddr(orig_addr));
         }
 
-        // Section 5.5.2 of the VSC7448 datasheet specifies how to convert
-        // a register address to a request over SPI.
-        let addr = (orig_addr & 0x00FFFFFF) >> 2;
-        let data: &[u8] = &addr.to_be_bytes()[1..];
-
-        // We read back 7 + padding bytes in total:
-        // - 3 bytes of address
-        // - Some number of padding bytes
-        // - 4 bytes of data
-        const SIZE: usize = 7 + SPI_NUM_PAD_BYTES;
-        let mut out = [0; SIZE];
-        self.0.exchange(data, &mut out[..])?;
-        let value =
-            u32::from_be_bytes(out[SIZE - 4..].try_into().unwrap_lite());
-
+        let value = self.read_inner(orig_addr)?;
         ringbuf_entry!(Trace::Read {
             addr: orig_addr,
             value
@@ -76,23 +62,44 @@ impl<S: SpiServer> Vsc7448Spi<S> {
         // value _actually_ indicates an error (and not just an unfortunate
         // coincidence).
         if value == 0x88888888 {
-            // Panic immediately if we got an invalid read sentinel while
-            // reading IF_CFGSTAT itself, because that means something has
-            // gone very deeply wrong.  This check also protects us from a
-            // stack overflow.
-            let if_cfgstat = DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT();
-            if orig_addr == if_cfgstat.addr {
-                panic!("Invalid nested read sentinel");
-            }
             // This read should _never_ fail for timing reasons because the
             // DEVCPU_ORG register block can be accessed faster than all other
             // registers (section 5.3.2 of the datasheet).
-            let v = self.read(if_cfgstat)?;
-            if v.if_stat() == 1 {
+            let if_cfgstat_addr = DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT().addr;
+            let if_cfgstat = self.read_inner(if_cfgstat_addr)?;
+            if if_cfgstat == 0x88888888 {
+                panic!("Invalid nested read sentinel");
+            }
+            let if_cfgstat =
+                vsc7448_pac::devcpu_org::devcpu_org::IF_CFGSTAT::from(
+                    if_cfgstat,
+                );
+            if if_cfgstat.if_stat() == 1 {
                 return Err(VscError::InvalidRegisterRead(orig_addr));
             }
+            // If the flag bit *isn't* set in `if_cfgstat`, then the value of
+            // 0x88888888 is a true value (not a sentinel) and we can return it
+            // below.
         }
         Ok(value)
+    }
+
+    // Unchecked register read, which can only fail for SPI reasons
+    #[inline(always)]
+    fn read_inner(&self, orig_addr: u32) -> Result<u32, drv_spi_api::SpiError> {
+        // Section 5.5.2 of the VSC7448 datasheet specifies how to convert
+        // a register address to a request over SPI.
+        let addr = (orig_addr & 0x00FFFFFF) >> 2;
+        let data: &[u8] = &addr.to_be_bytes()[1..];
+
+        // We read back 7 + padding bytes in total:
+        // - 3 bytes of address
+        // - Some number of padding bytes
+        // - 4 bytes of data
+        const SIZE: usize = 7 + SPI_NUM_PAD_BYTES;
+        let mut out = [0; SIZE];
+        self.0.exchange(data, &mut out[..])?;
+        Ok(u32::from_be_bytes(out[SIZE - 4..].try_into().unwrap_lite()))
     }
 
     #[inline(never)]
