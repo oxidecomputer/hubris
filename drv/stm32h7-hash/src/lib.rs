@@ -45,16 +45,11 @@ pub struct Hash {
     reg: &'static device::hash::RegisterBlock,
     interrupt: u32,
     state: State,
-    block: [u32; 16], // the STM32 hash block has 16 32-bit words.
-    idx: usize,       // index into block
-    count: usize,     // number of bytes received
-    remainder: u32,   // value of partial unprocessed word
-    nvalid: u8,       // number of bits in cached partial word
-                      // TODO: Resolve contention for the HASH block among multiple clients.
+    count: usize, // number of bytes received
 }
 
 const SIZEOF_U32: usize = size_of::<u32>();
-const BITS_PER_BYTE: usize = 8;
+const BLOCK_LEN_BYTES: usize = 16 * SIZEOF_U32;
 
 impl Hash {
     pub fn new(
@@ -66,11 +61,6 @@ impl Hash {
             interrupt,
             state: State::Uninitialized,
             count: 0,
-            remainder: 0,
-            nvalid: 0,
-            block: [0; 16],
-            idx: 0,
-            // total: 0,
         }
     }
 
@@ -105,10 +95,6 @@ impl Hash {
     //
     pub fn init_sha256(&mut self) -> Result<(), HashError> {
         self.count = 0;
-        self.remainder = 0;
-        self.nvalid = 0;
-        self.block.iter_mut().for_each(|m| *m = 0);
-        self.idx = 0;
         if self.is_busy() {
             while self.is_busy() {}
         }
@@ -147,50 +133,9 @@ impl Hash {
         Ok(())
     }
 
-    fn write_block(&mut self) {
-        // sr.dinis indicates that there is room for a full block
-        if self.is_busy() {
-            // XXX do i need to check DINIS? || !is_dinis_set() {
-            while self.is_busy() {
-                // || !is_dinis_set() {
-            }
-        }
-
-        if self.idx > 0 {
-            unsafe {
-                // Only the last block can have a partial word at the end.
-                // NBLW is initialized to 0 (last word has 32 valid bits) and
-                // can stay at zero if that doesn't change.
-                self.reg.str.modify(|_, w| {
-                    w.nblw()
-                        .bits(((self.count % SIZEOF_U32) * BITS_PER_BYTE) as u8)
-                });
-            }
-            for data in &self.block[0..self.idx] {
-                // If we were writing word instead of block at a time,
-                // then a busy check might be needed here.
-                unsafe {
-                    self.reg.din.write(|w| w.datain().bits(*data));
-                }
-            }
-            self.idx = 0;
-        }
-    }
-
-    fn write_word(&mut self, word: u32, valid_bytes: usize) {
-        if self.idx >= self.block.len() {
-            self.write_block();
-        }
-        self.block[self.idx] = word;
-        self.idx += 1;
-        self.count += valid_bytes;
-    }
-
-    /// Update hash with additional bytes of data.
-    // Little-endian data is fed to the hasher.
-    // e.g. "abc" is represented as 0x00636261
-    // Only the last data processed by the hasher can be less than 4 bytes.
-    pub fn update(&mut self, data: &[u8]) -> Result<(), HashError> {
+    /// Update hash with a full block of data. Requring exactly one block avoids
+    /// the need to do an extra copy internally and improves performance
+    pub fn update_exact(&mut self, data: &[u8]) -> Result<(), HashError> {
         match self.state {
             State::Uninitialized => {
                 return Err(HashError::NotInitialized);
@@ -204,60 +149,21 @@ impl Hash {
             }
         };
 
-        // Incoming data might not be aligned.
-        // TODO: Test above assumption and optimize if false.
-        //
-        // From the STM32H7 reference:
-        //
-        //  "...message string “abc” with a bit string representation of
-        //  “01100001 01100010 01100011” is represented by a 32-bit word
-        //  0x00636261, and 8-bit words 0x61626300."
+        if !data.len().is_multiple_of(BLOCK_LEN_BYTES) {
+            return Err(HashError::InvalidInputLen);
+        }
 
-        // Deal with the remainder bytes from last update if any.
-        let mut offset = 0;
-        if self.nvalid > 0 {
-            while self.nvalid < 32 {
-                if offset >= data.len() {
-                    break;
+        for block in data.chunks(BLOCK_LEN_BYTES) {
+            while self.is_busy() {
+                // If the block is busy a write to `DATAIN` will stall the
+                // AHB bus. Past experience has shown that context switching
+                // away is too costly so just busy wait.
+            }
+            for w in block.chunks(SIZEOF_U32) {
+                let data = u32::from_le_bytes(w.try_into().unwrap());
+                unsafe {
+                    self.reg.din.write(|w| w.datain().bits(data));
                 }
-                self.remainder |= (data[offset] as u32) << self.nvalid;
-                self.nvalid += 8;
-                offset += 1;
-            }
-            if self.nvalid == 32 {
-                self.write_word(self.remainder, SIZEOF_U32);
-                self.nvalid = 0;
-                self.remainder = 0;
-            }
-        }
-
-        // Hash all of the whole words available.
-        // The words might not be aligned.
-        while offset + SIZEOF_U32 <= data.len() {
-            self.write_word(
-                (data[offset] as u32)
-                    | ((data[offset + 1] as u32) << 8)
-                    | ((data[offset + 2] as u32) << 16)
-                    | ((data[offset + 3] as u32) << 24),
-                SIZEOF_U32,
-            );
-            offset += SIZEOF_U32;
-        }
-        while offset + SIZEOF_U32 <= data.len() {
-            self.write_word(
-                u32::from_le_bytes(
-                    (&data[offset..offset + SIZEOF_U32]).try_into().unwrap(),
-                ),
-                SIZEOF_U32,
-            );
-            offset += SIZEOF_U32;
-        }
-
-        if offset < data.len() {
-            while offset < data.len() {
-                self.remainder |= (data[offset] as u32) << self.nvalid;
-                self.nvalid += 8;
-                offset += 1;
             }
         }
 
@@ -277,15 +183,6 @@ impl Hash {
                 return Err(HashError::InvalidState);
             }
         };
-
-        if self.nvalid > 0 {
-            // There are remainder bits that need to be written.
-            self.write_word(self.remainder, (self.nvalid / 8).into());
-            self.nvalid = 0;
-        }
-        if self.idx > 0 {
-            self.write_block(); // flush any final block
-        }
 
         // Enable interrupt for sum calculation done.
         self.reg
@@ -331,23 +228,7 @@ impl Hash {
         Ok(())
     }
 
-    pub fn digest_sha256(
-        &mut self,
-        input: &[u8],
-        out: &mut [u8],
-    ) -> Result<(), HashError> {
-        // TODO: init() will wipe out the context of a long running hash in
-        // progress.
-        self.init_sha256()?;
-        self.update(input)?;
-        self.finalize_sha256(out)
-    }
-
     fn is_busy(&self) -> bool {
         self.reg.sr.read().busy().bit()
-    }
-
-    fn _is_dinis_set(&self) -> bool {
-        self.reg.sr.read().dinis().bit()
     }
 }

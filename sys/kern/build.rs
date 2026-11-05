@@ -186,7 +186,9 @@ fn process_config() -> Result<Generated> {
         };
         task_descs.push(quote::quote! {
             TaskDesc {
-                regions: [#(&HUBRIS_REGION_DESCS[#regions]),*],
+                regions: crate::descs::SortedRegions::new(
+                    [#(&HUBRIS_REGION_DESCS[#regions]),*]
+                ),
                 entry_point: #entry_point,
                 initial_stack: #initial_stack,
                 priority: #priority,
@@ -463,19 +465,9 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
         });
     }
 
-    let atts = if atts.is_empty() {
-        quote::quote! { RegionAttributes::empty() }
-    } else {
-        // We have to do the OR-ing on bits and then from_bits_unchecked it
-        // because these operations are const, while OR-ing of the
-        // RegionAttributes type itself is not (pending const impl stability)
-        quote::quote! {
-            unsafe {
-                RegionAttributes::from_bits_unchecked(
-                    #(RegionAttributes::#atts.bits())|*
-                )
-            }
-        }
+    // Accumulate region attributes as a union (starting from empty)
+    let atts = quote::quote! {
+        RegionAttributes::empty() #( .union(RegionAttributes::#atts) )*
     };
 
     // The kconfig describes regions in 32-bit terms; the kernel's descriptors

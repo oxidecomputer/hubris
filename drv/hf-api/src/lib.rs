@@ -234,7 +234,9 @@ impl Default for HashData {
 
 /// The state of our async hash
 pub enum HashState {
+    /// We have completed our hash
     Done,
+    /// Hash in progress
     Hashing {
         dev: HfDevSelect,
         addr: usize,
@@ -245,6 +247,7 @@ pub enum HashState {
         // not concerned about that here.
         hasher: sha2::digest::common::hazmat::SerializedState<sha2::Sha256>,
     },
+    /// No hash has been started
     NotRunning,
 }
 

@@ -8,6 +8,7 @@
 #![no_main]
 
 use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
+use drv_hf_api::HostFlash;
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -20,6 +21,7 @@ use userlib::{FromPrimitive, RecvMessage, UnwrapLite, hl, task_slot};
 use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 
 task_slot!(JEFE, jefe);
+task_slot!(HF, hf);
 task_slot!(LOADER, spartan7_loader);
 
 #[derive(Copy, Clone, PartialEq, Count)]
@@ -29,6 +31,7 @@ enum Trace {
 
     MacsAlreadySet(MacAddressBlock),
     IdentityAlreadySet(OxideIdentity),
+    HashTime(u64),
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
@@ -77,6 +80,8 @@ struct ServerImpl {
     jefe: Jefe,
     sgpio: fmc_periph::sgpio::Sgpio,
     espi: fmc_periph::espi::Espi,
+    hash: fmc_periph::hash::Hash,
+    hf: HostFlash,
 }
 
 impl ServerImpl {
@@ -97,8 +102,10 @@ impl ServerImpl {
 
         let server = Self {
             jefe: Jefe::from(JEFE.get_task_id()),
+            hf: HostFlash::from(HF.get_task_id()),
             sgpio: fmc_periph::sgpio::Sgpio::new(loader.get_token()),
             espi: fmc_periph::espi::Espi::new(loader.get_token()),
+            hash: fmc_periph::hash::Hash::new(loader.get_token()),
         };
 
         // Note that we don't use `Self::set_state_impl` here, as that will
@@ -124,8 +131,15 @@ impl ServerImpl {
         state: PowerState,
     ) -> Result<Transition, SeqError> {
         match (self.get_state_impl(), state) {
-            (PowerState::A2, PowerState::A0)
-            | (PowerState::A0, PowerState::A2)
+            (PowerState::A2, PowerState::A0) => {
+                let before = userlib::sys_get_timer().now;
+                let _ = self.hf.measure();
+                let after = userlib::sys_get_timer().now;
+                ringbuf_entry!(Trace::HashTime(after - before));
+                self.jefe.set_state(state as u32);
+                Ok(Transition::Changed)
+            }
+            (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
             | (PowerState::A0Thermtrip, PowerState::A2) => {
                 self.jefe.set_state(state as u32);

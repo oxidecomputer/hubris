@@ -1558,6 +1558,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "sha2 0.11.0",
+ "static-cell",
  "stm32h7",
  "userlib",
  "zerocopy 0.8.27",
@@ -1620,6 +1621,7 @@ dependencies = [
  "drv-auxflash-api",
  "drv-cpu-power-state",
  "drv-cpu-seq-api",
+ "drv-hf-api",
  "drv-spartan7-loader-api",
  "drv-stm32xx-sys-api",
  "idol",
@@ -1637,14 +1639,8 @@ dependencies = [
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
- "counters",
- "derive-idol-err",
- "idol",
- "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2262,6 +2258,7 @@ dependencies = [
  "counters",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "heapless",
  "ringbuf",
  "static-cell",
  "userlib",
@@ -2636,25 +2633,6 @@ dependencies = [
  "stm32h7",
  "userlib",
  "vcell",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
-]
-
-[[package]]
-name = "drv-stm32h7-hash-server"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "cfg-if",
- "cortex-m",
- "drv-hash-api",
- "drv-stm32h7-hash",
- "drv-stm32xx-sys-api",
- "idol",
- "idol-runtime",
- "num-traits",
- "stm32h7",
- "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
 ]
@@ -3946,7 +3924,7 @@ dependencies = [
 [[package]]
 name = "idol"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#5b8da783597badc97ef554d86753aba3b89dbd01"
+source = "git+https://github.com/oxidecomputer/idolatry.git#1ea0bb50d93156de976b2415e5cc6177181ff9d8"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -3962,7 +3940,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#5b8da783597badc97ef554d86753aba3b89dbd01"
+source = "git+https://github.com/oxidecomputer/idolatry.git#1ea0bb50d93156de976b2415e5cc6177181ff9d8"
 dependencies = [
  "counters",
  "userlib",
@@ -5036,7 +5014,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.7"
-source = "git+https://github.com/oxidecomputer/pmbus#7525df2366e28608b609631b89bd6f5714cf343c"
+source = "git+https://github.com/oxidecomputer/pmbus#1679df79aa11870e936db330c8c4861322848bef"
 dependencies = [
  "anyhow",
  "convert_case 0.11.0",

@@ -20,6 +20,7 @@ drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 drv-stm32h7-hash = { path = "../stm32h7-hash" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 ringbuf = { path = "../../lib/ringbuf" }
+static-cell = { path = "../../lib/static-cell" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
