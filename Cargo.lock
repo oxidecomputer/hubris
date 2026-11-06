@@ -392,12 +392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bstringify"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
-
-[[package]]
 name = "build-elf"
 version = "0.1.0"
 dependencies = [
@@ -7634,18 +7628,15 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "armv6m-atomic-hack",
- "bstringify",
  "build-util",
  "cortex-m",
  "critical-section",
  "num-derive",
  "num-traits",
- "paste",
  "serde",
  "ssmarshal",
  "unwrap-lite",
  "userlib-units",
- "volatile-const",
  "zerocopy 0.8.63",
  "zerocopy-derive 0.8.63",
 ]
