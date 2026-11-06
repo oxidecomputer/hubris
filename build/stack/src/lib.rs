@@ -67,7 +67,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 use capstone::{
-    Capstone, InsnDetail, InsnGroupId, InsnGroupType,
+    Capstone, Insn, InsnDetail, InsnGroupId, InsnGroupType,
     arch::{
         ArchDetail, BuildsCapstone, BuildsCapstoneExtraMode, DetailsArchInsn,
         arm,
@@ -196,8 +196,6 @@ enum TextRange {
 /// processing the raw assembly of each function to figure out which functions
 /// are called by this function
 struct FunctionCallCollector<'a> {
-    /// The Capstone disassembler
-    cs: &'a Capstone,
     /// The name of this function
     name: &'a str,
     /// The base address of this function
@@ -341,7 +339,6 @@ pub fn extract_function_items(
         // Gather up all the information we need to find all the calls in this
         // function
         let mut fc = FunctionCallCollector {
-            cs: &cs,
             name: &function.name,
             base_addr,
             function_range,
@@ -356,10 +353,39 @@ pub fn extract_function_items(
         // inside of each function, and collect all the out-bound calls. We
         // disassemble ranges rather than functions, as functions might contain
         // puddles of inline data which we don't want to (mis)-disassemble.
+        let mut instr_chunks = vec![];
         for chunk in function.text_ranges.iter() {
             let (data_addr, data) = chunk.text_data(&data, text)?;
-            fc.extract_calls(data, data_addr)?;
+            instr_chunks.push((
+                data_addr,
+                cs.disasm_all(data, data_addr)
+                    .map_err(|e| anyhow!("disassembly failed: {e:?}"))?,
+            ));
         }
+
+        let mut detailed_instrs = vec![];
+        for (data_addr, instrs) in &instr_chunks {
+            let Some((last, all_except_last)) = instrs.split_last() else {
+                bail!("Empty chunk in {} at {:08X}", function.name, data_addr);
+            };
+            // See https://www.nmichaels.org/musings/d4d4/d4d4/
+            let to_consider = if last.bytes() == [0xD4, 0xD4] {
+                all_except_last
+            } else {
+                instrs
+            };
+
+            // Walk through each instruction inside of each chunk
+            for instr in to_consider.iter() {
+                // We need to get details for the instruction, which we should
+                // always have for well-formed programs
+                let detail = cs.insn_detail(instr).map_err(|e| {
+                    anyhow!("could not get instruction details: {e}")
+                })?;
+                detailed_instrs.push((instr, detail));
+            }
+        }
+        fc.extract_calls(&detailed_instrs)?;
 
         if fc.recursive_calls != 0 {
             let allow_match = config.match_allowed_recurses(fc.name);
@@ -752,34 +778,13 @@ impl TextRange {
 impl FunctionCallCollector<'_> {
     // attempt to extract all outgoing calls from the given chunk of executable
     // code within this function
-    fn extract_calls(&mut self, data: &[u8], data_addr: u64) -> Result<()> {
-        let instrs = self
-            .cs
-            .disasm_all(data, data_addr)
-            .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
-
-        let Some((last, all_except_last)) = instrs.split_last() else {
-            bail!("Empty chunk in {} at {:08X}", self.name, data_addr);
-        };
-
-        // See https://www.nmichaels.org/musings/d4d4/d4d4/
-        let to_consider = if last.bytes() == [0xD4, 0xD4] {
-            all_except_last
-        } else {
-            &instrs
-        };
-
+    fn extract_calls(
+        &mut self,
+        data: &[(&Insn<'_>, InsnDetail<'_>)],
+    ) -> Result<()> {
         // Walk through each instruction inside of each chunk
-        for (i, instr) in to_consider.iter().enumerate() {
-            // We need to get details for the instruction, which we should
-            // always have for well-formed programs
-            let detail = self.cs.insn_detail(instr).map_err(|e| {
-                anyhow!("could not get instruction details: {e}")
-            })?;
-            self.process_one_instruction(
-                &detail,
-                i == (to_consider.len() - 1),
-            )?;
+        for (i, (_instr, detail)) in data.iter().enumerate() {
+            self.process_one_instruction(detail, i == (data.len() - 1))?;
         }
         Ok(())
     }
