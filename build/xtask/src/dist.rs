@@ -1662,18 +1662,22 @@ fn task_has_bad_memory_access(
     println!(
         "task {task_name} accesses memory outside of its allowed regions:"
     );
-    // Print each bad access, then the (deduplicated) regions that they hit
+    // Print each bad access, then the (deduplicated) regions that they hit,
+    // annotating each access with the index of its region
     let mut regions = indexmap::IndexSet::new();
     for (function, accesses) in bad {
         println!("  in {function}:");
         for (addr, a) in accesses {
-            println!("    {:#010x}: {:<24} => {addr:#010x}", a.pc, a.instr);
-            regions.insert(describe(addr));
+            let (i, _) = regions.insert_full(describe(addr));
+            println!(
+                "    {:#010x}: {:<24} => {addr:#010x} [{i}]",
+                a.pc, a.instr
+            );
         }
     }
     println!("  accessed regions:");
-    for r in regions {
-        println!("    {r}");
+    for (i, r) in regions.iter().enumerate() {
+        println!("    [{i}] {r}");
     }
     Ok(true)
 }
