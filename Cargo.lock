@@ -201,6 +201,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
 
 [[package]]
+name = "asmcheck"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-elf",
+ "capstone",
+ "goblin",
+ "leb128",
+ "rustc-demangle",
+]
+
+[[package]]
 name = "atomic-polyfill"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -489,18 +501,6 @@ dependencies = [
  "quote",
  "serde",
  "syn 2.0.106",
-]
-
-[[package]]
-name = "build-stack"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "build-elf",
- "capstone",
- "goblin",
- "leb128",
- "rustc-demangle",
 ]
 
 [[package]]
@@ -8159,6 +8159,7 @@ version = "1.0.0"
 dependencies = [
  "abi",
  "anyhow",
+ "asmcheck",
  "atty",
  "base64 0.22.1",
  "build-elf",
@@ -8166,7 +8167,6 @@ dependencies = [
  "build-i2c",
  "build-kconfig",
  "build-memcheck",
- "build-stack",
  "build-util",
  "byteorder",
  "bzip2-rs",
