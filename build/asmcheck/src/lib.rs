@@ -67,7 +67,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 use capstone::{
-    Capstone, InsnDetail, InsnGroupId, InsnGroupType,
+    Capstone, Insn, InsnDetail, InsnGroupId, InsnGroupType, RegId,
     arch::{
         ArchDetail, BuildsCapstone, BuildsCapstoneExtraMode, DetailsArchInsn,
         arm,
@@ -111,13 +111,15 @@ pub struct Config {
 }
 
 /// Information derived about a given function
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct FunctionData {
     pub name: String,
     pub frame_size: Option<u64>,
     pub calls: BTreeSet<u32>,
     pub missing_calls: usize,
     pub recursive_calls: usize,
+    /// Statically-known memory accesses, keyed by address
+    pub memory_access: BTreeMap<u32, Vec<MemoryAccess>>,
 }
 
 /// The resulting report of all metadata obtained for functions after
@@ -126,6 +128,7 @@ pub struct FunctionData {
 pub struct FunctionReport {
     pub function_items: BTreeMap<u32, FunctionData>,
     pub addr_to_frame_size: BTreeMap<u32, u64>,
+    pub config: Config,
 }
 
 /// A function that has been visited and "filled in" by the [`Resolver`].
@@ -145,10 +148,10 @@ pub struct ResolvedNode {
 /// This visits a call graph of [`FunctionData`] recursively, turning each node
 /// into a memoized `Rc<ResolvedNode>`, and keeps a mapping of all nodes by
 /// address.
-pub struct Resolver {
+pub struct Resolver<'a> {
     pub call_stack: Vec<u32>,
     pub all_resolved: BTreeMap<u32, Rc<ResolvedNode>>,
-    pub fn_items: BTreeMap<u32, FunctionData>,
+    pub fn_items: &'a BTreeMap<u32, FunctionData>,
     pub config: Config,
 }
 
@@ -195,9 +198,7 @@ enum TextRange {
 /// Private helper type to group up all of the context information we need when
 /// processing the raw assembly of each function to figure out which functions
 /// are called by this function
-struct FunctionCallCollector<'a> {
-    /// The Capstone disassembler
-    cs: &'a Capstone,
+struct FunctionDataCollector<'a> {
     /// The name of this function
     name: &'a str,
     /// The base address of this function
@@ -218,6 +219,8 @@ struct FunctionCallCollector<'a> {
     recursive_calls: usize,
     /// All outgoing calls from this function
     calls: BTreeSet<u32>,
+    /// Branch targets within this function (used for register tracking)
+    branch_targets: BTreeSet<u32>,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -231,13 +234,10 @@ struct FunctionCallCollector<'a> {
 /// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
 /// `B` never calls `C` if called by `A`).
 pub fn get_max_stack(
-    config: Config,
+    fns: &FunctionReport,
     target: &str,
-    elf: &Path,
-    verbose: bool,
 ) -> Result<Vec<(u64, String)>> {
-    let fns = extract_function_items(elf, verbose, &config)?;
-    let mut resolver = Resolver::new(fns.function_items, &config);
+    let mut resolver = Resolver::new(&fns.function_items, &fns.config);
     let node = resolver.resolve_by_name("_start")?;
     let chain = node.worst_chain();
     let mut chain_compat = chain
@@ -340,8 +340,7 @@ pub fn extract_function_items(
 
         // Gather up all the information we need to find all the calls in this
         // function
-        let mut fc = FunctionCallCollector {
-            cs: &cs,
+        let mut fc = FunctionDataCollector {
             name: &function.name,
             base_addr,
             function_range,
@@ -350,16 +349,53 @@ pub fn extract_function_items(
             missing_calls: 0,
             recursive_calls: 0,
             calls: BTreeSet::new(),
+            branch_targets: BTreeSet::new(),
         };
 
         // Walk through each "text range", which is an island of executable code
-        // inside of each function, and collect all the out-bound calls. We
-        // disassemble ranges rather than functions, as functions might contain
-        // puddles of inline data which we don't want to (mis)-disassemble.
+        // inside of each function, and collect all the disassembled instruction
+        // chunks.  We disassemble ranges rather than functions, as functions
+        // might contain puddles of inline data which we don't want to
+        // (mis)-disassemble.
+        let mut instr_chunks = vec![];
         for chunk in function.text_ranges.iter() {
             let (data_addr, data) = chunk.text_data(&data, text)?;
-            fc.extract_calls(data, data_addr)?;
+            instr_chunks.push((
+                data_addr,
+                cs.disasm_all(data, data_addr)
+                    .map_err(|e| anyhow!("disassembly failed: {e:?}"))?,
+            ));
         }
+
+        // Now, collect a flat list of `(instruction, details)` tuples.  This
+        // has to be done separately because it borrows from the disassembled
+        // instructions in `instr_chunks`.
+        let mut detailed_instrs = vec![];
+        for (data_addr, instrs) in &instr_chunks {
+            let Some((last, all_except_last)) = instrs.split_last() else {
+                bail!("Empty chunk in {} at {:08X}", function.name, data_addr);
+            };
+            // See https://www.nmichaels.org/musings/d4d4/d4d4/
+            let to_consider = if last.bytes() == [0xD4, 0xD4] {
+                all_except_last
+            } else {
+                instrs
+            };
+
+            // Walk through each instruction inside of each chunk
+            for instr in to_consider.iter() {
+                // We need to get details for the instruction, which we should
+                // always have for well-formed programs
+                let detail = cs.insn_detail(instr).map_err(|e| {
+                    anyhow!("could not get instruction details: {e}")
+                })?;
+                detailed_instrs.push((instr, detail));
+            }
+        }
+
+        // Extract all outgoing calls from this function.  This also populates
+        // `fc.branch_targets`, for use in memory access checking below.
+        fc.extract_calls(&detailed_instrs)?;
 
         if fc.recursive_calls != 0 {
             let allow_match = config.match_allowed_recurses(fc.name);
@@ -376,6 +412,27 @@ pub fn extract_function_items(
             }
         }
 
+        // Extract statically-determined memory accesses
+        let mut reg_state = RegState::default();
+        let mut memory_access = BTreeMap::new();
+        for (instr, detail) in detailed_instrs {
+            if fc.branch_targets.contains(&(instr.address() as u32)) {
+                reg_state.clear();
+            }
+            if let Some(mem) = reg_state.process(instr, &detail, &elf, &data) {
+                memory_access.entry(mem).or_insert_with(Vec::new).push(
+                    MemoryAccess {
+                        pc: instr.address() as u32,
+                        instr: format!(
+                            "{} {}",
+                            instr.mnemonic().unwrap_or("???"),
+                            instr.op_str().unwrap_or("")
+                        ),
+                    },
+                );
+            }
+        }
+
         fns.insert(
             base_addr,
             FunctionData {
@@ -384,6 +441,7 @@ pub fn extract_function_items(
                 recursive_calls: fc.recursive_calls,
                 name: function.name,
                 frame_size,
+                memory_access,
             },
         );
     }
@@ -391,6 +449,7 @@ pub fn extract_function_items(
     Ok(FunctionReport {
         function_items: fns,
         addr_to_frame_size,
+        config: config.clone(),
     })
 }
 
@@ -494,9 +553,12 @@ impl ResolvedNode {
     }
 }
 
-impl Resolver {
+impl<'a> Resolver<'a> {
     /// Create a new resolver from the given map of [`FunctionData`] items
-    pub fn new(fn_items: BTreeMap<u32, FunctionData>, config: &Config) -> Self {
+    pub fn new(
+        fn_items: &'a BTreeMap<u32, FunctionData>,
+        config: &Config,
+    ) -> Self {
         Self {
             call_stack: vec![],
             all_resolved: BTreeMap::new(),
@@ -749,37 +811,18 @@ impl TextRange {
     }
 }
 
-impl FunctionCallCollector<'_> {
-    // attempt to extract all outgoing calls from the given chunk of executable
+impl FunctionDataCollector<'_> {
+    // Attempt to extract all outgoing calls from the given chunk of executable
     // code within this function
-    fn extract_calls(&mut self, data: &[u8], data_addr: u64) -> Result<()> {
-        let instrs = self
-            .cs
-            .disasm_all(data, data_addr)
-            .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
-
-        let Some((last, all_except_last)) = instrs.split_last() else {
-            bail!("Empty chunk in {} at {:08X}", self.name, data_addr);
-        };
-
-        // See https://www.nmichaels.org/musings/d4d4/d4d4/
-        let to_consider = if last.bytes() == [0xD4, 0xD4] {
-            all_except_last
-        } else {
-            &instrs
-        };
-
+    //
+    // We also log within-function branch targets for later use
+    fn extract_calls(
+        &mut self,
+        data: &[(&Insn<'_>, InsnDetail<'_>)],
+    ) -> Result<()> {
         // Walk through each instruction inside of each chunk
-        for (i, instr) in to_consider.iter().enumerate() {
-            // We need to get details for the instruction, which we should
-            // always have for well-formed programs
-            let detail = self.cs.insn_detail(instr).map_err(|e| {
-                anyhow!("could not get instruction details: {e}")
-            })?;
-            self.process_one_instruction(
-                &detail,
-                i == (to_consider.len() - 1),
-            )?;
+        for (i, (insn, detail)) in data.iter().enumerate() {
+            self.process_one_instruction(insn, detail, i == (data.len() - 1))?;
         }
         Ok(())
     }
@@ -788,6 +831,7 @@ impl FunctionCallCollector<'_> {
     /// call
     fn process_one_instruction(
         &mut self,
+        insn: &Insn<'_>,
         detail: &InsnDetail<'_>,
         last_in_chunk: bool,
     ) -> Result<()> {
@@ -861,9 +905,21 @@ impl FunctionCallCollector<'_> {
             // of self-recursion
             if target == self.base_addr {
                 self.recursive_calls += 1;
-            } else if !self.function_range.contains(&target) {
+            } else if self.function_range.contains(&target) {
+                // This jumps into the function; we'll store the target address
+                // for later (because it will invalidate registers at the
+                // landing site)
+                self.branch_targets.insert(target);
+            } else {
                 self.calls.insert(target);
             }
+
+            // We'll also record the address itself as a branch target, so that
+            // we clear register state when processing this instruction (since
+            // we could be jumping away and then returning).  This is overly
+            // conversative, but shouldn't matter for the kinds of patterns that
+            // we're looking to detect!
+            self.branch_targets.insert(insn.address() as u32);
         }
         Ok(())
     }
@@ -1027,4 +1083,130 @@ fn extract_raw_function_data(
     }
 
     Ok(functions)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Type containing data about a static memory access
+///
+/// Allocating a string for every access seems like a Bad Idea, but we don't
+/// actually find that many: a full Sidecar build only has ~300, which is
+/// reasonable.
+#[derive(Debug)]
+pub struct MemoryAccess {
+    /// Address of the instruction which performs the access
+    pub pc: u32,
+    /// Disassembled instruction (for human consumption)
+    pub instr: String,
+}
+
+/// Register state within straight-line code
+#[derive(Default)]
+struct RegState {
+    /// Map from register to known value
+    known: BTreeMap<RegId, u32>,
+}
+
+impl RegState {
+    fn clear(&mut self) {
+        self.known.clear();
+    }
+
+    /// Processes a single instruction, updating our register state.
+    ///
+    /// Returns the address if this instruction accesses memory at a
+    /// statically-known address.
+    fn process(
+        &mut self,
+        instr: &Insn<'_>,
+        detail: &InsnDetail<'_>,
+        elf: &Elf<'_>,
+        data: &[u8],
+    ) -> Option<u32> {
+        let ArchDetail::ArmDetail(arm) = detail.arch_detail() else {
+            panic!("invalid arch");
+        };
+        let ops = arm.operands().collect::<Vec<_>>();
+        let id = instr.id().0;
+        let conditional = !matches!(arm.cc(), arm::ArmCC::ARM_CC_AL)
+            && !matches!(arm.cc(), arm::ArmCC::ARM_CC_INVALID);
+
+        // Check for memory accesses through a register with a known value.
+        // Preload instructions are hints and don't fault, so we skip them.
+        let mut access = None;
+        let is_preload = id == arm::ArmInsn::ARM_INS_PLD as u32
+            || id == arm::ArmInsn::ARM_INS_PLDW as u32
+            || id == arm::ArmInsn::ARM_INS_PLI as u32;
+        if !is_preload {
+            for op in &ops {
+                let arm::ArmOperandType::Mem(mem) = op.op_type else {
+                    continue;
+                };
+                if mem.index() != RegId(arm::ArmReg::ARM_REG_INVALID as u16) {
+                    continue;
+                }
+                if let Some(base) = self.known.get(&mem.base()) {
+                    let addr = base.wrapping_add_signed(disp(op, mem.disp()));
+                    access = Some(addr);
+                }
+            }
+        }
+
+        // Discard every register that this instruction could have written.
+        // We don't know which register operands are written, so we
+        // conservatively assume that they all are.
+        for r in detail.regs_write() {
+            self.known.remove(r);
+        }
+        for op in &ops {
+            match op.op_type {
+                arm::ArmOperandType::Reg(r) => {
+                    self.known.remove(&r);
+                }
+                arm::ArmOperandType::Mem(mem) if arm.writeback() => {
+                    self.known.remove(&mem.base());
+                }
+                _ => (),
+            }
+        }
+
+        // Check for a literal pool load, i.e. `ldr rX, [pc, #imm]`
+        if id == arm::ArmInsn::ARM_INS_LDR as u32
+            && let [dst, src] = ops.as_slice()
+            && let arm::ArmOperandType::Reg(dst) = dst.op_type
+            && let arm::ArmOperandType::Mem(mem) = src.op_type
+            && mem.base() == RegId(arm::ArmReg::ARM_REG_PC as u16)
+            && mem.index() == RegId(arm::ArmReg::ARM_REG_INVALID as u16)
+            && !conditional
+        {
+            // In Thumb mode, PC reads as the address of the current
+            // instruction plus 4, aligned down to a word boundary.
+            let pc = (instr.address() as u32).wrapping_add(4) & !3;
+            let addr = pc.wrapping_add_signed(disp(src, mem.disp()));
+            if let Ok(value) = read_u32(elf, data, addr) {
+                self.known.insert(dst, value);
+            }
+        }
+
+        access
+    }
+}
+
+fn disp(op: &arm::ArmOperand, disp: i32) -> i32 {
+    // Capstone may represent negative offsets as a positive displacement with
+    // the `subtracted` flag set.
+    if op.subtracted && disp > 0 {
+        -disp
+    } else {
+        disp
+    }
+}
+
+/// Reads a little-endian `u32` from initialized data in the ELF file
+fn read_u32(elf: &Elf<'_>, data: &[u8], addr: u32) -> Result<u32> {
+    let offset = build_elf::get_file_offset_by_vma(elf, addr.into())? as usize;
+    let bytes = data
+        .get(offset..offset + 4)
+        .ok_or_else(|| anyhow!("could not read from {offset:#x}"))?;
+    Ok(u32::from_le_bytes(bytes.try_into().unwrap()))
 }
