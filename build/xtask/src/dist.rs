@@ -411,8 +411,16 @@ impl PackageConfig {
         out.env
             .insert("HUBRIS_TASK_NAME".to_string(), task_name.to_string());
 
-        // Build a task-slot mapping as environment variables so that the
-        // `userlib` `task_slot!` macro can extract it at compile time.
+        // Build a task-slot mapping as environment variables so that
+        // `userlib`'s `task_slot!` macro can extract them at compile time.
+        //
+        // - `slot` is the task-bound slot name/alias (e.g. `cpu_seq`)
+        // - `target` is the task's actual name (e.g. `gimlet_seq`)
+        // - `index` is the `target` task's index (e.g. `11`).
+        //
+        // `slot` is often the same as `target`, but `slot` names are used for
+        // exporting as they allow app manifests to abstract over different
+        // impls (e.g. `spi_driver2` on one board, `spi_driver3` on another).
         for (slot, target) in &task_toml.task_slots {
             let index = toml.tasks.get_index_of(target).ok_or_else(|| {
                 format!(
@@ -810,7 +818,7 @@ pub fn package(
             })
             .collect::<Result<_, _>>()?;
 
-        // Check stack sizes and resolve task slots in our linked files
+        // Check stack sizes and local home-dir deps
         let mut possible_stack_overflow = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {

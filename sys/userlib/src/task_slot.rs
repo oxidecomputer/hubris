@@ -4,14 +4,18 @@
 
 use abi::{Generation, TaskId};
 
-/// TaskSlot ID mapping.
+/// TaskSlot index mapping.
 pub struct TaskSlot(u16);
 
 impl TaskSlot {
-    /// Parse a slot index from the given string.
+    /// Parse a slot index from the given string, e.g. "11".
     ///
     /// The mapping is provided via an `env!` var inserted by `xtask`.
-    pub const fn new(index: &'static str) -> Self {
+    /// See the `task_slot!` macro for more details.
+    ///
+    /// This is intended to (only) be used at compile time, and panics if
+    /// `index` cannot be parsed as a `u16`.
+    pub const fn parse(index: &'static str) -> Self {
         Self(parse_index(index))
     }
 
@@ -28,9 +32,9 @@ impl TaskSlot {
     }
 }
 
-/// const-fn version of `FromStr::<u16>::parse().unwrap()`/`itoa`.
+/// const-fn version of `str::parse::<u16>().unwrap()`/`atoi`.
 ///
-/// Used for extracting mappings from xtask-provided task slot numbers.
+/// Panics if parsing is not successful.
 const fn parse_index(text: &str) -> u16 {
     let bytes = text.as_bytes();
     if bytes.is_empty() {
