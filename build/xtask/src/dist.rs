@@ -1589,6 +1589,29 @@ fn task_has_bad_memory_access(
     // Try to give a helpful name to each bad address
     let describe = |addr: u32| -> String {
         let a = &addr;
+
+        // If the address is in the `[mmio]` peripheral region, then it should
+        // be accessed through one of the fine-grained regions generated from
+        // the register map, rather than the region as a whole.
+        if let Some(mmio) = &toml.mmio
+            && let Some(region) = toml.peripherals.get(&mmio.peripheral_region)
+            && (region.address..region.address + region.size).contains(a)
+        {
+            return if let Some((name, _)) =
+                toml.peripherals.iter().find(|(name, p)| {
+                    **name != mmio.peripheral_region
+                        && (p.address..p.address + p.size).contains(a)
+                }) {
+                format!("mmio peripheral '{name}' (missing from `uses`?)")
+            } else {
+                format!(
+                    "mmio region '{}', but not in any peripheral from {}",
+                    mmio.peripheral_region,
+                    mmio.register_map.display(),
+                )
+            };
+        }
+
         if let Some((name, _)) = toml
             .peripherals
             .iter()
