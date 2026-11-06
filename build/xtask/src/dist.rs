@@ -314,6 +314,13 @@ impl PackageConfig {
         let task_names =
             toml.tasks.keys().cloned().collect::<Vec<_>>().join(",");
         env.insert("HUBRIS_TASKS".to_string(), task_names);
+        if toml.target == "host" {
+            // Export an environment variable that says, "yes, I do really mean
+            // to be building for the host, and it is not something I've
+            // accidentally done". This is primarily intended to allow userlib
+            // builds for the host.
+            env.insert("HUBRIS_HOST_BUILD".to_string(), "1".to_string());
+        }
         env.insert(
             "HUBRIS_BUILD_VERSION".to_string(),
             format!("{}", toml.version),
