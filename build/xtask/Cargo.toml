@@ -40,6 +40,7 @@ scroll = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha3 = { workspace = true }
+build-memcheck = { path = "../memcheck" }
 build-stack = { path = "../stack" }
 tlvc = { workspace = true }
 tlvc-text = { workspace = true }

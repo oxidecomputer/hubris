@@ -818,12 +818,18 @@ pub fn package(
             })
             .collect::<Result<_, _>>()?;
 
-        // Check stack sizes and local home-dir deps
+        // Check stack sizes, memory accesses, and local home-dir strings
         let mut possible_stack_overflow = vec![];
+        let mut bad_memory_access = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
                 if task_can_overflow(&cfg.toml, task_name, verbose)? {
                     possible_stack_overflow.push(task_name);
+                }
+                if task_has_bad_memory_access(
+                    &cfg.toml, task_name, image_name, allocs, verbose,
+                )? {
+                    bad_memory_access.push(task_name);
                 }
                 if task_contains_home(&cfg.toml, task_name)? {
                     if skip_path_check {
@@ -846,6 +852,12 @@ pub fn package(
             bail!(
                 "tasks may overflow: {possible_stack_overflow:?}; \
                  see logs above"
+            );
+        }
+        if !bad_memory_access.is_empty() {
+            bail!(
+                "tasks access memory outside of their allowed regions: \
+                 {bad_memory_access:?}; see logs above"
             );
         }
 
@@ -1509,6 +1521,127 @@ fn task_can_overflow(
     } else {
         Ok(false)
     }
+}
+
+/// Checks whether the given task accesses memory outside of its allowed regions
+///
+/// This only detects a simple pattern (a constant address loaded from a literal
+/// pool, then used as the base of a load or store), so false negatives are
+/// likely; false positives are possible but unlikely (e.g. if the access is in
+/// a logically unreachable part of the code).
+fn task_has_bad_memory_access(
+    toml: &Config,
+    task_name: &str,
+    image_name: &str,
+    allocs: &Allocations,
+    verbose: bool,
+) -> Result<bool> {
+    let f = Path::new("target")
+        .join(&toml.name)
+        .join("dist")
+        .join(image_name)
+        .join(task_name);
+
+    let region = |name: &str, r: Range<u32>| build_memcheck::Region {
+        name: name.to_owned(),
+        range: u64::from(r.start)..u64::from(r.end),
+    };
+
+    // Regions owned by the task
+    let mut allowed = vec![];
+    for (name, ranges) in &allocs.tasks[task_name] {
+        allowed.push(region(name, ranges.start()..ranges.end()));
+    }
+    for (name, r) in toml.extern_regions_for(task_name, image_name)? {
+        allowed.push(region(&name, r));
+    }
+
+    // Shared regions (peripherals and extratext) used by the task
+    let task = &toml.tasks[task_name];
+    for name in &task.uses {
+        let p = toml
+            .peripherals
+            .get(name)
+            .or_else(|| toml.extratext.get(name))
+            .ok_or_else(|| {
+                anyhow!("task {task_name} uses unknown region {name}")
+            })?;
+        allowed.push(region(name, p.address..p.address + p.size));
+    }
+    if let Some(caboose) = &toml.caboose
+        && caboose.tasks.iter().any(|t| t == task_name)
+        && let Some((_, r)) = &allocs.caboose
+    {
+        allowed.push(region("caboose", r.clone()));
+    }
+
+    let bad =
+        build_memcheck::find_bad_accesses(&f, &allowed).with_context(|| {
+            format!("failed to check memory accesses for task {task_name}")
+        })?;
+    if bad.is_empty() {
+        if verbose {
+            println!("no bad memory accesses found in {task_name}");
+        }
+        return Ok(false);
+    }
+
+    // Try to give a helpful name to each bad address
+    let describe = |addr: u32| -> String {
+        let a = &addr;
+        if let Some((name, _)) = toml
+            .peripherals
+            .iter()
+            .find(|(_, p)| (p.address..p.address + p.size).contains(a))
+        {
+            return format!("peripheral '{name}' (missing from `uses`?)");
+        }
+        if let Some((name, _)) = toml
+            .extratext
+            .iter()
+            .find(|(_, p)| (p.address..p.address + p.size).contains(a))
+        {
+            return format!("extratext '{name}' (missing from `uses`?)");
+        }
+        if let Some((name, _)) = allocs
+            .tasks
+            .iter()
+            .find(|(_, m)| m.values().any(|r| r.contains(a)))
+        {
+            return format!("memory owned by task '{name}'");
+        }
+        if allocs.kernel.values().any(|r| r.contains(a)) {
+            return "kernel memory".to_owned();
+        }
+        if let Some((_, r)) = &allocs.caboose
+            && r.contains(a)
+        {
+            return "caboose (task not listed in `caboose.tasks`?)".to_owned();
+        }
+        "unknown region".to_owned()
+    };
+
+    println!(
+        "task {task_name} accesses memory outside of its allowed regions:"
+    );
+    let mut by_function: IndexMap<&str, Vec<&build_memcheck::MemoryAccess>> =
+        IndexMap::new();
+    for a in &bad {
+        by_function.entry(&a.function).or_default().push(a);
+    }
+    for (function, accesses) in by_function {
+        println!("  in {function}:");
+        for a in accesses {
+            println!(
+                "    {:#010x}: {:<24} => {:#010x} in {}",
+                a.pc,
+                a.instr,
+                a.addr,
+                describe(a.addr),
+            );
+        }
+    }
+    Ok(true)
 }
 
 /// Link a specific task
