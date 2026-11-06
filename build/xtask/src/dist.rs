@@ -11,7 +11,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use atty::Stream;
 use build_stack::get_max_stack;
 use indexmap::IndexMap;
@@ -276,7 +276,17 @@ impl PackageConfig {
         features: &[String],
     ) -> BuildConfig<'_> {
         let toml = &self.toml;
-        let mut args = vec!["--target".to_string(), toml.target.to_string()];
+        let mut args = vec![];
+
+        // If we're building for the host, don't pass in `--target` so that we
+        // use the host's target definition instead.
+        if toml.target != "host" {
+            args.extend_from_slice(&[
+                "--target".to_string(),
+                toml.target.to_string(),
+            ]);
+        }
+
         if no_default_features {
             args.push("--no-default-features".to_string());
         }
@@ -304,6 +314,13 @@ impl PackageConfig {
         let task_names =
             toml.tasks.keys().cloned().collect::<Vec<_>>().join(",");
         env.insert("HUBRIS_TASKS".to_string(), task_names);
+        if toml.target == "host" {
+            // Export an environment variable that says, "yes, I do really mean
+            // to be building for the host, and it is not something I've
+            // accidentally done". This is primarily intended to allow userlib
+            // builds for the host.
+            env.insert("HUBRIS_HOST_BUILD".to_string(), "1".to_string());
+        }
         env.insert(
             "HUBRIS_BUILD_VERSION".to_string(),
             format!("{}", toml.version),
@@ -646,6 +663,15 @@ pub fn package(
         skip_path_check,
     } = flags;
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
+
+    // This is a limitation for now, we don't really do any real "dist" like
+    // things for host targets yet. We may do something more clever-er in the
+    // future.
+    ensure!(
+        cfg.toml.target != "host",
+        "Refusing to run `dist` commands against an on-host target. \
+        Use `xtask host-run` instead."
+    );
 
     // Verify that our dump configuration is correct (or absent)
     check_dump_config(&cfg.toml)?;

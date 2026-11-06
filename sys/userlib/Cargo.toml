@@ -10,7 +10,6 @@ no-panic = []
 critical-section = ["dep:critical-section"]
 
 [dependencies]
-critical-section = {workspace = true, optional = true, features = ["restore-state-none"]}
 num-derive = { workspace = true }
 num-traits = { workspace = true }
 serde = { workspace = true }
@@ -22,6 +21,17 @@ abi.path = "../abi"
 armv6m-atomic-hack.path = "../../lib/armv6m-atomic-hack"
 unwrap-lite.path = "../../lib/unwrap-lite"
 userlib-units.path = "../userlib-units"
+
+# On no-std targets: use the "fake" hubris critical-section impl
+[target.'cfg(target_os = "none")'.dependencies]
+critical-section = { workspace = true, optional = true, features = ["restore-state-none"] }
+
+# On host targets
+[target.'cfg(not(target_os = "none"))'.dependencies]
+# Use the "std" critical-section impl
+critical-section = { workspace = true, optional = true, features = ["std"] }
+# Include the host protocol for talking to the kernel
+hostcall.path = "../hostcall"
 
 [target.thumbv7em-none-eabihf.dependencies]
 # Note: we don't use cortex-m directly, this is here to ensure that the

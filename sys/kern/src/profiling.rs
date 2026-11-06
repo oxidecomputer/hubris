@@ -132,12 +132,16 @@ pub(crate) fn event_syscall_exit() {
     }
 }
 
+// The host architecture has no secondary syscall mechanism.
+#[cfg_attr(not(target_os = "none"), allow(dead_code))]
 pub(crate) fn event_secondary_syscall_enter() {
     if let Some(t) = table() {
         (t.secondary_syscall_enter)()
     }
 }
 
+// The host architecture has no secondary syscall mechanism.
+#[cfg_attr(not(target_os = "none"), allow(dead_code))]
 pub(crate) fn event_secondary_syscall_exit() {
     if let Some(t) = table() {
         (t.secondary_syscall_exit)()

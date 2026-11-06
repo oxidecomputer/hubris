@@ -60,6 +60,11 @@ fn process_config() -> Result<Generated> {
         ron::de::from_str(&build_util::env_var("HUBRIS_KCONFIG")?)
             .context("parsing kconfig from HUBRIS_KCONFIG")?;
 
+    // If we are building for the host, just return the host_config.
+    if build_util::target_os() != "none" {
+        return host_config(&kconfig);
+    }
+
     // The kconfig data structure keeps things somewhat abstract to give us, the
     // kernel, more freedom about our internal implementation choices. However,
     // this means we have to do some preprocessing before it's useful.
@@ -198,6 +203,16 @@ fn process_config() -> Result<Generated> {
         .map(|(_k, region)| fmt_region(&region))
         .collect();
 
+    let irq_code = generate_irq_code(&kconfig)?;
+
+    Ok(Generated {
+        tasks: task_descs,
+        regions: region_descs,
+        irq_code,
+    })
+}
+
+fn generate_irq_code(kconfig: &KernelConfig) -> Result<TokenStream> {
     // Now, we generate two mappings:
     //  irq num => abi::Interrupt
     //  (task, notifications) => abi::InterruptSet
@@ -228,10 +243,12 @@ fn process_config() -> Result<Generated> {
     let task_irq_map = per_task_irqs.into_iter().collect::<Vec<_>>();
 
     let target = build_util::target();
-    let irq_code = if target.starts_with("thumbv6m") {
+    let host = build_util::target_os() != "none";
+    let irq_code = if target.starts_with("thumbv6m") || host {
         // On ARMv6-M we have no hardware division, which the perfect hash table
         // relies on (to get efficient integer remainder). Fall back to a good
-        // old sorted list with binary search instead.
+        // old sorted list with binary search instead. (The host kernel takes
+        // the same path; it has no interrupt fast path to optimize.)
         //
         // This means our dispatch time for interrupts on ARMv6-M is O(log N)
         // instead of O(1), but these parts also tend to have few interrupts,
@@ -329,11 +346,121 @@ fn process_config() -> Result<Generated> {
         panic!("Don't know the target {target}");
     };
 
+    Ok(irq_code)
+}
+
+/// Descriptors for a kernel running as a host process.
+///
+/// Since the kernel and tasks are in separate processes, this is mostly all
+/// fake data designed to mimic real data.
+fn host_config(kconfig: &KernelConfig) -> Result<Generated> {
+    let all_access = quote::quote! {
+        RegionAttributes::READ
+            .union(RegionAttributes::WRITE)
+            .union(RegionAttributes::EXECUTE)
+    };
+    let regions = vec![
+        quote::quote! {
+            RegionDesc {
+                base: 0usize,
+                size: 32usize,
+                attributes: RegionAttributes::empty(),
+                arch_data: crate::arch::host::compute_region_extension_data(
+                    0usize, 32usize, RegionAttributes::empty(),
+                ),
+            }
+        },
+        quote::quote! {
+            RegionDesc {
+                base: 32usize,
+                size: usize::MAX - 32,
+                attributes: #all_access,
+                arch_data: crate::arch::host::compute_region_extension_data(
+                    32usize, usize::MAX - 32, #all_access,
+                ),
+            }
+        },
+    ];
+
+    let mut tasks = vec![];
+    for (i, task) in kconfig.tasks.iter().enumerate() {
+        let index = u16::try_from(i).expect("over 2**16 tasks??");
+        let priority = task.priority;
+        let flags = if task.start_at_boot {
+            quote::quote! { TaskFlags::START_AT_BOOT }
+        } else {
+            quote::quote! { TaskFlags::empty() }
+        };
+        // Sorted by base address, as the kernel requires: the null region
+        // fills the unused slots.
+        tasks.push(quote::quote! {
+            TaskDesc {
+                regions: crate::descs::SortedRegions::new([
+                    &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[0],
+                    &HUBRIS_REGION_DESCS[1],
+                ]),
+                entry_point: 0u32,
+                initial_stack: 0u32,
+                priority: #priority,
+                index: #index,
+                flags: #flags,
+            }
+        });
+    }
+
+    generate_host_tasks(kconfig)?;
+
     Ok(Generated {
-        tasks: task_descs,
-        regions: region_descs,
-        irq_code,
+        tasks,
+        regions,
+        irq_code: generate_irq_code(kconfig)?,
     })
+}
+
+/// For the host, we generate a list of tasks that we will spawn, baked into
+/// the kernel image itself.
+fn generate_host_tasks(kconfig: &KernelConfig) -> Result<()> {
+    let names = build_util::env_var("HUBRIS_TASKS")?;
+    let names: Vec<&str> = names.split(',').collect();
+    if names.len() != kconfig.tasks.len() {
+        bail!(
+            "HUBRIS_TASKS names {} tasks, but HUBRIS_KCONFIG has {}",
+            names.len(),
+            kconfig.tasks.len()
+        );
+    }
+    let idle_count = names.iter().filter(|&&name| name == "idle").count();
+    if idle_count != 1 {
+        bail!(
+            "a host app needs exactly one task named `idle`, found {idle_count}"
+        );
+    }
+
+    let task_count = names.len();
+    let max_name_width = names.iter().map(|name| name.len()).max().unwrap_or(0);
+    let entries = names.iter().map(|&name| {
+        let idle = name == "idle";
+        quote::quote! {
+            HostTaskDesc { name: #name, idle: #idle }
+        }
+    });
+    let code = quote::quote! {
+        pub(crate) static HOST_TASKS: [HostTaskDesc; #task_count] = [
+            #(#entries),*
+        ];
+        pub(crate) const MAX_TASK_NAME_WIDTH: usize = #max_name_width;
+    };
+
+    let path = build_util::out_dir().join("host_tasks.rs");
+    std::fs::write(&path, code.to_string())
+        .with_context(|| format!("writing {}", path.display()))?;
+    Ok(())
 }
 
 fn translate_address(

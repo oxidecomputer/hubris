@@ -43,6 +43,10 @@ def main():
         if config.image_names is None:
             config.image_names = ["default"]
 
+        # If the target is "host", we shouldn't run `dist` against it.
+        if config.target == "host":
+            continue
+
         matrix.append(
             {
                 "job_name": config.name,
@@ -98,6 +102,7 @@ class AppToml:
 
     name: Optional[str] = None
     image_names: Optional[list[str]] = None
+    target: Optional[str] = None
 
     def merge_content(self, toml):
         # Note that this function is called first on the actual file we are trying to parse, and
@@ -108,6 +113,8 @@ class AppToml:
             self.name = toml["name"]
         if self.image_names is None and "image-names" in toml:
             self.image_names = toml["image-names"]
+        if self.target is None and "target" in toml:
+            self.target = toml["target"]
 
         # Check whether this configuration file looks like an app.toml, instead of another TOML file
         # like a Cargo.toml. We do so by checking whether a top-level `kernel` key is present.

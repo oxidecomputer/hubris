@@ -30,9 +30,19 @@ pub fn out_dir() -> std::path::PathBuf {
 /// Reads the `TARGET` environment variable
 ///
 /// This function goes through `std::env::var` directly, rather than our own
-/// `env_var`, because Cargo should know when `OUT_DIR` changes.
+/// `env_var`, because Cargo should know when it changes.
 pub fn target() -> String {
     std::env::var("TARGET").unwrap()
+}
+
+/// Reads the `HOST` environment variable
+///
+/// This function goes through `std::env::var` directly, rather than our own
+/// `env_var`, because this variable is exported by Cargo , and it seems
+/// unlikely that the host architecture (e.g. the user's machine) is likely to
+/// change.
+pub fn host() -> String {
+    std::env::var("HOST").unwrap()
 }
 
 /// Reads the `TARGET_OS` environment variable
@@ -62,14 +72,20 @@ pub fn has_feature(s: &str) -> bool {
 ///
 /// This will set one of `cfg(armv6m)`, `cfg(armv7m)`, or `cfg(armv8m)`
 /// depending on the value of the `TARGET` environment variable.
+///
+/// When building for a hosted target, none of the cfgs are set (but they are
+/// still registered as known, so `#[cfg(armv7m)]` remains valid).
 pub fn expose_m_profile() -> Result<()> {
     let target = crate::target();
+    let host = crate::host();
 
     println!("cargo::rustc-check-cfg=cfg(armv6m)");
     println!("cargo::rustc-check-cfg=cfg(armv7m)");
     println!("cargo::rustc-check-cfg=cfg(armv8m)");
 
-    if target.starts_with("thumbv6m") {
+    if target == host {
+        // Don't set any cfgs, only expose the names to avoid warnings.
+    } else if target.starts_with("thumbv6m") {
         println!("cargo::rustc-cfg=armv6m");
     } else if target.starts_with("thumbv7m") || target.starts_with("thumbv7em")
     {
