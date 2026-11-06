@@ -822,10 +822,10 @@ pub fn package(
         let mut bad_memory_access = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
-                let f = Path::new("target")
-                    .join(&cfg.toml.name)
-                    .join("dist")
-                    .join(format!("{task_name}.tmp"));
+                // Use the final linked task (rather than the `.tmp` file, which
+                // is linked with all of memory available), so that addresses
+                // match the task's actual allocations.
+                let f = cfg.img_file(task_name, image_name);
                 let config = asmcheck::Config::default();
                 let fns = asmcheck::extract_function_items(
                     &f, verbose, &config,
@@ -840,7 +840,7 @@ pub fn package(
                     possible_stack_overflow.push(task_name);
                 }
                 if task_has_bad_memory_access(
-                    &cfg.toml, task_name, image_name, allocs, verbose,
+                    &fns, &cfg.toml, task_name, image_name, allocs, verbose,
                 )? {
                     bad_memory_access.push(task_name);
                 }
@@ -1539,31 +1539,22 @@ fn task_can_overflow(
 /// likely; false positives are possible but unlikely (e.g. if the access is in
 /// a logically unreachable part of the code).
 fn task_has_bad_memory_access(
+    fns: &asmcheck::FunctionReport,
     toml: &Config,
     task_name: &str,
     image_name: &str,
     allocs: &Allocations,
     verbose: bool,
 ) -> Result<bool> {
-    let f = Path::new("target")
-        .join(&toml.name)
-        .join("dist")
-        .join(image_name)
-        .join(task_name);
-
-    let region = |name: &str, r: Range<u32>| build_memcheck::Region {
-        name: name.to_owned(),
-        range: u64::from(r.start)..u64::from(r.end),
-    };
-
-    // Regions owned by the task
+    // Collect regions owned by the task
     let mut allowed = vec![];
-    for (name, ranges) in &allocs.tasks[task_name] {
-        allowed.push(region(name, ranges.start()..ranges.end()));
+    for ranges in allocs.tasks[task_name].values() {
+        allowed.push(ranges.start()..ranges.end());
     }
-    for (name, r) in toml.extern_regions_for(task_name, image_name)? {
-        allowed.push(region(&name, r));
-    }
+    allowed.extend(
+        toml.extern_regions_for(task_name, image_name)?
+            .into_values(),
+    );
 
     // Shared regions (peripherals and extratext) used by the task
     let task = &toml.tasks[task_name];
@@ -1575,19 +1566,34 @@ fn task_has_bad_memory_access(
             .ok_or_else(|| {
                 anyhow!("task {task_name} uses unknown region {name}")
             })?;
-        allowed.push(region(name, p.address..p.address + p.size));
+        allowed.push(p.address..p.address + p.size);
     }
     if let Some(caboose) = &toml.caboose
         && caboose.tasks.iter().any(|t| t == task_name)
         && let Some((_, r)) = &allocs.caboose
     {
-        allowed.push(region("caboose", r.clone()));
+        allowed.push(r.clone());
     }
 
-    let bad =
-        build_memcheck::find_bad_accesses(&f, &allowed).with_context(|| {
-            format!("failed to check memory accesses for task {task_name}")
-        })?;
+    // Find accesses outside of the allowed regions, grouped by function and
+    // sorted by instruction address.
+    let mut bad = vec![];
+    for f in fns.function_items.values() {
+        let mut accesses = f
+            .memory_access
+            .iter()
+            .filter(|(addr, _)| {
+                // Tasks can't have more than 8 memory regions due to MPU
+                // limitations, so it's fine to iterate over them!
+                !allowed.iter().any(|r| r.contains(*addr))
+            })
+            .flat_map(|(addr, v)| v.iter().map(move |a| (*addr, a)))
+            .collect::<Vec<_>>();
+        accesses.sort_by_key(|(_, a)| a.pc);
+        if !accesses.is_empty() {
+            bad.push((&f.name, accesses));
+        }
+    }
     if bad.is_empty() {
         if verbose {
             println!("no bad memory accesses found in {task_name}");
@@ -1656,22 +1662,18 @@ fn task_has_bad_memory_access(
     println!(
         "task {task_name} accesses memory outside of its allowed regions:"
     );
-    let mut by_function: IndexMap<&str, Vec<&build_memcheck::MemoryAccess>> =
-        IndexMap::new();
-    for a in &bad {
-        by_function.entry(&a.function).or_default().push(a);
-    }
-    for (function, accesses) in by_function {
+    // Print each bad access, then the (deduplicated) regions that they hit
+    let mut regions = indexmap::IndexSet::new();
+    for (function, accesses) in bad {
         println!("  in {function}:");
-        for a in accesses {
-            println!(
-                "    {:#010x}: {:<24} => {:#010x} in {}",
-                a.pc,
-                a.instr,
-                a.addr,
-                describe(a.addr),
-            );
+        for (addr, a) in accesses {
+            println!("    {:#010x}: {:<24} => {addr:#010x}", a.pc, a.instr);
+            regions.insert(describe(addr));
         }
+    }
+    println!("  accessed regions:");
+    for r in regions {
+        println!("    {r}");
     }
     Ok(true)
 }
