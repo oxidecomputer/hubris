@@ -282,8 +282,8 @@ fn test_fault(op: AssistOp, arg: u32) -> FaultInfo {
     }
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(armv6m)] {
+cfg_select! {
+    armv6m => {
         macro_rules! assert_fault_eq {
             ($name:expr, $expected:expr) => {
                 assert_eq!($name, {
@@ -292,7 +292,8 @@ cfg_if::cfg_if! {
                 });
             };
         }
-    } else {
+    }
+    _ => {
         macro_rules! assert_fault_eq {
             ($name:expr, $expected:expr) => {
                 assert_eq!($name, $expected);

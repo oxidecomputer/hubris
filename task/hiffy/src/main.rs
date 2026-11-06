@@ -24,20 +24,24 @@ use userlib::{
 
 mod common;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "stm32h7")] {
+cfg_select! {
+    feature = "stm32h7" => {
         pub mod stm32h7;
         use crate::stm32h7::*;
-    } else if #[cfg(feature = "lpc55")] {
+    }
+    feature = "lpc55" => {
         pub mod lpc55;
         use crate::lpc55::*;
-    } else if #[cfg(feature = "stm32g0")] {
+    }
+    feature = "stm32g0" => {
         pub mod stm32g0;
         use crate::stm32g0::*;
-    } else if #[cfg(feature = "testsuite")] {
+    }
+    feature = "testsuite" => {
         pub mod tests;
         use crate::tests::*;
-    } else {
+    }
+    _ => {
         pub mod generic;
         use crate::generic::*;
     }
@@ -49,7 +53,7 @@ compile_error!(
      as both control memory buffer size"
 );
 
-cfg_if::cfg_if! {
+cfg_select! {
     //
     // The "micro" feature denotes a minimal RAM footprint.  Note that this
     // will restrict Hiffy consumers to functions that return less than 64
@@ -58,12 +62,13 @@ cfg_if::cfg_if! {
     // a bus or device scan will result in a return stack overflow.
     // (Fortunately, this failure mode is relatively crisp for the consumer.)
     //
-    if #[cfg(feature = "micro")] {
+    feature = "micro" => {
         const HIFFY_DATA_SIZE: usize = 256;
         const HIFFY_TEXT_SIZE: usize = 256;
         const HIFFY_RSTACK_SIZE: usize = 64;
         const HIFFY_SCRATCH_SIZE: usize = 512;
-    } else if #[cfg(feature = "turbo")] {
+    }
+    feature = "turbo" => {
         //
         // go-faster mode
         //
@@ -75,12 +80,14 @@ cfg_if::cfg_if! {
         /// to deliver data used by some operations. This number can be increased at
         /// the cost of RAM.
         const HIFFY_SCRATCH_SIZE: usize = 1024;
-    } else if #[cfg(any(target_board = "donglet-g031", target_board = "oxcon2023g0"))] {
+    }
+    any(target_board = "donglet-g031", target_board = "oxcon2023g0") => {
         const HIFFY_DATA_SIZE: usize = 256;
         const HIFFY_TEXT_SIZE: usize = 256;
         const HIFFY_RSTACK_SIZE: usize = 2048;
         const HIFFY_SCRATCH_SIZE: usize = 512;
-    } else {
+    }
+    _ => {
         const HIFFY_DATA_SIZE: usize = 2_048;
         const HIFFY_TEXT_SIZE: usize = 2048;
         const HIFFY_RSTACK_SIZE: usize = 2048;

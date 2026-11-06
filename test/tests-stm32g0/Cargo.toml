@@ -8,7 +8,6 @@ version = "0.1.0"
 g070 = ["stm32g0/stm32g070"]
 
 [dependencies]
-cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 stm32g0 = { workspace = true }

@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-cfg-if.workspace = true
 cortex-m.workspace = true
 hubpack.workspace = true
 idol-runtime.workspace = true
@@ -29,7 +28,6 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
 anyhow.workspace = true
-cfg-if.workspace = true
 idol.workspace = true
 
 build-i2c = { path = "../../build/i2c" }

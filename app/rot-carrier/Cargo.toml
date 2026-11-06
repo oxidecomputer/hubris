@@ -14,7 +14,6 @@ locked = ["lpc55-rot-startup/locked"]
 cortex-m = {version = "0.7"}
 cortex-m-rt = { workspace = true }
 lpc55-pac = { workspace = true, features = ["rt"]}
-cfg-if = { workspace = true }
 
 abi = { path = "../../sys/abi"}
 kern = { path = "../../sys/kern" }

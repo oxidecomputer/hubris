@@ -23,7 +23,6 @@ use crate::{
     caboose_pos,
     config::{BuildConfig, CabooseConfig, Config, DEFAULT_RAM_NAME},
     sizes::load_task_size,
-    task_slot,
 };
 
 /// In practice, applications with active interrupt activity tend to use about
@@ -412,6 +411,27 @@ impl PackageConfig {
         out.env
             .insert("HUBRIS_TASK_NAME".to_string(), task_name.to_string());
 
+        // Build a task-slot mapping as environment variables so that
+        // `userlib`'s `task_slot!` macro can extract them at compile time.
+        //
+        // - `slot` is the task-bound slot name/alias (e.g. `cpu_seq`)
+        // - `target` is the task's actual name (e.g. `gimlet_seq`)
+        // - `index` is the `target` task's index (e.g. `11`).
+        //
+        // `slot` is often the same as `target`, but `slot` names are used for
+        // exporting as they allow app manifests to abstract over different
+        // impls (e.g. `spi_driver2` on one board, `spi_driver3` on another).
+        for (slot, target) in &task_toml.task_slots {
+            let index = toml.tasks.get_index_of(target).ok_or_else(|| {
+                format!(
+                    "task {task_name} slot {slot} refers to unknown task \
+                     {target}"
+                )
+            })?;
+            out.env
+                .insert(format!("HUBRIS_TASK_SLOT_{slot}"), index.to_string());
+        }
+
         //
         // Expose any external memories that a task is using should the
         // task wish to generate code around them.
@@ -798,7 +818,7 @@ pub fn package(
             })
             .collect::<Result<_, _>>()?;
 
-        // Check stack sizes and resolve task slots in our linked files
+        // Check stack sizes and local home-dir deps
         let mut possible_stack_overflow = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
@@ -820,8 +840,6 @@ pub fn package(
                         );
                     }
                 }
-
-                resolve_task_slots(&cfg, task_name, image_name)?;
             }
         }
         if !possible_stack_overflow.is_empty() {
@@ -3200,67 +3218,6 @@ fn cargo_clean(names: &[&str], target: &str) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn resolve_task_slots(
-    cfg: &PackageConfig,
-    task_name: &str,
-    image_name: &str,
-) -> Result<()> {
-    use scroll::{Pread, Pwrite};
-
-    let task_toml = &cfg.toml.tasks[task_name];
-
-    let task_bin = cfg.img_file(task_name, image_name);
-    let in_task_bin = std::fs::read(&task_bin)?;
-    let elf = goblin::elf::Elf::parse(&in_task_bin)?;
-
-    let mut out_task_bin = in_task_bin.clone();
-
-    for entry in task_slot::get_task_slot_table_entries(&in_task_bin, &elf)? {
-        let in_task_idx = in_task_bin.pread_with::<u16>(
-            entry.taskidx_file_offset as usize,
-            build_elf::get_endianness(&elf),
-        )?;
-
-        let target_task_name = match task_toml.task_slots.get(entry.slot_name) {
-            Some(x) => x,
-            _ => bail!(
-                "Program for task '{}' contains a task_slot named '{}', but it is missing from the app.toml",
-                task_name,
-                entry.slot_name
-            ),
-        };
-
-        let target_task_idx = match cfg
-            .toml
-            .tasks
-            .get_index_of(target_task_name)
-        {
-            Some(x) => x,
-            _ => bail!(
-                "app.toml sets task '{}' task_slot '{}' to task '{}', but no such task exists in the app.toml",
-                task_name,
-                entry.slot_name,
-                target_task_name
-            ),
-        };
-
-        out_task_bin.pwrite_with::<u16>(
-            target_task_idx as u16,
-            entry.taskidx_file_offset as usize,
-            build_elf::get_endianness(&elf),
-        )?;
-
-        if cfg.verbose {
-            println!(
-                "Task '{}' task_slot '{}' changed from task index {:#x} to task index {:#x}",
-                task_name, entry.slot_name, in_task_idx, target_task_idx
-            );
-        }
-    }
-
-    Ok(std::fs::write(task_bin, out_task_bin)?)
 }
 
 fn resolve_caboose_pos(

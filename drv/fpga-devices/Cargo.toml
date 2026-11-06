@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 num-traits = { workspace = true }
-cfg-if = { workspace = true }
 bitfield = { workspace = true }
 zerocopy = { workspace = true }
 
