@@ -306,7 +306,10 @@ impl Arch for Host {
             code,
             copy_output_checked(
                 abi::Sysnum::BorrowRead,
-                dest, &ret, num_copied),
+                dest,
+                &ret,
+                num_copied,
+            ),
         )
     }
 

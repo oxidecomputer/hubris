@@ -128,8 +128,8 @@ impl TaskProcess {
 ///
 /// TODO(AJM): Maybe this could be a `BTreeMap<usize, TaskProcess>` instead of
 /// a sparse array? it's probably fine either way.
-pub(crate) static PROCESSES: Mutex<Vec<Option<TaskProcess>>>
-    = Mutex::new(Vec::new());
+pub(crate) static PROCESSES: Mutex<Vec<Option<TaskProcess>>> =
+    Mutex::new(Vec::new());
 
 /// Starts (or restarts) the process for task `index`.
 pub(crate) fn spawn_task(index: usize) {
