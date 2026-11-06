@@ -1533,8 +1533,8 @@ fn task_can_overflow(
 ///
 /// This only detects a simple pattern (a constant address loaded from a literal
 /// pool, then used as the base of a load or store), so false negatives are
-/// likely; false positives are possible but unlikely (e.g. if the access is in
-/// a logically unreachable part of the code).
+/// possible; false positives are also possible but are unlikely (they would
+/// require strangely-shaped code that trips up our simple static analyzer)
 fn task_has_bad_memory_access(
     fns: &asmcheck::FunctionReport,
     toml: &Config,
