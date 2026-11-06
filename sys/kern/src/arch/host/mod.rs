@@ -26,10 +26,8 @@
 //! be resumed when the kernel yields.
 
 use std::collections::BTreeSet;
-use std::sync::atomic::{
-    AtomicBool, AtomicPtr, AtomicU64, AtomicUsize, Ordering,
-};
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, Ordering};
+use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use abi::{InterruptNum, IrqStatus, TaskId, UsageError};
@@ -40,14 +38,6 @@ use crate::descs::RegionAttributes;
 use crate::startup::with_task_table;
 use crate::task::{self, NotificationSet, Task};
 use crate::time::Timestamp;
-
-/// Something has gone terribly wrong, and it is time for the kernel to stop.
-macro_rules! fatal {
-    ($($arg:tt)*) => {{
-        eprintln!("kernel: {}", format_args!($($arg)*));
-        std::process::exit(2)
-    }};
-}
 
 /// Ends the run normally: the simulated system has nothing left to do.
 macro_rules! finish {
@@ -67,8 +57,8 @@ mod config;
 /// Interactions with task processes
 mod host_task;
 
-use config::{HOST_TASKS, options};
-use host_task::{Call, SavedState, processes, spawn_task};
+use config::{HOST_TASKS, MAX_TASK_NAME_WIDTH, options};
+use host_task::{Call, SavedState, PROCESSES, spawn_task};
 use trace::{describe_syscall, syscall_name, tracing};
 
 /// Get the name of the task based on its index.
@@ -91,7 +81,7 @@ static CURRENT_TASK_PTR: AtomicPtr<Task> =
 static TICKS: AtomicU64 = AtomicU64::new(0);
 
 /// When the kernel started, for real-time mode.
-static START: OnceLock<Instant> = OnceLock::new();
+static START: LazyLock<Instant> = LazyLock::new(Instant::now);
 
 /// Software interrupts pended by `pend_software_irq`, delivered at the next
 /// scheduling point.
@@ -103,12 +93,12 @@ static ENABLED_IRQS: Mutex<BTreeSet<u32>> = Mutex::new(BTreeSet::new());
 fn current_task_index() -> (*mut Task, usize) {
     let current = CURRENT_TASK_PTR.load(Ordering::Relaxed);
     if current.is_null() {
-        fatal!("no current task");
+        panic!("no current task");
     }
     // Safety: the pointer came from a `&mut Task` in the task table (see
     // `set_current_task`), and this is only called between kernel entries,
     // when no other reference into the table is live.
-    let index = unsafe { usize::from((*current).descriptor().index) };
+    let index = usize::from(unsafe { &*current }.descriptor().index);
     (current, index)
 }
 
@@ -117,34 +107,12 @@ fn current_task_index() -> (*mut Task, usize) {
 fn step() {
     let (current, index) = current_task_index();
 
-    // Calculate task name width. This is a little extra, but it also seemed
-    // wasteful to me to iterate the list of tasks and calculate the max name
-    // width on every iteration.
-    let width = {
-        static MAX_WIDTH: AtomicUsize = AtomicUsize::new(0);
-        let mut width = MAX_WIDTH.load(Ordering::Relaxed);
-
-        // Use 0 as a sentinel. If we observe this as zero, find the longest
-        // task name so we can print the tasks neatly when tracing. If there
-        // are no tasks, or all tasks have a zero length name (???), then just
-        // report the max width as 1 to avoid re-calculating.
-        if width == 0 {
-            width = HOST_TASKS
-                .iter()
-                .map(|t| t.name.len())
-                .max()
-                .unwrap_or(0)
-                .max(1);
-            MAX_WIDTH.store(width, Ordering::Relaxed);
-        }
-
-        width
-    };
+    let width = MAX_TASK_NAME_WIDTH;
 
     // If this is an "idle" task, we're not going to call into it and return,
     // just do the appropriate book-keeping, and return from the current step.
     if HOST_TASKS.get(index).is_some_and(|t| t.idle) {
-        idle_step(index, width);
+        idle_step(index);
         return;
     }
 
@@ -155,9 +123,9 @@ fn step() {
     // Interact with the external task process
     let res = {
         // Get the process handle we are about to interact with
-        let mut procs = processes();
+        let mut procs = PROCESSES.lock().unwrap();
         let Some(proc) = procs.get_mut(index).and_then(Option::as_mut) else {
-            fatal!("task {index} has no process to resume")
+            panic!("task {index} has no process to resume")
         };
 
         // Obtain the finished task call, if any.
@@ -239,7 +207,8 @@ fn step() {
 /// The idle task was selected: nothing can run until a timer fires. Advance
 /// virtual time to the next deadline, or stop if there are no tasks waiting
 /// on timers at all.
-fn idle_step(idle_index: usize, width: usize) {
+fn idle_step(idle_index: usize) {
+    let width = MAX_TASK_NAME_WIDTH;
     if deliver_pending_irqs() {
         return;
     }
@@ -280,9 +249,10 @@ fn idle_step(idle_index: usize, width: usize) {
 /// that changed which task is current.
 #[must_use]
 fn deliver_pending_irqs() -> bool {
-    let irqs = std::mem::take(
-        &mut *PENDING_IRQS.lock().unwrap_or_else(|e| e.into_inner()),
-    );
+    let irqs: Vec<_> = {
+        let mut guard = PENDING_IRQS.lock().unwrap();
+        std::mem::take(&mut guard)
+    };
     if irqs.is_empty() {
         return false;
     }
@@ -347,7 +317,7 @@ impl Arch for Host {
     /// task starts, and starts the clock. Tick divisor unused.
     unsafe fn set_clock_freq(_tick_divisor: u32) {
         let _ = options();
-        let _ = START.get_or_init(Instant::now);
+        LazyLock::force(&START);
     }
 
     fn reinitialize(task: &mut Task) {
@@ -381,8 +351,7 @@ impl Arch for Host {
 
     fn now() -> Timestamp {
         if options().realtime {
-            let start = START.get_or_init(Instant::now);
-            Timestamp::from(start.elapsed().as_millis() as u64)
+            Timestamp::from(START.elapsed().as_millis() as u64)
         } else {
             Timestamp::from(TICKS.load(Ordering::Relaxed))
         }
@@ -392,32 +361,20 @@ impl Arch for Host {
         n: u32,
         _also_clear_pending: bool,
     ) -> Result<(), UsageError> {
-        ENABLED_IRQS
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&n);
+        ENABLED_IRQS.lock().unwrap().remove(&n);
         Ok(())
     }
 
     fn enable_irq(n: u32, _also_clear_pending: bool) -> Result<(), UsageError> {
-        ENABLED_IRQS
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(n);
+        ENABLED_IRQS.lock().unwrap().insert(n);
         Ok(())
     }
 
     fn irq_status(n: u32) -> Result<IrqStatus, UsageError> {
         let mut status = IrqStatus::empty();
-        let enabled = ENABLED_IRQS
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .contains(&n);
+        let enabled = ENABLED_IRQS.lock().unwrap().contains(&n);
         status.set(IrqStatus::ENABLED, enabled);
-        let pending = PENDING_IRQS
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .contains(&InterruptNum(n));
+        let pending = PENDING_IRQS.lock().unwrap().contains(&InterruptNum(n));
         status.set(IrqStatus::PENDING, pending);
         Ok(status)
     }
@@ -426,10 +383,7 @@ impl Arch for Host {
         if crate::startup::HUBRIS_IRQ_TASK_LOOKUP.get(irq).is_none() {
             return Err(UsageError::NoIrq);
         }
-        PENDING_IRQS
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .push(irq);
+        PENDING_IRQS.lock().unwrap().push(irq);
         Ok(())
     }
 

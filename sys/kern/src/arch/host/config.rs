@@ -9,7 +9,7 @@
 use clap::Parser;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 /// Task descriptor for host-run tasks.
 pub(crate) struct HostTaskDesc {
@@ -68,51 +68,50 @@ pub(crate) struct HostOptions {
     pub task_dir: PathBuf,
 }
 
-static OPTIONS: OnceLock<HostOptions> = OnceLock::new();
+static OPTIONS: LazyLock<HostOptions> = LazyLock::new(|| {
+    let args = Args::try_parse().unwrap_or_else(|e| e.exit());
+
+    let trace = if args.trace {
+        TraceFilter::All
+    } else if args.trace_only.is_empty() {
+        TraceFilter::Off
+    } else {
+        let indices = args
+            .trace_only
+            .iter()
+            .map(|name| {
+                let name = name.trim();
+                HOST_TASKS
+                    .iter()
+                    .position(|t| t.name == name)
+                    .unwrap_or_else(|| {
+                        panic!("--trace-only names unknown task {name:?}")
+                    })
+            })
+            .collect();
+        TraceFilter::Tasks(indices)
+    };
+
+    let task_dir = args.task_dir.unwrap_or_else(|| {
+        let exe = std::env::current_exe()
+            .unwrap_or_else(|e| panic!("finding the kernel executable: {e}"));
+        match exe.parent() {
+            Some(dir) => dir.to_path_buf(),
+            None => panic!(
+                "kernel executable {} has no parent directory",
+                exe.display()
+            ),
+        }
+    });
+
+    HostOptions {
+        stop_at: args.stop_at,
+        realtime: args.realtime,
+        trace,
+        task_dir,
+    }
+});
 
 pub(crate) fn options() -> &'static HostOptions {
-    OPTIONS.get_or_init(|| {
-        let args = Args::try_parse().unwrap_or_else(|e| e.exit());
-
-        let trace = if args.trace {
-            TraceFilter::All
-        } else if args.trace_only.is_empty() {
-            TraceFilter::Off
-        } else {
-            let indices = args
-                .trace_only
-                .iter()
-                .map(|name| {
-                    let name = name.trim();
-                    HOST_TASKS
-                        .iter()
-                        .position(|t| t.name == name)
-                        .unwrap_or_else(|| {
-                            fatal!("--trace-only names unknown task {name:?}")
-                        })
-                })
-                .collect();
-            TraceFilter::Tasks(indices)
-        };
-
-        let task_dir = args.task_dir.unwrap_or_else(|| {
-            let exe = std::env::current_exe().unwrap_or_else(|e| {
-                fatal!("finding the kernel executable: {e}")
-            });
-            match exe.parent() {
-                Some(dir) => dir.to_path_buf(),
-                None => fatal!(
-                    "kernel executable {} has no parent directory",
-                    exe.display()
-                ),
-            }
-        });
-
-        HostOptions {
-            stop_at: args.stop_at,
-            realtime: args.realtime,
-            trace,
-            task_dir,
-        }
-    })
+    &OPTIONS
 }

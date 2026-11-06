@@ -22,7 +22,7 @@ use hostcall::{IoError, Return, Syscall};
 use std::cell::UnsafeCell;
 use std::io::BufReader;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::Mutex;
 
 /// The kernel's handle on a given task process.
 pub(crate) struct TaskProcess {
@@ -128,28 +128,27 @@ impl TaskProcess {
 ///
 /// TODO(AJM): Maybe this could be a `BTreeMap<usize, TaskProcess>` instead of
 /// a sparse array? it's probably fine either way.
-static PROCESSES: OnceLock<Mutex<Vec<Option<TaskProcess>>>> = OnceLock::new();
-
-/// Get all of our currently known process connections
-pub(crate) fn processes() -> MutexGuard<'static, Vec<Option<TaskProcess>>> {
-    PROCESSES
-        .get_or_init(|| Mutex::new(Vec::new()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-}
+pub(crate) static PROCESSES: Mutex<Vec<Option<TaskProcess>>>
+    = Mutex::new(Vec::new());
 
 /// Starts (or restarts) the process for task `index`.
 pub(crate) fn spawn_task(index: usize) {
     let Some(desc) = HOST_TASKS.get(index) else {
-        fatal!("task {index} is not in the host task table")
+        panic!("task {index} is not in the host task table")
     };
-    let mut procs = processes();
+    let mut procs = PROCESSES.lock().unwrap();
     if procs.len() <= index {
         procs.resize_with(index + 1, || None);
     }
     if let Some(mut old) = procs[index].take() {
-        old.child.kill().ok();
-        old.child.wait().ok();
+        let pid = old.child.id();
+        trace!("task {} restarting: killing pid {pid}", desc.name);
+        if let Err(e) = old.child.kill() {
+            trace!("task {}: killing pid {pid} failed: {e}", desc.name);
+        }
+        if let Err(e) = old.child.wait() {
+            trace!("task {}: waiting on pid {pid} failed: {e}", desc.name);
+        }
     }
 
     // Idle tasks don't actually spawn processes, just return
@@ -164,7 +163,7 @@ pub(crate) fn spawn_task(index: usize) {
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
     let mut child = cmd.spawn().unwrap_or_else(|e| {
-        fatal!("launching {} for task {}: {e}", exe.display(), desc.name)
+        panic!("launching {} for task {}: {e}", exe.display(), desc.name)
     });
     let stdout = child.stdout.take().expect("stdout was piped");
     let stdin = child.stdin.take().expect("stdin was piped");
@@ -387,7 +386,7 @@ impl SavedState {
     fn call(&self) -> &Call {
         match &self.call {
             Some(call) => call,
-            None => fatal!(
+            None => panic!(
                 "the kernel asked for the syscall arguments of a task that \
                  is not in a syscall",
             ),
@@ -400,7 +399,7 @@ impl SavedState {
     fn call_mut(&mut self) -> &mut Call {
         match &mut self.call {
             Some(call) => call,
-            None => fatal!(
+            None => panic!(
                 "the kernel asked for the syscall arguments of a task that \
                  is not in a syscall",
             ),

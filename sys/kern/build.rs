@@ -443,6 +443,7 @@ fn generate_host_tasks(kconfig: &KernelConfig) -> Result<()> {
     }
 
     let task_count = names.len();
+    let max_name_width = names.iter().map(|name| name.len()).max().unwrap_or(0);
     let entries = names.iter().map(|&name| {
         let idle = name == "idle";
         quote::quote! {
@@ -453,6 +454,7 @@ fn generate_host_tasks(kconfig: &KernelConfig) -> Result<()> {
         pub(crate) static HOST_TASKS: [HostTaskDesc; #task_count] = [
             #(#entries),*
         ];
+        pub(crate) const MAX_TASK_NAME_WIDTH: usize = #max_name_width;
     };
 
     let path = build_util::out_dir().join("host_tasks.rs");
