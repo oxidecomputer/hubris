@@ -28,25 +28,22 @@ struct ServerImpl {
     led_on: bool,
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(any(target_board = "gimletlet-1", target_board = "gimletlet-2"))] {
-        const MEANWELL_PINS: &[sys_api::PinSet] = &[
-            sys_api::Port::B.pin(14),
-            sys_api::Port::B.pin(15),
-            sys_api::Port::D.pin(8),
-            sys_api::Port::D.pin(9),
-            sys_api::Port::D.pin(10),
-            sys_api::Port::D.pin(11),
-            sys_api::Port::D.pin(12),
-        ];
+#[cfg(not(any(target_board = "gimletlet-1", target_board = "gimletlet-2")))]
+compile_error!("unsupported Meanwell board");
 
-        // In keeping with the Meanwell's blue indicator LED, we use only the
-        // blue LED to indicate that this is a Meanwell management Gimletlet.
-        const LED_INDEX: usize = 3;
-    } else {
-        compile_error!("unsupported Meanwell board");
-    }
-}
+const MEANWELL_PINS: &[sys_api::PinSet] = &[
+    sys_api::Port::B.pin(14),
+    sys_api::Port::B.pin(15),
+    sys_api::Port::D.pin(8),
+    sys_api::Port::D.pin(9),
+    sys_api::Port::D.pin(10),
+    sys_api::Port::D.pin(11),
+    sys_api::Port::D.pin(12),
+];
+
+// In keeping with the Meanwell's blue indicator LED, we use only the
+// blue LED to indicate that this is a Meanwell management Gimletlet.
+const LED_INDEX: usize = 3;
 
 fn set(index: usize, val: bool) -> Result<(), RequestError<MeanwellError>> {
     use drv_stm32xx_sys_api::*;

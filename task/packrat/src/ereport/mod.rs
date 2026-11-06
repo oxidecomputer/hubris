@@ -12,11 +12,12 @@ use userlib::{NotificationBits, RecvMessage};
 // This is a simpler version of what is done for `Bsp` and `BspImpl`. This is
 // not bundled into `Bsp` directly as `ereports` is a separately-enabled
 // feature.
-cfg_if::cfg_if! {
-    if #[cfg(feature = "ereport")] {
+cfg_select! {
+    feature = "ereport" => {
         mod store;
         pub(crate) use store::EreportStore as EreportsImpl;
-    } else {
+    }
+    _ => {
         mod disabled;
         pub(crate) use disabled::NoEreports as EreportsImpl;
     }

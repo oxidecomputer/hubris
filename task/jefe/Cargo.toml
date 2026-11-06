@@ -13,7 +13,6 @@ zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 hubpack = { workspace = true }
 humpty = { workspace = true }
-cfg-if = { workspace = true }
 
 abi = { path = "../../sys/abi" }
 armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }

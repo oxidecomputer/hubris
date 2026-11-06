@@ -8,7 +8,6 @@ edition = "2024"
 
 [dependencies]
 bitfield = { workspace = true }
-cfg-if = { workspace = true }
 derive_more = { workspace = true }
 idol-runtime = { workspace = true }
 num-derive = { workspace = true }

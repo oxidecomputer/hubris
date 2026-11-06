@@ -28,9 +28,9 @@ use ringbuf::*;
 use userlib::{sys_get_timer, task_slot};
 use vsc7448::{Vsc7448, VscError, spi::Vsc7448Spi};
 
-cfg_if::cfg_if! {
+cfg_select! {
     // Select local vs server SPI communication
-    if #[cfg(feature = "use-spi-core")] {
+    feature = "use-spi-core" => {
         /// Claims the SPI core.
         ///
         /// This function can only be called once, and will panic otherwise!
@@ -40,7 +40,8 @@ cfg_if::cfg_if! {
             drv_stm32h7_spi_server_core::declare_spi_core!(
                 sys.clone(), notifications::SPI_IRQ_MASK)
         }
-    } else {
+    }
+    _ => {
         pub fn claim_spi(_sys: &Sys) -> drv_spi_api::Spi {
             task_slot!(SPI, spi_driver);
             drv_spi_api::Spi::from(SPI.get_task_id())

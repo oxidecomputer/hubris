@@ -284,8 +284,8 @@ struct SendArgs<'a> {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r7, lr}}
@@ -321,7 +321,8 @@ unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
                 ",
                 sysnum = const Sysnum::Send as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r11}}
@@ -343,7 +344,8 @@ unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
                 ",
                 sysnum = const Sysnum::Send as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_send_stub for ARM profile");
         }
     }
@@ -361,8 +363,8 @@ unsafe extern "C" fn sys_recv_stub(
     _specific_sender: u32,
     _out: *mut RawRecvMessage,
 ) -> u32 {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r7, lr}}
@@ -407,7 +409,8 @@ unsafe extern "C" fn sys_recv_stub(
                 ",
                 sysnum = const Sysnum::Recv as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r11}}
@@ -438,7 +441,8 @@ unsafe extern "C" fn sys_recv_stub(
                 ",
                 sysnum = const Sysnum::Recv as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_recv_stub for ARM profile");
         }
     }
@@ -467,8 +471,8 @@ unsafe extern "C" fn sys_reply_stub(
     _message_ptr: *const u8,
     _message_len: usize,
 ) {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff. Note
                 @ that we're being clever and pushing only the registers we
@@ -499,7 +503,8 @@ unsafe extern "C" fn sys_reply_stub(
                 ",
                 sysnum = const Sysnum::Reply as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff. Note
                 @ that we're being clever and pushing only the registers we
@@ -524,7 +529,8 @@ unsafe extern "C" fn sys_reply_stub(
                 ",
                 sysnum = const Sysnum::Reply as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_reply_stub for ARM profile");
         }
     }
@@ -540,8 +546,8 @@ unsafe extern "C" fn sys_set_timer_stub(
     _deadline_hi: u32,
     _notification: u32,
 ) {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r7, lr}}
@@ -570,7 +576,8 @@ unsafe extern "C" fn sys_set_timer_stub(
                 ",
                 sysnum = const Sysnum::SetTimer as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r7, r11, lr}}
@@ -593,7 +600,8 @@ unsafe extern "C" fn sys_set_timer_stub(
                 ",
                 sysnum = const Sysnum::SetTimer as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_set_timer_stub for ARM profile")
         }
     }
@@ -604,8 +612,8 @@ unsafe extern "C" fn sys_set_timer_stub(
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 unsafe extern "C" fn sys_borrow_read_stub(_args: *mut BorrowReadArgs) -> RcLen {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r7, lr}}
@@ -637,7 +645,8 @@ unsafe extern "C" fn sys_borrow_read_stub(_args: *mut BorrowReadArgs) -> RcLen {
                 ",
                 sysnum = const Sysnum::BorrowRead as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r8, r11}}
@@ -660,7 +669,8 @@ unsafe extern "C" fn sys_borrow_read_stub(_args: *mut BorrowReadArgs) -> RcLen {
                 ",
                 sysnum = const Sysnum::BorrowRead as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_borrow_read_stub for ARM profile")
         }
     }
@@ -682,8 +692,8 @@ struct BorrowReadArgs {
 unsafe extern "C" fn sys_borrow_write_stub(
     _args: *mut BorrowWriteArgs,
 ) -> RcLen {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r7, lr}}
@@ -716,7 +726,8 @@ unsafe extern "C" fn sys_borrow_write_stub(
                 ",
                 sysnum = const Sysnum::BorrowWrite as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r8, r11}}
@@ -739,7 +750,8 @@ unsafe extern "C" fn sys_borrow_write_stub(
                 ",
                 sysnum = const Sysnum::BorrowWrite as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_borrow_write_stub for ARM profile")
         }
     }
@@ -770,8 +782,8 @@ unsafe extern "C" fn sys_borrow_info_stub(
     _index: usize,
     _out: *mut RawBorrowInfo,
 ) {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r6, lr}}
@@ -799,7 +811,8 @@ unsafe extern "C" fn sys_borrow_info_stub(
                 ",
                 sysnum = const Sysnum::BorrowInfo as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r6, r11}}
@@ -822,7 +835,8 @@ unsafe extern "C" fn sys_borrow_info_stub(
                 ",
                 sysnum = const Sysnum::BorrowInfo as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_borrow_write_stub for ARM profile")
         }
     }
@@ -833,8 +847,8 @@ unsafe extern "C" fn sys_borrow_info_stub(
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4, r5, lr}}
@@ -861,7 +875,8 @@ unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
                 ",
                 sysnum = const Sysnum::IrqControl as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4, r5, r11, lr}}
@@ -882,7 +897,8 @@ unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
                 ",
                 sysnum = const Sysnum::IrqControl as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_irq_control stub for ARM profile")
         }
     }
@@ -893,8 +909,8 @@ unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ We're not going to return, so technically speaking we don't
                 @ need to save registers. However, we save them anyway, so that
@@ -917,7 +933,8 @@ unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
                 ",
                 sysnum = const Sysnum::Panic as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ We're not going to return, so technically speaking we don't
                 @ need to save registers. However, we save them anyway, so that
@@ -936,7 +953,8 @@ unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
                 ",
                 sysnum = const Sysnum::Panic as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_panic_stub for ARM profile")
         }
     }
@@ -957,8 +975,8 @@ struct RawTimerState {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r7, lr}}
@@ -990,7 +1008,8 @@ unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
                 ",
                 sysnum = const Sysnum::GetTimer as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r11}}
@@ -1009,7 +1028,8 @@ unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
                 ",
                 sysnum = const Sysnum::GetTimer as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_get_timer_stub for ARM profile")
         }
     }
@@ -1027,8 +1047,8 @@ pub unsafe extern "C" fn _start() -> ! {
         fn main() -> !;
     }
 
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Copy data initialization image into data section.
                 @ Note: this assumes that both source and destination are 32-bit
@@ -1077,7 +1097,8 @@ pub unsafe extern "C" fn _start() -> ! {
                 ",
                 main = sym main,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Copy data initialization image into data section.
                 @ Note: this assumes that both source and destination are 32-bit
@@ -1134,7 +1155,8 @@ pub unsafe extern "C" fn _start() -> ! {
                 ",
                 main = sym main,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing .start routine for ARM profile")
         }
     }
@@ -1317,8 +1339,8 @@ fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 @ match!
@@ -1347,7 +1369,8 @@ unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
                 ",
                 sysnum = const Sysnum::RefreshTaskId as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4, r5, r11, lr}}
@@ -1368,7 +1391,8 @@ unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
                 ",
                 sysnum = const Sysnum::RefreshTaskId as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_refresh_task_id stub for ARM profile")
         }
     }
@@ -1379,8 +1403,8 @@ unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4, r5, lr}}
@@ -1409,7 +1433,8 @@ unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
                 ",
                 sysnum = const Sysnum::Post as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4, r5, r11, lr}}
@@ -1431,7 +1456,8 @@ unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
                 ",
                 sysnum = const Sysnum::Post as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_post_stub for ARM profile")
         }
     }
@@ -1442,8 +1468,8 @@ unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4, r5, lr}}
@@ -1470,7 +1496,8 @@ unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
                 ",
                 sysnum = const Sysnum::ReplyFault as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4, r5, r11, lr}}
@@ -1491,7 +1518,8 @@ unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
                 ",
                 sysnum = const Sysnum::ReplyFault as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_reply_fault_stub for ARM profile")
         }
     }
@@ -1502,8 +1530,8 @@ unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[unsafe(naked)]
 unsafe extern "C" fn sys_irq_status_stub(_mask: u32) -> u32 {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
+    cfg_select! {
+        armv6m => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4, lr}}
@@ -1530,7 +1558,8 @@ unsafe extern "C" fn sys_irq_status_stub(_mask: u32) -> u32 {
                 ",
                 sysnum = const Sysnum::IrqStatus as u32,
             )
-        } else if #[cfg(any(armv7m, armv8m))] {
+        }
+        any(armv7m, armv8m) => {
             arch::naked_asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4, r11, lr}}
@@ -1551,7 +1580,8 @@ unsafe extern "C" fn sys_irq_status_stub(_mask: u32) -> u32 {
                 ",
                 sysnum = const Sysnum::IrqStatus as u32,
             )
-        } else {
+        }
+        _ => {
             compile_error!("missing sys_irq_status stub for ARM profile")
         }
     }
