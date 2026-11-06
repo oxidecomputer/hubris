@@ -7,10 +7,7 @@
 
 use std::io::{BufReader, Write};
 
-use hostcall::{
-    IoError, Lease, Return, Syscall, read_message, task_slots_value,
-    write_message,
-};
+use hostcall::{IoError, Lease, Return, Syscall, read_message, write_message};
 
 #[test]
 fn syscall_and_return_over_pipes() {
@@ -124,12 +121,4 @@ fn bad_messages_are_errors() {
         read_message::<Syscall>(&mut BufReader::new(&bytes[..])),
         Err(IoError::Eof)
     ));
-}
-
-#[test]
-fn task_slots_are_listed_by_name() {
-    assert_eq!(
-        task_slots_value([("peer", 2), ("user_leds", 3)]),
-        "peer=2,user_leds=3"
-    );
 }

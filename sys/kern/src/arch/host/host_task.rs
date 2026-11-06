@@ -162,14 +162,9 @@ pub(crate) fn spawn_task(index: usize) {
         fatal(format_args!("task {} has no executable", desc.name))
     };
     let mut cmd = Command::new(exe);
-    let slots = desc
-        .slots
-        .iter()
-        .map(|(name, &index)| (name.as_str(), index));
 
     // Child tasks can use our stderr, we talk to them via piped stdio.
-    cmd.env(hostcall::TASK_SLOTS_VAR, hostcall::task_slots_value(slots))
-        .stdin(Stdio::piped())
+    cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
     let mut child = cmd.spawn().unwrap_or_else(|e| {

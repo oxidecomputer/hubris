@@ -106,7 +106,6 @@ struct HostConfig {
 struct HostTask {
     name: String,
     executable: Option<String>,
-    slots: BTreeMap<String, u16>,
     idle: bool,
 }
 
@@ -129,14 +128,6 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
     let cfg = PackageConfig::new(app_toml, flags.build.verbose, false)?;
     let toml = &cfg.toml;
 
-    // Task indices follow manifest order, as in `dist`.
-    let index_of = |name: &str| -> Result<u16> {
-        toml.tasks
-            .get_index_of(name)
-            .map(|i| i as u16)
-            .ok_or_else(|| anyhow!("task slot refers to unknown task {name}"))
-    };
-
     let mut host_tasks = Vec::new();
     let mut kconfig_tasks = Vec::new();
     for (name, task) in &toml.tasks {
@@ -149,15 +140,9 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
             let exe = build_crate(&build_config, &flags.build)?;
             Some(dunce::canonicalize(&exe)?.display().to_string())
         };
-        let slots = task
-            .task_slots
-            .iter()
-            .map(|(slot, target)| Ok((slot.clone(), index_of(target)?)))
-            .collect::<Result<_>>()?;
         host_tasks.push(HostTask {
             name: name.clone(),
             executable,
-            slots,
             idle,
         });
         // Memory placement is all kind of made up on the host, since everything

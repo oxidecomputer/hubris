@@ -6,8 +6,7 @@
 //!
 //! `HUBRIS_HOST_CONFIG` is the path to a RON file with a [`HostConfig`],
 //! produced by `cargo xtask host-run`: one entry per task in task-index order,
-//! giving the executable to launch and the task's `task_slot!` name-to-index
-//! map, which is passed to the task as an environment variable.
+//! giving the executable to launch.
 //!
 //! Set `HUBRIS_HOST_TRACE` to log syscalls to stderr: `1` (or `all`) logs
 //! everything, and a comma-separated list of task names logs only the
@@ -15,7 +14,6 @@
 
 use crate::arch::host::fatal;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Description of a host run, loaded from the file located at the path in
@@ -41,9 +39,6 @@ pub struct HostTask {
     /// Program to run for this task. Not needed for the idle task.
     #[serde(default)]
     pub executable: Option<String>,
-    /// `task_slot!` name to task index, from the manifest's `task-slots`.
-    #[serde(default)]
-    pub slots: BTreeMap<String, u16>,
     /// The idle task never runs: selecting it advances virtual time instead.
     #[serde(default)]
     pub idle: bool,

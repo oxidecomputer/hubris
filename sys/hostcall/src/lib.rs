@@ -54,15 +54,6 @@
 //! received in the `Return` are used to overwrite the task-provided buffers or
 //! leases.
 //!
-//! ## Task slot IDs
-//!
-//! In the regular build process, the mapping of task names to task IDs is
-//! calculated by `xtask`, and inserted into the resulting task binaries.
-//!
-//! In the host-native environment, the kernel is expected to spawn the task
-//! process with the task ID mappings stored in the `HUBRIS_TASK_SLOTS`
-//! environment variable, using a comma-separated `NAME=INDEX` format.
-//!
 //! [RFD#753]: https://rfd.shared.oxide.computer/rfd/0753
 
 use std::io::{BufRead, Write};
@@ -534,31 +525,4 @@ pub fn read_message<T: DeserializeOwned>(
     postcard::from_bytes(&raw)
         .map(Some)
         .map_err(|_| IoError::Decode)
-}
-
-/// Environment variable through which a task process is told its task
-/// slots: a comma-separated list of `NAME=INDEX`, as [`task_slots_value`]
-/// makes it. On the real targets the build patches these into the binary
-/// after linking.
-pub const TASK_SLOTS_VAR: &str = "HUBRIS_TASK_SLOTS";
-
-/// The value of [`TASK_SLOTS_VAR`] for the given slots.
-pub fn task_slots_value<'a>(
-    slots: impl IntoIterator<Item = (&'a str, u16)>,
-) -> String {
-    slots
-        .into_iter()
-        .map(|(name, index)| format!("{name}={index}"))
-        .collect::<Vec<_>>()
-        .join(",")
-}
-
-/// Looks a task slot up in this process's [`TASK_SLOTS_VAR`].
-pub fn task_slot(name: &str) -> Option<u16> {
-    std::env::var(TASK_SLOTS_VAR)
-        .ok()?
-        .split(',')
-        .filter_map(|entry| entry.split_once('='))
-        .find(|(n, _)| *n == name)
-        .and_then(|(_, index)| index.parse().ok())
 }
