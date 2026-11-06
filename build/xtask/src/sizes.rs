@@ -441,7 +441,8 @@ fn print_task_stacks(toml: &Config) -> Result<()> {
             .join("dist")
             .join(format!("{task_name}.tmp"));
         let config = build_stack::Config::default();
-        let max_stack = get_max_stack(config, &toml.target, &f, false)?;
+        let fns = build_stack::extract_function_items(&f, false, &config)?;
+        let max_stack = get_max_stack(&fns, &toml.target)?;
         let total: u64 = max_stack.iter().map(|(n, _)| *n).sum();
         println!("{task_name}: {total} bytes (limit is {task_stack_size})");
         for (frame_size, name) in max_stack {

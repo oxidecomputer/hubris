@@ -823,7 +823,21 @@ pub fn package(
         let mut bad_memory_access = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
-                if task_can_overflow(&cfg.toml, task_name, verbose)? {
+                let f = Path::new("target")
+                    .join(&cfg.toml.name)
+                    .join("dist")
+                    .join(format!("{task_name}.tmp"));
+                let config = build_stack::Config::default();
+                let fns = build_stack::extract_function_items(
+                    &f, verbose, &config,
+                )
+                .with_context(|| {
+                    format!(
+                        "Failed to get function items from task: {task_name}"
+                    )
+                })?;
+
+                if task_can_overflow(&fns, &cfg.toml, task_name, verbose)? {
                     possible_stack_overflow.push(task_name);
                 }
                 if task_has_bad_memory_access(
@@ -1482,19 +1496,14 @@ fn task_contains_home(toml: &Config, task_name: &str) -> Result<bool> {
 /// dispatch or function pointers; false positives are technically possible but
 /// unlikely if there's a logically unreachable section of the call graph.
 fn task_can_overflow(
+    fns: &build_stack::FunctionReport,
     toml: &Config,
     task_name: &str,
     verbose: bool,
 ) -> Result<bool> {
-    let f = Path::new("target")
-        .join(&toml.name)
-        .join("dist")
-        .join(format!("{task_name}.tmp"));
-    let config = build_stack::Config::default();
-    let max_stack = get_max_stack(config, &toml.target, &f, verbose)
-        .with_context(|| {
-            format!("Failed getting max stack for task: {task_name}")
-        })?;
+    let max_stack = get_max_stack(fns, &toml.target).with_context(|| {
+        format!("Failed getting max stack for task: {task_name}")
+    })?;
     let max_depth: u64 = max_stack.iter().map(|(d, _)| *d).sum();
 
     let task_stack_size = toml.tasks[task_name]
