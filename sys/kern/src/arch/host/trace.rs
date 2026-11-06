@@ -33,16 +33,18 @@ pub(crate) fn traced(participants: &[usize]) -> bool {
     }
 }
 
-macro_rules! trace {
+/// Print a log line to stderr, bypassing trace filtering checks.
+macro_rules! event {
     ($($arg:tt)*) => {
-        if crate::arch::host::trace::tracing() {
-            eprintln!("[kernel t={:07}] {}", u64::from(Host::now()),
-                format_args!($($arg)*));
-        }
+        eprintln!("[kernel t={:07}] {}", u64::from(Host::now()),
+            format_args!($($arg)*));
     };
 }
 
-/// Like `trace!`, for a syscall by `index` involving `participants`.
+/// Print a log line to stderr, for a syscall by `index` involving
+/// `participants`.
+///
+/// Respects trace filtering checks
 macro_rules! trace_task {
     ($participants:expr, $($arg:tt)*) => {
         if crate::arch::host::trace::traced($participants) {

@@ -180,8 +180,7 @@ fn step() {
             unsafe { crate::syscalls::syscall_entry(nr as u32, current) };
         }
         Err(fault) => {
-            trace_task!(
-                &[index],
+            event!(
                 "task {:>width$}: process ended, {fault:?}",
                 HOST_TASKS[index].name
             );

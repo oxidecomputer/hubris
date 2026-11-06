@@ -142,12 +142,12 @@ pub(crate) fn spawn_task(index: usize) {
     }
     if let Some(mut old) = procs[index].take() {
         let pid = old.child.id();
-        trace!("task {} restarting: killing pid {pid}", desc.name);
+        event!("task {} restarting: killing pid {pid}", desc.name);
         if let Err(e) = old.child.kill() {
-            trace!("task {}: killing pid {pid} failed: {e}", desc.name);
+            event!("task {}: killing pid {pid} failed: {e}", desc.name);
         }
         if let Err(e) = old.child.wait() {
-            trace!("task {}: waiting on pid {pid} failed: {e}", desc.name);
+            event!("task {}: waiting on pid {pid} failed: {e}", desc.name);
         }
     }
 
@@ -167,7 +167,7 @@ pub(crate) fn spawn_task(index: usize) {
     });
     let stdout = child.stdout.take().expect("stdout was piped");
     let stdin = child.stdin.take().expect("stdin was piped");
-    trace!(
+    event!(
         "task {} started: {} (pid {})",
         desc.name,
         exe.display(),
