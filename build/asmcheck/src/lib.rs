@@ -118,7 +118,8 @@ pub struct FunctionData {
     pub calls: BTreeSet<u32>,
     pub missing_calls: usize,
     pub recursive_calls: usize,
-    pub memory_access: BTreeMap<u32, MemoryAccess>,
+    /// Statically-known memory accesses, keyed by the address being accessed
+    pub memory_access: BTreeMap<u32, Vec<MemoryAccess>>,
 }
 
 /// The resulting report of all metadata obtained for functions after
@@ -411,8 +412,7 @@ pub fn extract_function_items(
                 reg_state.clear();
             }
             if let Some(mem) = reg_state.process(instr, &detail, &elf, &data) {
-                memory_access.insert(
-                    mem,
+                memory_access.entry(mem).or_insert_with(Vec::new).push(
                     MemoryAccess {
                         pc: instr.address() as u32,
                         instr: format!(
