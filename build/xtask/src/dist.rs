@@ -670,7 +670,7 @@ pub fn package(
     ensure!(
         cfg.toml.target != "host",
         "Refusing to run `dist` commands against an on-host target. \
-        Use `xtask host-build` or `xtask host-run` instead."
+        Use `xtask host-run` instead."
     );
 
     // Verify that our dump configuration is correct (or absent)

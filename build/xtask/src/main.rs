@@ -38,21 +38,6 @@ enum Xtask {
         caboose_args: CabooseArgs,
     },
 
-    /// Builds one or more tasks for the host machine without running them.
-    HostBuild {
-        /// Request verbosity from tools we shell out to.
-        #[clap(short)]
-        verbose: bool,
-        /// Build with the release profile instead of dev.
-        #[clap(long)]
-        release: bool,
-        /// Path to the image configuration file, in TOML.
-        cfg: PathBuf,
-        /// Name of task(s) to build.
-        #[clap(min_values = 1)]
-        tasks: Vec<String>,
-    },
-
     /// Builds and runs the kernel and tasks on the host machine.
     HostRun {
         /// Request verbosity from tools we shell out to.
@@ -397,21 +382,6 @@ fn run(xtask: Xtask) -> Result<()> {
                     Some(tasks),
                     CabooseArgs::default(),
                 )?;
-            }
-        }
-        Xtask::HostBuild {
-            verbose,
-            release,
-            cfg,
-            tasks,
-        } => {
-            let exes = host::build(
-                &cfg,
-                &tasks,
-                host::HostBuildFlags { verbose, release },
-            )?;
-            for exe in exes {
-                println!("{}", exe.display());
             }
         }
         Xtask::HostRun {

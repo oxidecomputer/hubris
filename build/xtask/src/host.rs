@@ -81,7 +81,7 @@ fn build_task(
     cfg: &PackageConfig,
     task: &str,
     flags: &HostBuildFlags,
-) -> Result<PathBuf> {
+) -> Result<()> {
     if task == KERNEL_EXE {
         bail!("a host app can't have a task named `{KERNEL_EXE}`");
     }
@@ -91,21 +91,7 @@ fn build_task(
     std::fs::copy(&built, &exe).with_context(|| {
         format!("copying {} to {}", built.display(), exe.display())
     })?;
-    Ok(exe)
-}
-
-/// Builds each named task of `app_toml` for the host.
-pub fn build(
-    app_toml: &Path,
-    tasks: &[String],
-    flags: HostBuildFlags,
-) -> Result<Vec<PathBuf>> {
-    let cfg = PackageConfig::new(app_toml, flags.verbose, false)?;
-    std::fs::create_dir_all(run_dir(&cfg))?;
-    tasks
-        .iter()
-        .map(|task| build_task(&cfg, task, &flags))
-        .collect()
+    Ok(())
 }
 
 /// The task named this in the manifest is the idle task. Isn't actually built,
@@ -123,13 +109,12 @@ pub struct HostRunFlags {
     pub no_run: bool,
 }
 
-/// Builds every task and the kernel of `app_toml` for the host into one
-/// directory, and launches the kernel.
-pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
-    let cfg = PackageConfig::new(app_toml, flags.build.verbose, false)?;
+/// Builds every task and the kernel of `app_toml` for the host into the
+/// `run_dir()`.
+fn build_app(cfg: &PackageConfig, flags: &HostBuildFlags) -> Result<PathBuf> {
     let toml = &cfg.toml;
 
-    let run_dir = run_dir(&cfg);
+    let run_dir = run_dir(cfg);
     if run_dir.exists() {
         std::fs::remove_dir_all(&run_dir)
             .with_context(|| format!("removing {}", run_dir.display()))?;
@@ -141,7 +126,7 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
         // Skip building the idle task, as it will be faked by the kernel
         // instead.
         if name != IDLE_TASK {
-            build_task(&cfg, name, &flags.build)?;
+            build_task(cfg, name, flags)?;
         }
         // Memory placement is all kind of made up on the host, since everything
         // is in separate tasks that share nothing anyway.
@@ -178,11 +163,19 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
         ("HUBRIS_KCONFIG", &kconfig),
         ("HUBRIS_IMAGE_ID", &image_id),
     ]);
-    let built = build_crate(&kernel_config, &flags.build)?;
+    let built = build_crate(&kernel_config, flags)?;
     let kernel = run_dir.join(KERNEL_EXE);
     std::fs::copy(&built, &kernel).with_context(|| {
         format!("copying {} to {}", built.display(), kernel.display())
     })?;
+    Ok(kernel)
+}
+
+/// Builds every task and the kernel of `app_toml` for the host into one
+/// directory, and launches the kernel.
+pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
+    let cfg = PackageConfig::new(app_toml, flags.build.verbose, false)?;
+    let kernel = build_app(&cfg, &flags.build)?;
 
     if flags.no_run {
         println!(

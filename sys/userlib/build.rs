@@ -15,10 +15,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Hi!");
         eprintln!("You appear to be building this natively,");
         eprintln!("i.e. for your workstation, outside of xtask.");
-        eprintln!("For host builds, use `cargo xtask host-build`");
-        eprintln!("or `cargo xtask host-run`. Otherwise, please");
-        eprintln!("specify --target=some-triple, e.g.");
-        eprintln!("--target=thumbv7em-none-eabihf");
+        eprintln!("For host builds, use `cargo xtask host-run`.");
+        eprintln!("Otherwise, please specify --target=some-triple,");
+        eprintln!("e.g. --target=thumbv7em-none-eabihf");
         eprintln!("***********************************************");
         panic!()
     }
