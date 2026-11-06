@@ -816,8 +816,8 @@ impl FunctionDataCollector<'_> {
         data: &[(&Insn<'_>, InsnDetail<'_>)],
     ) -> Result<()> {
         // Walk through each instruction inside of each chunk
-        for (i, (_instr, detail)) in data.iter().enumerate() {
-            self.process_one_instruction(detail, i == (data.len() - 1))?;
+        for (i, (insn, detail)) in data.iter().enumerate() {
+            self.process_one_instruction(insn, detail, i == (data.len() - 1))?;
         }
         Ok(())
     }
@@ -826,6 +826,7 @@ impl FunctionDataCollector<'_> {
     /// call
     fn process_one_instruction(
         &mut self,
+        insn: &Insn<'_>,
         detail: &InsnDetail<'_>,
         last_in_chunk: bool,
     ) -> Result<()> {
@@ -900,12 +901,20 @@ impl FunctionDataCollector<'_> {
             if target == self.base_addr {
                 self.recursive_calls += 1;
             } else if self.function_range.contains(&target) {
-                // This jumps into the function; we'll store info for later
-                // (because it will invalidate registers at the landing site)
+                // This jumps into the function; we'll store the target address
+                // for later (because it will invalidate registers at the
+                // landing site)
                 self.branch_targets.insert(target);
             } else {
                 self.calls.insert(target);
             }
+
+            // We'll also record the address itself as a branch target, so that
+            // we clear register state when processing this instruction (since
+            // we could be jumping away and then returning).  This is overly
+            // conversative, but shouldn't matter for the kinds of patterns that
+            // we're looking to detect!
+            self.branch_targets.insert(insn.address() as u32);
         }
         Ok(())
     }
@@ -1151,7 +1160,7 @@ impl RegState {
             // instruction plus 4, aligned down to a word boundary.
             let pc = (instr.address() as u32).wrapping_add(4) & !3;
             let addr = pc.wrapping_add_signed(disp(src, mem.disp()));
-            if let Some(value) = read_u32(elf, data, addr) {
+            if let Ok(value) = read_u32(elf, data, addr) {
                 literal = Some((dst, value));
             }
         }
@@ -1174,31 +1183,6 @@ impl RegState {
             }
         }
 
-        // TODO is this unnecessarily clever?
-        if is_branch(detail) {
-            if is_call(detail) {
-                // Calls clobber caller-saved registers, but should preserve
-                // r4-r11 according to the AAPCS.
-                for r in [
-                    arm::ArmReg::ARM_REG_R0,
-                    arm::ArmReg::ARM_REG_R1,
-                    arm::ArmReg::ARM_REG_R2,
-                    arm::ArmReg::ARM_REG_R3,
-                    arm::ArmReg::ARM_REG_R12,
-                    arm::ArmReg::ARM_REG_LR,
-                ] {
-                    self.known.remove(&RegId(r as u16));
-                }
-            } else if !conditional
-                && id != arm::ArmInsn::ARM_INS_CBZ as u32
-                && id != arm::ArmInsn::ARM_INS_CBNZ as u32
-            {
-                // After an unconditional branch, the next instruction is only
-                // reachable from elsewhere.
-                self.clear();
-            }
-        }
-
         // Record the literal load, unless it was conditional (in which case
         // the register value is unknown)
         if let Some((dst, v)) = literal
@@ -1209,38 +1193,6 @@ impl RegState {
 
         access
     }
-}
-
-fn has_group(detail: &InsnDetail<'_>, g: InsnGroupType::Type) -> bool {
-    detail.groups().contains(&InsnGroupId(g as u8))
-}
-
-fn is_call(detail: &InsnDetail<'_>) -> bool {
-    has_group(detail, InsnGroupType::CS_GRP_CALL)
-}
-
-/// Checks whether the instruction can change control flow
-fn is_branch(detail: &InsnDetail<'_>) -> bool {
-    has_group(detail, InsnGroupType::CS_GRP_JUMP)
-        || has_group(detail, InsnGroupType::CS_GRP_CALL)
-        || has_group(detail, InsnGroupType::CS_GRP_RET)
-        || has_group(detail, InsnGroupType::CS_GRP_IRET)
-        || has_group(detail, InsnGroupType::CS_GRP_INT)
-        || has_group(detail, InsnGroupType::CS_GRP_BRANCH_RELATIVE)
-        || detail
-            .regs_write()
-            .contains(&RegId(arm::ArmReg::ARM_REG_PC as u16))
-        || {
-            let ArchDetail::ArmDetail(arm) = detail.arch_detail() else {
-                panic!("invalid arch");
-            };
-            arm.operands().any(|op| {
-                op.op_type
-                    == arm::ArmOperandType::Reg(RegId(
-                        arm::ArmReg::ARM_REG_PC as u16,
-                    ))
-            })
-        }
 }
 
 fn disp(op: &arm::ArmOperand, disp: i32) -> i32 {
@@ -1254,15 +1206,10 @@ fn disp(op: &arm::ArmOperand, disp: i32) -> i32 {
 }
 
 /// Reads a little-endian `u32` from initialized data in the ELF file
-fn read_u32(elf: &Elf<'_>, data: &[u8], addr: u32) -> Option<u32> {
-    let addr = u64::from(addr);
-    let s = elf.section_headers.iter().find(|s| {
-        s.sh_type != goblin::elf::section_header::SHT_NOBITS
-            && s.sh_addr != 0
-            && (s.sh_addr..s.sh_addr + s.sh_size).contains(&addr)
-            && (s.sh_addr..s.sh_addr + s.sh_size).contains(&(addr + 3))
-    })?;
-    let offset = (addr - s.sh_addr + s.sh_offset) as usize;
-    let bytes = data.get(offset..offset + 4)?;
-    Some(u32::from_le_bytes(bytes.try_into().unwrap()))
+fn read_u32(elf: &Elf<'_>, data: &[u8], addr: u32) -> Result<u32> {
+    let offset = build_elf::get_file_offset_by_vma(elf, addr.into())? as usize;
+    let bytes = data
+        .get(offset..offset + 4)
+        .ok_or_else(|| anyhow!("could not read from {offset:#x}"))?;
+    Ok(u32::from_le_bytes(bytes.try_into().unwrap()))
 }
