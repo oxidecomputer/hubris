@@ -55,22 +55,10 @@ fn install_panic_hook() {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         default_hook(info);
-        // Like the on-target handler, keep at most PANIC_MESSAGE_MAX_LEN
-        // bytes of the rendered message, even if that splits a character.
-        let message = info.to_string();
-        let message = message.as_bytes();
-        let len = message.len().min(PANIC_MESSAGE_MAX_LEN);
 
-        // Do the panic syscall to inform the kernel we have panicked, then
-        // close up shop.
-        //
-        // TODO: Do we just want to write the syscall (using `write_message`
-        // directly) and bail without trying to wait for a response? Using
-        // `syscall` for convenience here instead for now.
-        let _ = syscall(Syscall::panic(&message[..len]));
-
-        // Whether it worked or not, it's time to bail.
-        std::process::exit(hostcall::EXIT_PANIC);
+        // Report a panic anywhere in this process the same way as we would an
+        // explicit `Syscall::panic`.
+        do_panic(info.to_string().as_bytes());
     }));
 }
 
@@ -89,11 +77,43 @@ fn syscall(call: Syscall) -> Return {
     result.unwrap_or_else(|e| fatal_syscall_error(call.nr, e))
 }
 
+/// Attempt to emit a panic message, and exit the task.
+///
+/// This is similar to `syscall`, but doesn't wait for a response, and still
+/// exits the process even if sending the request fails.
+fn do_panic(message: &[u8]) -> ! {
+    // Limit the length to the max panic message length, like on-task targets
+    // do. We may want to revisit this in the future if the extra context is
+    // useful to have.
+    let len = message.len().min(PANIC_MESSAGE_MAX_LEN);
+
+    // Do the panic syscall to inform the kernel we have panicked, then
+    // close up shop.
+    //
+    // If the kernel I/O is not already locked (if we are panicking during
+    // an operation), yeet out a `Syscall::panic` so the kernel has it.
+    if let Ok(mut io) = KERN_IO.try_lock() {
+        let _ = hostcall::write_message(
+            &mut io.writer,
+            &Syscall::panic(&message[..len]),
+        );
+    }
+
+    // Whether it worked or not, it's time to bail. The kernel will also be
+    // looking for our exit code here, even if we didn't successfully send
+    // the `Syscall::panic` above.
+    std::process::exit(hostcall::EXIT_PANIC);
+}
+
 /// We had something go terribly wrong while serving a system call, likely
 /// during comms with the kernel.
 ///
 /// Prints an error to stderr, and kills the task with a return code that can
 /// be caught by the kernel.
+///
+/// This is distinct from a "normal" panic, in that we want to signal that
+/// something has gone wrong in the host comms machinery, rather than from the
+/// task itself.
 fn fatal_syscall_error(what: abi::Sysnum, e: impl std::fmt::Debug) -> ! {
     eprintln!("fatal error during syscall {what}: {e:?}");
     std::process::exit(hostcall::EXIT_TRANSPORT);
@@ -327,16 +347,7 @@ impl Arch for Host {
     }
 
     fn panic(msg: &[u8]) -> ! {
-        // TODO: Do we just want to write the syscall (using `write_message`
-        // directly) and bail without trying to wait for a response? Using
-        // `syscall` for convenience here instead for now.
-
-        // Like the on-target handler, keep at most PANIC_MESSAGE_MAX_LEN
-        // bytes of the rendered message, even if that splits a character.
-        let len = msg.len().min(PANIC_MESSAGE_MAX_LEN);
-        syscall(Syscall::panic(&msg[..len]));
-
-        std::process::exit(hostcall::EXIT_PANIC)
+        do_panic(msg)
     }
 
     fn get_timer() -> TimerState {
