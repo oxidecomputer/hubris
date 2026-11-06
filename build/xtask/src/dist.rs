@@ -13,7 +13,6 @@ use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, anyhow, bail};
 use atty::Stream;
-use build_stack::get_max_stack;
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
@@ -827,8 +826,8 @@ pub fn package(
                     .join(&cfg.toml.name)
                     .join("dist")
                     .join(format!("{task_name}.tmp"));
-                let config = build_stack::Config::default();
-                let fns = build_stack::extract_function_items(
+                let config = asmcheck::Config::default();
+                let fns = asmcheck::extract_function_items(
                     &f, verbose, &config,
                 )
                 .with_context(|| {
@@ -1496,14 +1495,15 @@ fn task_contains_home(toml: &Config, task_name: &str) -> Result<bool> {
 /// dispatch or function pointers; false positives are technically possible but
 /// unlikely if there's a logically unreachable section of the call graph.
 fn task_can_overflow(
-    fns: &build_stack::FunctionReport,
+    fns: &asmcheck::FunctionReport,
     toml: &Config,
     task_name: &str,
     verbose: bool,
 ) -> Result<bool> {
-    let max_stack = get_max_stack(fns, &toml.target).with_context(|| {
-        format!("Failed getting max stack for task: {task_name}")
-    })?;
+    let max_stack =
+        asmcheck::get_max_stack(fns, &toml.target).with_context(|| {
+            format!("Failed getting max stack for task: {task_name}")
+        })?;
     let max_depth: u64 = max_stack.iter().map(|(d, _)| *d).sum();
 
     let task_stack_size = toml.tasks[task_name]
