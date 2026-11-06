@@ -822,9 +822,6 @@ pub fn package(
         let mut bad_memory_access = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
-                // Use the final linked task (rather than the `.tmp` file, which
-                // is linked with all of memory available), so that addresses
-                // match the task's actual allocations.
                 let f = cfg.img_file(task_name, image_name);
                 let config = asmcheck::Config::default();
                 let fns = asmcheck::extract_function_items(
@@ -840,7 +837,7 @@ pub fn package(
                     possible_stack_overflow.push(task_name);
                 }
                 if task_has_bad_memory_access(
-                    &fns, &cfg.toml, task_name, image_name, allocs, verbose,
+                    &fns, &cfg.toml, task_name, image_name, allocs,
                 )? {
                     bad_memory_access.push(task_name);
                 }
@@ -1544,7 +1541,6 @@ fn task_has_bad_memory_access(
     task_name: &str,
     image_name: &str,
     allocs: &Allocations,
-    verbose: bool,
 ) -> Result<bool> {
     // Collect regions owned by the task
     let mut allowed = vec![];
@@ -1575,8 +1571,8 @@ fn task_has_bad_memory_access(
         allowed.push(r.clone());
     }
 
-    // Find accesses outside of the allowed regions, grouped by function and
-    // sorted by instruction address.
+    // Now that we've built the region list, find accesses outside of the
+    // allowed regions, grouped by function and sorted by instruction address.
     let mut bad = vec![];
     for f in fns.function_items.values() {
         let mut accesses = f
@@ -1595,27 +1591,22 @@ fn task_has_bad_memory_access(
         }
     }
     if bad.is_empty() {
-        if verbose {
-            println!("no bad memory accesses found in {task_name}");
-        }
         return Ok(false);
     }
 
     // Try to give a helpful name to each bad address
     let describe = |addr: u32| -> String {
-        let a = &addr;
-
         // If the address is in the `[mmio]` peripheral region, then it should
         // be accessed through one of the fine-grained regions generated from
         // the register map, rather than the region as a whole.
         if let Some(mmio) = &toml.mmio
             && let Some(region) = toml.peripherals.get(&mmio.peripheral_region)
-            && (region.address..region.address + region.size).contains(a)
+            && (region.address..region.address + region.size).contains(&addr)
         {
             return if let Some((name, _)) =
                 toml.peripherals.iter().find(|(name, p)| {
                     **name != mmio.peripheral_region
-                        && (p.address..p.address + p.size).contains(a)
+                        && (p.address..p.address + p.size).contains(&addr)
                 }) {
                 format!("mmio peripheral '{name}' (missing from `uses`?)")
             } else {
@@ -1630,29 +1621,29 @@ fn task_has_bad_memory_access(
         if let Some((name, _)) = toml
             .peripherals
             .iter()
-            .find(|(_, p)| (p.address..p.address + p.size).contains(a))
+            .find(|(_, p)| (p.address..p.address + p.size).contains(&addr))
         {
             return format!("peripheral '{name}' (missing from `uses`?)");
         }
         if let Some((name, _)) = toml
             .extratext
             .iter()
-            .find(|(_, p)| (p.address..p.address + p.size).contains(a))
+            .find(|(_, p)| (p.address..p.address + p.size).contains(&addr))
         {
             return format!("extratext '{name}' (missing from `uses`?)");
         }
         if let Some((name, _)) = allocs
             .tasks
             .iter()
-            .find(|(_, m)| m.values().any(|r| r.contains(a)))
+            .find(|(_, m)| m.values().any(|r| r.contains(&addr)))
         {
             return format!("memory owned by task '{name}'");
         }
-        if allocs.kernel.values().any(|r| r.contains(a)) {
+        if allocs.kernel.values().any(|r| r.contains(&addr)) {
             return "kernel memory".to_owned();
         }
         if let Some((_, r)) = &allocs.caboose
-            && r.contains(a)
+            && r.contains(&addr)
         {
             return "caboose (task not listed in `caboose.tasks`?)".to_owned();
         }
