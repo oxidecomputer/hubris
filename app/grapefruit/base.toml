@@ -317,7 +317,7 @@ features = ["h753"]
 priority = 4
 start = true
 task-slots = ["sys", "net"]
-uses = ["mmio_base", "mmio_spi_nor", "mmio_espi", "mmio_sgpio", "mmio_hash"]
+uses = ["fmc_nor_psram_bank_1", "fmc"] # yolo
 notifications = ["socket"]
 
 [tasks.hf]
