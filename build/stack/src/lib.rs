@@ -111,13 +111,14 @@ pub struct Config {
 }
 
 /// Information derived about a given function
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct FunctionData {
     pub name: String,
     pub frame_size: Option<u64>,
     pub calls: BTreeSet<u32>,
     pub missing_calls: usize,
     pub recursive_calls: usize,
+    pub memory_access: BTreeMap<u32, MemoryAccess>,
 }
 
 /// The resulting report of all metadata obtained for functions after
@@ -126,6 +127,7 @@ pub struct FunctionData {
 pub struct FunctionReport {
     pub function_items: BTreeMap<u32, FunctionData>,
     pub addr_to_frame_size: BTreeMap<u32, u64>,
+    pub config: Config,
 }
 
 /// A function that has been visited and "filled in" by the [`Resolver`].
@@ -145,10 +147,10 @@ pub struct ResolvedNode {
 /// This visits a call graph of [`FunctionData`] recursively, turning each node
 /// into a memoized `Rc<ResolvedNode>`, and keeps a mapping of all nodes by
 /// address.
-pub struct Resolver {
+pub struct Resolver<'a> {
     pub call_stack: Vec<u32>,
     pub all_resolved: BTreeMap<u32, Rc<ResolvedNode>>,
-    pub fn_items: BTreeMap<u32, FunctionData>,
+    pub fn_items: &'a BTreeMap<u32, FunctionData>,
     pub config: Config,
 }
 
@@ -231,13 +233,10 @@ struct FunctionDataCollector<'a> {
 /// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
 /// `B` never calls `C` if called by `A`).
 pub fn get_max_stack(
-    config: Config,
+    fns: &FunctionReport,
     target: &str,
-    elf: &Path,
-    verbose: bool,
 ) -> Result<Vec<(u64, String)>> {
-    let fns = extract_function_items(elf, verbose, &config)?;
-    let mut resolver = Resolver::new(fns.function_items, &config);
+    let mut resolver = Resolver::new(&fns.function_items, &fns.config);
     let node = resolver.resolve_by_name("_start")?;
     let chain = node.worst_chain();
     let mut chain_compat = chain
@@ -406,13 +405,13 @@ pub fn extract_function_items(
         }
 
         let mut reg_state = RegState::default();
-        let mut mem_reads = BTreeMap::new();
+        let mut memory_access = BTreeMap::new();
         for (instr, detail) in detailed_instrs {
             if fc.branch_targets.contains(&(instr.address() as u32)) {
                 reg_state.clear();
             }
             if let Some(mem) = reg_state.process(instr, &detail, &elf, &data) {
-                mem_reads.insert(
+                memory_access.insert(
                     mem,
                     MemoryAccess {
                         pc: instr.address() as u32,
@@ -425,7 +424,6 @@ pub fn extract_function_items(
                 );
             }
         }
-        println!("got mem reads {mem_reads:#x?}");
 
         fns.insert(
             base_addr,
@@ -435,6 +433,7 @@ pub fn extract_function_items(
                 recursive_calls: fc.recursive_calls,
                 name: function.name,
                 frame_size,
+                memory_access,
             },
         );
     }
@@ -442,6 +441,7 @@ pub fn extract_function_items(
     Ok(FunctionReport {
         function_items: fns,
         addr_to_frame_size,
+        config: config.clone(),
     })
 }
 
@@ -545,9 +545,12 @@ impl ResolvedNode {
     }
 }
 
-impl Resolver {
+impl<'a> Resolver<'a> {
     /// Create a new resolver from the given map of [`FunctionData`] items
-    pub fn new(fn_items: BTreeMap<u32, FunctionData>, config: &Config) -> Self {
+    pub fn new(
+        fn_items: &'a BTreeMap<u32, FunctionData>,
+        config: &Config,
+    ) -> Self {
         Self {
             call_stack: vec![],
             all_resolved: BTreeMap::new(),
@@ -1076,7 +1079,7 @@ fn extract_raw_function_data(
 /// actually find that many: a full Sidecar build only has ~300, which is
 /// reasonable.
 #[derive(Debug)]
-struct MemoryAccess {
+pub struct MemoryAccess {
     /// Address of the instruction which performs the access
     pub pc: u32,
     /// Disassembled instruction (for human consumption)
