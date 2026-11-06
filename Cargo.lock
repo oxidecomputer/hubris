@@ -457,6 +457,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-memcheck"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-elf",
+ "capstone",
+ "goblin",
+ "rustc-demangle",
+]
+
+[[package]]
 name = "build-net"
 version = "0.1.0"
 dependencies = [
@@ -8154,6 +8165,7 @@ dependencies = [
  "build-fpga-regmap",
  "build-i2c",
  "build-kconfig",
+ "build-memcheck",
  "build-stack",
  "build-util",
  "byteorder",
