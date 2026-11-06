@@ -11,7 +11,7 @@
 //! requests, and to give us syscall return values via our stdin.
 
 use std::io::{BufReader, Stdin, Stdout};
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::{LazyLock, Mutex};
 
 use abi::{
     IrqControlArg, IrqStatus, LeaseAttributes, ReplyFaultReason, TaskId,
@@ -30,7 +30,7 @@ struct KernIo {
 }
 
 impl KernIo {
-    /// Makes a syscall and waits for the fixture to let the task continue.
+    /// Makes a syscall and waits for the kernel to let the task continue.
     fn exchange(&mut self, syscall: &Syscall) -> Result<Return, IoError> {
         hostcall::write_message(&mut self.writer, syscall)?;
         hostcall::read_message(&mut self.reader)?.ok_or(IoError::Eof)
@@ -38,25 +38,16 @@ impl KernIo {
 }
 
 /// Singleton for storing the stdout/stdin handles
-static KERN_IO: OnceLock<Mutex<KernIo>> = OnceLock::new();
-
-/// Obtains the comms interface with the kernel.
 ///
-/// On first call, this also installs the kernel panic hook that informs the
+/// On first access, this also installs the kernel panic hook that informs the
 /// kernel that our task has panicked.
-fn kernel_comms() -> MutexGuard<'static, KernIo> {
-    let io = KERN_IO.get_or_init(|| {
-        install_panic_hook();
-        Mutex::new(KernIo {
-            reader: BufReader::new(std::io::stdin()),
-            writer: std::io::stdout(),
-        })
-    });
-    // A poisoned lock means a panic in the middle of an exchange, so just hard
-    // exit with the EXIT_PANIC return code.
-    io.lock()
-        .unwrap_or_else(|_e| std::process::exit(hostcall::EXIT_PANIC))
-}
+static KERN_IO: LazyLock<Mutex<KernIo>> = LazyLock::new(|| {
+    install_panic_hook();
+    Mutex::new(KernIo {
+        reader: BufReader::new(std::io::stdin()),
+        writer: std::io::stdout(),
+    })
+});
 
 /// Installs a panic hook that reports task panics to the kernel, after running
 /// the typical panic handler which prints the panic details to stderr.
@@ -88,66 +79,71 @@ fn install_panic_hook() {
 /// If there was an error communicating with the kernel (including end of file
 /// or a malformed message), the task will panic and exit.
 fn syscall(call: Syscall) -> Return {
-    let mut fixture = kernel_comms();
-    let result = fixture.exchange(&call);
-    drop(fixture);
+    // A poisoned lock means a panic in the middle of an exchange, so just hard
+    // exit with the EXIT_PANIC return code.
+    let mut kernel = KERN_IO
+        .lock()
+        .unwrap_or_else(|_e| std::process::exit(hostcall::EXIT_PANIC));
+    let result = kernel.exchange(&call);
+    drop(kernel);
     result.unwrap_or_else(|e| fatal_syscall_error(call.nr, e))
 }
 
 /// We had something go terribly wrong while serving a system call, likely
 /// during comms with the kernel.
 ///
-/// Print an error to stderr, and kill the task.
+/// Prints an error to stderr, and kills the task with a return code that can
+/// be caught by the kernel.
 fn fatal_syscall_error(what: abi::Sysnum, e: impl std::fmt::Debug) -> ! {
     eprintln!("fatal error during syscall {what}: {e:?}");
     std::process::exit(hostcall::EXIT_TRANSPORT);
 }
 
-/// Copies as much of `src` as fits into `dst`, returning how many bytes were
-/// copied.
-fn copy_prefix(dst: &mut [u8], src: &[u8]) -> usize {
-    let n = src.len().min(dst.len());
-    dst[..n].copy_from_slice(&src[..n]);
-    n
-}
+/// Copy the [`Return`]'s output buffer to `dst`, returning the amount copied.
+///
+/// If `ret.output` or `dst` are shorter than `len`, the process is aborted.
+#[must_use]
+fn copy_output_checked(
+    what: abi::Sysnum,
+    dst: &mut [u8],
+    ret: &Return,
+    len: u32,
+) -> usize {
+    let len = len as usize;
 
-/// Copies the first `len` bytes the fixture returned into `dst`, or as many
-/// of them as there are and fit, and returns how many bytes were copied.
-fn copy_output(dst: &mut [u8], ret: &Return, len: u32) -> usize {
-    let len = (len as usize).min(ret.output.len());
-    copy_prefix(dst, &ret.output[..len])
-}
-
-/// Bytes of a lease as the task sees them.
-///
-/// # Safety
-///
-/// Only call with a lease built by one of the `Lease` constructors, which
-/// borrow the slice for the lease's lifetime.
-unsafe fn lease_as_bytes<'a>(lease: &'a Lease<'_>) -> &'a [u8] {
-    let rep = &lease._kern_rep;
-    unsafe {
-        core::slice::from_raw_parts(rep.base_address.as_ptr(), rep.length)
-    }
-}
-
-/// Overwrites the start of a writable lease with `data`, dropping whatever
-/// doesn't fit.
-///
-/// # Safety
-///
-/// Same requirements as `lease_as_bytes`, and the lease must have been created
-/// from a `&mut` slice, which `read_write` and `write_only` guarantee by their
-/// signatures.
-unsafe fn write_lease_prefix(lease: &Lease<'_>, data: &[u8]) {
-    let rep = &lease._kern_rep;
-    let bytes = unsafe {
-        core::slice::from_raw_parts_mut(
-            rep.base_address.as_mut_ptr(),
-            rep.length,
-        )
+    // If the kernel's given output buffer is shorter than the amount to copy,
+    // then something has gone wrong.
+    let Some(src) = ret.output.get(..len) else {
+        fatal_syscall_error(
+            what,
+            "the kernel returned an output buffer shorter than reported",
+        );
     };
-    copy_prefix(bytes, data);
+
+    // If the destination buffer is shorter than the amount to copy, then
+    // something has gone wrong.
+    let Some(dst) = dst.get_mut(..len) else {
+        fatal_syscall_error(
+            what,
+            "the kernel reported more output bytes than the buffer holds",
+        );
+    };
+
+    dst.copy_from_slice(src);
+    len
+}
+
+/// Converts a register-returned `u32` to a `TaskId`.
+///
+/// Aborts the process if the ID is not a valid `u16`.
+fn task_id_checked(what: abi::Sysnum, id: u32) -> TaskId {
+    let Ok(id) = u16::try_from(id) else {
+        fatal_syscall_error(
+            what,
+            "the kernel returned a task id that isn't 16 bit",
+        );
+    };
+    TaskId(id)
 }
 
 /// The host-native implementation of a task's `userlib::Arch` interface.
@@ -172,8 +168,15 @@ impl Arch for Host {
                     attributes,
                     len: lease._kern_rep.length as u32,
                     contents: if attributes.contains(LeaseAttributes::READ) {
+                        let rep = &lease._kern_rep;
                         // Safety: built by a Lease constructor.
-                        unsafe { lease_as_bytes(lease) }.to_vec()
+                        unsafe {
+                            core::slice::from_raw_parts(
+                                rep.base_address.as_ptr(),
+                                rep.length,
+                            )
+                        }
+                        .to_vec()
                     } else {
                         Vec::new()
                     },
@@ -189,20 +192,38 @@ impl Arch for Host {
             &lease_table,
         ));
         let [code, reply_len, ..] = ret.rets;
-        let reply_len = copy_output(incoming, &ret, reply_len);
+        let reply_len =
+            copy_output_checked(abi::Sysnum::Send, incoming, &ret, reply_len);
 
         for (lease, writeback) in leases.iter().zip(ret.lease_writebacks) {
             let Some(data) = writeback else {
                 continue;
             };
-            if !lease._kern_rep.attributes.contains(LeaseAttributes::WRITE) {
+            let rep = &lease._kern_rep;
+
+            if !rep.attributes.contains(LeaseAttributes::WRITE) {
                 fatal_syscall_error(
                     abi::Sysnum::Send,
-                    "the fixture wrote back into a lease that is not writable",
+                    "the kernel wrote back into a lease that is not writable",
                 );
             }
+
             // Safety: writable leases come from `&mut [u8]`.
-            unsafe { write_lease_prefix(lease, &data) };
+            let bytes = unsafe {
+                core::slice::from_raw_parts_mut(
+                    rep.base_address.as_mut_ptr(),
+                    rep.length,
+                )
+            };
+
+            // The kernel should always send back exactly sized lease writebacks
+            if bytes.len() != data.len() {
+                fatal_syscall_error(
+                    abi::Sysnum::Send,
+                    "the kernel sent back a mismatched lease payload",
+                );
+            }
+            bytes.copy_from_slice(&data);
         }
 
         (code, reply_len)
@@ -222,15 +243,13 @@ impl Arch for Host {
             ret.rets;
         match code {
             0 => {
-                // Copy at most `len` items, but ignore the actual number of
-                // bytes written, returning the `message_len` given to us by
-                // the kernel instead.
-                copy_output(buffer, &ret, len);
+                let message_len =
+                    copy_output_checked(abi::Sysnum::Recv, buffer, &ret, len);
 
                 Ok(RecvMessage {
-                    sender: TaskId(sender as u16),
+                    sender: task_id_checked(abi::Sysnum::Recv, sender),
                     operation,
-                    message_len: len as usize,
+                    message_len,
                     response_capacity: response_capacity as usize,
                     lease_count: lease_count as usize,
                 })
@@ -240,7 +259,7 @@ impl Arch for Host {
             // violated.
             _ if specific_sender.is_none() => fatal_syscall_error(
                 abi::Sysnum::Recv,
-                "the fixture failed an open receive, which cannot fail",
+                "the kernel failed an open receive, which cannot fail",
             ),
             code => Err(code),
         }
@@ -263,7 +282,12 @@ impl Arch for Host {
         let ret =
             syscall(Syscall::borrow_read(lender, index, offset, dest.len()));
         let [code, num_copied, ..] = ret.rets;
-        (code, copy_output(dest, &ret, num_copied))
+        (
+            code,
+            copy_output_checked(
+                abi::Sysnum::BorrowRead,
+                dest, &ret, num_copied),
+        )
     }
 
     fn borrow_write(
@@ -328,7 +352,7 @@ impl Arch for Host {
 
     fn refresh_task_id(task_id: TaskId) -> TaskId {
         let [id, ..] = syscall(Syscall::refresh_task_id(task_id)).rets;
-        TaskId(id as u16)
+        task_id_checked(abi::Sysnum::RefreshTaskId, id)
     }
 
     fn post(task_id: TaskId, bits: u32) -> u32 {
