@@ -1152,24 +1152,6 @@ impl RegState {
             }
         }
 
-        // Check for a literal pool load, i.e. `ldr rX, [pc, #imm]`
-        let mut literal = None;
-        if id == arm::ArmInsn::ARM_INS_LDR as u32
-            && let [dst, src] = ops.as_slice()
-            && let arm::ArmOperandType::Reg(dst) = dst.op_type
-            && let arm::ArmOperandType::Mem(mem) = src.op_type
-            && mem.base() == RegId(arm::ArmReg::ARM_REG_PC as u16)
-            && mem.index() == RegId(arm::ArmReg::ARM_REG_INVALID as u16)
-        {
-            // In Thumb mode, PC reads as the address of the current
-            // instruction plus 4, aligned down to a word boundary.
-            let pc = (instr.address() as u32).wrapping_add(4) & !3;
-            let addr = pc.wrapping_add_signed(disp(src, mem.disp()));
-            if let Ok(value) = read_u32(elf, data, addr) {
-                literal = Some((dst, value));
-            }
-        }
-
         // Discard every register that this instruction could have written.
         // We don't know which register operands are written, so we
         // conservatively assume that they all are.
@@ -1188,12 +1170,22 @@ impl RegState {
             }
         }
 
-        // Record the literal load, unless it was conditional (in which case
-        // the register value is unknown)
-        if let Some((dst, v)) = literal
+        // Check for a literal pool load, i.e. `ldr rX, [pc, #imm]`
+        if id == arm::ArmInsn::ARM_INS_LDR as u32
+            && let [dst, src] = ops.as_slice()
+            && let arm::ArmOperandType::Reg(dst) = dst.op_type
+            && let arm::ArmOperandType::Mem(mem) = src.op_type
+            && mem.base() == RegId(arm::ArmReg::ARM_REG_PC as u16)
+            && mem.index() == RegId(arm::ArmReg::ARM_REG_INVALID as u16)
             && !conditional
         {
-            self.known.insert(dst, v);
+            // In Thumb mode, PC reads as the address of the current
+            // instruction plus 4, aligned down to a word boundary.
+            let pc = (instr.address() as u32).wrapping_add(4) & !3;
+            let addr = pc.wrapping_add_signed(disp(src, mem.disp()));
+            if let Ok(value) = read_u32(elf, data, addr) {
+                self.known.insert(dst, value);
+            }
         }
 
         access
