@@ -353,9 +353,10 @@ pub fn extract_function_items(
         };
 
         // Walk through each "text range", which is an island of executable code
-        // inside of each function, and collect all the out-bound calls. We
-        // disassemble ranges rather than functions, as functions might contain
-        // puddles of inline data which we don't want to (mis)-disassemble.
+        // inside of each function, and collect all the disassembled instruction
+        // chunks.  We disassemble ranges rather than functions, as functions
+        // might contain puddles of inline data which we don't want to
+        // (mis)-disassemble.
         let mut instr_chunks = vec![];
         for chunk in function.text_ranges.iter() {
             let (data_addr, data) = chunk.text_data(&data, text)?;
@@ -366,6 +367,9 @@ pub fn extract_function_items(
             ));
         }
 
+        // Now, collect a flat list of `(instruction, details)` tuples.  This
+        // has to be done separately because it borrows from the disassembled
+        // instructions in `instr_chunks`.
         let mut detailed_instrs = vec![];
         for (data_addr, instrs) in &instr_chunks {
             let Some((last, all_except_last)) = instrs.split_last() else {
@@ -388,6 +392,9 @@ pub fn extract_function_items(
                 detailed_instrs.push((instr, detail));
             }
         }
+
+        // Extract all outgoing calls from this function.  This also populates
+        // `fc.branch_targets`, for use in memory access checking below.
         fc.extract_calls(&detailed_instrs)?;
 
         if fc.recursive_calls != 0 {
@@ -405,6 +412,7 @@ pub fn extract_function_items(
             }
         }
 
+        // Extract statically-determined memory accesses
         let mut reg_state = RegState::default();
         let mut memory_access = BTreeMap::new();
         for (instr, detail) in detailed_instrs {
@@ -804,13 +812,10 @@ impl TextRange {
 }
 
 impl FunctionDataCollector<'_> {
-    /// Attempt to extract data from this function
-    ///
-    /// We collect two kinds of data:
-    ///
-    /// - all outgoing calls from the given chunk of executable code within this
-    ///   function
-    /// - all memory reads to known (statically-computable) addresses
+    // Attempt to extract all outgoing calls from the given chunk of executable
+    // code within this function
+    //
+    // We also log within-function branch targets for later use
     fn extract_calls(
         &mut self,
         data: &[(&Insn<'_>, InsnDetail<'_>)],
