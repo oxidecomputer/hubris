@@ -9,7 +9,6 @@ dump = ["kern/dump"]
 measurement-handoff = ["drv-stm32h7-startup/measurement-handoff"]
 
 [dependencies]
-cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 stm32h7 = { workspace = true, features = ["rt", "stm32h753"] }

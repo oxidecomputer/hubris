@@ -21,9 +21,9 @@ use vsc7448_pac::types::PhyRegisterAddress;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-cfg_if::cfg_if! {
+cfg_select! {
     // Select local vs server SPI communication
-    if #[cfg(all(feature = "ksz8463", feature = "use-spi-core"))] {
+    all(feature = "ksz8463", feature = "use-spi-core") => {
         use crate::notifications;
 
         // The SPI peripheral is owned by this task!
@@ -37,7 +37,8 @@ cfg_if::cfg_if! {
             drv_stm32h7_spi_server_core::declare_spi_core!(
                 sys.clone(), notifications::SPI_IRQ_MASK)
         }
-    } else if #[cfg(all(feature = "ksz8463", not(feature = "use-spi-core")))] {
+    }
+    all(feature = "ksz8463", not(feature = "use-spi-core")) => {
         // The SPI peripheral is owned by a separate `stm32h7-spi-server` task
         userlib::task_slot!(SPI, spi_driver);
         pub type Ksz8463 = ksz8463::Ksz8463<drv_spi_api::Spi>;
@@ -47,6 +48,7 @@ cfg_if::cfg_if! {
             drv_spi_api::Spi::from(SPI.get_task_id())
         }
     }
+    _ => {}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

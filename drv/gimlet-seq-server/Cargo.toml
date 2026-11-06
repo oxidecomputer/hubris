@@ -25,7 +25,6 @@ static-cell = { path = "../../lib/static-cell" }
 microcbor = { path = "../../lib/microcbor" }
 fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
 
-cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 hubpack = { workspace = true }
 idol-runtime.workspace = true

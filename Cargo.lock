@@ -10,7 +10,7 @@ dependencies = [
  "byteorder",
  "phash",
  "serde",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -23,7 +23,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "version_check",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -148,10 +148,10 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 [[package]]
 name = "apob"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/apob#cc0755a5dc891b27b45a1d6ec6728e49bc1a991b"
+source = "git+https://github.com/oxidecomputer/apob?rev=cc0755a5dc891b27b45a1d6ec6728e49bc1a991b#cc0755a5dc891b27b45a1d6ec6728e49bc1a991b"
 dependencies = [
  "strum_macros 0.27.2",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -159,7 +159,6 @@ name = "app-donglet"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -224,8 +223,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -393,12 +392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bstringify"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
-
-[[package]]
 name = "build-elf"
 version = "0.1.0"
 dependencies = [
@@ -430,7 +423,6 @@ dependencies = [
  "anyhow",
  "build-util",
  "cargo_metadata",
- "cfg-if",
  "clap 3.2.23",
  "convert_case 0.4.0",
  "iddqd",
@@ -455,7 +447,6 @@ dependencies = [
  "anyhow",
  "build-util",
  "call_rustfmt",
- "cfg-if",
  "convert_case 0.4.0",
  "indexmap 1.9.1",
  "multimap",
@@ -507,7 +498,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
- "cfg-if",
  "convert_case 0.4.0",
  "proc-macro2",
  "quote",
@@ -908,7 +898,6 @@ name = "cosmo"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -1100,7 +1089,6 @@ name = "demo-stm32g0-nucleo"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -1112,7 +1100,6 @@ name = "demo-stm32h7-nucleo"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -1269,8 +1256,8 @@ dependencies = [
  "sha3 0.11.0",
  "tlvc",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1278,7 +1265,6 @@ name = "drv-auxflash-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "drv-auxflash-api",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
@@ -1288,8 +1274,8 @@ dependencies = [
  "stm32h7",
  "tlvc",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1336,8 +1322,8 @@ dependencies = [
  "static_assertions",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1348,7 +1334,6 @@ dependencies = [
  "build-i2c",
  "build-stm32xx-sys",
  "build-util",
- "cfg-if",
  "counters",
  "drv-auxflash-api",
  "drv-cpu-power-state",
@@ -1374,8 +1359,8 @@ dependencies = [
  "task-jefe-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1386,8 +1371,8 @@ dependencies = [
  "microcbor",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1401,8 +1386,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1417,8 +1402,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1434,8 +1419,8 @@ dependencies = [
  "sha3 0.11.0",
  "tlvc",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1443,7 +1428,6 @@ name = "drv-fpga-devices"
 version = "0.1.0"
 dependencies = [
  "bitfield 0.13.2",
- "cfg-if",
  "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -1452,7 +1436,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -1461,7 +1445,6 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
- "cfg-if",
  "drv-fpga-api",
  "drv-fpga-devices",
  "drv-i2c-api",
@@ -1475,8 +1458,8 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1487,8 +1470,8 @@ dependencies = [
  "drv-fpga-api",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1497,7 +1480,6 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
- "cfg-if",
  "counters",
  "derive-idol-err",
  "drv-auxflash-api",
@@ -1517,8 +1499,8 @@ dependencies = [
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1537,8 +1519,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1561,8 +1543,8 @@ dependencies = [
  "static-cell",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1573,7 +1555,6 @@ dependencies = [
  "build-i2c",
  "build-stm32xx-sys",
  "build-util",
- "cfg-if",
  "cortex-m",
  "counters",
  "drv-cpu-power-state",
@@ -1606,8 +1587,8 @@ dependencies = [
  "task-jefe-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1616,7 +1597,6 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
- "cfg-if",
  "counters",
  "drv-auxflash-api",
  "drv-cpu-power-state",
@@ -1631,8 +1611,8 @@ dependencies = [
  "task-jefe-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1659,8 +1639,8 @@ dependencies = [
  "serde",
  "sha2 0.11.0",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1671,8 +1651,8 @@ dependencies = [
  "counters",
  "drv-i2c-types",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1693,8 +1673,8 @@ dependencies = [
  "smbus-pec",
  "task-power-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1727,7 +1707,6 @@ dependencies = [
  "bitfield 0.13.2",
  "build-fpga-regmap",
  "build-util",
- "cfg-if",
  "counters",
  "derive-idol-err",
  "derive_more",
@@ -1739,8 +1718,8 @@ dependencies = [
  "serde",
  "static_assertions",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1758,8 +1737,8 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1767,7 +1746,6 @@ name = "drv-ignition-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "drv-fpga-api",
  "drv-ignition-api",
  "drv-sidecar-mainboard-controller",
@@ -1777,8 +1755,8 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1791,8 +1769,8 @@ dependencies = [
  "drv-oxide-vpd",
  "idol",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1815,8 +1793,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1824,7 +1802,6 @@ name = "drv-lpc55-gpio-api"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "counters",
  "derive-idol-err",
  "hubpack",
@@ -1833,8 +1810,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1847,8 +1824,8 @@ dependencies = [
  "lpc55-pac",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1868,8 +1845,8 @@ dependencies = [
  "lpc55-pac",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1887,8 +1864,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1922,8 +1899,8 @@ dependencies = [
  "static_assertions",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1936,7 +1913,6 @@ dependencies = [
  "build-lpc55pins",
  "build-util",
  "call_rustfmt",
- "cfg-if",
  "cortex-m",
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
@@ -1955,8 +1931,8 @@ dependencies = [
  "serde",
  "static_assertions",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1971,8 +1947,8 @@ dependencies = [
  "num-traits",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -1984,8 +1960,8 @@ dependencies = [
  "idol",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2004,8 +1980,8 @@ dependencies = [
  "serde",
  "stage0-handoff",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2023,8 +1999,8 @@ dependencies = [
  "nb 1.0.0",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2041,7 +2017,6 @@ name = "drv-meanwell"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "drv-meanwell-api",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
@@ -2049,8 +2024,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2062,8 +2037,8 @@ dependencies = [
  "idol",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2079,8 +2054,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2089,7 +2064,6 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-fpga-api",
  "drv-fpga-user-api",
@@ -2107,8 +2081,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2116,7 +2090,6 @@ name = "drv-minibar-ignition-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "drv-fpga-api",
  "drv-ignition-api",
  "drv-minibar-seq-api",
@@ -2125,8 +2098,8 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2144,8 +2117,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2170,8 +2143,8 @@ dependencies = [
  "serde",
  "serde_json",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2187,8 +2160,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2202,8 +2175,8 @@ dependencies = [
  "num-traits",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2220,8 +2193,8 @@ dependencies = [
  "userlib",
  "vsc7448",
  "vsc85xx",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2233,8 +2206,8 @@ dependencies = [
  "idol",
  "ringbuf",
  "tlvc",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2311,8 +2284,8 @@ dependencies = [
  "num",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2321,7 +2294,6 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
- "cfg-if",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sbrmi-api",
@@ -2331,8 +2303,8 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2346,8 +2318,8 @@ dependencies = [
  "idol",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2357,7 +2329,6 @@ dependencies = [
  "bitfield 0.13.2",
  "build-fpga-regmap",
  "build-util",
- "cfg-if",
  "counters",
  "derive_more",
  "drv-auxflash-api",
@@ -2371,8 +2342,8 @@ dependencies = [
  "serde",
  "serde_json",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2399,8 +2370,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2410,7 +2381,6 @@ dependencies = [
  "build-i2c",
  "build-util",
  "byteorder",
- "cfg-if",
  "cortex-m",
  "counters",
  "drv-fpga-api",
@@ -2434,8 +2404,8 @@ dependencies = [
  "static-cell",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2448,8 +2418,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2457,7 +2427,6 @@ name = "drv-spartan7-loader"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "counters",
  "drv-auxflash-api",
  "drv-spartan7-spi-program",
@@ -2470,8 +2439,8 @@ dependencies = [
  "ringbuf",
  "task-config",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2483,8 +2452,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2513,8 +2482,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2545,8 +2514,8 @@ dependencies = [
  "tlvc",
  "unwrap-lite",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2557,8 +2526,8 @@ dependencies = [
  "stm32f3",
  "stm32f4",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2570,8 +2539,8 @@ dependencies = [
  "stm32f3",
  "stm32f4",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2585,8 +2554,8 @@ dependencies = [
  "num-traits",
  "stm32g0",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2600,7 +2569,6 @@ dependencies = [
 name = "drv-stm32h7-eth"
 version = "0.1.0"
 dependencies = [
- "cfg-if",
  "cortex-m",
  "stm32h7",
  "userlib",
@@ -2611,7 +2579,6 @@ name = "drv-stm32h7-fmc-demo-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "counters",
  "hubpack",
@@ -2633,8 +2600,8 @@ dependencies = [
  "stm32h7",
  "userlib",
  "vcell",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2645,8 +2612,8 @@ dependencies = [
  "stm32h7",
  "userlib",
  "vcell",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2663,8 +2630,8 @@ dependencies = [
  "stm32h7",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2675,8 +2642,8 @@ dependencies = [
  "ringbuf",
  "stm32h7",
  "vcell",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2691,8 +2658,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2703,7 +2670,6 @@ dependencies = [
  "build-spi",
  "build-util",
  "call_rustfmt",
- "cfg-if",
  "cortex-m",
  "counters",
  "drv-spi-api",
@@ -2722,7 +2688,7 @@ dependencies = [
  "stm32h7",
  "syn 2.0.106",
  "userlib",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -2732,7 +2698,6 @@ dependencies = [
  "attest-api",
  "build-stm32xx-sys",
  "build-util",
- "cfg-if",
  "drv-caboose",
  "drv-lpc55-update-api",
  "drv-spi-api",
@@ -2748,8 +2713,8 @@ dependencies = [
  "serde",
  "static-cell",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2776,8 +2741,8 @@ dependencies = [
  "serde",
  "stage0-handoff",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2793,13 +2758,12 @@ dependencies = [
 name = "drv-stm32xx-gpio-common"
 version = "0.1.0"
 dependencies = [
- "cfg-if",
  "num-traits",
  "stm32g0",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2808,7 +2772,6 @@ version = "0.1.0"
 dependencies = [
  "bitfield 0.13.2",
  "build-util",
- "cfg-if",
  "counters",
  "drv-i2c-api",
  "drv-stm32xx-sys-api",
@@ -2817,8 +2780,8 @@ dependencies = [
  "stm32g0",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2828,7 +2791,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-stm32xx-i2c",
@@ -2849,7 +2811,6 @@ dependencies = [
  "bitflags 2.9.4",
  "build-stm32xx-sys",
  "build-util",
- "cfg-if",
  "counters",
  "drv-stm32xx-gpio-common",
  "drv-stm32xx-sys-api",
@@ -2862,8 +2823,8 @@ dependencies = [
  "stm32h7",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2871,7 +2832,6 @@ name = "drv-stm32xx-sys-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
- "cfg-if",
  "counters",
  "derive-idol-err",
  "drv-stm32xx-gpio-common",
@@ -2880,16 +2840,13 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
 name = "drv-stm32xx-uid"
 version = "0.1.0"
-dependencies = [
- "cfg-if",
-]
 
 [[package]]
 name = "drv-transceivers-api"
@@ -2905,8 +2862,8 @@ dependencies = [
  "task-sensor-api",
  "transceiver-messages",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2915,7 +2872,6 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
- "cfg-if",
  "counters",
  "drv-fpga-api",
  "drv-front-io-api",
@@ -2938,8 +2894,8 @@ dependencies = [
  "task-thermal-api",
  "transceiver-messages",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2956,8 +2912,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2965,7 +2921,6 @@ name = "drv-user-leds"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "drv-lpc55-gpio-api",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
@@ -2978,8 +2933,8 @@ dependencies = [
  "stm32f4",
  "task-config",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -2991,8 +2946,8 @@ dependencies = [
  "idol",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -3009,8 +2964,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -3026,8 +2981,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -3139,7 +3094,7 @@ name = "endoscope-abi"
 version = "0.1.0"
 dependencies = [
  "sha3 0.11.0",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -3331,17 +3286,17 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-ereport-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#438cd185666d5f164548885873f0f5df9a38eed1"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=438cd185666d5f164548885873f0f5df9a38eed1#438cd185666d5f164548885873f0f5df9a38eed1"
 dependencies = [
  "hubpack",
  "serde",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#438cd185666d5f164548885873f0f5df9a38eed1"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=438cd185666d5f164548885873f0f5df9a38eed1#438cd185666d5f164548885873f0f5df9a38eed1"
 dependencies = [
  "bitflags 2.9.4",
  "gateway-ereport-messages",
@@ -3354,7 +3309,7 @@ dependencies = [
  "strum 0.27.2",
  "strum_macros 0.27.2",
  "uuid",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -3362,7 +3317,6 @@ name = "gemini-bu"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -3409,7 +3363,6 @@ name = "gimlet"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -3421,7 +3374,7 @@ dependencies = [
 [[package]]
 name = "gimlet-inspector-protocol"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/gimlet-inspector-protocol#030004d082f4ec70e33cbc00886096b15ef3c2cc"
+source = "git+https://github.com/oxidecomputer/gimlet-inspector-protocol?rev=030004d082f4ec70e33cbc00886096b15ef3c2cc#030004d082f4ec70e33cbc00886096b15ef3c2cc"
 dependencies = [
  "hubpack",
  "serde",
@@ -3432,7 +3385,6 @@ name = "gimletlet"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -3466,7 +3418,6 @@ name = "grapefruit"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -3625,7 +3576,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 [[package]]
 name = "hif"
 version = "0.3.1"
-source = "git+https://github.com/oxidecomputer/hif#0e9a9d0774afe3c4eca5cb147fb64ad05d0bfcd8"
+source = "git+https://github.com/oxidecomputer/hif?rev=0e9a9d0774afe3c4eca5cb147fb64ad05d0bfcd8#0e9a9d0774afe3c4eca5cb147fb64ad05d0bfcd8"
 dependencies = [
  "pkg-version",
  "postcard 0.7.3",
@@ -3684,8 +3635,8 @@ dependencies = [
  "serde_repr",
  "static_assertions",
  "unwrap-lite",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -3735,8 +3686,8 @@ dependencies = [
 
 [[package]]
 name = "hubtools"
-version = "0.4.8"
-source = "git+https://github.com/oxidecomputer/hubtools#5e41fbe7560b27eaa25bce3b322f7a612fac8f41"
+version = "0.4.9"
+source = "git+https://github.com/oxidecomputer/hubtools?rev=d1f846091f8caae180329904555e09fd857b9604#d1f846091f8caae180329904555e09fd857b9604"
 dependencies = [
  "digest 0.11.3",
  "hex",
@@ -3750,22 +3701,22 @@ dependencies = [
  "tlvc-text",
  "toml 1.1.2+spec-1.1.0",
  "x509-cert",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
  "zip",
 ]
 
 [[package]]
 name = "humpty"
 version = "0.1.4"
-source = "git+https://github.com/oxidecomputer/humpty#d9ffbaacbc20c0061a073163ab11a8601317613c"
+source = "git+https://github.com/oxidecomputer/humpty?rev=d9ffbaacbc20c0061a073163ab11a8601317613c#d9ffbaacbc20c0061a073163ab11a8601317613c"
 dependencies = [
  "hubpack",
  "lzss",
  "serde",
  "serde-big-array 0.5.1",
  "static_assertions",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -3924,7 +3875,7 @@ dependencies = [
 [[package]]
 name = "idol"
 version = "0.6.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#1ea0bb50d93156de976b2415e5cc6177181ff9d8"
+source = "git+https://github.com/oxidecomputer/idolatry.git?rev=1ea0bb50d93156de976b2415e5cc6177181ff9d8#1ea0bb50d93156de976b2415e5cc6177181ff9d8"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -3940,11 +3891,11 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#1ea0bb50d93156de976b2415e5cc6177181ff9d8"
+source = "git+https://github.com/oxidecomputer/idolatry.git?rev=1ea0bb50d93156de976b2415e5cc6177181ff9d8#1ea0bb50d93156de976b2415e5cc6177181ff9d8"
 dependencies = [
  "counters",
  "userlib",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -4074,7 +4025,6 @@ dependencies = [
  "build-util",
  "byteorder",
  "call_rustfmt",
- "cfg-if",
  "cortex-m",
  "hostcall",
  "indexmap 1.9.1",
@@ -4088,8 +4038,8 @@ dependencies = [
  "ssmarshal",
  "syn 2.0.106",
  "unwrap-lite",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -4142,8 +4092,8 @@ dependencies = [
  "static_assertions",
  "unwrap-lite",
  "vcell",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
  "zeroize",
 ]
 
@@ -4249,7 +4199,6 @@ dependencies = [
  "abi",
  "armv8-m-mpu",
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "digest 0.11.3",
@@ -4270,8 +4219,8 @@ dependencies = [
  "static_assertions",
  "toml 1.1.2+spec-1.1.0",
  "unwrap-lite",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
  "zeroize",
 ]
 
@@ -4281,7 +4230,6 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "build-util",
- "cfg-if",
  "drv-caboose",
  "drv-lpc55-flash",
  "drv-lpc55-sha256",
@@ -4302,14 +4250,14 @@ dependencies = [
  "task-jefe-api",
  "tlvc",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
 name = "lpc55_areas"
 version = "0.2.5"
-source = "git+https://github.com/oxidecomputer/lpc55_support#fc64732faf5511850b35f1734d572b9953d73374"
+source = "git+https://github.com/oxidecomputer/lpc55_support?rev=fc64732faf5511850b35f1734d572b9953d73374#fc64732faf5511850b35f1734d572b9953d73374"
 dependencies = [
  "bitfield 0.19.4",
  "clap 4.4.3",
@@ -4321,7 +4269,6 @@ dependencies = [
 name = "lpc55_romapi"
 version = "0.1.0"
 dependencies = [
- "cfg-if",
  "lpc55-pac",
  "lpc55-rom-data",
  "num-derive",
@@ -4331,7 +4278,7 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.3.5"
-source = "git+https://github.com/oxidecomputer/lpc55_support#fc64732faf5511850b35f1734d572b9953d73374"
+source = "git+https://github.com/oxidecomputer/lpc55_support?rev=fc64732faf5511850b35f1734d572b9953d73374#fc64732faf5511850b35f1734d572b9953d73374"
 dependencies = [
  "byteorder",
  "const-oid",
@@ -4350,7 +4297,7 @@ dependencies = [
  "sha2 0.10.8",
  "thiserror",
  "x509-cert",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -4358,7 +4305,6 @@ name = "lpc55xpresso"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -4402,14 +4348,13 @@ dependencies = [
 [[package]]
 name = "measurement-token"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#f05c063e4b68926069efa0edb1159c8a2dbd9253"
+source = "git+https://github.com/oxidecomputer/lpc55_support?rev=fc64732faf5511850b35f1734d572b9953d73374#fc64732faf5511850b35f1734d572b9953d73374"
 
 [[package]]
 name = "medusa"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -4438,7 +4383,6 @@ name = "metro"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -4474,7 +4418,6 @@ name = "minibar"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -4746,7 +4689,6 @@ name = "observer"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -4784,7 +4726,7 @@ dependencies = [
 [[package]]
 name = "ordered-toml"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/ordered-toml#3fdce7ade3610b84e2bbd0130442be76cb0f8210"
+source = "git+https://github.com/oxidecomputer/ordered-toml?rev=3fdce7ade3610b84e2bbd0130442be76cb0f8210#3fdce7ade3610b84e2bbd0130442be76cb0f8210"
 dependencies = [
  "indexmap 1.9.1",
  "serde",
@@ -4801,7 +4743,6 @@ name = "oxcon2023g0"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -4815,7 +4756,7 @@ dependencies = [
  "hubpack",
  "serde",
  "serde-big-array 0.4.1",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -4823,7 +4764,6 @@ name = "oxide-rot-1"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -5014,7 +4954,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.7"
-source = "git+https://github.com/oxidecomputer/pmbus#1679df79aa11870e936db330c8c4861322848bef"
+source = "git+https://github.com/oxidecomputer/pmbus?rev=1679df79aa11870e936db330c8c4861322848bef#1679df79aa11870e936db330c8c4861322848bef"
 dependencies = [
  "anyhow",
  "convert_case 0.11.0",
@@ -5199,7 +5139,6 @@ name = "psc"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -5474,7 +5413,6 @@ name = "rot-carrier"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -5898,7 +5836,6 @@ name = "sidecar"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -5973,7 +5910,7 @@ dependencies = [
 [[package]]
 name = "spd"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/spd#b4b97e7f9540969dfce129d88c0ed3f68fd5fe9b"
+source = "git+https://github.com/oxidecomputer/spd?rev=b4b97e7f9540969dfce129d88c0ed3f68fd5fe9b#b4b97e7f9540969dfce129d88c0ed3f68fd5fe9b"
 
 [[package]]
 name = "spin"
@@ -6154,8 +6091,8 @@ dependencies = [
  "serde",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6306,8 +6243,8 @@ dependencies = [
  "static-cell",
  "unwrap-lite",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6329,7 +6266,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if",
  "counters",
  "drv-auxflash-api",
  "drv-caboose",
@@ -6379,8 +6315,8 @@ dependencies = [
  "tlvc",
  "update-buffer",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6397,8 +6333,8 @@ dependencies = [
  "serde",
  "ssmarshal",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6407,7 +6343,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-sprot-api",
  "dump-agent-api",
@@ -6424,8 +6359,8 @@ dependencies = [
  "task-jefe-api",
  "task-net-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6444,8 +6379,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6462,8 +6397,8 @@ dependencies = [
  "ringbuf",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6500,7 +6435,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-cpu-seq-api",
  "drv-i2c-api",
@@ -6524,7 +6458,6 @@ dependencies = [
  "build-i2c",
  "build-util",
  "byteorder",
- "cfg-if",
  "cortex-m",
  "drv-hash-api",
  "drv-hf-api",
@@ -6545,8 +6478,8 @@ dependencies = [
  "task-net-api",
  "test-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6556,7 +6489,6 @@ dependencies = [
  "attest-data",
  "build-i2c",
  "build-util",
- "cfg-if",
  "corncobs",
  "cortex-m",
  "counters",
@@ -6595,8 +6527,8 @@ dependencies = [
  "task-sensor-api",
  "tlvc",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6610,8 +6542,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6630,7 +6562,6 @@ dependencies = [
  "anyhow",
  "armv6m-atomic-hack",
  "build-util",
- "cfg-if",
  "cortex-m",
  "hubpack",
  "hubris-num-tasks",
@@ -6644,8 +6575,8 @@ dependencies = [
  "static-cell",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6664,8 +6595,8 @@ dependencies = [
  "serde",
  "ssmarshal",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6673,7 +6604,6 @@ name = "task-monorail-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "counters",
  "drv-front-io-api",
  "drv-medusa-seq-api",
@@ -6695,8 +6625,8 @@ dependencies = [
  "vsc7448",
  "vsc7448-pac",
  "vsc85xx",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6706,7 +6636,6 @@ dependencies = [
  "anyhow",
  "build-net",
  "build-util",
- "cfg-if",
  "cortex-m",
  "counters",
  "drv-cpu-seq-api",
@@ -6743,8 +6672,8 @@ dependencies = [
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6766,8 +6695,8 @@ dependencies = [
  "smoltcp",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6790,7 +6719,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
- "cfg-if",
  "counters",
  "drv-caboose",
  "drv-caboose-pos",
@@ -6814,8 +6742,8 @@ dependencies = [
  "task-jefe-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6836,8 +6764,8 @@ dependencies = [
  "serde",
  "static_assertions",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6869,7 +6797,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-cpu-seq-api",
  "drv-i2c-api",
@@ -6889,8 +6816,8 @@ dependencies = [
  "task-power-api",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6908,8 +6835,8 @@ dependencies = [
  "static_assertions",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6944,7 +6871,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -6958,8 +6884,8 @@ dependencies = [
  "serde",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6981,8 +6907,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -6999,8 +6925,8 @@ dependencies = [
  "ringbuf",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7016,8 +6942,8 @@ dependencies = [
  "task-net-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7041,7 +6967,6 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
- "cfg-if",
  "cortex-m",
  "counters",
  "drv-cpu-seq-api",
@@ -7054,8 +6979,8 @@ dependencies = [
  "task-packrat-api",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7102,8 +7027,8 @@ dependencies = [
  "task-sensor-api",
  "task-thermal-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7121,8 +7046,8 @@ dependencies = [
  "serde",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7130,7 +7055,6 @@ name = "task-uartecho"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-stm32h7-usart",
  "heapless 0.7.17",
@@ -7152,8 +7076,8 @@ dependencies = [
  "task-net-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7176,8 +7100,8 @@ dependencies = [
  "idol",
  "task-net-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7187,7 +7111,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -7199,8 +7122,8 @@ dependencies = [
  "serde",
  "task-validate-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7222,8 +7145,8 @@ dependencies = [
  "serde",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7233,7 +7156,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -7243,8 +7165,8 @@ dependencies = [
  "ringbuf",
  "task-vpd-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7258,8 +7180,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7291,8 +7213,8 @@ dependencies = [
  "build-util",
  "num-traits",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7305,8 +7227,8 @@ dependencies = [
  "num-traits",
  "test-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7321,8 +7243,8 @@ dependencies = [
  "serde",
  "ssmarshal",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7337,8 +7259,8 @@ dependencies = [
  "ssmarshal",
  "test-idol-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7347,15 +7269,14 @@ version = "0.1.0"
 dependencies = [
  "armv6m-atomic-hack",
  "build-util",
- "cfg-if",
  "cortex-m",
  "hubris-num-tasks",
  "num-traits",
  "ringbuf",
  "test-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7365,7 +7286,6 @@ dependencies = [
  "abi",
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -7376,8 +7296,8 @@ dependencies = [
  "test-api",
  "test-idol-api",
  "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7385,7 +7305,6 @@ name = "tests-gemini-bu"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -7397,7 +7316,6 @@ name = "tests-gimletlet"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -7409,7 +7327,6 @@ name = "tests-grapefruit"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -7420,7 +7337,6 @@ dependencies = [
 name = "tests-lpc55xpresso"
 version = "0.1.0"
 dependencies = [
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -7435,7 +7351,6 @@ version = "0.1.0"
 name = "tests-rot-carrier"
 version = "0.1.0"
 dependencies = [
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -7458,7 +7373,6 @@ name = "tests-stm32g0"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -7470,7 +7384,6 @@ name = "tests-stm32h7"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -7561,23 +7474,24 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tlvc"
-version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/tlvc#2f69360ddcb07ad6072cb720bb1fac9f58a2ddec"
+version = "0.4.2"
+source = "git+https://github.com/oxidecomputer/tlvc?rev=12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca#12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca"
 dependencies = [
  "crc",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "thiserror",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
 name = "tlvc-text"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/tlvc#2f69360ddcb07ad6072cb720bb1fac9f58a2ddec"
+source = "git+https://github.com/oxidecomputer/tlvc?rev=12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca#12f6bf8cd5b04715a9e0efefeb4c9bb4a2c0e4ca"
 dependencies = [
  "ron 0.8.0",
  "serde",
  "tlvc",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
 ]
 
 [[package]]
@@ -7704,7 +7618,7 @@ checksum = "756daf9b1013ebe47a8776667b466417e2d4c5679d441c26230efd9ef78692db"
 [[package]]
 name = "transceiver-messages"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/transceiver-control/#11afc484d5957b13d3058e44db274aa720cea1c4"
+source = "git+https://github.com/oxidecomputer/transceiver-control/?rev=17ed8f739fa9f21d6a82e032e876fd4a12fe7af3#17ed8f739fa9f21d6a82e032e876fd4a12fe7af3"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
@@ -7782,30 +7696,26 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "armv6m-atomic-hack",
- "bstringify",
  "build-util",
- "cfg-if",
  "cortex-m",
  "critical-section",
  "hostcall",
  "num-derive",
  "num-traits",
- "paste",
  "serde",
  "ssmarshal",
  "unwrap-lite",
  "userlib-units",
- "volatile-const",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
 name = "userlib-units"
 version = "0.1.0"
 dependencies = [
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -7871,7 +7781,6 @@ name = "vsc7448"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "counters",
  "drv-spi-api",
  "hubpack",
@@ -7887,7 +7796,7 @@ dependencies = [
 [[package]]
 name = "vsc7448-pac"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/vsc7448#a9e71588498885e9a77282186f2bb576812f1af2"
+source = "git+https://github.com/oxidecomputer/vsc7448?rev=a9e71588498885e9a77282186f2bb576812f1af2#a9e71588498885e9a77282186f2bb576812f1af2"
 dependencies = [
  "derive_more",
 ]
@@ -7900,8 +7809,8 @@ dependencies = [
  "userlib",
  "vsc-err",
  "vsc7448-pac",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -8361,7 +8270,7 @@ dependencies = [
  "toml_edit 0.23.5",
  "url",
  "walkdir",
- "zerocopy 0.8.27",
+ "zerocopy 0.8.63",
  "zip",
 ]
 
@@ -8400,11 +8309,11 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.27"
+version = "0.8.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0894878a5fa3edfd6da3f88c4805f4c8558e2b996227a3d864f47fe11e38282c"
+checksum = "e5fe1f8f1b06191a00962174c61aa5005e0bb391a6d80d07e24d115c01a92ed8"
 dependencies = [
- "zerocopy-derive 0.8.27",
+ "zerocopy-derive 0.8.63",
 ]
 
 [[package]]
@@ -8420,9 +8329,9 @@ dependencies = [
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.27"
+version = "0.8.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88d2b8d9c68ad2b9e4340d7832716a4d21a22a1154777ad56ea55c51a9cf3831"
+checksum = "863ad3ac83293fb4d740aedbfdc9240dd8d1a50c1099acd76ce80ce7c7230c7f"
 dependencies = [
  "proc-macro2",
  "quote",

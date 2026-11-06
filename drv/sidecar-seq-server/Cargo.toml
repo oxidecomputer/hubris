@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 byteorder.workspace = true
-cfg-if.workspace = true
 cortex-m.workspace = true
 hubpack.workspace = true
 idol-runtime.workspace = true

@@ -248,12 +248,6 @@ enum Xtask {
         extra_options: Vec<String>,
     },
 
-    /// Show a task's .task_slot_table contents
-    TaskSlots {
-        /// Path to task executable
-        task_bin: PathBuf,
-    },
-
     /// Generate a graph of task_slot dependencies ordered by priority.
     ///
     /// Priority inversions are denoted by thick red arrows.
@@ -642,9 +636,6 @@ fn run(xtask: Xtask) -> Result<()> {
             // Doc commands are passed BEFORE the `--`, currently post-options
             // are not supported.
             passthrough::run("doc", verbose, cfg, &tasks, &doc_args, &[], &[])?;
-        }
-        Xtask::TaskSlots { task_bin } => {
-            task_slot::dump_task_slot_table(&task_bin)?;
         }
         Xtask::Graph { output, cfg } => {
             graph::task_graph(&cfg, &output)?;

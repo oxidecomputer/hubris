@@ -19,31 +19,29 @@ use idol_runtime::{ClientError, Leased, LenLimit, R, W};
 
 task_slot!(SYS, sys);
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "front_io")] {
-        task_slot!(I2C, i2c_driver);
-        include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
-    }
+#[cfg(feature = "front_io")]
+task_slot!(I2C, i2c_driver);
+#[cfg(feature = "front_io")]
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+/// Claims the SPI core.
+///
+/// This function can only be called once, and will panic otherwise!
+#[cfg(feature = "use-spi-core")]
+pub fn claim_spi(
+    sys: &sys_api::Sys,
+) -> drv_stm32h7_spi_server_core::SpiServerCore {
+    drv_stm32h7_spi_server_core::declare_spi_core!(
+        sys.clone(),
+        notifications::SPI_IRQ_MASK
+    )
 }
 
-cfg_if::cfg_if! {
-    // Select local vs server SPI communication
-    if #[cfg(feature = "use-spi-core")] {
-        /// Claims the SPI core.
-        ///
-        /// This function can only be called once, and will panic otherwise!
-        pub fn claim_spi(sys: &sys_api::Sys)
-            -> drv_stm32h7_spi_server_core::SpiServerCore
-        {
-            drv_stm32h7_spi_server_core::declare_spi_core!(
-                sys.clone(), notifications::SPI_IRQ_MASK)
-        }
-    } else {
-        pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
-            task_slot!(SPI, spi_driver);
-            drv_spi_api::Spi::from(SPI.get_task_id())
-        }
-    }
+/// Non-local version of the above.
+#[cfg(not(feature = "use-spi-core"))]
+pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
+    task_slot!(SPI, spi_driver);
+    drv_spi_api::Spi::from(SPI.get_task_id())
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -63,13 +61,20 @@ fn main() -> ! {
     let sys = Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys);
 
-    cfg_if::cfg_if! {
-        if #[cfg(all(feature = "mainboard", feature = "front_io"))] {
-            compile_error!("Cannot enable both mainboard and front_io simultaneously");
-        } else if #[cfg(all(any(target_board = "sidecar-b",
-                                target_board = "sidecar-c",
-                                target_board = "sidecar-d"),
-                            feature = "mainboard"))] {
+    cfg_select! {
+        all(feature = "mainboard", feature = "front_io") => {
+            compile_error!(
+                "Cannot enable both mainboard and front_io simultaneously"
+            );
+        }
+        all(
+            any(
+                target_board = "sidecar-b",
+                target_board = "sidecar-c",
+                target_board = "sidecar-d",
+            ),
+            feature = "mainboard",
+        ) => {
             let configuration_port =
                 spi.device(drv_spi_api::devices::ECP5_MAINBOARD_FPGA);
             let user_design =
@@ -88,11 +93,16 @@ fn main() -> ! {
             driver.configure_gpio();
 
             let devices = [ecp5::Ecp5::new(driver)];
-        } else if #[cfg(all(any(target_board = "sidecar-b",
-                                target_board = "sidecar-c",
-                                target_board = "sidecar-d",
-                                target_board = "medusa-a"),
-                            feature = "front_io"))] {
+        }
+        all(
+            any(
+                target_board = "sidecar-b",
+                target_board = "sidecar-c",
+                target_board = "sidecar-d",
+                target_board = "medusa-a",
+            ),
+            feature = "front_io",
+        ) => {
             let configuration_port =
                 spi.device(drv_spi_api::devices::ECP5_FRONT_IO_FPGA);
             let user_design =
@@ -134,7 +144,8 @@ fn main() -> ! {
                     Err(_) => userlib::hl::sleep_for(10),
                 }
             };
-        } else if #[cfg(target_board = "gimletlet-2")] {
+        }
+        target_board = "gimletlet-2" => {
             // Hard-coding because the TOML file doesn't specify great names
             let configuration_port = spi.device(0);
             let user_design = spi.device(1);
@@ -151,7 +162,8 @@ fn main() -> ! {
             driver.configure_gpio();
 
             let devices = [ecp5::Ecp5::new(driver)];
-        } else if #[cfg(any(target_board = "minibar-a", target_board = "minibar-b"))] {
+        }
+        any(target_board = "minibar-a", target_board = "minibar-b") => {
             let configuration_port =
                 spi.device(drv_spi_api::devices::ECP5_FPGA);
             let user_design =
@@ -170,7 +182,8 @@ fn main() -> ! {
             driver.configure_gpio();
 
             let devices = [ecp5::Ecp5::new(driver)];
-        } else {
+        }
+        _ => {
             compile_error!("Board is not supported by drv/fpga-server");
         }
     }

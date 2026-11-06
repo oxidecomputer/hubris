@@ -18,23 +18,28 @@ use abi::{IrqStatus, ReplyFaultReason, TaskId};
 
 use crate::{BorrowInfo, Lease, RecvMessage, TimerState};
 
-cfg_if::cfg_if! {
+cfg_select! {
     // NOTE: kept identical with detection method used in `kern/src/arch.rs`.
-    if #[cfg(not(target_os = "none"))] {
+    not(target_os = "none") => {
         // Not a Hubris target at all: the task is being built to run as a
         // host process for testing, with its syscalls forwarded to a fixture.
         pub mod host;
 
         /// The architecture the userlib is being built for.
         pub use host::Host as ArchImpl;
-    } else if #[cfg(not(target_pointer_width = "32"))] {
-        compile_error!("non-32-bit targets not supported");
-    } else if #[cfg(target_arch = "arm")] {
+    }
+    not(target_pointer_width = "32") => {
+        compile_error!(
+            "non-32-bit targets not supported (even for simulation)"
+        );
+    }
+    target_arch = "arm" => {
         pub mod arm_m;
 
         /// The architecture the userlib is being built for.
         pub use arm_m::ArmM as ArchImpl;
-    } else {
+    }
+    _ => {
         compile_error!("support for this architecture not implemented");
     }
 }

@@ -20,7 +20,6 @@ pub mod passthrough;
 pub mod print;
 pub mod rust_analyzer;
 pub mod sizes;
-pub mod task_slot;
 
 pub use crate::config::Config;
 use clap::Parser;

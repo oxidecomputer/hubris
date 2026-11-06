@@ -264,9 +264,9 @@ impl I2cController<'_> {
         // boards, which is not at all true. As of recently it's now doing a
         // hybrid of "CPU model" and "board name" sensing. Should move to
         // configuration!
-        cfg_if::cfg_if! {
-            if #[cfg(any(feature = "h743", feature = "h753"))] {
-                cfg_if::cfg_if! {
+        cfg_select! {
+            any(feature = "h743", feature = "h753") => {
+                let scldel = cfg_select! {
                     // Due to AMD Milan erratum 1394, the processor needs an
                     // abnormally long data setup time from an I2C target
                     // sending an ACK. (According to the erratum,
@@ -281,12 +281,9 @@ impl I2cController<'_> {
                     // therefore set SCLDEL to a value that will amount to a
                     // 560 ns setup time; if it is not set, we set SCLDEL to
                     // the ST-prescribed value of 280 ns.
-                    if #[cfg(feature = "amd_erratum_1394")] {
-                        let scldel = 13;
-                    } else {
-                        let scldel = 6;
-                    }
-                }
+                    feature = "amd_erratum_1394" => 13,
+                    _ => 6,
+                };
 
                 // Here our APB1 peripheral clock is 100MHz, yielding the
                 // following:
@@ -307,7 +304,8 @@ impl I2cController<'_> {
                     .scldel().bits(scldel)
                     .sdadel().bits(0)
                 });
-            } else if #[cfg(target_board = "oxcon2023g0")] {
+            }
+            target_board = "oxcon2023g0" => {
                 // This board runs at 64 MHz, yielding:
                 //
                 // - A PRESC of 4, yielding a t_presc of 62 ns
@@ -326,7 +324,8 @@ impl I2cController<'_> {
                     .scldel().bits(3)
                     .sdadel().bits(0)
                 });
-            } else if #[cfg(any(feature = "g031", feature = "g030"))] {
+            }
+            any(feature = "g031", feature = "g030") => {
                 // On the G0, our APB peripheral clock is 16MHz, yielding:
                 //
                 // - A PRESC of 0, yielding a t_presc of 62 ns
@@ -345,14 +344,15 @@ impl I2cController<'_> {
                     .scldel().bits(3)
                     .sdadel().bits(0)
                 });
-            } else {
+            }
+            _ => {
                 compile_error!("unknown STM32xx variant");
             }
         }
     }
 
     fn configure_timeouts(&self, i2c: &RegisterBlock) {
-        cfg_if::cfg_if! {
+        let timeouta = cfg_select! {
             //
             // The timeout value is defined to be:
             //
@@ -363,22 +363,17 @@ impl I2cController<'_> {
             // (196). Note that these numbers make assumptions about the
             // system's clocking and clock tree configuration; TODO.
             //
-            if #[cfg(any(feature = "h743", feature = "h753"))] {
-                i2c.timeoutr.write(|w| { w
-                    .timouten().set_bit()           // Enable SCL timeout
-                    .timeouta().bits(1220)          // Timeout value
-                    .tidle().clear_bit()            // Want SCL, not IDLE
-                });
-            } else if #[cfg(any(feature = "g030", feature = "g031"))] {
-                i2c.timeoutr.write(|w| { w
-                    .timouten().set_bit()           // Enable SCL timeout
-                    .timeouta().bits(196)           // Timeout value
-                    .tidle().clear_bit()            // Want SCL, not IDLE
-                });
-            } else {
-                compile_error!("unknown STM32xx variant");
-            }
-        }
+            any(feature = "h743", feature = "h753") => 1220,
+            any(feature = "g030", feature = "g031") => 196,
+            _ => compile_error!("unknown STM32xx variant"),
+        };
+
+        #[rustfmt::skip]
+        i2c.timeoutr.write(|w| { w
+            .timouten().set_bit()           // Enable SCL timeout
+            .timeouta().bits(timeouta)      // Timeout value
+            .tidle().clear_bit()            // Want SCL, not IDLE
+        });
     }
 
     pub fn configure(&self) {

@@ -7,7 +7,6 @@ edition = "2024"
 build-util = {path = "../util"}
 anyhow = { workspace = true }
 cargo_metadata = { workspace = true }
-cfg-if = { workspace = true }
 convert_case = { workspace = true }
 iddqd = { workspace = true }
 indexmap = { workspace = true }
