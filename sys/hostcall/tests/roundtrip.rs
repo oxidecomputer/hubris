@@ -29,7 +29,8 @@ fn syscall_and_return_over_pipes() {
                     .leases
                     .iter()
                     .map(|l| {
-                        (l.attributes.0 & 2 != 0)
+                        l.attributes
+                            .contains(abi::LeaseAttributes::WRITE)
                             .then(|| vec![0xAA; l.len as usize])
                     })
                     .collect(),
@@ -49,12 +50,12 @@ fn syscall_and_return_over_pipes() {
         output_len: 16,
         leases: vec![
             Lease {
-                attributes: abi::LeaseAttributes(1),
+                attributes: abi::LeaseAttributes::READ,
                 len: 4,
                 contents: vec![1, 2, 3, 4],
             },
             Lease {
-                attributes: abi::LeaseAttributes(2),
+                attributes: abi::LeaseAttributes::WRITE,
                 len: 2,
                 contents: vec![],
             },
@@ -71,6 +72,7 @@ fn syscall_and_return_over_pipes() {
         }
     );
 
+    // `GetTimer` is a syscall with no args/leases.
     let empty = Syscall {
         nr: abi::Sysnum::GetTimer,
         args: [0u32; _],
@@ -80,6 +82,8 @@ fn syscall_and_return_over_pipes() {
     };
     write_message(&mut to_helper_tx, &empty).unwrap();
     let ret: Return = read_message(&mut from_helper).unwrap().unwrap();
+
+    // Output is just the input reversed, which is also all zeroes.
     assert_eq!(ret, Return::default());
 
     // Closing the task's end is a clean end of stream for the helper.
