@@ -118,7 +118,7 @@ pub struct FunctionData {
     pub calls: BTreeSet<u32>,
     pub missing_calls: usize,
     pub recursive_calls: usize,
-    /// Statically-known memory accesses, keyed by the address being accessed
+    /// Statically-known memory accesses, keyed by address
     pub memory_access: BTreeMap<u32, Vec<MemoryAccess>>,
 }
 
