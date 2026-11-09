@@ -106,21 +106,23 @@ jobs:
       - build
     runs-on: oxide-colo-builder-hubris
     permissions:
-      contents: write # Publish the release
       id-token: write # Authenticate with oidcx
-      actions: read # Download artifacts
     steps:
       - *brussels-token
       - *download-brussels
 
-      # TODO: pin this somehow
-      - name: Retrieve the Sigstore trusted roots
-        run: gh attestation trusted-root > trusted-root.jsonl
+      - name: Get a token to publish releases
+        id: releases-token
+        uses: oxidecomputer/oidcx-action@main
+        with:
+          service: github
+          repositories: oxidecomputer/hubris,oxidecomputer/omicron
+          permissions: contents:write,pull_requests:write,actions:read,attestations:read
 
       - name: Publish the release with Brussels
-        run: brussels publish --trusted-root=trusted-root.jsonl $run_id
+        run: brussels publish $run_id
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.releases-token.outputs.access-token }}
           run_id: ${{ github.run_id }}
 
   release-legacy:

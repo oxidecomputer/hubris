@@ -79,15 +79,11 @@ fn system_init() {
     // Okay! What does the fox^Wpins say?
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "grapefruit-a")] {
-            let expected_rev = 0b000;
-        } else if #[cfg(target_board = "grapefruit-b")] {
-            let expected_rev = 0b001;
-        } else {
-            compile_error!("not a recognized grapefruit board")
-        }
-    }
+    let expected_rev = cfg_select! {
+        target_board = "grapefruit-a" => 0b000,
+        target_board = "grapefruit-b" => 0b001,
+        _ => compile_error!("not a recognized grapefruit board"),
+    };
 
     assert_eq!(rev, expected_rev);
 

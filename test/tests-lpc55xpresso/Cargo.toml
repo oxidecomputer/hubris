@@ -8,7 +8,6 @@ version = "0.1.0"
 plls = []
 
 [dependencies]
-cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 lpc55-pac = { workspace = true }

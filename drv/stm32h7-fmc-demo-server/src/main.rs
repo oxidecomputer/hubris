@@ -15,12 +15,14 @@ use task_net_api::{
 };
 use userlib::{RecvMessage, sys_recv_notification, task_slot};
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "h743")] {
+cfg_select! {
+    feature = "h743" => {
         use stm32h7::stm32h743 as device;
-    } else if #[cfg(feature = "h753")] {
+    }
+    feature = "h753" => {
         use stm32h7::stm32h753 as device;
-    } else {
+    }
+    _ => {
         compile_error!("missing supported SoC feature");
     }
 }

@@ -11,34 +11,42 @@ use crate::Port;
 // but no, they are generated whole-cloth in every PAC. As a result, we can't
 // simply depend on the common types here, and we need to know which SoC family
 // we're targeting to generate these SoC-family-independent APIs. :-(
-cfg_if::cfg_if! {
-    if #[cfg(feature = "family-stm32g0")] {
+cfg_select! {
+    feature = "family-stm32g0" => {
         use stm32g0 as pac;
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "model-stm32g031")] {
+        cfg_select! {
+            feature = "model-stm32g031" => {
                 use pac::stm32g031 as device;
-            } else if #[cfg(feature = "model-stm32g030")] {
+            }
+            feature = "model-stm32g030" => {
                 use pac::stm32g030 as device;
-            } else if #[cfg(feature = "model-stm32g070")] {
+            }
+            feature = "model-stm32g070" => {
                 use pac::stm32g070 as device;
-            } else if #[cfg(feature = "model-stm32g0b1")] {
+            }
+            feature = "model-stm32g0b1" => {
                 use pac::stm32g0b1 as device;
-            } else {
+            }
+            _ => {
                 compile_error!("unsupported or missing SoC model feature");
             }
         }
-    } else if #[cfg(feature = "family-stm32h7")] {
+    }
+    feature = "family-stm32h7" => {
         use stm32h7 as pac;
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "model-stm32h743")] {
+        cfg_select! {
+            feature = "model-stm32h743" => {
                 use pac::stm32h743 as device;
-            } else if #[cfg(feature = "model-stm32h753")] {
+            }
+            feature = "model-stm32h753" => {
                 use pac::stm32h753 as device;
-            } else {
+            }
+            _ => {
                 compile_error!("unsupported or missing SoC model feature");
             }
         }
-    } else {
+    }
+    _ => {
         compile_error!("unsupported or missing SoC family feature");
     }
 }

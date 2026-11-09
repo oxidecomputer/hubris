@@ -22,7 +22,6 @@ vsc7448 = { path = "../../drv/vsc7448"  }
 vsc7448-pac = { workspace = true }
 vsc85xx = { path = "../../drv/vsc85xx"  }
 
-cfg-if.workspace = true
 hubpack.workspace = true
 num-traits.workspace = true
 serde.workspace = true

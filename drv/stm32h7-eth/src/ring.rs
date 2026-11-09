@@ -97,8 +97,8 @@ const TDES3_CIC_BIT: u32 = 16;
 const TDES3_CIC_CHECKSUMS_ENABLED: u32 = 0b11;
 
 // TDES bits which are only used in VLAN code, gated to avoid compiler warnings
-cfg_if::cfg_if! {
-    if #[cfg(feature = "vlan")] {
+cfg_select! {
+    feature = "vlan" => {
         /// Index of CTXT bit indicating that this is a context descriptor.
         const TDES3_CTXT_BIT: u32 = 30;
         /// Index of VLAN Tag Valid bit in a Tx Context descriptor.
@@ -108,6 +108,7 @@ cfg_if::cfg_if! {
         /// VTIR value for inserting a VLAN tag.
         const TDES2_VTIR_INSERT: u32 = 0b10;
     }
+    _ => {}
 }
 
 /// Control block for a ring of `TxDesc` records and associated `Buffer`s.
@@ -385,14 +386,15 @@ const RDES3_BUF1_VALID_BIT: u32 = 24;
 const RDES3_PL_MASK: u32 = (1 << 15) - 1;
 
 // RDES bits which are only used in VLAN code, gated to avoid compiler warnings
-cfg_if::cfg_if! {
-    if #[cfg(feature = "vlan")] {
+cfg_select! {
+    feature = "vlan" => {
         /// Amount to shift RDES0 to read out the VLAN ID as a `u16`
         const RDES0_OUTER_VID_BIT: u32 = 0;
         /// Index of Receive Status RDES0 Valid bit, indicating that RDES0 is
         /// valid and has been written by the DMA.
         const RDES3_RS0V_BIT: u32 = 25;
     }
+    _ => {}
 }
 
 /// Control block for a ring of `RxDesc` records and associated `Buffer`s.

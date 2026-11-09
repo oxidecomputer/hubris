@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-cfg-if = { workspace = true }
 convert_case = { workspace = true }
 indexmap = { workspace = true }
 multimap = { workspace = true }

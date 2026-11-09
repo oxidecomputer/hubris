@@ -19,7 +19,6 @@ sha3 = { workspace = true, optional = false }
 task-jefe-api = { path = "../../task/jefe-api" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 
-cfg-if.workspace = true
 hubpack.workspace = true
 idol-runtime.workspace = true
 lpc55-pac.workspace = true
