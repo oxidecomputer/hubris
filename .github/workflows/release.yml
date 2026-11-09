@@ -113,12 +113,8 @@ jobs:
       - *brussels-token
       - *download-brussels
 
-      # TODO: pin this somehow
-      - name: Retrieve the Sigstore trusted roots
-        run: gh attestation trusted-root > trusted-root.jsonl
-
       - name: Publish the release with Brussels
-        run: brussels publish --trusted-root=trusted-root.jsonl $run_id
+        run: brussels publish $run_id
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           run_id: ${{ github.run_id }}
