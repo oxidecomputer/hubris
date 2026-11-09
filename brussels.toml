@@ -61,6 +61,21 @@ observer-a = { corim = false, omicron = false }
 metro-a = {}
 metro-a-lab = {}
 
+[[groups.all-sp.prs]]
+repo = "oxidecomputer/omicron"
+branch = "main"
+write-attestation-to = "tools/brussels/hubris-sp.sigstore.json"
+title = "Update SP to version {version}"
+description = """
+This PR updates the SP images to version {version} by updating the pinned release attestation.
+
+You can verify the contents of the release attestation by running:
+
+```
+jq -r '.dsseEnvelope.payload | @base64d | fromjson | .predicate.tag' tools/brussels/hubris-sp.sigstore.json
+```
+"""
+
 [groups.rot]
 project = "rot"
 tag-bump = "minor"

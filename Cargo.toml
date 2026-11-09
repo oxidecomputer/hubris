@@ -146,8 +146,8 @@ postcard = { version = "1.1.3", default-features = false }
 apob = { git = "https://github.com/oxidecomputer/apob", default-features = false, rev = "cc0755a5dc891b27b45a1d6ec6728e49bc1a991b" }
 attest-data = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.4.0", rev = "a0811d06c75c757a6e12c91ed6ea81fde137ba43" }
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.2.1", rev = "a0811d06c75c757a6e12c91ed6ea81fde137ba43" }
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], rev ="438cd185666d5f164548885873f0f5df9a38eed1" }
-gateway-ereport-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, rev = "438cd185666d5f164548885873f0f5df9a38eed1" }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], rev ="49096ac823dc0971d382257e9a3b8c2a3a57ba04" }
+gateway-ereport-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, rev = "49096ac823dc0971d382257e9a3b8c2a3a57ba04" }
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", rev = "030004d082f4ec70e33cbc00886096b15ef3c2cc" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false, rev = "0e9a9d0774afe3c4eca5cb147fb64ad05d0bfcd8" }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, rev = "d9ffbaacbc20c0061a073163ab11a8601317613c" }
