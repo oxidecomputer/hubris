@@ -18,7 +18,6 @@ use crate::{
     Config,
     dist::{Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK},
 };
-use build_stack::get_max_stack;
 
 #[derive(Debug)]
 struct TaskSizes<'a> {
@@ -440,8 +439,9 @@ fn print_task_stacks(toml: &Config) -> Result<()> {
             .join(&toml.name)
             .join("dist")
             .join(format!("{task_name}.tmp"));
-        let config = build_stack::Config::default();
-        let max_stack = get_max_stack(config, &toml.target, &f, false)?;
+        let config = asmcheck::Config::default();
+        let fns = asmcheck::extract_function_items(&f, false, &config)?;
+        let max_stack = asmcheck::get_max_stack(&fns, &toml.target)?;
         let total: u64 = max_stack.iter().map(|(n, _)| *n).sum();
         println!("{task_name}: {total} bytes (limit is {task_stack_size})");
         for (frame_size, name) in max_stack {

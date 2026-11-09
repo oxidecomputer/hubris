@@ -59,6 +59,8 @@ pub struct MmioConfig {
 
 #[derive(Clone, Debug)]
 pub struct MmioData {
+    /// Name of the peripheral region containing all MMIO peripherals
+    pub peripheral_region: String,
     pub base_address: u32,
     pub register_map: PathBuf,
 }
@@ -221,6 +223,7 @@ impl Config {
                 );
             }
             Some(MmioData {
+                peripheral_region: mmio.peripheral_region.clone(),
                 base_address,
                 register_map: mmio_file.canonicalize()?,
             })

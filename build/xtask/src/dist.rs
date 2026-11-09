@@ -13,7 +13,6 @@ use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, anyhow, bail};
 use atty::Stream;
-use build_stack::get_max_stack;
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
@@ -818,14 +817,31 @@ pub fn package(
             })
             .collect::<Result<_, _>>()?;
 
-        // Check stack sizes and local home-dir deps
+        // Check stack sizes, memory accesses, and local home-dir strings
         let mut possible_stack_overflow = vec![];
+        let mut bad_memory_access = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
-                if task_can_overflow(&cfg.toml, task_name, verbose)? {
+                let f = cfg.img_file(task_name, image_name);
+                let config = asmcheck::Config::default();
+                let fns = asmcheck::extract_function_items(
+                    &f, verbose, &config,
+                )
+                .with_context(|| {
+                    format!(
+                        "Failed to get function items from task: {task_name}"
+                    )
+                })?;
+
+                if task_can_overflow(&fns, &cfg.toml, task_name, verbose)? {
                     possible_stack_overflow.push(task_name);
                 }
-                if task_contains_home(&cfg.toml, task_name)? {
+                if task_has_bad_memory_access(
+                    &fns, &cfg.toml, task_name, image_name, allocs,
+                )? {
+                    bad_memory_access.push(task_name);
+                }
+                if task_contains_home(&cfg, task_name, image_name)? {
                     if skip_path_check {
                         eprintln!(
                             "warning: task {task_name} contains your home \
@@ -846,6 +862,12 @@ pub fn package(
             bail!(
                 "tasks may overflow: {possible_stack_overflow:?}; \
                  see logs above"
+            );
+        }
+        if !bad_memory_access.is_empty() {
+            bail!(
+                "tasks access memory outside of their allowed regions: \
+                 {bad_memory_access:?}; see logs above"
             );
         }
 
@@ -1448,12 +1470,13 @@ pub fn build_task_bindep(
 /// Returns `Ok(true)` if the given task contains the user's home directory
 ///
 /// This is useful for making sure builds are reproducible.
-fn task_contains_home(toml: &Config, task_name: &str) -> Result<bool> {
+fn task_contains_home(
+    cfg: &PackageConfig,
+    task_name: &str,
+    image_name: &str,
+) -> Result<bool> {
     // Open the statically-linked ELF file
-    let f = Path::new("target")
-        .join(&toml.name)
-        .join("dist")
-        .join(format!("{task_name}.tmp"));
+    let f = cfg.img_file(task_name, image_name);
     let data = std::fs::read(f).context("could not open ELF file")?;
     let dirs = directories::BaseDirs::new()
         .ok_or_else(|| anyhow!("could not get base directories"))?;
@@ -1470,17 +1493,13 @@ fn task_contains_home(toml: &Config, task_name: &str) -> Result<bool> {
 /// dispatch or function pointers; false positives are technically possible but
 /// unlikely if there's a logically unreachable section of the call graph.
 fn task_can_overflow(
+    fns: &asmcheck::FunctionReport,
     toml: &Config,
     task_name: &str,
     verbose: bool,
 ) -> Result<bool> {
-    let f = Path::new("target")
-        .join(&toml.name)
-        .join("dist")
-        .join(format!("{task_name}.tmp"));
-    let config = build_stack::Config::default();
-    let max_stack = get_max_stack(config, &toml.target, &f, verbose)
-        .with_context(|| {
+    let max_stack =
+        asmcheck::get_max_stack(fns, &toml.target).with_context(|| {
             format!("Failed getting max stack for task: {task_name}")
         })?;
     let max_depth: u64 = max_stack.iter().map(|(d, _)| *d).sum();
@@ -1509,6 +1528,159 @@ fn task_can_overflow(
     } else {
         Ok(false)
     }
+}
+
+/// Checks whether the given task accesses memory outside of its allowed regions
+///
+/// This only detects a simple pattern (a constant address loaded from a literal
+/// pool, then used as the base of a load or store), so false negatives are
+/// possible; false positives are also possible but are unlikely (they would
+/// require strangely-shaped code that trips up our simple static analyzer)
+fn task_has_bad_memory_access(
+    fns: &asmcheck::FunctionReport,
+    toml: &Config,
+    task_name: &str,
+    image_name: &str,
+    allocs: &Allocations,
+) -> Result<bool> {
+    // Collect regions owned by the task
+    let mut allowed = vec![];
+    for ranges in allocs.tasks[task_name].values() {
+        allowed.push(ranges.start()..ranges.end());
+    }
+    allowed.extend(
+        toml.extern_regions_for(task_name, image_name)?
+            .into_values(),
+    );
+
+    // Shared regions (peripherals and extratext) used by the task
+    let task = &toml.tasks[task_name];
+    for name in &task.uses {
+        let p = toml
+            .peripherals
+            .get(name)
+            .or_else(|| toml.extratext.get(name))
+            .ok_or_else(|| {
+                anyhow!("task {task_name} uses unknown region {name}")
+            })?;
+        allowed.push(p.address..p.address + p.size);
+    }
+    if let Some(caboose) = &toml.caboose
+        && caboose.tasks.iter().any(|t| t == task_name)
+        && let Some((_, r)) = &allocs.caboose
+    {
+        allowed.push(r.clone());
+    }
+
+    // Now that we've built the region list, find accesses outside of the
+    // allowed regions, grouped by function and sorted by instruction address.
+    let mut bad = vec![];
+    for f in fns.function_items.values() {
+        let memory_access = match &f.memory_access {
+            Ok(m) => m,
+            Err(ignore) => {
+                println!(
+                    "WARN: Ignoring memory accesses in {}, matching {}",
+                    f.name, ignore
+                );
+                continue;
+            }
+        };
+        let mut accesses = memory_access
+            .iter()
+            .filter(|(addr, _)| {
+                // Tasks can't have more than 8 memory regions due to MPU
+                // limitations, so it's fine to iterate over them!
+                !allowed.iter().any(|r| r.contains(*addr))
+            })
+            .flat_map(|(addr, v)| v.iter().map(move |a| (*addr, a)))
+            .collect::<Vec<_>>();
+        accesses.sort_by_key(|(_, a)| a.pc);
+        if !accesses.is_empty() {
+            bad.push((&f.name, accesses));
+        }
+    }
+    if bad.is_empty() {
+        return Ok(false);
+    }
+
+    // Try to give a helpful name to each bad address
+    let describe = |addr: u32| -> String {
+        // If the address is in the `[mmio]` peripheral region, then it should
+        // be accessed through one of the fine-grained regions generated from
+        // the register map, rather than the region as a whole.
+        if let Some(mmio) = &toml.mmio
+            && let Some(region) = toml.peripherals.get(&mmio.peripheral_region)
+            && (region.address..region.address + region.size).contains(&addr)
+        {
+            return if let Some((name, _)) =
+                toml.peripherals.iter().find(|(name, p)| {
+                    **name != mmio.peripheral_region
+                        && (p.address..p.address + p.size).contains(&addr)
+                }) {
+                format!("mmio peripheral '{name}' (missing from `uses`?)")
+            } else {
+                format!(
+                    "mmio region '{}', but not in any peripheral from {}",
+                    mmio.peripheral_region,
+                    mmio.register_map.display(),
+                )
+            };
+        }
+
+        if let Some((name, _)) = toml
+            .peripherals
+            .iter()
+            .find(|(_, p)| (p.address..p.address + p.size).contains(&addr))
+        {
+            return format!("peripheral '{name}' (missing from `uses`?)");
+        }
+        if let Some((name, _)) = toml
+            .extratext
+            .iter()
+            .find(|(_, p)| (p.address..p.address + p.size).contains(&addr))
+        {
+            return format!("extratext '{name}' (missing from `uses`?)");
+        }
+        if let Some((name, _)) = allocs
+            .tasks
+            .iter()
+            .find(|(_, m)| m.values().any(|r| r.contains(&addr)))
+        {
+            return format!("memory owned by task '{name}'");
+        }
+        if allocs.kernel.values().any(|r| r.contains(&addr)) {
+            return "kernel memory".to_owned();
+        }
+        if let Some((_, r)) = &allocs.caboose
+            && r.contains(&addr)
+        {
+            return "caboose (task not listed in `caboose.tasks`?)".to_owned();
+        }
+        "unknown region".to_owned()
+    };
+
+    println!(
+        "task {task_name} accesses memory outside of its allowed regions:"
+    );
+    // Print each bad access, then the (deduplicated) regions that they hit,
+    // annotating each access with the index of its region
+    let mut regions = indexmap::IndexSet::new();
+    for (function, accesses) in bad {
+        println!("  in {function}:");
+        for (addr, a) in accesses {
+            let (i, _) = regions.insert_full(describe(addr));
+            println!(
+                "    {:#010x}: {:<24} => {addr:#010x} [{i}]",
+                a.pc, a.instr
+            );
+        }
+    }
+    println!("  accessed regions:");
+    for (i, r) in regions.iter().enumerate() {
+        println!("    [{i}] {r}");
+    }
+    Ok(true)
 }
 
 /// Link a specific task

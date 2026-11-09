@@ -153,7 +153,7 @@ size = 0x1000
 
 # NOTE: this defines the chunk of memory used for memory-mapped peripherals,
 # like we do for certain FPGAs.  You should not use it directly; instead, use an
-# `[fmc]` configuration block in your manifest to generate fine-grained memory
+# `[mmio]` configuration block in your manifest to generate fine-grained memory
 # regions for each memory-mapped peripheral, based on the FPGA's top-level
 # peripheral map.
 #
