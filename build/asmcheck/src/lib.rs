@@ -904,6 +904,14 @@ impl FunctionDataCollector<'_> {
             let op = details.operands().last().unwrap_or_else(|| {
                 panic!("jumps on ARM should always have an operand!");
             });
+
+            // We'll record the address itself in our branch target list, so
+            // that we clear register state when processing this instruction
+            // (since we could be jumping away and then returning).  This is
+            // overly conversative, but shouldn't matter for the kinds of
+            // patterns that we're looking to detect!
+            self.branch_targets.insert(insn.address() as u32);
+
             // We can't resolve indirect calls, alas
             //
             // TODO: We could consider keeping track of register ops
@@ -944,13 +952,6 @@ impl FunctionDataCollector<'_> {
             } else {
                 self.calls.insert(target);
             }
-
-            // We'll also record the address itself as a branch target, so that
-            // we clear register state when processing this instruction (since
-            // we could be jumping away and then returning).  This is overly
-            // conversative, but shouldn't matter for the kinds of patterns that
-            // we're looking to detect!
-            self.branch_targets.insert(insn.address() as u32);
         }
         Ok(())
     }
