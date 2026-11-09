@@ -20,6 +20,14 @@ use crate::{BorrowInfo, Lease, RecvMessage, TimerState};
 
 cfg_select! {
     // NOTE: kept identical with detection method used in `kern/src/arch.rs`.
+    not(target_os = "none") => {
+        // Not a Hubris target at all: the task is being built to run as a
+        // host process for testing, with its syscalls forwarded to a fixture.
+        pub mod host;
+
+        /// The architecture the userlib is being built for.
+        pub use host::Host as ArchImpl;
+    }
     not(target_pointer_width = "32") => {
         compile_error!(
             "non-32-bit targets not supported (even for simulation)"

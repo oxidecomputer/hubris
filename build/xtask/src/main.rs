@@ -38,6 +38,24 @@ enum Xtask {
         caboose_args: CabooseArgs,
     },
 
+    /// Builds and runs the kernel and tasks on the host machine.
+    HostRun {
+        /// Request verbosity from tools we shell out to.
+        #[clap(short)]
+        verbose: bool,
+        /// Build with the release profile instead of dev.
+        #[clap(long)]
+        release: bool,
+        /// Build everything, but don't run.
+        #[clap(long)]
+        no_run: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+        /// TODO: Add help text
+        #[clap(last = true)]
+        kernel_args: Vec<String>,
+    },
+
     /// Builds one or more cross-compiled binary as it would appear in the
     /// output of `dist`, but without all the other binaries or the final build
     /// archive. This is useful for iterating on a single task.
@@ -365,6 +383,22 @@ fn run(xtask: Xtask) -> Result<()> {
                     CabooseArgs::default(),
                 )?;
             }
+        }
+        Xtask::HostRun {
+            verbose,
+            release,
+            no_run,
+            cfg,
+            kernel_args,
+        } => {
+            host::run(
+                &cfg,
+                host::HostRunFlags {
+                    build: host::HostBuildFlags { verbose, release },
+                    kernel_args,
+                    no_run,
+                },
+            )?;
         }
         Xtask::Flash {
             dirty,

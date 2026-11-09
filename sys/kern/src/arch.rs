@@ -24,6 +24,13 @@ use crate::time::Timestamp;
 cfg_select! {
     // NOTE: kept identical with detection method used in
     // `userlib/src/arch/mod.rs`.
+    not(target_os = "none") => {
+        // Host-native (on-std) kernel
+        pub mod host;
+
+        /// The architecture the kernel is being built for.
+        pub use host::Host as ArchImpl;
+    }
     not(target_pointer_width = "32") => {
         compile_error!(
             "non-32-bit targets not supported (even for simulation)"
