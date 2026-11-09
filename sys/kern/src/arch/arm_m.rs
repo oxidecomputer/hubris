@@ -77,7 +77,7 @@ use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::arch::Arch;
 use crate::atomic::AtomicExt;
-use crate::descs::RegionAttributes;
+use crate::descs::{RegionAttributes, RegionDesc};
 use crate::startup::with_task_table;
 use crate::task;
 use crate::time::Timestamp;
@@ -864,13 +864,11 @@ pub struct ArmMRegionDescExt {
 }
 
 #[cfg(any(armv6m, armv7m))]
-pub const fn compute_region_extension_data(
+pub const fn compute_region_desc(
     base: usize,
     size: usize,
     attributes: RegionAttributes,
-) -> ArmMRegionDescExt {
-    let base = base as u32;
-    let size = size as u32;
+) -> RegionDesc {
     // This platform requires 32-byte alignment of all regions.
     if base & 0x1F != 0 {
         panic!();
@@ -938,7 +936,7 @@ pub const fn compute_region_extension_data(
     // On ARMv6-M, there is no CLZ instruction either. This winds up
     // generating decent intrinsic code for `leading_zeros` so we'll live
     // with it.
-    let l2size = 30 - size.leading_zeros();
+    let l2size = 30 - (size as u32).leading_zeros();
 
     // Region attribute and size register; we enable the region by default
     // because we load it with the MPU off.
@@ -946,8 +944,13 @@ pub const fn compute_region_extension_data(
         (xn as u32) << 28 | ap << 24 | tex << 19 | scb << 16 | l2size << 1 | 1;
 
     // Build the RBAR contents without the VALID bit or region number.
-    let rbar = base;
-    ArmMRegionDescExt { rasr, rbar }
+    let rbar = base as u32;
+    RegionDesc {
+        base,
+        size,
+        attributes,
+        arch_data: ArmMRegionDescExt { rasr, rbar },
+    }
 }
 
 /// ARMv8-M specific MPU accelerator data.
@@ -970,13 +973,11 @@ pub struct ArmMRegionDescExt {
 }
 
 #[cfg(armv8m)]
-pub const fn compute_region_extension_data(
+pub const fn compute_region_desc(
     base: usize,
     size: usize,
     ratts: RegionAttributes,
-) -> ArmMRegionDescExt {
-    let base = base as u32;
-    let size = size as u32;
+) -> RegionDesc {
     // This MPU requires that all regions are 32-byte aligned...in part
     // because it stuffs extra stuff into the bottom five bits.
     if base & 0x1F != 0 {
@@ -1014,14 +1015,19 @@ pub const fn compute_region_extension_data(
     // with the MPU _enabled_ would involve momentary inconsistency between RLAR
     // and RBAR, since the two cannot be written simultaneously, and that would
     // be Bad.
-    let rlar = (base + size - 32) | 1; // upper bound | enable bit
+    let rlar = ((base + size - 32) as u32) | 1; // upper bound | enable bit
 
     // RBAR = the base
     let rbar = (xn as u32)
         | ap << 1
         | (sh as u32) << 3  // sharability
-        | base;
-    ArmMRegionDescExt { rlar, rbar, mair }
+        | (base as u32);
+    RegionDesc {
+        base,
+        size,
+        attributes: ratts,
+        arch_data: ArmMRegionDescExt { rlar, rbar, mair },
+    }
 }
 
 // Handler that gets linked into the vector table for the Supervisor Call (SVC)
