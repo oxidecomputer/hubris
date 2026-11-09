@@ -841,7 +841,7 @@ pub fn package(
                 )? {
                     bad_memory_access.push(task_name);
                 }
-                if task_contains_home(&cfg.toml, task_name)? {
+                if task_contains_home(&cfg, task_name, image_name)? {
                     if skip_path_check {
                         eprintln!(
                             "warning: task {task_name} contains your home \
@@ -1470,12 +1470,13 @@ pub fn build_task_bindep(
 /// Returns `Ok(true)` if the given task contains the user's home directory
 ///
 /// This is useful for making sure builds are reproducible.
-fn task_contains_home(toml: &Config, task_name: &str) -> Result<bool> {
+fn task_contains_home(
+    cfg: &PackageConfig,
+    task_name: &str,
+    image_name: &str,
+) -> Result<bool> {
     // Open the statically-linked ELF file
-    let f = Path::new("target")
-        .join(&toml.name)
-        .join("dist")
-        .join(format!("{task_name}.tmp"));
+    let f = cfg.img_file(task_name, image_name);
     let data = std::fs::read(f).context("could not open ELF file")?;
     let dirs = directories::BaseDirs::new()
         .ok_or_else(|| anyhow!("could not get base directories"))?;
