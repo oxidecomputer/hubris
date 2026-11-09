@@ -46,7 +46,7 @@
 //!    counts the number of direct recursion instances detected (e.g. self-calls
 //!    of a function), and refuses to resolve call stacks with cycles, UNLESS
 //!    a member of the cycle is included on the "allowed_recurses" list or
-//!    "ignored_recurse" list, in which case these items are skipped and not
+//!    "ignored_stack" list, in which case these items are skipped and not
 //!    counted.
 //! 2. This approach does not handle "indirect" branching, which looks something
 //!    like `blx r5` in assembly, and is often (but not exclusively) generated
@@ -91,7 +91,7 @@ pub const KNOWN_RECURSORS: &[&str] = &[
     "Vsc7448Spi",
 ];
 
-pub const KNOWN_TO_IGNORE_RECURSE: &[&str] = &[
+pub const KNOWN_TO_IGNORE_STACK: &[&str] = &[
     // Our on-target test framework has an explicit "stackblow" function that
     // intentionally causes a stack overflow. This unsurprisingly makes the
     // max stack analysis upset.
@@ -113,10 +113,12 @@ pub struct Config {
     /// recurse
     pub allowed_recurses: Vec<String>,
 
-    /// Functions names containing these patterns will ignored by recurse check
-    pub ignored_recurse: Vec<String>,
+    /// Functions names containing these patterns will be ignored by the stack
+    /// check
+    pub ignored_stack: Vec<String>,
 
-    /// Functions names containing these patterns will ignored by memory check
+    /// Functions names containing these patterns will be ignored by the memory
+    /// access check
     pub ignored_memory_access: Vec<String>,
 }
 
@@ -483,7 +485,7 @@ impl Default for Config {
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),
-            ignored_recurse: KNOWN_TO_IGNORE_RECURSE
+            ignored_stack: KNOWN_TO_IGNORE_STACK
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),
@@ -503,8 +505,8 @@ impl Config {
             .map(String::as_str)
     }
 
-    fn match_ignored_recurse(&self, name: &str) -> Option<&str> {
-        self.ignored_recurse
+    fn match_ignored_stack(&self, name: &str) -> Option<&str> {
+        self.ignored_stack
             .iter()
             .find(|am| name.contains(am.as_str()))
             .map(String::as_str)
@@ -658,7 +660,7 @@ impl<'a> Resolver<'a> {
                 .with_context(|| format!("While resolving {}", name))?;
 
             // Is this an ignored function?
-            let ignore_match = self.config.match_ignored_recurse(&rchild.name);
+            let ignore_match = self.config.match_ignored_stack(&rchild.name);
             if let Some(ignore) = ignore_match {
                 println!(
                     "WARN: Ignoring recursion in {}, matching {}",
@@ -705,8 +707,7 @@ impl<'a> Resolver<'a> {
             .collect::<Result<Vec<_>, _>>()?;
 
         // Filter out any ignored functions
-        found
-            .retain(|rn| self.config.match_ignored_recurse(&rn.name).is_none());
+        found.retain(|rn| self.config.match_ignored_stack(&rn.name).is_none());
 
         Ok(found)
     }
