@@ -2,7 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! ## Static Stack Analysis
+//! Best-effort static stack and memory access analysis
+//!
+//! # Static Stack Analysis
 //!
 //! The current static analysis implemented works roughly as follows:
 //!
@@ -57,6 +59,31 @@
 //!    This is commonly present in assembly functions such as
 //!    `userlib::sys_send_stub`, or in `compiler-rt`/`llvm` builtins like
 //!    `__aeabi_memcpy`. These functions are silently assumed to use zero stack.
+//!
+//! # Memory access analysis
+//!
+//! We collect static memory accesses using a very simple approach:
+//!
+//! - Keep a running list of known register values, detected from literal pool
+//!   loads (e.g. `ldr rX, [pc, #imm]`).  In practice, this is a common way to
+//!   load peripheral memory addresses.
+//! - When we perform a memory operation using a register with known values (and
+//!   an optional offset), record that access into the [`FunctionData`] report.
+//!   This ends up being a relatively small number of accesses (a few hundred).
+//! - At branches and branch targets, clear the known register values (because
+//!   we could be arriving from somewhere else in the code).
+//!
+//! Outside this crate, the build system checks those accesses against the
+//! memory regions which the task is allowed to access.
+//!
+//! This is a deliberately simple strategy, because the failure modes are
+//! fairly benign:
+//!
+//! - A false negative just returns us to the status quo: we'll see a failure in
+//!   the field, be sad, and can improve this code to detect it.
+//! - A false positive is detected at compile time (either locally or in CI),
+//!   which is annoying but not fatal; similarly, we'll then adjust this code to
+//!   *not* detect it.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
