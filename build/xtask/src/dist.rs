@@ -1576,8 +1576,17 @@ fn task_has_bad_memory_access(
     // allowed regions, grouped by function and sorted by instruction address.
     let mut bad = vec![];
     for f in fns.function_items.values() {
-        let mut accesses = f
-            .memory_access
+        let memory_access = match &f.memory_access {
+            Ok(m) => m,
+            Err(ignore) => {
+                println!(
+                    "WARN: Ignoring memory accesses in {}, matching {}",
+                    f.name, ignore
+                );
+                continue;
+            }
+        };
+        let mut accesses = memory_access
             .iter()
             .filter(|(addr, _)| {
                 // Tasks can't have more than 8 memory regions due to MPU

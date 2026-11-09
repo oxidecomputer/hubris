@@ -131,7 +131,14 @@ pub struct FunctionData {
     pub missing_calls: usize,
     pub recursive_calls: usize,
     /// Statically-known memory accesses, keyed by address
-    pub memory_access: BTreeMap<u32, Vec<MemoryAccess>>,
+    ///
+    /// This is `Ok(..)` unless the function name matches a pattern in
+    /// [`Config::ignored_memory_access`], in which case it's `Err(pattern)`.
+    ///
+    /// If the function name matches a ignored pattern but there are no memory
+    /// accesses, then this is `Ok([empty map])`, to avoid needless logging of
+    /// ignored accesses.
+    pub memory_access: Result<BTreeMap<u32, Vec<MemoryAccess>>, String>,
 }
 
 /// The resulting report of all metadata obtained for functions after
@@ -384,6 +391,7 @@ pub fn extract_function_items(
         // instructions in `instr_chunks`.
         let mut detailed_instrs = vec![];
         for (data_addr, instrs) in &instr_chunks {
+            let mut chunk = vec![];
             let Some((last, all_except_last)) = instrs.split_last() else {
                 bail!("Empty chunk in {} at {:08X}", function.name, data_addr);
             };
@@ -401,13 +409,16 @@ pub fn extract_function_items(
                 let detail = cs.insn_detail(instr).map_err(|e| {
                     anyhow!("could not get instruction details: {e}")
                 })?;
-                detailed_instrs.push((instr, detail));
+                chunk.push((instr, detail));
             }
+            detailed_instrs.push(chunk);
         }
 
         // Extract all outgoing calls from this function.  This also populates
         // `fc.branch_targets`, for use in memory access checking below.
-        fc.extract_calls(&detailed_instrs)?;
+        for detailed_instrs in &detailed_instrs {
+            fc.extract_calls(detailed_instrs)?;
+        }
 
         if fc.recursive_calls != 0 {
             let allow_match = config.match_allowed_recurses(fc.name);
@@ -425,34 +436,35 @@ pub fn extract_function_items(
         }
 
         // Extract statically-determined memory accesses
-        let mut reg_state = RegState::default();
         let mut memory_access = BTreeMap::new();
-        for (instr, detail) in detailed_instrs {
-            if fc.branch_targets.contains(&(instr.address() as u32)) {
-                reg_state.clear();
-            }
-            if let Some(mem) = reg_state.process(instr, &detail, &elf, &data) {
-                memory_access.entry(mem).or_insert_with(Vec::new).push(
-                    MemoryAccess {
-                        pc: instr.address() as u32,
-                        instr: format!(
-                            "{} {}",
-                            instr.mnemonic().unwrap_or("???"),
-                            instr.op_str().unwrap_or("")
-                        ),
-                    },
-                );
+        for detailed_instrs in &detailed_instrs {
+            let mut reg_state = RegState::default();
+            for (instr, detail) in detailed_instrs {
+                if fc.branch_targets.contains(&(instr.address() as u32)) {
+                    reg_state.clear();
+                }
+                if let Some(mem) = reg_state.process(instr, detail, &elf, &data)
+                {
+                    memory_access.entry(mem).or_insert_with(Vec::new).push(
+                        MemoryAccess {
+                            pc: instr.address() as u32,
+                            instr: format!(
+                                "{} {}",
+                                instr.mnemonic().unwrap_or("???"),
+                                instr.op_str().unwrap_or("")
+                            ),
+                        },
+                    );
+                }
             }
         }
-        if !memory_access.is_empty()
-            && let Some(ignore) = config.match_ignored_mem(&function.name)
+        let memory_access = if !memory_access.is_empty()
+            && let Some(p) = config.match_ignored_mem(&function.name)
         {
-            println!(
-                "WARN: Ignoring memory accesses in {}, matching {}",
-                function.name, ignore
-            );
-            memory_access.clear();
-        }
+            Err(p.to_string())
+        } else {
+            Ok(memory_access)
+        };
 
         fns.insert(
             base_addr,
