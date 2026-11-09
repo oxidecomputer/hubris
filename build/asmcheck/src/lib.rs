@@ -46,7 +46,7 @@
 //!    counts the number of direct recursion instances detected (e.g. self-calls
 //!    of a function), and refuses to resolve call stacks with cycles, UNLESS
 //!    a member of the cycle is included on the "allowed_recurses" list or
-//!    "ignored_functions" list, in which case these items are skipped and not
+//!    "ignored_recurse" list, in which case these items are skipped and not
 //!    counted.
 //! 2. This approach does not handle "indirect" branching, which looks something
 //!    like `blx r5` in assembly, and is often (but not exclusively) generated
@@ -91,11 +91,18 @@ pub const KNOWN_RECURSORS: &[&str] = &[
     "Vsc7448Spi",
 ];
 
-pub const KNOWN_TO_IGNORE: &[&str] = &[
+pub const KNOWN_TO_IGNORE_RECURSE: &[&str] = &[
     // Our on-target test framework has an explicit "stackblow" function that
     // intentionally causes a stack overflow. This unsurprisingly makes the
     // max stack analysis upset.
     "stackblow",
+];
+
+pub const KNOWN_TO_IGNORE_MEM: &[&str] = &[
+    // Our on-target test framework has an explicit "busfault" function that
+    // intentionally causes a bus fault. This unsurprisingly makes the memory
+    // access detector upset.
+    "busfault",
 ];
 
 /// Configuration for public methods
@@ -106,8 +113,11 @@ pub struct Config {
     /// recurse
     pub allowed_recurses: Vec<String>,
 
-    /// Functions names containing any of these patterns will be totally ignored
-    pub ignored_functions: Vec<String>,
+    /// Functions names containing these patterns will ignored by recurse check
+    pub ignored_recurse: Vec<String>,
+
+    /// Functions names containing these patterns will ignored by memory check
+    pub ignored_memory_access: Vec<String>,
 }
 
 /// Information derived about a given function
@@ -432,6 +442,15 @@ pub fn extract_function_items(
                 );
             }
         }
+        if !memory_access.is_empty()
+            && let Some(ignore) = config.match_ignored_mem(&function.name)
+        {
+            println!(
+                "WARN: Ignoring memory accesses in {}, matching {}",
+                function.name, ignore
+            );
+            memory_access.clear();
+        }
 
         fns.insert(
             base_addr,
@@ -464,7 +483,11 @@ impl Default for Config {
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),
-            ignored_functions: KNOWN_TO_IGNORE
+            ignored_recurse: KNOWN_TO_IGNORE_RECURSE
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            ignored_memory_access: KNOWN_TO_IGNORE_MEM
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),
@@ -480,8 +503,15 @@ impl Config {
             .map(String::as_str)
     }
 
-    fn match_ignored_functions(&self, name: &str) -> Option<&str> {
-        self.ignored_functions
+    fn match_ignored_recurse(&self, name: &str) -> Option<&str> {
+        self.ignored_recurse
+            .iter()
+            .find(|am| name.contains(am.as_str()))
+            .map(String::as_str)
+    }
+
+    fn match_ignored_mem(&self, name: &str) -> Option<&str> {
+        self.ignored_memory_access
             .iter()
             .find(|am| name.contains(am.as_str()))
             .map(String::as_str)
@@ -628,10 +658,12 @@ impl<'a> Resolver<'a> {
                 .with_context(|| format!("While resolving {}", name))?;
 
             // Is this an ignored function?
-            let ignore_match =
-                self.config.match_ignored_functions(&rchild.name);
+            let ignore_match = self.config.match_ignored_recurse(&rchild.name);
             if let Some(ignore) = ignore_match {
-                println!("WARN: Ignoring {}, matching {}", rchild.name, ignore);
+                println!(
+                    "WARN: Ignoring recursion in {}, matching {}",
+                    rchild.name, ignore
+                );
                 continue;
             }
 
@@ -673,9 +705,8 @@ impl<'a> Resolver<'a> {
             .collect::<Result<Vec<_>, _>>()?;
 
         // Filter out any ignored functions
-        found.retain(|rn| {
-            self.config.match_ignored_functions(&rn.name).is_none()
-        });
+        found
+            .retain(|rn| self.config.match_ignored_recurse(&rn.name).is_none());
 
         Ok(found)
     }
