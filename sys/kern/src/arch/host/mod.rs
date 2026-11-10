@@ -34,7 +34,7 @@ use abi::{InterruptNum, IrqStatus, TaskId, UsageError};
 
 use crate::arch::Arch;
 use crate::atomic::AtomicExt;
-use crate::descs::RegionAttributes;
+use crate::descs::{RegionAttributes, RegionDesc};
 use crate::startup::with_task_table;
 use crate::task::{self, NotificationSet, Task};
 use crate::time::Timestamp;
@@ -312,13 +312,18 @@ fn deliver_pending_irqs() -> bool {
 #[derive(Copy, Clone, Debug)]
 pub struct RegionDescExt;
 
-// Used by the `build.rs`, this does nothing on hosted environments.
-pub const fn compute_region_extension_data(
-    _base: usize,
-    _size: usize,
-    _attributes: RegionAttributes,
-) -> RegionDescExt {
-    RegionDescExt
+// Used by the `build.rs`, this is a trival wrapper on hosted environments.
+pub const fn compute_region_desc(
+    base: usize,
+    size: usize,
+    attributes: RegionAttributes,
+) -> RegionDesc {
+    RegionDesc {
+        base,
+        size,
+        attributes,
+        arch_data: RegionDescExt,
+    }
 }
 
 /// The host implementation of the kernel's architecture interface.

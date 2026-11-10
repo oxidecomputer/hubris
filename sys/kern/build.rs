@@ -361,24 +361,14 @@ fn host_config(kconfig: &KernelConfig) -> Result<Generated> {
     };
     let regions = vec![
         quote::quote! {
-            RegionDesc {
-                base: 0usize,
-                size: 32usize,
-                attributes: RegionAttributes::empty(),
-                arch_data: crate::arch::host::compute_region_extension_data(
-                    0usize, 32usize, RegionAttributes::empty(),
-                ),
-            }
+            crate::arch::host::compute_region_desc(
+                0usize, 32usize, RegionAttributes::empty(),
+            )
         },
         quote::quote! {
-            RegionDesc {
-                base: 32usize,
-                size: usize::MAX - 32,
-                attributes: #all_access,
-                arch_data: crate::arch::host::compute_region_extension_data(
-                    32usize, usize::MAX - 32, #all_access,
-                ),
-            }
+            crate::arch::host::compute_region_desc(
+                32usize, usize::MAX - 32, #all_access,
+            )
         },
     ];
 
@@ -513,16 +503,10 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
     let base = *base as usize;
     let size = *size as usize;
     quote::quote! {
-        RegionDesc {
-            base: #base,
-            size: #size,
-            attributes: #atts,
-
-            // TODO(AJM): create different kinds of arch data for each arch?
-            arch_data: crate::arch::arm_m::compute_region_extension_data(
-                #base, #size, #atts,
-            ),
-        }
+        // TODO(AJM): create different kinds of arch data for each arch?
+        crate::arch::arm_m::compute_region_desc(
+            #base, #size, #atts,
+        )
     }
 }
 
