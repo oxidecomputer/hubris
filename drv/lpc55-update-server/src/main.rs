@@ -141,6 +141,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         self.state = UpdateState::NoUpdate;
         ringbuf_entry!(Trace::State(self.state));
         self.next_block = None;
+        self.header_block = None;
         self.fw_cache.fill(0);
         Ok(())
     }
@@ -185,17 +186,15 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         let (component, slot) = self.image.unwrap_lite();
 
         if block_num == HEADER_BLOCK {
-            let header_block =
-                self.header_block.get_or_insert([0u8; BLOCK_SIZE_BYTES]);
+            // Clear the header block before validating
+            self.header_block = None;
             block
-                .read_range(0..len, &mut header_block[..])
+                .read_range(0..len, &mut flash_page)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-            header_block[len..].fill(ERASE_BYTE);
-            if let Err(e) = validate_header_block(component, slot, header_block)
-            {
-                self.header_block = None;
-                return Err(e.into());
-            }
+            flash_page[len..].fill(ERASE_BYTE);
+            validate_header_block(component, slot, &flash_page)?;
+            self.header_block = Some(flash_page);
+            flash_page.fill(ERASE_BYTE);
         } else {
             // Block order is enforced above. If we're here then we have
             // seen block zero already.
@@ -505,6 +504,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         self.state = UpdateState::InProgress;
         ringbuf_entry!(Trace::State(self.state));
         self.next_block = None;
+        self.header_block = None;
         self.fw_cache.fill(0);
         Ok(())
     }
