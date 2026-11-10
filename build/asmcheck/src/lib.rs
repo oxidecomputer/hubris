@@ -577,7 +577,7 @@ impl ResolvedNode {
             "- 0x{:08X} {} [+{frame_size:?} => {stack_depth}]",
             self.addr, self.name,
         );
-        for (_addr, child) in self.children.iter() {
+        for child in self.children.values() {
             child.debug_all_depth(
                 depth + 1,
                 current_stack + frame_size.unwrap_or(0),
@@ -590,7 +590,7 @@ impl ResolvedNode {
         if other.addr == self.addr {
             return true;
         }
-        for (_caddr, child) in other.children.iter() {
+        for child in other.children.values() {
             if self.is_same_or_child_of(child) {
                 return true;
             }
