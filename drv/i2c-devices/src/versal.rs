@@ -70,7 +70,7 @@ pub struct Versal {
 
 impl core::fmt::Display for Versal {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "versal: {}", &self.device)
+        write!(f, "versal: {}", self.device)
     }
 }
 

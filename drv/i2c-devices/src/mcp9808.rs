@@ -44,7 +44,7 @@ fn convert(raw: (u8, u8)) -> Celsius {
 
 impl core::fmt::Display for Mcp9808 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "mcp9808: {}", &self.device)
+        write!(f, "mcp9808: {}", self.device)
     }
 }
 

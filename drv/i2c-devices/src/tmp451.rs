@@ -65,7 +65,7 @@ pub struct Tmp451 {
 
 impl core::fmt::Display for Tmp451 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "tmp451: {}", &self.device)
+        write!(f, "tmp451: {}", self.device)
     }
 }
 

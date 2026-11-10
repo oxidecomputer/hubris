@@ -28,7 +28,7 @@ pub struct Raa229618 {
 
 impl core::fmt::Display for Raa229618 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "raa229618: {}", &self.device)
+        write!(f, "raa229618: {}", self.device)
     }
 }
 

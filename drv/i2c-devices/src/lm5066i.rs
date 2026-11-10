@@ -44,7 +44,7 @@ pub struct Lm5066I {
 
 impl core::fmt::Display for Lm5066I {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "lm5066i: {}", &self.device)
+        write!(f, "lm5066i: {}", self.device)
     }
 }
 

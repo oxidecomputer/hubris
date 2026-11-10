@@ -484,7 +484,7 @@ impl Max5970 {
 
         // 50x 10-bit values can't overflow a u16
         let mut sum = 0u16;
-        for c in buf.chunks_exact(2) {
+        for c in buf.as_chunks::<2>() {
             sum += ((c[0] as u16) << 2) | (c[1] as u16);
         }
         let mean = sum / 50;

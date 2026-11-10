@@ -46,7 +46,7 @@ fn convert(raw: u16) -> Celsius {
 
 impl core::fmt::Display for Tmp117 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "tmp117: {}", &self.device)
+        write!(f, "tmp117: {}", self.device)
     }
 }
 
