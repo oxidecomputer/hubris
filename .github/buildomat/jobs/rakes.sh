@@ -38,12 +38,12 @@ cargo build --release
 
 popd
 
-HUMILITY_ARCHIVE=target/cosmo-b/dist/default/build-gimlet-c-image-default.zip
+HUMILITY_ARCHIVE=target/gimlet-c/dist/default/build-gimlet-c-image-default.zip
 
 /work/sp-emu/target/release/sp-emu flash a ${HUMILITY_ARCHIVE}
 /work/sp-emu/target/release/sp-emu run a 0 &
 
-sleep 20
+sleep 4
 
 /work/humility -a ${HUMILITY_ARCHIVE} -p 20b7:9db1:tcp:127.0.0.1:4444 tasks
 /work/humility -a ${HUMILITY_ARCHIVE} -p 20b7:9db1:tcp:127.0.0.1:4444 dump
