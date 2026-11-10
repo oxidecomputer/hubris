@@ -26,7 +26,6 @@ rustup toolchain install
 cargo xtask dist app/cosmo/rev-b.toml
 
 
-mkdir /work
 pushd /work
 
 # Maybe pin or build?
