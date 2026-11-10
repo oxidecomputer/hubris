@@ -761,7 +761,11 @@ impl ServerImpl<'_> {
         // An error here means that the stage0 slot may not be clean but at least
         // it has the intended bootloader written.
         let erase_start = stage0.0.start.checked_add(len as u32).unwrap_lite();
-        self.flash_erase_range(erase_start..stage0.0.end)?;
+        // If the slot was filled up exactly, do not call `flash_erase_range`
+        // with an invalid range.
+        if erase_start < stage0.0.end {
+            self.flash_erase_range(erase_start..stage0.0.end)?;
+        }
         Ok(())
     }
 
