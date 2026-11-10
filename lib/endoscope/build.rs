@@ -21,7 +21,6 @@ fn main() {
             } else {
                 let cwd = std::env::current_dir().unwrap().join("scripts");
 
-                println!("cargo::rustc-link-arg=--verbose");
                 println!("cargo::rustc-link-arg-bins=-T{}.x", &soc_name);
                 println!("cargo::rustc-link-search={}", cwd.to_str().unwrap());
                 soc = Some(soc_name);
