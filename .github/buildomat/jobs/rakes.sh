@@ -29,7 +29,7 @@ cargo xtask dist app/cosmo/rev-b.toml
 pushd /work
 
 # Maybe pin or build?
-curl -O https://github.com/oxidecomputer/humility/releases/download/nightly/humility
+curl -LO https://github.com/oxidecomputer/humility/releases/download/nightly/humility
 chmod +x humility
 
 git clone https://github.com/oxidecomputer/sp-emu.git
