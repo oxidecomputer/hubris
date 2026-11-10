@@ -14,6 +14,13 @@ stacksize = 1024
 name = "host-demo"
 requires = {flash = 0, ram = 0}
 
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 0, ram = 0}
+start = true
+notifications = ["fault", "timer"]
+
 [tasks.pong]
 name = "task-pong"
 priority = 3
