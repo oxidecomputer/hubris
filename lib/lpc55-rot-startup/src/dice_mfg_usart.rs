@@ -16,7 +16,6 @@ use lpc55_puf::Puf;
 use salty::signature::Keypair;
 use serde::{Deserialize, Serialize};
 use static_assertions as sa;
-use unwrap_lite::UnwrapLite;
 use zeroize::Zeroizing;
 
 macro_rules! flash_page_align {
@@ -123,7 +122,12 @@ impl DiceState {
         let offset = hubpack::serialize(&mut buf[offset..], self)
             .map_err(|_| DiceStateError::Serialize)?;
 
-        for (i, page) in buf.as_chunks::<BYTES_PER_FLASH_PAGE>().0.enumerate() {
+        for (i, page) in buf
+            .as_chunks::<BYTES_PER_FLASH_PAGE>()
+            .0
+            .into_iter()
+            .enumerate()
+        {
             flash
                 .write_page(
                     (FLASH_DICE_MFG.start as usize + i * BYTES_PER_FLASH_PAGE)
