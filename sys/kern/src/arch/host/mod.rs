@@ -137,7 +137,7 @@ fn step() {
     // do this conditionally inside `with_task_table` because we are also
     // reading from a task table entry while getting the current index.
     let (_, index) = current_task_index();
-    
+
     // Process timers
     let now = Host::now();
     crate::profiling::event_timer_isr_enter();
