@@ -1,0 +1,16 @@
+[package]
+name = "task-stub"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[[bin]]
+name = "task-stub"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

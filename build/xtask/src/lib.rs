@@ -12,6 +12,7 @@ pub mod dist;
 pub mod flash;
 pub mod gha_prepare_artifacts;
 pub mod graph;
+pub mod host;
 pub mod humility;
 pub mod i2c_codegen;
 pub mod lsp;

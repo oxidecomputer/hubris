@@ -12,7 +12,7 @@
 //! trait. The types they exchange, and the convenience wrappers built on top of
 //! them, live in this file and are shared by every implementation.
 
-#![no_std]
+#![cfg_attr(target_os = "none", no_std)]
 #![forbid(clippy::wildcard_imports)]
 
 #[macro_use]
@@ -31,7 +31,7 @@ pub mod kipc;
 pub mod task_slot;
 pub use userlib_units as units;
 
-#[cfg(feature = "critical-section")]
+#[cfg(all(feature = "critical-section", target_os = "none"))]
 pub mod critical_section;
 use arch::{Arch, ArchImpl};
 
