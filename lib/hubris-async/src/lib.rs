@@ -10,8 +10,9 @@
 //!
 //! Async tasks can wait for:
 //!
-//! - time to pass, via [`time::Timer`] and [`time::Ticker`], and
-//! - notifications, via [`notification::wait`].
+//! - time to pass, via [`time::Timer`] and [`time::Ticker`],
+//! - notifications, via [`notification::wait`], and
+//! - other async tasks, via [`watch::Watch`].
 //!
 //! These compose freely, e.g. with [`select`]. Each of these leaf futures
 //! records what it's waiting for on its async task when polled. When no task
@@ -100,6 +101,7 @@ pub mod notification;
 mod select;
 mod task;
 pub mod time;
+pub mod watch;
 
 pub use executor::Executor;
 pub use hubris_async_macros::task;
