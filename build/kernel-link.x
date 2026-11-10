@@ -104,7 +104,7 @@ SECTIONS
   } > FLASH
 
   /* ### .rodata */
-  .rodata __etext : ALIGN(4)
+  .rodata : ALIGN(4)
   {
     __srodata = .;
     *(.rodata .rodata.*);
