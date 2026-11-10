@@ -353,8 +353,11 @@ impl<'a> Flash<'a> {
         );
         self.wait_for_erase_or_program(wait)?;
 
-        for (i, row) in
-            flash_page.as_chunks::<BYTES_PER_FLASH_WORD>().0.iter().enumerate()
+        for (i, row) in flash_page
+            .as_chunks::<BYTES_PER_FLASH_WORD>()
+            .0
+            .iter()
+            .enumerate()
         {
             self.start_write_row(i as u32, row);
             while !self.poll_write_result() {}

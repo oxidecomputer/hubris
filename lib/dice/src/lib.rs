@@ -134,7 +134,7 @@ impl Cdi {
         }
 
         let pairs = cdi
-            .as_chunks_mut::<{mem::size_of::<u32>()}>()
+            .as_chunks_mut::<{ mem::size_of::<u32>() }>()
             .0
             .iter_mut()
             .zip(cdi_reg.0.as_ref());
