@@ -23,7 +23,7 @@ _cleanup () {
 trap _cleanup SIGINT SIGTERM EXIT
 
 rustup toolchain install
-cargo xtask dist app/cosmo/rev-b.toml
+cargo xtask dist app/gimlet/rev-c.toml
 
 
 pushd /work
@@ -38,7 +38,7 @@ cargo build --release
 
 popd
 
-HUMILITY_ARCHIVE=target/cosmo-b/dist/default/build-cosmo-b-image-default.zip
+HUMILITY_ARCHIVE=target/cosmo-b/dist/default/build-gimlet-c-image-default.zip
 
 /work/sp-emu/target/release/sp-emu flash a ${HUMILITY_ARCHIVE}
 /work/sp-emu/target/release/sp-emu run a 0 &
