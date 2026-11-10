@@ -133,7 +133,7 @@ impl crate::control::BspInterface for Bsp {
         match self.seq.fan_module_presence() {
             Ok(pres) => {
                 // Each presence bit represents 2 physical fans
-                let fanchs = self.fans.chunks_exact_mut(2);
+                let fanchs = self.fans.as_chunks_mut::<2>().0.iter_mut();
                 for (p, pair) in pres.0.iter().zip(fanchs) {
                     for fan in pair {
                         fan.update_presence(*p);
