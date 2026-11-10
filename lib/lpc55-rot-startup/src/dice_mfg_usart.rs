@@ -123,9 +123,7 @@ impl DiceState {
         let offset = hubpack::serialize(&mut buf[offset..], self)
             .map_err(|_| DiceStateError::Serialize)?;
 
-        for (i, page) in buf.chunks_exact(BYTES_PER_FLASH_PAGE).enumerate() {
-            let page: &[u8; BYTES_PER_FLASH_PAGE] =
-                page.try_into().unwrap_lite();
+        for (i, page) in buf.as_chunks::<BYTES_PER_FLASH_PAGE>().0.enumerate() {
             flash
                 .write_page(
                     (FLASH_DICE_MFG.start as usize + i * BYTES_PER_FLASH_PAGE)

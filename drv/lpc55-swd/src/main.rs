@@ -1146,31 +1146,27 @@ impl ServerImpl {
             ringbuf_entry!(Trace::BadLen);
             return Err(Ack::Fault);
         }
-        for slice in data.chunks_exact(U32_SIZE) {
-            if let Some(word) = slice_to_le_u32(slice) {
-                let mut limit = 2;
-                loop {
-                    self.write_single_target_addr(addr, word)?;
-                    let readback = self.read_single_target_addr(addr)?;
-                    if readback == word {
-                        break;
-                    }
-                    ringbuf_entry!(Trace::Data {
-                        addr,
-                        data: readback,
-                        src: word
-                    });
-                    if limit == 0 {
-                        ringbuf_entry!(Trace::ReadbackFailure);
-                        return Err(Ack::Fault);
-                    }
-                    limit -= 1;
+        for slice in data.as_chunks::<U32_SIZE>().0 {
+            let word = u32::from_le_bytes(*slice);
+            let mut limit = 2;
+            loop {
+                self.write_single_target_addr(addr, word)?;
+                let readback = self.read_single_target_addr(addr)?;
+                if readback == word {
+                    break;
                 }
-                addr += U32_SIZE as u32;
-            } else {
-                // Using chunks_exact means that the conversion to u32 will succeed.
-                unreachable!();
+                ringbuf_entry!(Trace::Data {
+                    addr,
+                    data: readback,
+                    src: word
+                });
+                if limit == 0 {
+                    ringbuf_entry!(Trace::ReadbackFailure);
+                    return Err(Ack::Fault);
+                }
+                limit -= 1;
             }
+            addr += U32_SIZE as u32;
         }
         Ok(())
     }
@@ -1464,9 +1460,8 @@ impl ServerImpl {
             return Err(());
         }
 
-        for (i, chunk) in shared.digest.chunks_exact(8).enumerate() {
-            let d = chunk.try_into().unwrap_lite();
-            ringbuf_entry!(Trace::Digest(i, d));
+        for (i, chunk) in shared.digest.as_chunks::<8>().0.iter().enumerate() {
+            ringbuf_entry!(Trace::Digest(i, *chunk));
         }
 
         Ok(shared.digest)

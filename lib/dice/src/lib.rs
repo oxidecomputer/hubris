@@ -133,10 +133,13 @@ impl Cdi {
             return None;
         }
 
-        for (dst, src) in cdi
-            .chunks_exact_mut(mem::size_of::<u32>())
-            .zip(cdi_reg.0.as_ref())
-        {
+        let pairs = cdi
+            .as_chunks_mut::<{mem::size_of::<u32>()}>()
+            .0
+            .iter_mut()
+            .zip(cdi_reg.0.as_ref());
+
+        for (dst, src) in pairs {
             dst.copy_from_slice(&src.get().to_ne_bytes());
         }
 

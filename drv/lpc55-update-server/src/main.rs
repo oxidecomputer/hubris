@@ -889,15 +889,14 @@ impl ServerImpl<'_> {
         // erase/write each flash page.
         let chunks = self.fw_cache[..]
             .as_bytes()
-            .chunks_exact(BYTES_PER_FLASH_PAGE);
-        for (block_num, block) in chunks.enumerate() {
-            let flash_page = block.try_into().unwrap_lite();
+            .as_chunks::<BYTES_PER_FLASH_PAGE>().0;
+        for (block_num, block) in chunks.iter().enumerate() {
             do_block_write(
                 &mut self.flash,
                 component,
                 slot,
                 block_num,
-                flash_page,
+                block,
             )?;
         }
         Ok(())
