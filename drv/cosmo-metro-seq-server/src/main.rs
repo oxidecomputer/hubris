@@ -19,10 +19,7 @@ use fixedstr::FixedStr;
 use fmc_sequencer::{nic_api_status, seq_api_status};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
-use userlib::{
-    RecvMessage, hl, set_timer_relative, sys_get_timer, sys_recv_notification,
-    task_slot,
-};
+use userlib::{RecvMessage, hl, set_timer_relative, sys_get_timer, task_slot};
 
 use crate::i2c_config::MAX_COMPONENT_ID_LEN as REFDES_LEN;
 use drv_hf_api::HostFlash;
@@ -251,15 +248,7 @@ fn main() -> ! {
 
             // All these moments will be lost in time, like tears in rain...
             // Time to die.
-            loop {
-                // Sleeping with all bits in the notification mask clear means
-                // we should never be notified --- and if one never wakes up,
-                // the difference between sleeping and dying seems kind of
-                // irrelevant. But, `rustc` doesn't realize that this should
-                // never return, we'll stick it in a `loop` anyway so the main
-                // function can return `!`
-                sys_recv_notification(0);
-            }
+            hl::halt();
         }
     }
 }

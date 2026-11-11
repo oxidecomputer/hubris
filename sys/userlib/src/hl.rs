@@ -14,7 +14,8 @@ use zerocopy::{FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout};
 use crate::{
     BorrowInfo, ClosedRecvError, FromPrimitive, sys_borrow_info,
     sys_borrow_read, sys_borrow_write, sys_get_timer, sys_recv,
-    sys_recv_closed, sys_recv_open, sys_reply, sys_reply_fault, sys_set_timer,
+    sys_recv_closed, sys_recv_notification, sys_recv_open, sys_reply,
+    sys_reply_fault, sys_set_timer,
 };
 
 const INTERNAL_TIMER_NOTIFICATION: u32 = 1 << 31;
@@ -469,4 +470,19 @@ pub fn sleep_for(ticks: u64) {
     // higher priority tasks, so at-least is generally the best we can do.
     let deadline = sys_get_timer().now.saturating_add(ticks).saturating_add(1);
     sleep_until(deadline)
+}
+
+/// Halt the task permanently, opting out of automatic supervisor restart.
+///
+/// This causes the task to be detected as "dead" in humility.
+///
+/// Sleeping with all bits in the notification mask clear means we should never
+/// be notified --- and if one never wakes up, the difference between sleeping
+/// and dying seems kind of irrelevant. But, `rustc` doesn't realize that this
+/// should never return, we'll stick it in a `loop` anyway so this function can
+/// return `!`.
+pub fn halt() -> ! {
+    loop {
+        sys_recv_notification(0);
+    }
 }
