@@ -40,9 +40,13 @@ use crate::task::{self, NotificationSet, Task};
 use crate::time::Timestamp;
 
 /// Ends the run normally: the simulated system has nothing left to do.
+///
+/// Also attempts to gracefully stop any tasks by informing them the kernel
+/// is shutting down.
 macro_rules! finish {
     ($($arg:tt)*) => {{
         eprintln!("kernel: stopping: {}", format_args!($($arg)*));
+        host_task::shutdown_tasks();
         std::process::exit(0)
     }};
 }

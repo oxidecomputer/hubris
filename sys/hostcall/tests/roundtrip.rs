@@ -7,7 +7,9 @@
 
 use std::io::{BufReader, Write};
 
-use hostcall::{IoError, Lease, Return, Syscall, read_message, write_message};
+use hostcall::{
+    IoError, Lease, Resume, Return, Syscall, read_message, write_message,
+};
 
 #[test]
 fn syscall_and_return_over_pipes() {
@@ -36,8 +38,9 @@ fn syscall_and_return_over_pipes() {
                     .collect(),
             };
             seen.push(call);
-            write_message(&mut to_task, &ret).unwrap();
+            write_message(&mut to_task, &Resume::Return(ret)).unwrap();
         }
+        write_message(&mut to_task, &Resume::Shutdown).unwrap();
         seen
     });
 
@@ -62,14 +65,14 @@ fn syscall_and_return_over_pipes() {
         ],
     };
     write_message(&mut to_helper_tx, &call).unwrap();
-    let ret: Return = read_message(&mut from_helper).unwrap().unwrap();
+    let ret: Resume = read_message(&mut from_helper).unwrap().unwrap();
     assert_eq!(
         ret,
-        Return {
+        Resume::Return(Return {
             rets: [3 << 16 | 9, 5, 0, 0, 0, 0],
             output: b"ol\0eh".to_vec(),
             lease_writebacks: vec![None, Some(vec![0xAA, 0xAA])],
-        }
+        })
     );
 
     // `GetTimer` is a syscall with no args/leases.
@@ -81,15 +84,19 @@ fn syscall_and_return_over_pipes() {
         leases: vec![],
     };
     write_message(&mut to_helper_tx, &empty).unwrap();
-    let ret: Return = read_message(&mut from_helper).unwrap().unwrap();
+    let ret: Resume = read_message(&mut from_helper).unwrap().unwrap();
 
     // Output is just the input reversed, which is also all zeroes.
-    assert_eq!(ret, Return::default());
+    assert_eq!(ret, Resume::Return(Return::default()));
 
     // Closing the task's end is a clean end of stream for the helper.
     drop(to_helper_tx);
     assert_eq!(helper.join().unwrap(), vec![call, empty]);
-    assert!(read_message::<Return>(&mut from_helper).unwrap().is_none());
+    assert_eq!(
+        read_message::<Resume>(&mut from_helper).unwrap(),
+        Some(Resume::Shutdown)
+    );
+    assert!(read_message::<Resume>(&mut from_helper).unwrap().is_none());
 }
 
 #[test]
