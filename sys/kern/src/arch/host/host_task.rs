@@ -18,11 +18,12 @@ use abi::{
     Addr, FaultInfo, FaultSource, LeaseAttributes, Sysnum, TaskId, ULease,
     UsageError,
 };
-use hostcall::{IoError, Return, Syscall};
+use hostcall::{IoError, Resume, Return, ShutdownReason, Syscall};
 use std::cell::UnsafeCell;
 use std::io::BufReader;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Mutex, TryLockError};
+use std::time::{Duration, Instant};
 
 /// The kernel's handle on a given task process.
 pub(crate) struct TaskProcess {
@@ -76,7 +77,7 @@ impl TaskProcess {
                 };
 
                 // Do the sending, and return whether it was successful.
-                hostcall::write_message(&mut self.to_task, &ret)
+                hostcall::write_message(&mut self.to_task, &Resume::Return(ret))
             }
             // Sent nothing successful!
             //
@@ -179,6 +180,99 @@ pub(crate) fn spawn_task(index: usize) {
         to_task: stdin,
         from_task: BufReader::new(stdout),
     });
+}
+
+/// Period of time the kernel wait for tasks to exit gracefully.
+///
+/// 100ms is an arbitrary "should be enough" guess.
+const SHUTDOWN_GRACE: Duration = Duration::from_millis(100);
+
+/// Attempt to signal tasks to exit gracefully, and wait for them to do so.
+pub(crate) fn shutdown_tasks(reason: ShutdownReason) {
+    let mut procs = match PROCESSES.try_lock() {
+        Ok(procs) => procs,
+        Err(TryLockError::Poisoned(_)) => {
+            panic!("kernel: Unable to shutdown tasks, mutex poisoned.")
+        }
+        Err(TryLockError::WouldBlock) => {
+            eprintln!("kernel: task table is busy, not shutting tasks down");
+            return;
+        }
+    };
+
+    // For each task that is still operating, inform it that it is time to wrap
+    // things up. Keep track of which tasks we are waiting on to exit.
+    let mut live = vec![];
+    for (index, proc) in std::mem::take(&mut *procs).into_iter().enumerate() {
+        // If a task was never active, skip it.
+        let Some(TaskProcess {
+            mut child,
+            mut to_task,
+            from_task,
+        }) = proc
+        else {
+            continue;
+        };
+
+        // If a task's process has already ended, skip it.
+        if !matches!(child.try_wait(), Ok(None)) {
+            continue;
+        }
+
+        // Try to send a shutdown message. If it fails (probably because the
+        // task somehow JUST died), we don't really care.
+        _ = hostcall::write_message(&mut to_task, &Resume::Shutdown(reason));
+
+        // Hold on to the parts we need. We actually don't *need* `from_task`,
+        // but if we drop it here, it will be closed, and the task will observe
+        // this, causing unexpected errors when a running task tries to write a
+        // syscall request.
+        live.push((index, child, from_task));
+    }
+
+    // Start the shutdown timer for all tasks.
+    let deadline = Instant::now() + SHUTDOWN_GRACE;
+    for (index, mut child, _from_task) in live {
+        let name = task_name_from_idx(index);
+
+        // Wait for this task to stop. If one task takes up the whole grace
+        // period, the remaining tasks that aren't already stopped are killed.
+        let status = loop {
+            // Has the task stopped?
+            match child.try_wait() {
+                // Yes, task stopped
+                Ok(Some(status)) => break Some(status),
+                // No, but there's more time in the grace period
+                Ok(None) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                // No, and we're all out of grace
+                Ok(None) => {
+                    event!("task {name} ignored the shutdown: killing it");
+                    child.kill().ok();
+                    child.wait().ok();
+                    break None;
+                }
+                // No need to wait if we're unable to tell when the child has
+                // exited. Try to kill it, to avoid an orphaned process.
+                Err(e) => {
+                    eprintln!(
+                        "kernel: waiting on task {name} failed: {e}, killing it"
+                    );
+                    child.kill().ok();
+                    child.wait().ok();
+                    break None;
+                }
+            }
+        };
+        if let Some(status) = status
+            && status.code() != Some(hostcall::EXIT_SHUTDOWN)
+        {
+            eprintln!(
+                "kernel: task {name} exited with {status} during shutdown"
+            );
+        }
+    }
 }
 
 /// Works out how a task process ended, after its pipe closed.
