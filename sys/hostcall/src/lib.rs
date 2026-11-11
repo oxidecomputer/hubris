@@ -21,7 +21,7 @@
 //!    when the Task performs a system call
 //! 2. The [`Resume`] type, which is emitted by the `kern` implementation when
 //!    the kernel resumes the task (either with a [`Return`] signaling a syscall
-//!    completed, or a [`ShutdownReason`] signaling that the kernel is exiting
+//!    completed, or [`Resume::Shutdown`] signaling that the kernel is exiting
 //!    and the task should too).
 //!
 //! The general control flow of users of this crate is roughly:
@@ -476,19 +476,7 @@ pub enum Resume {
     /// following return information.
     Return(Return),
     /// The kernel is shutting down, and the Task should too.
-    Shutdown(ShutdownReason),
-}
-
-/// The kernel's reason for stopping.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ShutdownReason {
-    /// The kernel reached a configured `--stop-at` point.
-    StopAt,
-    /// All tasks are blocked with no timer deadline, and the kernel is
-    /// stopping instead of deadlocking.
-    AllBlocked,
-    /// The kernel was ordered to reset.
-    Reset,
+    Shutdown,
 }
 
 /// Transport-level errors.

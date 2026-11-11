@@ -8,8 +8,7 @@
 use std::io::{BufReader, Write};
 
 use hostcall::{
-    IoError, Lease, Resume, Return, ShutdownReason, Syscall, read_message,
-    write_message,
+    IoError, Lease, Resume, Return, Syscall, read_message, write_message,
 };
 
 #[test]
@@ -41,8 +40,7 @@ fn syscall_and_return_over_pipes() {
             seen.push(call);
             write_message(&mut to_task, &Resume::Return(ret)).unwrap();
         }
-        write_message(&mut to_task, &Resume::Shutdown(ShutdownReason::StopAt))
-            .unwrap();
+        write_message(&mut to_task, &Resume::Shutdown).unwrap();
         seen
     });
 
@@ -96,7 +94,7 @@ fn syscall_and_return_over_pipes() {
     assert_eq!(helper.join().unwrap(), vec![call, empty]);
     assert_eq!(
         read_message::<Resume>(&mut from_helper).unwrap(),
-        Some(Resume::Shutdown(ShutdownReason::StopAt))
+        Some(Resume::Shutdown)
     );
     assert!(read_message::<Resume>(&mut from_helper).unwrap().is_none());
 }

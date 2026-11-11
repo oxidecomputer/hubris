@@ -31,7 +31,6 @@ use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use abi::{InterruptNum, IrqStatus, TaskId, UsageError};
-use hostcall::ShutdownReason;
 
 use crate::arch::Arch;
 use crate::atomic::AtomicExt;
@@ -45,9 +44,9 @@ use crate::time::Timestamp;
 /// Also attempts to gracefully stop any tasks by informing them the kernel
 /// is shutting down.
 macro_rules! finish {
-    ($reason:expr, $($arg:tt)*) => {{
+    ($($arg:tt)*) => {{
         eprintln!("kernel: stopping: {}", format_args!($($arg)*));
-        host_task::shutdown_tasks($reason);
+        host_task::shutdown_tasks();
         std::process::exit(0)
     }};
 }
@@ -114,10 +113,7 @@ fn step() {
     if let Some(stop) = options().stop_at
         && u64::from(Host::now()) > stop
     {
-        finish!(
-            ShutdownReason::StopAt,
-            "time reached the configured stop at {stop} ticks"
-        )
+        finish!("time reached the configured stop at {stop} ticks")
     }
 
     let (current, index) = current_task_index();
@@ -134,10 +130,7 @@ fn step() {
         // have no deadlines and nothing to do, we'd be waiting forever. Just
         // bail instead.
         let Some(deadline) = next_deadline else {
-            finish!(
-                ShutdownReason::AllBlocked,
-                "every task is blocked and no timer is pending"
-            );
+            finish!("every task is blocked and no timer is pending");
         };
         // Is idle, wait for the next deadline
         idle_wait(deadline);
@@ -427,10 +420,7 @@ impl Arch for Host {
     }
 
     fn reset() -> ! {
-        finish!(
-            ShutdownReason::Reset,
-            "the supervisor asked for a system reset"
-        )
+        finish!("the supervisor asked for a system reset")
     }
 }
 

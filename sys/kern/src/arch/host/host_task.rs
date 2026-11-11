@@ -18,7 +18,7 @@ use abi::{
     Addr, FaultInfo, FaultSource, LeaseAttributes, Sysnum, TaskId, ULease,
     UsageError,
 };
-use hostcall::{IoError, Resume, Return, ShutdownReason, Syscall};
+use hostcall::{IoError, Resume, Return, Syscall};
 use std::cell::UnsafeCell;
 use std::io::BufReader;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -188,7 +188,7 @@ pub(crate) fn spawn_task(index: usize) {
 const SHUTDOWN_GRACE: Duration = Duration::from_millis(100);
 
 /// Attempt to signal tasks to exit gracefully, and wait for them to do so.
-pub(crate) fn shutdown_tasks(reason: ShutdownReason) {
+pub(crate) fn shutdown_tasks() {
     let mut procs = match PROCESSES.try_lock() {
         Ok(procs) => procs,
         Err(TryLockError::Poisoned(_)) => {
@@ -221,7 +221,7 @@ pub(crate) fn shutdown_tasks(reason: ShutdownReason) {
 
         // Try to send a shutdown message. If it fails (probably because the
         // task somehow JUST died), we don't really care.
-        _ = hostcall::write_message(&mut to_task, &Resume::Shutdown(reason));
+        _ = hostcall::write_message(&mut to_task, &Resume::Shutdown);
 
         // Hold on to the parts we need. We actually don't *need* `from_task`,
         // but if we drop it here, it will be closed, and the task will observe

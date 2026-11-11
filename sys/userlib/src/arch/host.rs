@@ -35,7 +35,7 @@ impl KernIo {
         hostcall::write_message(&mut self.writer, syscall)?;
         match hostcall::read_message(&mut self.reader)? {
             Some(Resume::Return(ret)) => Ok(ret),
-            Some(Resume::Shutdown(_)) => {
+            Some(Resume::Shutdown) => {
                 // If the kernel is shutting down, just exit silently to not
                 // spam the output when all tasks are also shutting down.
                 std::process::exit(hostcall::EXIT_SHUTDOWN)
