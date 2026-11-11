@@ -21,7 +21,7 @@ concurrency:
   group: release-${{ github.event.inputs.group }}
 
 env:
-  BRUSSELS_VERSION: v0.7.0
+  BRUSSELS_VERSION: v0.7.1
 
 jobs:
   init:
@@ -66,9 +66,11 @@ jobs:
           if [[ "${override_version}" != "" ]]; then
             flags+=("--override-version=${override_version}")
           fi
+          flags+=("--template-var=github-ping=${actor}")
           brussels init "$group" "$ref" "${flags[@]}" >brussels-manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          actor: ${{ github.actor }}
           group: ${{ github.event.inputs.group }}
           # We choose to release the commit in which the workflow is defined.
           # Most of the times this will be the "main" branch. If the developer
