@@ -129,6 +129,7 @@ notifications = ["task-faulted"]
 [tasks.sequencer]
 name = "drv-psc-seq-server"
 priority = 4
+async = true
 stacksize = 4096
 start = true
 task-slots = ["jefe", "packrat", "i2c_driver", "sys"]

@@ -2259,6 +2259,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "ereports",
  "fixedstr",
+ "hubris-async",
  "idol",
  "microcbor",
  "ringbuf",
