@@ -9,7 +9,8 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-    Error, FnArg, ItemFn, ReturnType, Type, parse_macro_input, spanned::Spanned,
+    Error, Expr, FnArg, ItemFn, ReturnType, Type, parse::Parser,
+    parse_macro_input, spanned::Spanned,
 };
 
 /// The most arguments a task can take. This must match the `TaskFn` impls in
@@ -36,8 +37,25 @@ const MAX_ARGS: usize = 4;
 /// future's storage is a `static` sized exactly to fit the future, so no
 /// allocator is required.
 ///
-/// Each task can only be spawned once; calling the function a second time
-/// panics.
+/// By default each task can only be spawned once; calling the function a
+/// second time panics. To run several copies of the same `async fn`, give it
+/// a pool of storage with `pool_size`, which can be any constant `usize`
+/// expression:
+///
+/// ```ignore
+/// #[hubris_async::task(pool_size = 3)]
+/// async fn worker(id: usize) {
+///     // ...
+/// }
+///
+/// for id in 0..3 {
+///     executor.spawn(worker(id));
+/// }
+/// ```
+///
+/// Each call then takes one of `pool_size` statically-allocated slots, and
+/// calling it more times than that panics. Slots aren't reused once a task
+/// completes.
 ///
 /// The task must return `()`, can't be generic (including `impl Trait`
 /// arguments) or take `self`, and takes at most four arguments. Arguments
@@ -52,12 +70,23 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 fn expand_task(attr: TokenStream2, f: ItemFn) -> syn::Result<TokenStream2> {
-    if !attr.is_empty() {
-        return Err(Error::new_spanned(
-            attr,
-            "`#[hubris_async::task]` takes no arguments",
-        ));
-    }
+    let mut pool_size: Option<Expr> = None;
+    let parser = syn::meta::parser(|meta| {
+        if meta.path.is_ident("pool_size") {
+            if pool_size.is_some() {
+                return Err(meta.error("duplicate `pool_size` argument"));
+            }
+            pool_size = Some(meta.value()?.parse()?);
+            Ok(())
+        } else {
+            Err(meta.error(
+                "unsupported argument; `#[hubris_async::task]` only takes \
+                 `pool_size = N`",
+            ))
+        }
+    });
+    parser.parse2(attr)?;
+    let pool_size = pool_size.unwrap_or_else(|| syn::parse_quote!(1));
 
     let ItemFn {
         attrs,
@@ -140,16 +169,17 @@ fn expand_task(attr: TokenStream2, f: ItemFn) -> syn::Result<TokenStream2> {
     // The task's body becomes an inner `async fn` with the original name and
     // signature, so it shows up as `name::name` in symbols and panics. The
     // static's name is mangled so it can't collide with anything the body
-    // can see.
+    // can see. A task without `pool_size` gets a pool of one.
     let storage = format_ident!("__HUBRIS_ASYNC_TASK_STORAGE");
     Ok(quote! {
         #(#attrs)*
         #vis fn #name(#(#arg_names: #arg_types),*) -> ::hubris_async::SpawnToken {
             async fn #name(#inputs) #output #block
 
-            static #storage: ::hubris_async::TaskStorage<
+            static #storage: ::hubris_async::TaskPool<
                 { ::hubris_async::__future_size(&#name) },
-            > = ::hubris_async::TaskStorage::new();
+                { #pool_size },
+            > = ::hubris_async::TaskPool::new();
 
             #storage.spawn(#name(#(#arg_names),*))
         }

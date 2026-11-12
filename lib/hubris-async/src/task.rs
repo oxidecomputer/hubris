@@ -140,6 +140,46 @@ impl<const N: usize> TaskStorage<N> {
     }
 }
 
+/// Statically-allocated storage for up to `POOL` async tasks running the same
+/// `async fn`, each of whose futures fits in `N` bytes.
+///
+/// You normally don't use this directly; the [`#[task]`](crate::task) macro
+/// declares one sized for your `async fn`, with `POOL` set by its `pool_size`
+/// argument (1 by default).
+pub struct TaskPool<const N: usize, const POOL: usize> {
+    tasks: [TaskStorage<N>; POOL],
+}
+
+impl<const N: usize, const POOL: usize> TaskPool<N, POOL> {
+    #[allow(clippy::new_without_default)]
+    pub const fn new() -> Self {
+        const { assert!(POOL > 0, "pool_size must be at least 1") };
+        Self {
+            tasks: [const { TaskStorage::new() }; POOL],
+        }
+    }
+
+    /// Moves `future` into the first storage in the pool that hasn't been
+    /// used yet, and returns a token that can be passed to
+    /// [`Executor::spawn`](crate::Executor::spawn).
+    ///
+    /// Storage isn't reused once its task completes, so a pool spawns at
+    /// most `POOL` tasks over the life of the program.
+    ///
+    /// # Panics
+    ///
+    /// If all `POOL` storages have already been used to spawn a task.
+    pub fn spawn<F>(&'static self, future: F) -> SpawnToken
+    where
+        F: Future<Output = ()> + 'static,
+    {
+        match self.tasks.iter().find(|t| !t.header.spawned.get()) {
+            Some(storage) => storage.spawn(future),
+            None => panic!("async task spawned more times than its pool_size"),
+        }
+    }
+}
+
 /// Polls a task's future, dropping it in place once it completes.
 ///
 /// # Safety

@@ -107,7 +107,7 @@ pub use executor::Executor;
 pub use hubris_async_macros::task;
 pub use message::Message;
 pub use select::{Either, Select, select};
-pub use task::{__future_size, SpawnToken, TaskFn, TaskStorage};
+pub use task::{__future_size, SpawnToken, TaskFn, TaskPool, TaskStorage};
 
 /// The parts of `userlib` that are safe to use from a task running the
 /// executor.
