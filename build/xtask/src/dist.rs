@@ -39,6 +39,11 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// without breaking CI.
 ///
 /// # Changelog
+/// ## Version 14 - 2026-11-10
+/// Changed `TaskDesc.regions` from an array to a wrapper `struct`, which
+/// guarantees that values are sorted (but requires Humility to handle the new
+/// type when taking dumps)
+///
 /// ## Version 13 - 2026-10-21
 /// We never released v12, but have noticed some (old) regressions with respect
 /// to getting SPD data, as well as reworked how packrat is structured. Context:
@@ -64,7 +69,7 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// the RoT inform the SP when measurements have been taken.  If Humility is
 /// unaware of this feature, the SP will reset itself repeatedly, which
 /// interferes with subsequent programming of auxiliary flash.
-const HUBRIS_ARCHIVE_VERSION: u32 = 13;
+const HUBRIS_ARCHIVE_VERSION: u32 = 14;
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
