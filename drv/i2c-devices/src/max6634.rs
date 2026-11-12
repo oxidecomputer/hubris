@@ -58,7 +58,7 @@ fn convert(raw: (u8, u8)) -> Celsius {
 
 impl core::fmt::Display for Max6634 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "max6634: {}", &self.device)
+        write!(f, "max6634: {}", self.device)
     }
 }
 

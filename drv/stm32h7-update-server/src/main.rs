@@ -516,7 +516,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
         // Early exit if the caller didn't provide enough space in the lease
         if chunk.len() > data.len() {
-            return Err(RequestError::Fail(ClientError::BadLease))?;
+            return Err(RequestError::Fail(ClientError::BadLease));
         }
 
         // Note that we can't copy directly from the bank2 region into the

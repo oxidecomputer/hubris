@@ -466,7 +466,7 @@ macro_rules! ringbuf_entry {
         $crate::RecordEntry::record_entry(buf, line!() as u16, p);
     }};
     ($payload:expr $(,)?) => {
-        $crate::ringbuf_entry!(__RINGBUF, $payload);
+        $crate::ringbuf_entry!(__RINGBUF, $payload)
     };
 }
 
@@ -477,10 +477,10 @@ macro_rules! ringbuf_entry {
 #[macro_export]
 macro_rules! ringbuf_entry_root {
     ($payload:expr $(,)?) => {
-        $crate::ringbuf_entry!(crate::__RINGBUF, $payload);
+        $crate::ringbuf_entry!(crate::__RINGBUF, $payload)
     };
     ($buf:ident, $payload:expr $(,)?) => {
-        $crate::ringbuf_entry!(crate::$buf, $payload);
+        $crate::ringbuf_entry!(crate::$buf, $payload)
     };
 }
 

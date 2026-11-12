@@ -118,7 +118,7 @@ notifications = ["timer"]
 name = "drv-stm32h7-sprot-server"
 priority = 5
 max-sizes = {flash = 65536, ram = 32768}
-stacksize = 4096
+stacksize = 8192
 start = true
 task-slots = ["sys"]
 uses = ["spi4"]

@@ -53,7 +53,7 @@ fn convert(i: u8, d: u8) -> Celsius {
 
 impl core::fmt::Display for Sbtsi {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "sbtsi: {}", &self.device)
+        write!(f, "sbtsi: {}", self.device)
     }
 }
 

@@ -254,7 +254,7 @@ features = ["no-rot"]
 priority = 4
 start = true
 task-slots = ["jefe"]
-stacksize = 1328
+stacksize = 1456
 extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 
 [config]

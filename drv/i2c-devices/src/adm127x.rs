@@ -74,7 +74,7 @@ pub struct Adm127X {
 
 impl core::fmt::Display for Adm127X {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "adm127x: {}", &self.device)
+        write!(f, "adm127x: {}", self.device)
     }
 }
 

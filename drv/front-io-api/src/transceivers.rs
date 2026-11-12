@@ -104,8 +104,8 @@ impl FpgaPortMasks {
     /// (possibilities include `Left`, `Right`, both, or none)
     fn iter_fpgas(&self) -> impl Iterator<Item = FpgaController> {
         let out = [
-            Some(FpgaController::Left).filter(|_| !self.left.is_empty()),
-            Some(FpgaController::Right).filter(|_| !self.right.is_empty()),
+            (!self.left.is_empty()).then_some(FpgaController::Left),
+            (!self.right.is_empty()).then_some(FpgaController::Right),
         ];
         out.into_iter().flatten()
     }

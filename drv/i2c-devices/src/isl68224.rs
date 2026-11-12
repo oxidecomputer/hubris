@@ -28,7 +28,7 @@ pub struct Isl68224 {
 
 impl core::fmt::Display for Isl68224 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "isl68224: {}", &self.device)
+        write!(f, "isl68224: {}", self.device)
     }
 }
 

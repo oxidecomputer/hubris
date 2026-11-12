@@ -342,7 +342,9 @@ impl<S: SpiServer> Io<S> {
                     self.stats.csn_pulse_failures =
                         self.stats.csn_pulse_failures.wrapping_add(1);
                     debug_set(&self.sys, false); // XXX
-                    return Err(SprotProtocolError::RotIrqRemainsAsserted)?;
+                    return Err(
+                        SprotProtocolError::RotIrqRemainsAsserted.into()
+                    );
                 }
             }
         }

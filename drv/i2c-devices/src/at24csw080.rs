@@ -91,7 +91,7 @@ const SECURITY_REGISTER_WORD_ADDR: u8 = 0b0110_0000;
 
 impl core::fmt::Display for At24Csw080 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "at24csw080: {}", &self.device)
+        write!(f, "at24csw080: {}", self.device)
     }
 }
 

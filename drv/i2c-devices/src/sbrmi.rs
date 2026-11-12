@@ -106,7 +106,7 @@ impl From<u8> for StatusCode {
 
 impl core::fmt::Display for Sbrmi {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "sbrmi: {}", &self.device)
+        write!(f, "sbrmi: {}", self.device)
     }
 }
 

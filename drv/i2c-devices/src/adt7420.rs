@@ -62,7 +62,7 @@ fn convert(raw: (u8, u8)) -> Celsius {
 
 impl core::fmt::Display for Adt7420 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "adt7420: {}", &self.device)
+        write!(f, "adt7420: {}", self.device)
     }
 }
 
