@@ -107,6 +107,7 @@ jobs:
     runs-on: oxide-colo-builder-hubris
     permissions:
       id-token: write # Authenticate with oidcx
+    environment: publish-release
     steps:
       - *brussels-token
       - *download-brussels
