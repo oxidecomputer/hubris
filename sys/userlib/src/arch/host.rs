@@ -16,7 +16,7 @@ use std::sync::{LazyLock, Mutex};
 use abi::{
     IrqControlArg, IrqStatus, LeaseAttributes, ReplyFaultReason, TaskId,
 };
-use hostcall::{IoError, Return, Syscall};
+use hostcall::{IoError, Resume, Return, Syscall};
 
 use super::Arch;
 use crate::{
@@ -33,7 +33,34 @@ impl KernIo {
     /// Makes a syscall and waits for the kernel to let the task continue.
     fn exchange(&mut self, syscall: &Syscall) -> Result<Return, IoError> {
         hostcall::write_message(&mut self.writer, syscall)?;
-        hostcall::read_message(&mut self.reader)?.ok_or(IoError::Eof)
+        match hostcall::read_message(&mut self.reader)? {
+            Some(Resume::Return(ret)) => Ok(ret),
+            Some(Resume::Shutdown) => {
+                // If the kernel is shutting down, just exit silently to not
+                // spam the output when all tasks are also shutting down.
+                std::process::exit(hostcall::EXIT_SHUTDOWN)
+            }
+            None => {
+                // We got a clean EoF, but no parting message. This shouldn't
+                // *usually* happen, so emit some context for the purposes of
+                // debugging.
+                //
+                // Get the task name (in the form of the bin name), which we
+                // don't otherwise usually emit.
+                let exe = std::env::args_os().next().unwrap_or_default();
+                let name = std::path::Path::new(&exe)
+                    .file_name()
+                    .unwrap_or(exe.as_os_str())
+                    .to_string_lossy();
+
+                let msg = format!(
+                    "task {name}: kernel hung up without a shutdown (kernel \
+                    crashed or was killed?)"
+                );
+
+                fatal_syscall_error(syscall.nr, msg);
+            }
+        }
     }
 }
 

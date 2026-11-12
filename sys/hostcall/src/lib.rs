@@ -19,8 +19,10 @@
 //!
 //! 1. The [`Syscall`] type, which is emitted by the `userlib` implementation
 //!    when the Task performs a system call
-//! 2. The [`Return`] type, which is emitted by the `kern` implementation when
-//!    the kernel resumes the task
+//! 2. The [`Resume`] type, which is emitted by the `kern` implementation when
+//!    the kernel resumes the task (either with a [`Return`] signaling a syscall
+//!    completed, or [`Resume::Shutdown`] signaling that the kernel is exiting
+//!    and the task should too).
 //!
 //! The general control flow of users of this crate is roughly:
 //!
@@ -30,13 +32,13 @@
 //! 3. The task begins operation, until it is ready to make its first system
 //!    call, at which point it makes the system call by using
 //!    `write_message::<Syscall>()`. The task immediately blocks, waiting for
-//!    a response with `read_message::<Return>()`.
+//!    a response with `read_message::<Resume>()`.
 //! 4. The kernel obtains the `Syscall` and processes it, potentially preparing
 //!    a `Return` for the task.
 //! 5. The kernel performs scheduling decisions, and decides which task to
 //!    resume into. This MAY not be the task that just provided the `Syscall`.
 //! 6. At some (later) point, the kernel decides to resume the given task, and
-//!    emits the response using `write_message::<Return>()`.
+//!    emits the response using `write_message::<Resume>()`.
 //! 7. We return to step 2, and the process repeats.
 //!
 //! This process achieves the lock-step operation of a "real" hubris kernel, as
@@ -69,6 +71,8 @@ pub const KERNEL_TASK_ID: u16 = TaskId::KERNEL.0;
 pub const EXIT_PANIC: i32 = 101;
 /// Exit status of the task process when the transport to the fixture failed.
 pub const EXIT_TRANSPORT: i32 = 103;
+/// Exit status of the task process when the kernel shut down.
+pub const EXIT_SHUTDOWN: i32 = 104;
 
 /// One entry of the lease table attached to a SEND.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -463,6 +467,16 @@ pub struct Return {
     /// `Some` when the kernel wrote to this lease. Must be not be longer than
     /// the lease, and is written back starting at offset 0.
     pub lease_writebacks: Vec<Option<Vec<u8>>>,
+}
+
+/// Main Kernel -> Task message.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Resume {
+    /// The kernel has resumed the task from a syscall, and has provided the
+    /// following return information.
+    Return(Return),
+    /// The kernel is shutting down, and the Task should too.
+    Shutdown,
 }
 
 /// Transport-level errors.

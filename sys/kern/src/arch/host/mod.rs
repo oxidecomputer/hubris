@@ -40,9 +40,13 @@ use crate::task::{self, NotificationSet, Task};
 use crate::time::Timestamp;
 
 /// Ends the run normally: the simulated system has nothing left to do.
+///
+/// Also attempts to gracefully stop any tasks by informing them the kernel
+/// is shutting down.
 macro_rules! finish {
     ($($arg:tt)*) => {{
         eprintln!("kernel: stopping: {}", format_args!($($arg)*));
+        host_task::shutdown_tasks();
         std::process::exit(0)
     }};
 }
@@ -105,16 +109,59 @@ fn current_task_index() -> (*mut Task, usize) {
 /// One trip through the scheduler: resume the current task, wait for its
 /// next syscall, and run the kernel for it.
 fn step() {
-    let (current, index) = current_task_index();
-
-    let width = MAX_TASK_NAME_WIDTH;
-
-    // If this is an "idle" task, we're not going to call into it and return,
-    // just do the appropriate book-keeping, and return from the current step.
-    if HOST_TASKS.get(index).is_some_and(|t| t.idle) {
-        idle_step(index);
-        return;
+    // Check if we're already done
+    if let Some(stop) = options().stop_at
+        && u64::from(Host::now()) > stop
+    {
+        finish!("time reached the configured stop at {stop} ticks")
     }
+
+    let (current, index) = current_task_index();
+    let is_idle = HOST_TASKS.get(index).is_some_and(|t| t.idle);
+
+    if !is_idle {
+        // Not idle, do a real task step.
+        task_step(current, index);
+    } else {
+        let next_deadline = with_task_table(|tasks| {
+            tasks.iter().filter_map(|t| t.timer().0).min()
+        });
+        // For now, we don't have external interrupts, which means that if we
+        // have no deadlines and nothing to do, we'd be waiting forever. Just
+        // bail instead.
+        let Some(deadline) = next_deadline else {
+            finish!("every task is blocked and no timer is pending");
+        };
+        // Is idle, wait for the next deadline
+        idle_wait(deadline);
+    }
+
+    // Re-read the current task index in case the currently selected task
+    // changed while we were working on it (if it faulted, etc.). We can't
+    // do this conditionally inside `with_task_table` because we are also
+    // reading from a task table entry while getting the current index.
+    let (_, index) = current_task_index();
+
+    // Process timers
+    let now = Host::now();
+    crate::profiling::event_timer_isr_enter();
+    with_task_table(|tasks| {
+        if task::process_timers(tasks, now) != task::NextTask::Same {
+            let next = task::select(index, tasks);
+            // Safety: `next` is in the task table.
+            unsafe { next.switch_to() }
+        }
+    });
+    crate::profiling::event_timer_isr_exit();
+
+    // Ignore whether delivering IRQs changed the "next" task, since we're going
+    // to go back around to the scheduler anyway.
+    _ = deliver_pending_irqs();
+}
+
+/// Process a single yield-to-task step.
+fn task_step(current: *mut Task, index: usize) {
+    let width = MAX_TASK_NAME_WIDTH;
 
     // If this isn't an idle task, and the kernel has decided to schedule this
     // task, then we either have something to tell it, or the task has just
@@ -197,51 +244,32 @@ fn step() {
             });
         }
     }
-
-    // Ignore whether delivering IRQs changed the "next" task, since we're going
-    // to go back around to the scheduler anyway.
-    _ = deliver_pending_irqs();
 }
 
 /// The idle task was selected: nothing can run until a timer fires. Advance
-/// virtual time to the next deadline, or stop if there are no tasks waiting
-/// on timers at all.
-fn idle_step(idle_index: usize) {
+/// virtual time to the next deadline.
+fn idle_wait(deadline: Timestamp) {
     let width = MAX_TASK_NAME_WIDTH;
-    if deliver_pending_irqs() {
-        return;
+    let mut target = deadline.max(Host::now());
+    // Clamp the time we wait until to the stop time, if set. This means we
+    // can "kill" the simulation while sitting in idle instead of when the next
+    // task would resume.
+    if let Some(stop) = options().stop_at {
+        target = target.min(Timestamp::from(stop + 1));
     }
-    with_task_table(|tasks| {
-        let next_deadline = tasks.iter().filter_map(|t| t.timer().0).min();
-        let Some(deadline) = next_deadline else {
-            finish!("every task is blocked and no timer is pending")
-        };
-        let target = deadline.max(Host::now());
-        if let Some(stop) = options().stop_at
-            && u64::from(target) > stop
-        {
-            finish!("time reached the configured stop at {stop} ticks")
-        }
 
-        if options().realtime {
-            // If we're in "realtime" mode, we want to appear to operate at
-            // normal speed, so wait for the deadline to actually arrive.
-            let wait = u64::from(target).saturating_sub(u64::from(Host::now()));
-            std::thread::sleep(Duration::from_millis(wait));
-        } else {
-            // If we're *not* in "realtime" mode, oh look, it's time to resume!
-            TICKS.store(target.into(), Ordering::Relaxed);
-        }
-        // Not attributable to a task: shown only when tracing everything.
-        let name = "idle";
-        trace_task!(&[], "task {name:>width$}: waited for the next deadline");
-        crate::profiling::event_timer_isr_enter();
-        let _ = task::process_timers(tasks, Host::now());
-        crate::profiling::event_timer_isr_exit();
-        let next = task::select(idle_index, tasks);
-        // Safety: `next` is in the task table.
-        unsafe { next.switch_to() }
-    });
+    if options().realtime {
+        // If we're in "realtime" mode, we want to appear to operate at
+        // normal speed, so wait for the deadline to actually arrive.
+        let wait = u64::from(target).saturating_sub(u64::from(Host::now()));
+        std::thread::sleep(Duration::from_millis(wait));
+    } else {
+        // If we're *not* in "realtime" mode, oh look, it's time to resume!
+        TICKS.store(target.into(), Ordering::Relaxed);
+    }
+    // Not attributable to a task: shown only when tracing everything.
+    let name = "idle";
+    trace_task!(&[], "task {name:>width$}: waited for the next deadline");
 }
 
 /// Posts any software-pended interrupts to their owners. Returns whether
