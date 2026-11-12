@@ -70,7 +70,7 @@ SECTIONS
   }
 
   /* ## .nprpc_schema */
-  /* Exported `nprpc` interface schemas, see `nprpc_net::expose_interface!`. */
+  /* Exported `temperance` interface schemas, see `temperance_net::expose_interface!`. */
   .nprpc_schema (INFO) : {
     . = .;
     KEEP(*(.nprpc_schema));

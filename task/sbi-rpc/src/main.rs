@@ -7,8 +7,8 @@
 #![no_std]
 #![no_main]
 
-use nprpc::{Request, autobuffer, compose_interfaces};
-use nprpc_net::{NetBackend, UdpSocket, expose_interface};
+use temperance::{Request, autobuffer, compose_interfaces};
+use temperance_net::{NetBackend, UdpSocket, expose_interface};
 use static_cell::ClaimOnceCell;
 use task_net_api::SocketName;
 use task_sbi_rpc_api::{SbRmiCallError, sp3_sb_rmi, sp3_sb_tsi};

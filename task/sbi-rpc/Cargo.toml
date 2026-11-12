@@ -6,8 +6,8 @@ edition = "2024"
 
 [dependencies]
 heapless.workspace = true
-nprpc.workspace = true
-nprpc-net = { path = "../../lib/nprpc-net" }
+temperance.workspace = true
+temperance-net = { path = "../../lib/temperance-net" }
 static-cell = { path = "../../lib/static-cell" }
 task-net-api = { path = "../../task/net-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

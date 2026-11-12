@@ -6,7 +6,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use nprpc::interface;
+use temperance::interface;
 use postcard_schema_ng::Schema;
 pub use postcard_schema_ng::max_len::MaxLenByteSlice;
 use serde::{Deserialize, Serialize};

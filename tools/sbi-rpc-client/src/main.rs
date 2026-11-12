@@ -9,11 +9,11 @@ use std::{fmt::Debug, net::SocketAddr, path::PathBuf, time::Duration};
 
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, Subcommand};
-use nprpc::{
+use temperance::{
     ClientError, ClientIoError, Response, autobuffer, compose_interfaces,
     wire::WireError,
 };
-use nprpc_udp::UdpClient;
+use temperance_udp::UdpClient;
 use serde::Deserialize;
 
 use task_sbi_rpc_api::{
