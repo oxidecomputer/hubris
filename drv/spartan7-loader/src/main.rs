@@ -17,10 +17,7 @@ use drv_spartan7_spi_program::{BitstreamLoader, Spartan7Error};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
-use userlib::{
-    RecvMessage, UnwrapLite, hl, sys_get_timer, sys_recv_notification,
-    task_slot,
-};
+use userlib::{RecvMessage, UnwrapLite, hl, sys_get_timer, task_slot};
 
 use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 
@@ -109,15 +106,7 @@ fn main() -> ! {
 
             // All these moments will be lost in time, like tears in rain...
             // Time to die.
-            loop {
-                // Sleeping with all bits in the notification mask clear means
-                // we should never be notified --- and if one never wakes up,
-                // the difference between sleeping and dying seems kind of
-                // irrelevant. But, `rustc` doesn't realize that this should
-                // never return, we'll stick it in a `loop` anyway so the main
-                // function can return `!`
-                sys_recv_notification(0);
-            }
+            hl::halt();
         }
     }
 }

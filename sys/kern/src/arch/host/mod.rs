@@ -30,13 +30,13 @@ use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
-use abi::{InterruptNum, IrqStatus, TaskId, UsageError};
+use abi::{InterruptNum, IrqStatus, Sysnum, TaskId, UsageError};
 
 use crate::arch::Arch;
 use crate::atomic::AtomicExt;
 use crate::descs::{RegionAttributes, RegionDesc};
 use crate::startup::with_task_table;
-use crate::task::{self, NotificationSet, Task};
+use crate::task::{self, ArchState, NotificationSet, Task};
 use crate::time::Timestamp;
 
 /// Ends the run normally: the simulated system has nothing left to do.
@@ -48,6 +48,16 @@ macro_rules! finish {
         eprintln!("kernel: stopping: {}", format_args!($($arg)*));
         host_task::shutdown_tasks();
         std::process::exit(0)
+    }};
+}
+
+/// Same as `finish!`, but returns a non-zero exit code when a task has
+/// called the `halt()` function.
+macro_rules! halt {
+    ($($arg:tt)*) => {{
+        eprintln!("kernel: halting: {}", format_args!($($arg)*));
+        host_task::shutdown_tasks();
+        std::process::exit(1)
     }};
 }
 
@@ -222,6 +232,33 @@ fn task_step(current: *mut Task, index: usize) {
             let nr = call.syscall_nr;
             // Safety: as in `current_task_index`.
             unsafe { (*current).save_mut().set_call(call) };
+
+            // Detect the `halt()` userlib call, which is a closed receive to
+            // the kernel with an empty notification mask. We call tasks "dead"
+            // to match what `humility` reports them as in `tasks`.
+            if nr == Sysnum::Recv {
+                // Safety: `current` is a valid, initialized entry of the task
+                // table and no reference into the table is live.
+                let args = unsafe { (*current).save().as_recv_args() };
+                if args.notification_mask == 0
+                    && args.specific_sender == Some(TaskId::KERNEL)
+                {
+                    let name = HOST_TASKS[index].name;
+                    if options().ignore_halted_tasks {
+                        event!(
+                            "task {name:>width$}: dead, waiting on the kernel \
+                             with an empty notification mask"
+                        );
+                    } else {
+                        halt!(
+                            "task {name} is dead: it is waiting on the kernel \
+                             with an empty notification mask. Pass \
+                             `--ignore-halted-tasks` to ignore task calls to \
+                             `halt()`."
+                        );
+                    }
+                }
+            }
             // Safety: `current` is a valid, initialized entry of the task
             // table and no reference into the table is live.
             unsafe { crate::syscalls::syscall_entry(nr as u32, current) };

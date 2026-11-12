@@ -15,7 +15,7 @@ use fixedstr::FixedStr;
 use ringbuf::*;
 use userlib::{
     RecvMessage, TaskId, UnwrapLite, hl, set_timer_relative, sys_get_timer,
-    sys_recv_notification, sys_set_timer, task_slot, units,
+    sys_set_timer, task_slot, units,
 };
 use zerocopy::IntoBytes;
 
@@ -185,15 +185,7 @@ fn main() -> ! {
 
             // All these moments will be lost in time, like tears in rain...
             // Time to die.
-            loop {
-                // Sleeping with all bits in the notification mask clear means
-                // we should never be notified --- and if one never wakes up,
-                // the difference between sleeping and dying seems kind of
-                // irrelevant. But, `rustc` doesn't realize that this should
-                // never return, we'll stick it in a `loop` anyway so the main
-                // function can return `!`
-                sys_recv_notification(0);
-            }
+            hl::halt();
         }
     }
 }

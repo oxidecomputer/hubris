@@ -42,6 +42,11 @@ struct Args {
     /// which will be spawned by the kernel.
     #[clap(long, value_name = "DIR")]
     task_dir: Option<PathBuf>,
+    /// If a task stops itself using `halt()`, by default we will halt the
+    /// entire system, as this is usually an exceptional error. Setting this
+    /// flag causes the host to continue even if it notices a `halt()`.
+    #[clap(long)]
+    ignore_halted_tasks: bool,
 }
 
 /// Trace Filter Options.
@@ -66,6 +71,10 @@ pub(crate) struct HostOptions {
     /// Path to folder containing all of the separately built task executables,
     /// which will be spawned by the kernel.
     pub task_dir: PathBuf,
+    /// If a task stops itself using `halt()`, by default we will halt the
+    /// entire system, as this is usually an exceptional error. Setting this
+    /// flag causes the host to continue even if it notices a `halt()`.
+    pub ignore_halted_tasks: bool,
 }
 
 static OPTIONS: LazyLock<HostOptions> = LazyLock::new(|| {
@@ -109,6 +118,7 @@ static OPTIONS: LazyLock<HostOptions> = LazyLock::new(|| {
         realtime: args.realtime,
         trace,
         task_dir,
+        ignore_halted_tasks: args.ignore_halted_tasks,
     }
 });
 
