@@ -74,6 +74,8 @@ You can verify the contents of the release attestation by running:
 ```
 jq -r '.dsseEnvelope.payload | @base64d | fromjson | .predicate.tag' tools/brussels/hubris-sp.sigstore.json
 ```
+
+cc @{github-ping}
 """
 
 [groups.rot]
