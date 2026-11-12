@@ -410,6 +410,19 @@ struct XcvrApi {
 }
 
 impl XcvrApi {
+    /// Determine if the given port is stuck-busy, or if it is in the idle
+    /// state, as expected.
+    fn check_port_idle(&self, port: LogicalPort) -> Result<(), FpgaError> {
+        let result = self.transceivers.check_i2c_idle(port.as_mask());
+        if !result.error().is_empty() {
+            Err(FpgaError::CommsError)
+        } else if !result.failure().is_empty() {
+            Err(FpgaError::BusyTimeout)
+        } else {
+            Ok(())
+        }
+    }
+
     /// Returns the temperature from a CMIS transceiver.
     ///
     /// `port` is a logical port index, i.e. 0-31.
@@ -439,6 +452,8 @@ impl XcvrApi {
         port: LogicalPort,
         reg: u8,
     ) -> Result<Celsius, FpgaError> {
+        // Bail if port is still busy
+        self.check_port_idle(port)?;
         let result = self.transceivers.setup_i2c_read(reg, 2, port.as_mask());
         if !result.error().is_empty() {
             return Err(FpgaError::CommsError);
@@ -471,6 +486,8 @@ impl XcvrApi {
         &mut self,
         port: LogicalPort,
     ) -> Result<ManagementInterface, FpgaError> {
+        // Bail if port is still busy
+        self.check_port_idle(port)?;
         let result = self.transceivers.setup_i2c_read(0, 1, port.as_mask());
         if !result.error().is_empty() {
             return Err(FpgaError::CommsError);
@@ -589,6 +606,9 @@ impl ServerImpl {
             ..
         } = self;
 
+        // Accumulate ports to disable (but don't disable them in the loop), to
+        // avoid issues with the borrow checker.
+        let mut to_disable = LogicalPortMask(0);
         for (i, data) in ports.iter_mut().enumerate() {
             let port_idx = i as u8;
             let port = LogicalPort(port_idx);
@@ -629,6 +649,18 @@ impl ServerImpl {
                             port,
                             err
                         });
+                        // If we are unable to get information due to a
+                        // timeout, then we count it towards disabling this
+                        // port. We repeat the check done below, because it is
+                        // only handled by xcvrs with established models.
+                        if err == FpgaError::BusyTimeout {
+                            data.consecutive_errors =
+                                data.consecutive_errors.saturating_add(1);
+                            if data.consecutive_errors >= MAX_CONSECUTIVE_ERRORS
+                            {
+                                to_disable.set(port);
+                            }
+                        }
                     }
                 }
             } else if !operational && data.model.is_some() {
@@ -657,9 +689,8 @@ impl ServerImpl {
             }
         }
 
-        // Accumulate ports to disable (but don't disable them in the loop), to
-        // avoid issues with the borrow checker.
-        let mut to_disable = LogicalPortMask(0);
+        // Checks made for xcvrs that already have defined models (from
+        // the loop above)
         for (i, data) in ports.iter_mut().enumerate() {
             let port = LogicalPort(i as u8);
             let Some(m) = data.model.as_ref() else {
@@ -699,6 +730,13 @@ impl ServerImpl {
                     e.ringbuf(port);
 
                     match e {
+                        // Check for hubris#2070 timeouts declared by the SP
+                        TempReadError::UnexpectedFpgaErr(
+                            FpgaError::BusyTimeout,
+                        ) => {
+                            data.consecutive_errors =
+                                data.consecutive_errors.saturating_add(1);
+                        }
                         // Failure to read neither increments nor resets the
                         // counter of errors
                         TempReadError::UnknownInterface

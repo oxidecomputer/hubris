@@ -29,6 +29,10 @@ pub enum FpgaError {
     AuxReadError,
     AuxMissingBlob,
     CommsError,
+
+    /// The SP decided to bail because the FPGA appears to be "stuck" on busy.
+    /// See: https://github.com/oxidecomputer/hubris/issues/2070
+    BusyTimeout,
 }
 
 // TODO is this right? We cause clients to panic if we die; should we have a
@@ -52,6 +56,7 @@ impl From<FpgaError> for u16 {
             FpgaError::AuxReadError => 0x0504,
             FpgaError::AuxMissingBlob => 0x0505,
             FpgaError::CommsError => 0x0506,
+            FpgaError::BusyTimeout => 0x0507,
         }
     }
 }
@@ -86,6 +91,7 @@ impl core::convert::TryFrom<u16> for FpgaError {
                 0x0504 => Ok(FpgaError::AuxReadError),
                 0x0505 => Ok(FpgaError::AuxMissingBlob),
                 0x0506 => Ok(FpgaError::CommsError),
+                0x0507 => Ok(FpgaError::BusyTimeout),
                 _ => Err(()),
             },
         }
