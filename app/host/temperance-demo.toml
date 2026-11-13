@@ -1,0 +1,38 @@
+# TODO: Add comment
+
+name = "host-temperance-demo"
+target = "host"
+board = "host"
+chip = "../../chips/host"
+stacksize = 1024
+
+[kernel]
+name = "host-demo"
+requires = {flash = 0, ram = 0}
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 0, ram = 0}
+start = true
+notifications = ["fault", "timer"]
+
+[tasks.server]
+name = "task-temperance-demo-server"
+priority = 2
+max-sizes = {flash = 0, ram = 0}
+start = true
+notifications = ["timer"]
+
+[tasks.client]
+name = "task-temperance-demo-client"
+priority = 3
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = ["server"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 4
+max-sizes = {flash = 0, ram = 0}
+start = true

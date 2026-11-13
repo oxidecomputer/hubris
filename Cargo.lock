@@ -6961,6 +6961,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-temperance-demo-api"
+version = "0.1.0"
+dependencies = [
+ "postcard-schema-ng",
+ "serde",
+ "temperance",
+]
+
+[[package]]
+name = "task-temperance-demo-client"
+version = "0.1.0"
+dependencies = [
+ "postcard-schema-ng",
+ "task-temperance-demo-api",
+ "temperance",
+ "temperance-ipc",
+ "userlib",
+]
+
+[[package]]
+name = "task-temperance-demo-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "static-cell",
+ "task-temperance-demo-api",
+ "temperance",
+ "temperance-ipc",
+ "userlib",
+]
+
+[[package]]
 name = "task-template"
 version = "0.1.0"
 dependencies = [
@@ -7164,6 +7196,16 @@ dependencies = [
  "postcard-schema-ng",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "temperance-ipc"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "ringbuf",
+ "temperance",
+ "userlib",
 ]
 
 [[package]]

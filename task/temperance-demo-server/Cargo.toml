@@ -1,0 +1,23 @@
+[package]
+name = "task-temperance-demo-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+static-cell = { path = "../../lib/static-cell" }
+task-temperance-demo-api = { path = "../temperance-demo-api" }
+temperance.workspace = true
+temperance-ipc = { path = "../../lib/temperance-ipc" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[[bin]]
+name = "task-temperance-demo-server"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

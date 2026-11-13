@@ -1,0 +1,20 @@
+[package]
+name = "task-temperance-demo-client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+postcard-schema-ng = { version = "0.4.0", default-features = false }
+task-temperance-demo-api = { path = "../temperance-demo-api" }
+temperance.workspace = true
+temperance-ipc = { path = "../../lib/temperance-ipc" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[[bin]]
+name = "task-temperance-demo-client"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

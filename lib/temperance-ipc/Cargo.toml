@@ -1,0 +1,18 @@
+[package]
+name = "temperance-ipc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+counters = { path = "../counters", features = ["derive"] }
+temperance.workspace = true
+ringbuf = { path = "../ringbuf" }
+userlib = { path = "../../sys/userlib" }
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

@@ -1,0 +1,52 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+//! TODO: Add docs
+
+#![no_std]
+
+pub mod client;
+pub mod server;
+
+pub use client::{IpcClient, IpcClientError, IpcClientIo};
+pub use server::{IpcBackend, IpcMeta, IpcServer, IpcServerError};
+
+/// TODO: Add docs
+// TODO(robo): 0x7E00 is arbitrary; pick a real value.
+pub const OP_BASE: u16 = 0x7E00;
+
+/// TODO: Add docs
+pub const OP_FLAGS_MASK: u16 = 0x00FF;
+
+/// TODO: Add docs
+pub const FLAG_RQST_LEASED: u16 = 1 << 0;
+
+/// TODO: Add docs
+pub const FLAG_RESP_LEASED: u16 = 1 << 1;
+
+/// TODO: Add docs
+pub const SUPPORTED_FLAGS: u16 = 0;
+
+/// TODO: Add docs
+pub const REPLY_OK: u32 = 0;
+
+/// TODO: Add docs
+pub const REPLY_SERVER_FAILED: u32 = 1;
+
+/// TODO: Add docs
+pub const fn operation(flags: u16) -> u16 {
+    OP_BASE | (flags & OP_FLAGS_MASK)
+}
+
+/// TODO: Add docs
+pub const fn decode_operation(op: u32) -> Option<u16> {
+    if op & !(OP_FLAGS_MASK as u32) != OP_BASE as u32 {
+        return None;
+    }
+    let flags = op as u16 & OP_FLAGS_MASK;
+    if flags & !SUPPORTED_FLAGS != 0 {
+        return None;
+    }
+    Some(flags)
+}
