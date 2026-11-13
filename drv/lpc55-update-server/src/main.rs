@@ -769,12 +769,19 @@ impl ServerImpl<'_> {
         &mut self,
         span: Range<u32>,
     ) -> Result<(), UpdateError> {
-        // It's assumed that the caller has done safe math and that
-        // there is no danger here.
-        let word_span = (span.start / (BYTES_PER_FLASH_WORD as u32))
-            ..=(span.end / (BYTES_PER_FLASH_WORD as u32) - 1);
+        // It's assumed that the caller has done safe math and that the span
+        // lies within a flash slot.
+        let start_word = span.start / (BYTES_PER_FLASH_WORD as u32);
+        let end_word = span.end / (BYTES_PER_FLASH_WORD as u32);
 
-        self.flash.start_erase_range(word_span);
+        // An empty span (e.g. erasing the unused tail of a slot that the
+        // image fills exactly) has nothing to erase. Issuing the command
+        // anyway would program an inverted word range (start > stop).
+        if start_word >= end_word {
+            return Ok(());
+        }
+
+        self.flash.start_erase_range(start_word..=end_word - 1);
         loop {
             match self.flash.poll_erase_or_program_result() {
                 None => continue,
