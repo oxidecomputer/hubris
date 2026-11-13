@@ -217,6 +217,8 @@ pub const APOB_META1_ADDR: u32 = APOB_META0_ADDR + APOB_META_SIZE;
 pub const APOB_SLOT0_ADDR: u32 = APOB_META1_ADDR + APOB_META_SIZE;
 pub const APOB_SLOT1_ADDR: u32 = APOB_SLOT0_ADDR + APOB_SLOT_SIZE;
 
+const APOB_MIN_ENTRY_SIZE: u32 = core::mem::size_of::<apob::ApobEntry>() as u32;
+
 #[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
@@ -272,6 +274,10 @@ enum Trace {
     BadApobWalk {
         expected: u32,
         actual: u32,
+    },
+    BadApobEntrySize {
+        offset: u32,
+        size: u32,
     },
     Abl0Version(u32),
     ClearingOldMetaVersion(u32),
@@ -1010,7 +1016,21 @@ impl ApobState {
             let mut entry = apob::ApobEntry::new_zeroed();
             let addr = write_slot.flash_addr(pos).unwrap_lite();
             drv.flash_read_slice(addr, entry.as_mut_bytes());
-            pos += entry.size;
+            if entry.size < APOB_MIN_ENTRY_SIZE {
+                ringbuf_entry!(Trace::BadApobEntrySize {
+                    offset: pos,
+                    size: entry.size,
+                });
+                return Err(ApobCommitError::ValidationFailed);
+            }
+            let Some(next_pos) = pos.checked_add(entry.size) else {
+                ringbuf_entry!(Trace::BadApobEntrySize {
+                    offset: pos,
+                    size: entry.size,
+                });
+                return Err(ApobCommitError::ValidationFailed);
+            };
+            pos = next_pos;
         }
         if pos != expected_length {
             ringbuf_entry!(Trace::BadApobWalk {
