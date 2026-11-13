@@ -204,7 +204,7 @@ pub struct HostTestFlags {
     /// robo: Scenarios to run; empty means all of them.
     pub scenarios: Vec<String>,
     /// robo: Virtual time (ms) after which a scenario counts as hung.
-    pub stop_at: u64,
+    pub timeout: u64,
     /// robo: Print the output of passing scenarios too.
     pub show_output: bool,
 }
@@ -215,10 +215,6 @@ const ORCHESTRATOR_TASK: &str = "orchestrator";
 /// robo: Environment variable naming the scenario to run. Must match
 /// robo: `host_test_api::harness::SCENARIO_ENV`.
 const SCENARIO_ENV: &str = "HUBRIS_HOST_TEST_SCENARIO";
-
-/// robo: Line the supervisor prints when a scenario passes. Must match
-/// robo: `host-test-supervisor`.
-const PASS_MARKER: &str = "host-test: PASS";
 
 /// robo: Reads the scenario list from the orchestrator's config.
 fn scenarios(cfg: &PackageConfig) -> Result<Vec<String>> {
@@ -262,23 +258,24 @@ pub fn test(app_toml: &Path, flags: HostTestFlags) -> Result<()> {
     let mut failed = Vec::new();
     for name in &selected {
         let out = std::process::Command::new(&kernel)
-            .arg("--stop-at")
-            .arg(flags.stop_at.to_string())
+            .arg("--timeout")
+            .arg(flags.timeout.to_string())
             .env(SCENARIO_ENV, name)
             .output()
             .context("launching the kernel")?;
-        let stderr = String::from_utf8_lossy(&out.stderr);
-        // robo: A run that reaches `--stop-at` also exits 0, so look for
-        // robo: the supervisor's pass line too.
-        let passed = out.status.success()
-            && stderr.lines().any(|l| l.starts_with(PASS_MARKER));
-        println!(
-            "scenario {name} ... {}",
-            if passed { "ok" } else { "FAILED" }
-        );
+        // robo: Under `--timeout`, only the supervisor's reset exits 0.
+        let passed = out.status.success();
+        let outcome = match out.status.code() {
+            Some(0) => "ok".to_string(),
+            Some(hostcall::KERNEL_EXIT_HALTED) => "FAILED".to_string(),
+            Some(hostcall::KERNEL_EXIT_TIMEOUT) => "FAILED (timed out)".into(),
+            Some(hostcall::KERNEL_EXIT_DEADLOCK) => "FAILED (deadlock)".into(),
+            _ => format!("FAILED (kernel exited with {})", out.status),
+        };
+        println!("scenario {name} ... {outcome}");
         if !passed || flags.show_output {
             print!("{}", String::from_utf8_lossy(&out.stdout));
-            print!("{stderr}");
+            print!("{}", String::from_utf8_lossy(&out.stderr));
         }
         if !passed {
             failed.push(name.clone());

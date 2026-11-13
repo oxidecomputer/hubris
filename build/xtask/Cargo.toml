@@ -55,6 +55,7 @@ sha2 = { workspace = true }
 gnarle = { path = "../../lib/gnarle", features = ["std"] }
 asmcheck.path = "../asmcheck"
 abi.path = "../../sys/abi"
+hostcall.path = "../../sys/hostcall"
 build-fpga-regmap.path = "../../build/fpga-regmap"
 build-kconfig.path = "../kconfig"
 lpc55-rom-data.path = "../../lib/lpc55-rom-data"

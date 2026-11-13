@@ -26,7 +26,8 @@ robo: `xtask host-test` builds the image once, then runs the kernel once per
 robo: scenario with `HUBRIS_HOST_TEST_SCENARIO` set. The task named
 robo: `orchestrator` reads it, drives the fakes, and checks results. The run
 robo: passes if the orchestrator asks the supervisor for a reset; it fails if
-robo: any task faults or halts, or if `--stop-at` is reached.
+robo: any task faults or halts, if every task blocks with no timer pending,
+robo: or if the kernel's `--timeout` is reached (`xtask host-test --timeout`).
 
 ## Writing fakes
 

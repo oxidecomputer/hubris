@@ -60,7 +60,7 @@ enum Xtask {
     /// robo:
     /// robo: Scenarios are listed in the `scenarios` config of the task named
     /// robo: `orchestrator`. A scenario passes if the run ends through the
-    /// robo: supervisor's reset after printing `host-test: PASS`.
+    /// robo: supervisor's reset (kernel exit status 0 under `--timeout`).
     HostTest {
         /// Request verbosity from tools we shell out to.
         #[clap(short)]
@@ -73,7 +73,7 @@ enum Xtask {
         show_output: bool,
         /// robo: Virtual time (ms) after which a scenario counts as hung.
         #[clap(long, default_value_t = 600_000)]
-        stop_at: u64,
+        timeout: u64,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
         /// robo: Scenarios to run (default: all).
@@ -428,7 +428,7 @@ fn run(xtask: Xtask) -> Result<()> {
             verbose,
             release,
             show_output,
-            stop_at,
+            timeout,
             cfg,
             scenarios,
         } => {
@@ -437,7 +437,7 @@ fn run(xtask: Xtask) -> Result<()> {
                 host::HostTestFlags {
                     build: host::HostBuildFlags { verbose, release },
                     scenarios,
-                    stop_at,
+                    timeout,
                     show_output,
                 },
             )?;

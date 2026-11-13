@@ -8399,6 +8399,7 @@ dependencies = [
  "goblin",
  "guppy",
  "hex",
+ "hostcall",
  "hubtools",
  "indexmap 1.9.1",
  "insta",
