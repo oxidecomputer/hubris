@@ -3656,6 +3656,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "host-test-supervisor"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "host-test-api",
+ "userlib",
+]
+
+[[package]]
 name = "hostcall"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,20 @@
+[package]
+name = "host-test-supervisor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+host-test-api = { path = "../api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[[bin]]
+name = "host-test-supervisor"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
