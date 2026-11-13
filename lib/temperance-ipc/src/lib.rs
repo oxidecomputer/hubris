@@ -129,3 +129,26 @@ pub const fn decode_operation(op: u32) -> Option<u16> {
     }
     Some(flags)
 }
+
+/// TODO: Add docs
+#[doc(hidden)]
+pub mod __private {
+    pub use temperance;
+}
+
+/// TODO: Add docs
+#[macro_export]
+macro_rules! expose_interface {
+    ($($segment:ident)::+) => {
+        // TODO(robo): Mach-O needs a "segment,section" name; skipped on Apple
+        // hosts for now.
+        #[cfg(not(target_vendor = "apple"))]
+        const _: () = {
+            $crate::__private::temperance::flat_interface! {
+                #[used]
+                #[unsafe(link_section = ".temperance_ipc_schema")]
+                static TEMPERANCE_IPC_SCHEMA = $($segment)::+;
+            }
+        };
+    };
+}

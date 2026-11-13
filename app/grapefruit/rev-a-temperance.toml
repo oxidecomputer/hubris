@@ -1,0 +1,13 @@
+# TODO: Add comment
+name = "grapefruit-temperance-a"
+board = "grapefruit-a"
+inherit = "rev-a.toml"
+
+[tasks.temperance_demo]
+name = "task-temperance-demo-server"
+features = ["leases"]
+priority = 5
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 1024
+start = true
+notifications = ["timer"]

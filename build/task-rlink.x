@@ -76,6 +76,13 @@ SECTIONS
     KEEP(*(.nprpc_schema));
   }
 
+  /* ## .temperance_ipc_schema */
+  /* TODO: Add comment */
+  .temperance_ipc_schema (INFO) : {
+    . = .;
+    KEEP(*(.temperance_ipc_schema));
+  }
+
   /* ## Discarded sections */
   /DISCARD/ :
   {

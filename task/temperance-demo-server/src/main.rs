@@ -28,6 +28,8 @@ macro_rules! log {
 
 autobuffer!(ServerBufs, all_rpcs);
 
+temperance_ipc::expose_interface!(all_rpcs);
+
 static BUFS: ClaimOnceCell<ServerBufs> = ClaimOnceCell::new(ServerBufs::new());
 
 const TIMER_INTERVAL: u64 = 500;
