@@ -111,7 +111,7 @@ static CLOCK_FREQ_KHZ: AtomicU32 = AtomicU32::new(0);
 /// ARMvx-M volatile registers that must be saved across context switches.
 #[repr(C)]
 #[derive(Debug, Default)]
-pub struct ArmMSavedState {
+pub struct ArmMSavedStateLOL {
     // NOTE: the following fields must be kept contiguous!
     r4: u32,
     r5: u32,
@@ -162,7 +162,7 @@ pub struct ArmMSavedState {
 
 /// Map the volatile registers to (architecture-independent) syscall argument
 /// and return slots.
-impl task::ArchState for ArmMSavedState {
+impl task::ArchState for ArmMSavedStateLOL {
     fn stack_pointer(&self) -> u32 {
         self.psp
     }
@@ -275,7 +275,7 @@ const EXC_RETURN_CONST: u32 = 0xFFFFFFED;
 pub struct ArmM;
 
 impl Arch for ArmM {
-    type SavedState = ArmMSavedState;
+    type SavedState = ArmMSavedStateLOL;
     type RegionDescExt = ArmMRegionDescExt;
     const DEFAULT_HANDLER: unsafe extern "C" fn() = DefaultHandler;
 
@@ -288,7 +288,7 @@ impl Arch for ArmM {
     }
 
     fn reinitialize(task: &mut task::Task) {
-        *task.save_mut() = ArmMSavedState::default();
+        *task.save_mut() = ArmMSavedStateLOL::default();
         let initial_stack = task.descriptor().initial_stack as usize;
 
         // Modern ARMvX-M machines require 8-byte stack alignment. Make sure
