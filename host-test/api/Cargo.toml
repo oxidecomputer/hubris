@@ -1,0 +1,23 @@
+[package]
+name = "host-test-api"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+drv-i2c-api = { path = "../../drv/i2c-api" }
+idol-runtime = { workspace = true }
+minicbor-serde = { workspace = true, features = ["alloc"] }
+num-traits = { workspace = true }
+pmbus = { workspace = true }
+postcard = { workspace = true, features = ["use-std"] }
+serde = { workspace = true, features = ["std"] }
+serde_json = { workspace = true }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

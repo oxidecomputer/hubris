@@ -3641,6 +3641,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "host-test-api"
+version = "0.1.0"
+dependencies = [
+ "drv-i2c-api",
+ "idol-runtime",
+ "minicbor-serde 0.6.2",
+ "num-traits",
+ "pmbus",
+ "postcard 1.1.3",
+ "serde",
+ "serde_json",
+ "userlib",
+]
+
+[[package]]
 name = "hostcall"
 version = "0.1.0"
 dependencies = [
@@ -4503,6 +4518,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "becf18ac384ecf6f53b2db3b1549eebff664c67ecf259ae99be5912193291686"
 dependencies = [
  "minicbor 0.25.1",
+ "serde",
+]
+
+[[package]]
+name = "minicbor-serde"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80047f75e28e3b38f6ab2ec3c2c7669f6b411fa6f8424e1a90a3fd784b19a3f4"
+dependencies = [
+ "minicbor 2.1.1",
  "serde",
 ]
 
@@ -5923,7 +5948,7 @@ version = "0.1.0"
 dependencies = [
  "counters",
  "heapless 0.7.17",
- "minicbor-serde",
+ "minicbor-serde 0.3.2",
  "serde",
  "unwrap-lite",
 ]

@@ -8,6 +8,7 @@ members = [
     "tools/*",
     "drv/*",
     "test/*",
+    "host-test/*",
 ]
 default-members = []
 resolver = "2"
