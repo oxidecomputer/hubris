@@ -154,11 +154,7 @@ fn demo_checks(
 #[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {
     let server = SERVER.get_task_id();
-    let mut client = IpcClient::new(
-        server,
-        BUFS.claim(),
-        temperance_ipc::response_limits!(all_rpcs),
-    );
+    let mut client = IpcClient::new(server, BUFS.claim());
     let large = LARGE.claim();
     let mut expected_total = 0u64;
     let mut round = 0u32;
