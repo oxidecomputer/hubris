@@ -4,15 +4,18 @@
 
 //! TODO: Add docs
 
-use temperance::io::{
-    Storage,
-    client::{Backend, Io},
+use temperance::{
+    io::{
+        Storage,
+        client::{Backend, Io},
+    },
+    wire::Header,
 };
 use userlib::{Lease, TaskId, extract_new_generation, sys_send};
 
 use crate::{
     FLAG_RESP_LEASED, FLAG_RQST_LEASED, LEASE_THRESHOLD, LEASES, REPLY_OK,
-    REPLY_SERVER_FAILED, RESP_LEN_SIZE, operation,
+    REPLY_SERVER_FAILED, RESP_LEN_SIZE, RespLimit, operation,
 };
 
 /// TODO: Add docs
@@ -31,12 +34,22 @@ pub enum IpcClientError {
 /// TODO: Add docs
 pub struct IpcClientIo {
     server: TaskId,
+    limits: &'static [RespLimit],
 }
 
 impl IpcClientIo {
     /// TODO: Add docs
-    pub fn new(server: TaskId) -> Self {
-        Self { server }
+    pub fn new(server: TaskId, limits: &'static [RespLimit]) -> Self {
+        Self { server, limits }
+    }
+
+    fn response_limit(&self, outgoing: &[u8]) -> Option<usize> {
+        let (hedr, _) = Header::read_from(outgoing).ok()?;
+        let key = u64::from_le_bytes(hedr.key.to_bytes());
+        self.limits
+            .iter()
+            .find(|l| l.key == key)
+            .and_then(|l| l.max_frame_len)
     }
 }
 
@@ -48,8 +61,12 @@ impl Io for IpcClientIo {
         outgoing: &[u8],
         incoming: &'a mut [u8],
     ) -> Result<&'a [u8], Self::Error> {
-        // TODO: Discuss why the request uses the frame length but the
-        // response uses the buffer capacity.
+        // TODO: Discuss the fallback to the whole buffer.
+        let limit = self
+            .response_limit(outgoing)
+            .map_or(incoming.len(), |l| l.min(incoming.len()));
+        let (incoming, _) = incoming.split_at_mut(limit);
+
         let rqst_leased = LEASES && outgoing.len() > LEASE_THRESHOLD;
         let resp_leased = LEASES && incoming.len() > LEASE_THRESHOLD;
         let mut flags = 0;
@@ -120,9 +137,13 @@ pub struct IpcClient<S: 'static> {
 
 impl<S: Storage> IpcClient<S> {
     /// TODO: Add docs
-    pub fn new(server: TaskId, storage: &'static mut S) -> Self {
+    pub fn new(
+        server: TaskId,
+        storage: &'static mut S,
+        limits: &'static [RespLimit],
+    ) -> Self {
         Self {
-            io: IpcClientIo::new(server),
+            io: IpcClientIo::new(server, limits),
             storage,
             seqno: 0,
         }

@@ -7204,6 +7204,7 @@ name = "temperance-ipc"
 version = "0.1.0"
 dependencies = [
  "counters",
+ "postcard-schema-ng",
  "ringbuf",
  "temperance",
  "userlib",

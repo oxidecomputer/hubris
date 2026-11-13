@@ -8,6 +8,7 @@ leases = []
 
 [dependencies]
 counters = { path = "../counters", features = ["derive"] }
+postcard-schema-ng = { version = "0.4.0", default-features = false }
 temperance.workspace = true
 ringbuf = { path = "../ringbuf" }
 userlib = { path = "../../sys/userlib" }
