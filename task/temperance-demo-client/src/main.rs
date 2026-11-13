@@ -38,6 +38,10 @@ const LARGE_LEN: usize = 400;
 const PERIOD: u64 = 100;
 const LOG_EVERY: u32 = 10;
 
+//
+// Silly helpers
+//
+
 fn checksum(bytes: &[u8]) -> u32 {
     bytes
         .iter()
@@ -53,37 +57,41 @@ fn fill_pattern(buf: &mut [u8], round: u32) {
     }
 }
 
-fn pattern<const N: usize>(round: u32) -> [u8; N] {
-    let mut buf = [0; N];
-    fill_pattern(&mut buf, round);
-    buf
-}
-
 fn byte_sum(bytes: &[u8]) -> u32 {
     bytes
         .iter()
         .fold(0u32, |acc, &b| acc.wrapping_add(u32::from(b)))
 }
 
+//
+// Test scenarios
+//
+
+/// Checks exercising (potentially) large requests with always-small responses.
 fn upload_checks(
     client: &mut IpcClient<AllBufs>,
     large: &mut [u8; LARGE_LEN],
     round: u32,
 ) {
-    let small: [u8; SMALL_LEN] = pattern(round);
+    // Use a small buffer (less than 244 bytes), which will use inline requests
+    let mut small = [0u8; SMALL_LEN];
+    fill_pattern(&mut small, round);
     let rqst = MaxLenByteSlice::try_from(&small).unwrap();
     assert_eq!(client.sum(&rqst).unwrap().body, byte_sum(&small));
 
+    // Use a large buffer (more than 244 bytes), which will use leases
     fill_pattern(large, round);
     let rqst = MaxLenByteSlice::try_from(&*large).unwrap();
     assert_eq!(client.sum(&rqst).unwrap().body, byte_sum(&large[..]));
 }
 
+/// Checks exercising large requests/responses
 fn bulk_checks(
     client: &mut IpcClient<AllBufs>,
     large: &mut [u8; LARGE_LEN],
     round: u32,
 ) {
+    // Fill with a large response will use a leased buffer for the response.
     let byte = round as u8;
     let fill = FillRequest {
         byte,
@@ -93,15 +101,20 @@ fn bulk_checks(
     assert_eq!(resp.len(), LARGE_LEN);
     assert!(resp.iter().all(|&b| b == byte));
 
-    let small: [u8; SMALL_LEN] = pattern(round);
+    // Echo with a small buffer will use inline buffers.
+    let mut small = [0u8; SMALL_LEN];
+    fill_pattern(&mut small, round);
     let rqst = MaxLenByteSlice::try_from(&small).unwrap();
     assert_eq!(&*client.echo(&rqst).unwrap().body, &small[..]);
 
+    // Echo with a large buffer will use leases for both the request and the
+    // response.
     fill_pattern(large, round);
     let rqst = MaxLenByteSlice::try_from(&*large).unwrap();
     assert_eq!(&*client.echo(&rqst).unwrap().body, &large[..]);
 }
 
+/// Basic client API usage tests
 fn demo_checks(
     client: &mut IpcClient<AllBufs>,
     round: u32,
@@ -128,6 +141,10 @@ fn demo_checks(
     let ck = client.checksum(&rqst).unwrap().body;
     assert_eq!(ck, checksum(&data));
 }
+
+//
+// Main client driver logic
+//
 
 #[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {

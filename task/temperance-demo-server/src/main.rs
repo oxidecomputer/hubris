@@ -16,7 +16,7 @@ use temperance::{Request, autobuffer};
 use temperance_ipc::{IpcBackend, IpcServer};
 use userlib::{sys_get_timer, sys_set_timer};
 
-// TODO: Add comment
+// Logging only for `host-run` cases
 macro_rules! log {
     ($($arg:tt)*) => {
         #[cfg(not(target_os = "none"))]
@@ -41,11 +41,17 @@ struct ServerImpl {
     scratch: &'static mut [u8; BULK_MAX_LEN],
 }
 
+/// Helper function to go from `&[u8]` -> `MaxLenByteSlice`, used to bound max
+/// response lengths.
+///
+/// TODO(AJM): I should probably make a lot of these helpers part of
+/// `MaxLenByteSlice`, not in user libraries.
 fn bulk(bytes: &[u8]) -> MaxLenByteSlice<'_, BULK_MAX_LEN> {
     let len = bytes.len().min(BULK_MAX_LEN);
     MaxLenByteSlice::try_from(&bytes[..len]).unwrap()
 }
 
+/// Operations that have potentially large requests but always small responses.
 impl demo_upload::Server for ServerImpl {
     fn sum<'rqst>(
         &mut self,
@@ -58,7 +64,10 @@ impl demo_upload::Server for ServerImpl {
     }
 }
 
+/// Operations that can have large requests/responses
 impl demo_bulk::Server for ServerImpl {
+    /// Fill takes a small request, and a potentially large response. This will
+    /// use leases for the response when necessary.
     fn fill<'rqst, 'resp>(
         &'resp mut self,
         rqst: Request<'_, FillRequest>,
@@ -69,6 +78,8 @@ impl demo_bulk::Server for ServerImpl {
         bulk(&self.scratch[..len])
     }
 
+    /// Echo takes a potentially large request and response. This will use
+    /// leases for the request and/or response when necessary.
     fn echo<'rqst, 'resp>(
         &'resp mut self,
         rqst: Request<'_, MaxLenByteSlice<'rqst, BULK_MAX_LEN>>,
@@ -80,6 +91,7 @@ impl demo_bulk::Server for ServerImpl {
     }
 }
 
+// Generally "normal" functionality.
 impl demo::Server for ServerImpl {
     fn add<'rqst>(
         &mut self,
