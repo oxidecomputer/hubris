@@ -197,3 +197,101 @@ pub fn run(app_toml: &Path, flags: HostRunFlags) -> Result<()> {
         None => bail!("the kernel exited with {status}"),
     }
 }
+
+/// robo: Arguments for `host-test` invocation.
+pub struct HostTestFlags {
+    pub build: HostBuildFlags,
+    /// robo: Scenarios to run; empty means all of them.
+    pub scenarios: Vec<String>,
+    /// robo: Virtual time (ms) after which a scenario counts as hung.
+    pub stop_at: u64,
+    /// robo: Print the output of passing scenarios too.
+    pub show_output: bool,
+}
+
+/// robo: Task whose `scenarios` config lists the scenarios.
+const ORCHESTRATOR_TASK: &str = "orchestrator";
+
+/// robo: Environment variable naming the scenario to run. Must match
+/// robo: `host_test_api::harness::SCENARIO_ENV`.
+const SCENARIO_ENV: &str = "HUBRIS_HOST_TEST_SCENARIO";
+
+/// robo: Line the supervisor prints when a scenario passes. Must match
+/// robo: `host-test-supervisor`.
+const PASS_MARKER: &str = "host-test: PASS";
+
+/// robo: Reads the scenario list from the orchestrator's config.
+fn scenarios(cfg: &PackageConfig) -> Result<Vec<String>> {
+    let task = cfg.toml.tasks.get(ORCHESTRATOR_TASK).ok_or_else(|| {
+        anyhow!("a host test image needs a task named `{ORCHESTRATOR_TASK}`")
+    })?;
+    let list = task
+        .config
+        .as_ref()
+        .and_then(|c| c.get("scenarios"))
+        .ok_or_else(|| {
+            anyhow!("task `{ORCHESTRATOR_TASK}` has no `scenarios` config")
+        })?;
+    let ordered_toml::Value::Array(list) = list else {
+        bail!("`scenarios` must be an array of strings");
+    };
+    list.iter()
+        .map(|v| match v {
+            ordered_toml::Value::String(s) => Ok(s.clone()),
+            _ => bail!("`scenarios` must be an array of strings"),
+        })
+        .collect()
+}
+
+/// robo: Builds a host test image and runs the requested scenarios, one
+/// robo: kernel run each.
+pub fn test(app_toml: &Path, flags: HostTestFlags) -> Result<()> {
+    let cfg = PackageConfig::new(app_toml, flags.build.verbose, false)?;
+    let all = scenarios(&cfg)?;
+    let selected = if flags.scenarios.is_empty() {
+        all
+    } else {
+        if let Some(s) = flags.scenarios.iter().find(|s| !all.contains(s)) {
+            bail!("unknown scenario `{s}`; this image has {all:?}");
+        }
+        flags.scenarios.clone()
+    };
+
+    let kernel = build_app(&cfg, &flags.build)?;
+
+    let mut failed = Vec::new();
+    for name in &selected {
+        let out = std::process::Command::new(&kernel)
+            .arg("--stop-at")
+            .arg(flags.stop_at.to_string())
+            .env(SCENARIO_ENV, name)
+            .output()
+            .context("launching the kernel")?;
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        // robo: A run that reaches `--stop-at` also exits 0, so look for
+        // robo: the supervisor's pass line too.
+        let passed = out.status.success()
+            && stderr.lines().any(|l| l.starts_with(PASS_MARKER));
+        println!(
+            "scenario {name} ... {}",
+            if passed { "ok" } else { "FAILED" }
+        );
+        if !passed || flags.show_output {
+            print!("{}", String::from_utf8_lossy(&out.stdout));
+            print!("{stderr}");
+        }
+        if !passed {
+            failed.push(name.clone());
+        }
+    }
+
+    println!(
+        "{} passed, {} failed",
+        selected.len() - failed.len(),
+        failed.len()
+    );
+    if !failed.is_empty() {
+        bail!("failed scenarios: {}", failed.join(", "));
+    }
+    Ok(())
+}

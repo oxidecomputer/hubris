@@ -56,6 +56,30 @@ enum Xtask {
         kernel_args: Vec<String>,
     },
 
+    /// robo: Builds a host test image and runs each of its scenarios.
+    /// robo:
+    /// robo: Scenarios are listed in the `scenarios` config of the task named
+    /// robo: `orchestrator`. A scenario passes if the run ends through the
+    /// robo: supervisor's reset after printing `host-test: PASS`.
+    HostTest {
+        /// Request verbosity from tools we shell out to.
+        #[clap(short)]
+        verbose: bool,
+        /// Build with the release profile instead of dev.
+        #[clap(long)]
+        release: bool,
+        /// robo: Print the output of passing scenarios too.
+        #[clap(long)]
+        show_output: bool,
+        /// robo: Virtual time (ms) after which a scenario counts as hung.
+        #[clap(long, default_value_t = 600_000)]
+        stop_at: u64,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+        /// robo: Scenarios to run (default: all).
+        scenarios: Vec<String>,
+    },
+
     /// Builds one or more cross-compiled binary as it would appear in the
     /// output of `dist`, but without all the other binaries or the final build
     /// archive. This is useful for iterating on a single task.
@@ -397,6 +421,24 @@ fn run(xtask: Xtask) -> Result<()> {
                     build: host::HostBuildFlags { verbose, release },
                     kernel_args,
                     no_run,
+                },
+            )?;
+        }
+        Xtask::HostTest {
+            verbose,
+            release,
+            show_output,
+            stop_at,
+            cfg,
+            scenarios,
+        } => {
+            host::test(
+                &cfg,
+                host::HostTestFlags {
+                    build: host::HostBuildFlags { verbose, release },
+                    scenarios,
+                    stop_at,
+                    show_output,
                 },
             )?;
         }
