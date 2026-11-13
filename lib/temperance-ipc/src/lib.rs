@@ -26,7 +26,17 @@ pub const FLAG_RQST_LEASED: u16 = 1 << 0;
 pub const FLAG_RESP_LEASED: u16 = 1 << 1;
 
 /// TODO: Add docs
-pub const SUPPORTED_FLAGS: u16 = 0;
+pub const LEASES: bool = cfg!(feature = "leases");
+
+/// TODO: Add docs
+pub const SUPPORTED_FLAGS: u16 = if LEASES {
+    FLAG_RQST_LEASED | FLAG_RESP_LEASED
+} else {
+    0
+};
+
+/// TODO: Add docs
+pub const RESP_LEN_SIZE: usize = core::mem::size_of::<u32>();
 
 /// TODO: Add docs
 pub const REPLY_OK: u32 = 0;

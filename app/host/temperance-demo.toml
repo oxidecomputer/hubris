@@ -19,6 +19,7 @@ notifications = ["fault", "timer"]
 
 [tasks.server]
 name = "task-temperance-demo-server"
+features = ["leases"]
 priority = 2
 max-sizes = {flash = 0, ram = 0}
 start = true
@@ -26,6 +27,7 @@ notifications = ["timer"]
 
 [tasks.client]
 name = "task-temperance-demo-client"
+features = ["leases"]
 priority = 3
 max-sizes = {flash = 0, ram = 0}
 start = true

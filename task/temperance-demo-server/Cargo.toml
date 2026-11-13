@@ -3,6 +3,9 @@ name = "task-temperance-demo-server"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+leases = ["temperance-ipc/leases"]
+
 [dependencies]
 static-cell = { path = "../../lib/static-cell" }
 task-temperance-demo-api = { path = "../temperance-demo-api" }

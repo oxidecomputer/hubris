@@ -3,6 +3,9 @@ name = "task-temperance-demo-client"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+leases = ["temperance-ipc/leases"]
+
 [dependencies]
 postcard-schema-ng = { version = "0.4.0", default-features = false }
 task-temperance-demo-api = { path = "../temperance-demo-api" }

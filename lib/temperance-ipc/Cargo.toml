@@ -3,6 +3,9 @@ name = "temperance-ipc"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+leases = []
+
 [dependencies]
 counters = { path = "../counters", features = ["derive"] }
 temperance.workspace = true

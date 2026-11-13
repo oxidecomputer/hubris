@@ -13,10 +13,15 @@ use temperance::{
     },
 };
 use userlib::{
-    ReplyFaultReason, TaskId, sys_recv_open, sys_reply, sys_reply_fault,
+    BorrowInfo, LeaseAttributes, RecvMessage, ReplyFaultReason, TaskId,
+    extract_new_generation, sys_borrow_info, sys_borrow_read, sys_borrow_write,
+    sys_recv_open, sys_reply, sys_reply_fault,
 };
 
-use crate::{REPLY_OK, REPLY_SERVER_FAILED, decode_operation};
+use crate::{
+    FLAG_RESP_LEASED, FLAG_RQST_LEASED, LEASES, REPLY_OK, REPLY_SERVER_FAILED,
+    RESP_LEN_SIZE, decode_operation,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, counters::Count)]
 enum Trace {
@@ -44,6 +49,8 @@ counted_ringbuf!(Trace, 16, Trace::None);
 enum Fault {
     UndefinedOperation,
     BadMessageSize,
+    BadLeases,
+    ReplyBufferTooSmall,
 }
 
 /// TODO: Add docs
@@ -51,6 +58,10 @@ enum Fault {
 pub enum IpcServerError {
     /// TODO: Add docs
     ResponseTooLarge,
+    /// TODO: Add docs
+    ClientDied,
+    /// TODO: Add docs
+    LeaseWriteFailed,
 }
 
 // TODO(robo): Copied from temperance-net; share it?
@@ -102,6 +113,8 @@ pub struct IpcMeta {
     pub flags: u16,
     /// TODO: Add docs
     pub response_capacity: usize,
+    /// TODO: Add docs
+    pub response_lease: Option<usize>,
 }
 
 /// TODO: Add docs
@@ -109,6 +122,18 @@ pub struct IpcServer {
     notification_mask: u32,
     notifications: u32,
     pending: Option<TaskId>,
+}
+
+// TODO: Add comment
+enum Reject {
+    Fault(Fault),
+    ClientDied,
+}
+
+impl From<Fault> for Reject {
+    fn from(f: Fault) -> Self {
+        Self::Fault(f)
+    }
 }
 
 impl IpcServer {
@@ -126,9 +151,86 @@ impl IpcServer {
         let reason = match reason {
             Fault::UndefinedOperation => ReplyFaultReason::UndefinedOperation,
             Fault::BadMessageSize => ReplyFaultReason::BadMessageSize,
+            Fault::BadLeases => ReplyFaultReason::BadLeases,
+            Fault::ReplyBufferTooSmall => ReplyFaultReason::ReplyBufferTooSmall,
         };
         sys_reply_fault(sender, reason);
     }
+
+    // TODO: Discuss lease index assignment.
+    fn accept(
+        &mut self,
+        msg: &RecvMessage,
+        incoming: &mut [u8],
+    ) -> Result<(IpcMeta, usize), Reject> {
+        let flags =
+            decode_operation(msg.operation).ok_or(Fault::UndefinedOperation)?;
+        let rqst_leased = LEASES && flags & FLAG_RQST_LEASED != 0;
+        let resp_leased = LEASES && flags & FLAG_RESP_LEASED != 0;
+
+        let lease_count = usize::from(rqst_leased) + usize::from(resp_leased);
+        if msg.lease_count != lease_count {
+            return Err(Fault::BadLeases.into());
+        }
+
+        let len = if rqst_leased {
+            if msg.message_len != 0 {
+                return Err(Fault::BadMessageSize.into());
+            }
+            let info = borrow_info(msg.sender, 0, LeaseAttributes::READ)?;
+            let dest =
+                incoming.get_mut(..info.len).ok_or(Fault::BadMessageSize)?;
+            let (rc, n) = sys_borrow_read(msg.sender, 0, 0, dest);
+            check_borrow(rc, n, info.len)?;
+            info.len
+        } else {
+            if msg.message_len > incoming.len() {
+                return Err(Fault::BadMessageSize.into());
+            }
+            msg.message_len
+        };
+
+        let (response_capacity, response_lease) = if resp_leased {
+            let idx = usize::from(rqst_leased);
+            let info = borrow_info(msg.sender, idx, LeaseAttributes::WRITE)?;
+            if msg.response_capacity < RESP_LEN_SIZE {
+                return Err(Fault::ReplyBufferTooSmall.into());
+            }
+            (info.len, Some(idx))
+        } else {
+            (msg.response_capacity, None)
+        };
+
+        let meta = IpcMeta {
+            sender: msg.sender,
+            flags,
+            response_capacity,
+            response_lease,
+        };
+        Ok((meta, len))
+    }
+}
+
+fn borrow_info(
+    sender: TaskId,
+    idx: usize,
+    needs: LeaseAttributes,
+) -> Result<BorrowInfo, Reject> {
+    let info = sys_borrow_info(sender, idx).ok_or(Fault::BadLeases)?;
+    if !info.attributes.contains(needs) {
+        return Err(Fault::BadLeases.into());
+    }
+    Ok(info)
+}
+
+fn check_borrow(rc: u32, n: usize, expected: usize) -> Result<(), Reject> {
+    if extract_new_generation(rc).is_some() {
+        return Err(Reject::ClientDied);
+    }
+    if rc != 0 || n != expected {
+        return Err(Fault::BadLeases.into());
+    }
+    Ok(())
 }
 
 impl Io for IpcServer {
@@ -147,21 +249,16 @@ impl Io for IpcServer {
                 self.notifications |= msg.operation;
                 return Ok(None);
             }
-            let Some(flags) = decode_operation(msg.operation) else {
-                self.fault(msg.sender, Fault::UndefinedOperation);
-                continue;
-            };
-            if msg.message_len > incoming.len() {
-                self.fault(msg.sender, Fault::BadMessageSize);
-                continue;
+            match self.accept(&msg, incoming) {
+                Ok(accepted) => {
+                    self.pending = Some(msg.sender);
+                    break accepted;
+                }
+                Err(Reject::Fault(f)) => self.fault(msg.sender, f),
+                Err(Reject::ClientDied) => {
+                    ringbuf_entry!(Trace::Ipc(IpcServerError::ClientDied));
+                }
             }
-            self.pending = Some(msg.sender);
-            let meta = IpcMeta {
-                sender: msg.sender,
-                flags,
-                response_capacity: msg.response_capacity,
-            };
-            break (meta, msg.message_len);
         };
         Ok(Some(RawIoFrame {
             meta,
@@ -176,10 +273,31 @@ impl Io for IpcServer {
         let RawIoFrame { meta, raw } = outgoing;
         self.pending = None;
         if raw.len() > meta.response_capacity {
-            self.fault(meta.sender, Fault::BadMessageSize);
+            self.fault(meta.sender, Fault::ReplyBufferTooSmall);
             return Err(ServerIoError::Io(IpcServerError::ResponseTooLarge));
         }
-        sys_reply(meta.sender, REPLY_OK, raw);
+        match meta.response_lease {
+            None => sys_reply(meta.sender, REPLY_OK, raw),
+            Some(idx) => {
+                let (rc, n) = sys_borrow_write(meta.sender, idx, 0, raw);
+                match check_borrow(rc, n, raw.len()) {
+                    Ok(()) => {}
+                    Err(Reject::ClientDied) => {
+                        return Err(ServerIoError::Io(
+                            IpcServerError::ClientDied,
+                        ));
+                    }
+                    Err(Reject::Fault(f)) => {
+                        self.fault(meta.sender, f);
+                        return Err(ServerIoError::Io(
+                            IpcServerError::LeaseWriteFailed,
+                        ));
+                    }
+                }
+                let len = raw.len() as u32;
+                sys_reply(meta.sender, REPLY_OK, &len.to_le_bytes());
+            }
+        }
         Ok(())
     }
 }
