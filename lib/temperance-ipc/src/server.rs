@@ -13,9 +13,9 @@ use temperance::{
     },
 };
 use userlib::{
-    BorrowInfo, LeaseAttributes, RecvMessage, ReplyFaultReason, TaskId,
-    extract_new_generation, sys_borrow_info, sys_borrow_read, sys_borrow_write,
-    sys_recv_open, sys_reply, sys_reply_fault,
+    BorrowInfo, DEFECT, LeaseAttributes, RecvMessage, ReplyFaultReason, TaskId,
+    sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_recv_open,
+    sys_reply, sys_reply_fault,
 };
 
 use crate::{
@@ -216,7 +216,8 @@ fn borrow_info(
     idx: usize,
     needs: LeaseAttributes,
 ) -> Result<BorrowInfo, Reject> {
-    let info = sys_borrow_info(sender, idx).ok_or(Fault::BadLeases)?;
+    // TODO: Discuss why a failed BORROW_INFO means the client is gone.
+    let info = sys_borrow_info(sender, idx).ok_or(Reject::ClientDied)?;
     if !info.attributes.contains(needs) {
         return Err(Fault::BadLeases.into());
     }
@@ -224,7 +225,8 @@ fn borrow_info(
 }
 
 fn check_borrow(rc: u32, n: usize, expected: usize) -> Result<(), Reject> {
-    if extract_new_generation(rc).is_some() {
+    // TODO: Discuss why DEFECT means the client is gone here.
+    if rc == DEFECT {
         return Err(Reject::ClientDied);
     }
     if rc != 0 || n != expected {
