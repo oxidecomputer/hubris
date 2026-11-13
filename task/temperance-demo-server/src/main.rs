@@ -10,9 +10,9 @@
 use static_cell::ClaimOnceCell;
 use task_temperance_demo_api::{
     AddError, AddRequest, BULK_MAX_LEN, CHECKSUM_MAX_LEN, FillRequest,
-    MaxLenByteSlice, demo, demo_bulk, demo_upload,
+    MaxLenByteSlice, all_rpcs, demo, demo_bulk, demo_upload,
 };
-use temperance::{Request, autobuffer, compose_interfaces};
+use temperance::{Request, autobuffer};
 use temperance_ipc::{IpcBackend, IpcServer};
 use userlib::{sys_get_timer, sys_set_timer};
 
@@ -24,15 +24,6 @@ macro_rules! log {
         #[cfg(target_os = "none")]
         let _ = format_args!($($arg)*);
     };
-}
-
-compose_interfaces! {
-    mod: all_rpcs,
-    interfaces: [
-        task_temperance_demo_api::demo,
-        task_temperance_demo_api::demo_upload,
-        task_temperance_demo_api::demo_bulk,
-    ]
 }
 
 autobuffer!(ServerBufs, all_rpcs);

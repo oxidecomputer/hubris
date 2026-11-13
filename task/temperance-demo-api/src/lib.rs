@@ -9,7 +9,7 @@
 use postcard_schema_ng::Schema;
 pub use postcard_schema_ng::max_len::MaxLenByteSlice;
 use serde::{Deserialize, Serialize};
-use temperance::interface;
+use temperance::{compose_interfaces, interface};
 
 /// TODO: Add docs
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Schema)]
@@ -71,4 +71,13 @@ interface! {
         fn echo(MaxLenByteSlice<'rqst, BULK_MAX_LEN>)
             -> MaxLenByteSlice<'resp, BULK_MAX_LEN>;
     }
+}
+
+compose_interfaces! {
+    mod: all_rpcs,
+    interfaces: [
+        crate::demo,
+        crate::demo_upload,
+        crate::demo_bulk,
+    ]
 }
