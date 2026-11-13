@@ -3193,6 +3193,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "fake-sys"
+version = "0.1.0"
+dependencies = [
+ "build-stm32xx-sys",
+ "build-util",
+ "counters",
+ "drv-stm32xx-sys-api",
+ "host-test-api",
+ "hubris-num-tasks",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

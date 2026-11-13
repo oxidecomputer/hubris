@@ -1,0 +1,29 @@
+[package]
+name = "fake-sys"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+counters = { path = "../../lib/counters" }
+drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
+host-test-api = { path = "../api" }
+hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
+
+[build-dependencies]
+build-stm32xx-sys = { path = "../../build/stm32xx-sys" }
+build-util = { path = "../../build/util" }
+idol = { workspace = true }
+
+[[bin]]
+name = "fake-sys"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
