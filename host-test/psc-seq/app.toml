@@ -1,0 +1,282 @@
+# robo: Host integration test image for drv-psc-seq-server (PSC rev B).
+# robo:
+# robo: Run with `cargo xtask host-test host-test/psc-seq/app.toml`. The task
+# robo: under test is the real psc-seq-server binary; the tasks it calls are
+# robo: fakes, and `orchestrator` drives one scenario per run.
+
+name = "host-test-psc-seq"
+target = "host"
+board = "psc-b"
+chip = "../../chips/host"
+stacksize = 1024
+
+[kernel]
+name = "host-demo"
+requires = {flash = 0, ram = 0}
+
+[tasks.supervisor]
+name = "host-test-supervisor"
+priority = 0
+max-sizes = {flash = 0, ram = 0}
+start = true
+notifications = ["fault"]
+
+[tasks.sys]
+name = "fake-sys"
+priority = 1
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+# robo: Same EXTI wiring as app/psc/base.toml.
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_1]
+port = "J"
+pin = 6
+owner = {name = "sequencer", notification = "psu_pwr_ok_1"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_2]
+port = "J"
+pin = 7
+owner = {name = "sequencer", notification = "psu_pwr_ok_2"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_3]
+port = "J"
+pin = 8
+owner = {name = "sequencer", notification = "psu_pwr_ok_3"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_4]
+port = "J"
+pin = 9
+owner = {name = "sequencer", notification = "psu_pwr_ok_4"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_5]
+port = "J"
+pin = 10
+owner = {name = "sequencer", notification = "psu_pwr_ok_5"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_6]
+port = "J"
+pin = 11
+owner = {name = "sequencer", notification = "psu_pwr_ok_6"}
+
+[tasks.i2c_driver]
+name = "fake-i2c"
+priority = 2
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+[tasks.packrat]
+name = "fake-packrat"
+priority = 1
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+# robo: psc-seq-server only calls `set_state`, whose reply is empty.
+[tasks.jefe]
+name = "task-stub"
+priority = 1
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+[tasks.sequencer]
+name = "drv-psc-seq-server"
+priority = 4
+async = true
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = ["jefe", "packrat", "i2c_driver", "sys"]
+notifications = [
+    "psu_pwr_ok_1",
+    "psu_pwr_ok_2",
+    "psu_pwr_ok_3",
+    "psu_pwr_ok_4",
+    "psu_pwr_ok_5",
+    "psu_pwr_ok_6",
+    "timer",
+]
+
+[tasks.orchestrator]
+name = "host-test-psc-seq"
+priority = 5
+max-sizes = {flash = 0, ram = 0}
+start = true
+task-slots = ["supervisor", "sys", "i2c_driver", "packrat", "sequencer"]
+
+[tasks.orchestrator.config]
+scenarios = [
+    "boot_all_present",
+    "fault_recover",
+    "fault_persists",
+    "remove_insert",
+    "restart_while_disabled",
+]
+
+[tasks.idle]
+name = "task-idle"
+priority = 6
+max-sizes = {flash = 0, ram = 0}
+start = true
+
+# robo: I2C topology copied from app/psc/base.toml.
+[config]
+#
+# I2C2: Local bus
+#
+[[config.i2c.controllers]]
+controller = 2
+
+#
+# I2C_SP_TO_LOCAL_SDA
+# I2C_SP_TO_LOCAL_SCL
+#
+[config.i2c.controllers.ports.F]
+name = "local"
+description = "Local bus"
+scl.pin = 1
+sda.pin = 0
+af = 4
+
+#
+# I2C3: Backplane bus
+#
+[[config.i2c.controllers]]
+controller = 3
+
+#
+# I2C_SP_TO_PS_SCL
+# I2C_SP_TO_PS_SDA
+#
+[config.i2c.controllers.ports.H]
+name = "backplane"
+description = "Backplane bus"
+scl.pin = 7
+sda.pin = 8
+af = 4
+
+[[config.i2c.devices]]
+bus = "local"
+address = 0b1001_000
+device = "tmp116"
+description = "Temperature sensor"
+refdes = "U31"
+# TODO Audit i2c devices using validate-with-raw-read.
+# https://github.com/oxidecomputer/hubris/issues/2629
+validate-with-raw-read = true
+
+[[config.i2c.devices]]
+bus = "local"
+address = 0b1010_000
+device = "at24csw080"
+name = "local_vpd"
+description = "FRU ID EEPROM"
+refdes = "U32"
+
+# NOTE: the schematic labels the PSUs as 1-6 (matching Murata's numbering
+# scheme), but they are 0-indexed in user-facing markings (RFD 200)
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu0eeprom"
+address = 0b1010_000
+device = "m24c02"
+description = "PSU 0 EEPROM"
+refdes = ["PSU0", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu0mcu"
+address = 0b1011_000
+device = "mwocp68"
+description = "PSU 0 MCU"
+power = { rails = [ "V54_PSU0", "V12_PSU0" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU0"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu1eeprom"
+address = 0b1010_001
+device = "m24c02"
+description = "PSU 1 EEPROM"
+refdes = ["PSU1", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu1mcu"
+address = 0b1011_001
+device = "mwocp68"
+description = "PSU 1 MCU"
+power = { rails = [ "V54_PSU1", "V12_PSU1" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU1"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu2eeprom"
+address = 0b1010_010
+device = "m24c02"
+description = "PSU 2 EEPROM"
+refdes = ["PSU2", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu2mcu"
+address = 0b1011_010
+device = "mwocp68"
+description = "PSU 2 MCU"
+power = { rails = [ "V54_PSU2", "V12_PSU2" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU2"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu3eeprom"
+address = 0b1010_011
+device = "m24c02"
+description = "PSU 3 EEPROM"
+refdes = ["PSU3", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu3mcu"
+address = 0b1011_011
+device = "mwocp68"
+description = "PSU 3 MCU"
+power = { rails = [ "V54_PSU3", "V12_PSU3" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU3"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu4eeprom"
+address = 0b1010_100
+device = "m24c02"
+description = "PSU 4 EEPROM"
+refdes = ["PSU4", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu4mcu"
+address = 0b1011_100
+device = "mwocp68"
+description = "PSU 4 MCU"
+power = { rails = [ "V54_PSU4", "V12_PSU4" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU4"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu5eeprom"
+address = 0b1010_101
+device = "m24c02"
+description = "PSU 5 EEPROM"
+refdes = ["PSU5", "ID"]
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu5mcu"
+address = 0b1011_101
+device = "mwocp68"
+description = "PSU 5 MCU"
+power = { rails = [ "V54_PSU5", "V12_PSU5" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU5"
+

@@ -3701,6 +3701,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "host-test-psc-seq"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "drv-i2c-api",
+ "drv-stm32xx-sys-api",
+ "host-test-api",
+ "serde_json",
+ "userlib",
+]
+
+[[package]]
 name = "host-test-supervisor"
 version = "0.1.0"
 dependencies = [

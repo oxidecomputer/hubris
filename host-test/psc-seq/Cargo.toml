@@ -1,0 +1,23 @@
+[package]
+name = "host-test-psc-seq"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+drv-i2c-api = { path = "../../drv/i2c-api", features = ["component-id"] }
+drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
+host-test-api = { path = "../api" }
+serde_json = { workspace = true }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[build-dependencies]
+build-i2c = { path = "../../build/i2c" }
+
+[[bin]]
+name = "host-test-psc-seq"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
