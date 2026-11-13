@@ -74,6 +74,14 @@ pub const EXIT_TRANSPORT: i32 = 103;
 /// Exit status of the task process when the kernel shut down.
 pub const EXIT_SHUTDOWN: i32 = 104;
 
+/// robo: Exit status of the host kernel when a task called `halt()`.
+pub const KERNEL_EXIT_HALTED: i32 = 1;
+/// robo: Exit status of the host kernel when `--timeout` was reached.
+pub const KERNEL_EXIT_TIMEOUT: i32 = 2;
+/// robo: Exit status of the host kernel when, with `--timeout` set, every
+/// robo: task blocked with no timer pending.
+pub const KERNEL_EXIT_DEADLOCK: i32 = 3;
+
 /// One entry of the lease table attached to a SEND.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Lease {

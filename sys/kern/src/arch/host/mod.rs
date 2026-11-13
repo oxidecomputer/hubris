@@ -57,7 +57,16 @@ macro_rules! halt {
     ($($arg:tt)*) => {{
         eprintln!("kernel: halting: {}", format_args!($($arg)*));
         host_task::shutdown_tasks();
-        std::process::exit(1)
+        std::process::exit(hostcall::KERNEL_EXIT_HALTED)
+    }};
+}
+
+/// robo: Ends the run as a failure with exit status `$code`, for `--timeout`.
+macro_rules! fail {
+    ($code:expr, $($arg:tt)*) => {{
+        eprintln!("kernel: failing: {}", format_args!($($arg)*));
+        host_task::shutdown_tasks();
+        std::process::exit($code)
     }};
 }
 
@@ -125,6 +134,14 @@ fn step() {
     {
         finish!("time reached the configured stop at {stop} ticks")
     }
+    if let Some(timeout) = options().timeout
+        && u64::from(Host::now()) > timeout
+    {
+        fail!(
+            hostcall::KERNEL_EXIT_TIMEOUT,
+            "time reached the configured timeout at {timeout} ticks"
+        )
+    }
 
     let (current, index) = current_task_index();
     let is_idle = HOST_TASKS.get(index).is_some_and(|t| t.idle);
@@ -140,6 +157,12 @@ fn step() {
         // have no deadlines and nothing to do, we'd be waiting forever. Just
         // bail instead.
         let Some(deadline) = next_deadline else {
+            if options().timeout.is_some() {
+                fail!(
+                    hostcall::KERNEL_EXIT_DEADLOCK,
+                    "every task is blocked and no timer is pending"
+                );
+            }
             finish!("every task is blocked and no timer is pending");
         };
         // Is idle, wait for the next deadline
@@ -291,7 +314,7 @@ fn idle_wait(deadline: Timestamp) {
     // Clamp the time we wait until to the stop time, if set. This means we
     // can "kill" the simulation while sitting in idle instead of when the next
     // task would resume.
-    if let Some(stop) = options().stop_at {
+    if let Some(stop) = options().stop_at.or(options().timeout) {
         target = target.min(Timestamp::from(stop + 1));
     }
 

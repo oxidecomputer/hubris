@@ -26,8 +26,13 @@ include!(concat!(env!("OUT_DIR"), "/host_tasks.rs"));
 #[clap(about = "Host-Run Kernel")]
 struct Args {
     /// Stop after this many milliseconds of execution
-    #[clap(long, value_name = "TICKS")]
+    #[clap(long, value_name = "TICKS", conflicts_with = "timeout")]
     stop_at: Option<u64>,
+    /// robo: Fail after this many milliseconds of execution. Unlike
+    /// robo: `--stop-at`, reaching it exits non-zero, and so does every task
+    /// robo: blocking with no timer pending. Use this to catch hung tests.
+    #[clap(long, value_name = "TICKS")]
+    timeout: Option<u64>,
     /// Setting 'realtime' causes the kernel to pause in the idle task for the
     /// required amount of time, instead of "fast forwarding" time.
     #[clap(long)]
@@ -63,6 +68,9 @@ pub(crate) enum TraceFilter {
 pub(crate) struct HostOptions {
     /// Stop after this many milliseconds of execution
     pub stop_at: Option<u64>,
+    /// robo: Fail after this many milliseconds of execution, and treat every
+    /// robo: task blocking with no timer pending as a failure.
+    pub timeout: Option<u64>,
     /// Setting 'realtime' causes the kernel to pause in the idle task for the
     /// required amount of time, instead of "fast forwarding" time.
     pub realtime: bool,
@@ -115,6 +123,7 @@ static OPTIONS: LazyLock<HostOptions> = LazyLock::new(|| {
 
     HostOptions {
         stop_at: args.stop_at,
+        timeout: args.timeout,
         realtime: args.realtime,
         trace,
         task_dir,
