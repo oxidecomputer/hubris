@@ -20,6 +20,8 @@ macro_rules! log {
     ($($arg:tt)*) => {
         #[cfg(not(target_os = "none"))]
         eprintln!("demo-server: {}", format_args!($($arg)*));
+        #[cfg(target_os = "none")]
+        let _ = format_args!($($arg)*);
     };
 }
 

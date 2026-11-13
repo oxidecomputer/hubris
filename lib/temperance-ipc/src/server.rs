@@ -276,9 +276,9 @@ impl Io for IpcServer {
             self.fault(meta.sender, Fault::ReplyBufferTooSmall);
             return Err(ServerIoError::Io(IpcServerError::ResponseTooLarge));
         }
+        // TODO: Discuss why `LEASES` is checked here too.
         match meta.response_lease {
-            None => sys_reply(meta.sender, REPLY_OK, raw),
-            Some(idx) => {
+            Some(idx) if LEASES => {
                 let (rc, n) = sys_borrow_write(meta.sender, idx, 0, raw);
                 match check_borrow(rc, n, raw.len()) {
                     Ok(()) => {}
@@ -297,6 +297,7 @@ impl Io for IpcServer {
                 let len = raw.len() as u32;
                 sys_reply(meta.sender, REPLY_OK, &len.to_le_bytes());
             }
+            _ => sys_reply(meta.sender, REPLY_OK, raw),
         }
         Ok(())
     }
