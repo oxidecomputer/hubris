@@ -3193,6 +3193,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fake-i2c"
+version = "0.1.0"
+dependencies = [
+ "drv-i2c-api",
+ "host-test-api",
+ "userlib",
+]
+
+[[package]]
 name = "fake-sys"
 version = "0.1.0"
 dependencies = [
