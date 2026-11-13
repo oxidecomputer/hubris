@@ -10,11 +10,9 @@ use temperance::io::{
 };
 use userlib::{Lease, TaskId, extract_new_generation, sys_send};
 
-#[cfg(feature = "leases")]
-use crate::SUPPORTED_FLAGS;
 use crate::{
-    FLAG_RESP_LEASED, FLAG_RQST_LEASED, LEASES, REPLY_OK, REPLY_SERVER_FAILED,
-    RESP_LEN_SIZE, operation,
+    FLAG_RESP_LEASED, FLAG_RQST_LEASED, LEASE_THRESHOLD, LEASES, REPLY_OK,
+    REPLY_SERVER_FAILED, RESP_LEN_SIZE, operation,
 };
 
 /// TODO: Add docs
@@ -33,22 +31,12 @@ pub enum IpcClientError {
 /// TODO: Add docs
 pub struct IpcClientIo {
     server: TaskId,
-    flags: u16,
 }
 
 impl IpcClientIo {
     /// TODO: Add docs
     pub fn new(server: TaskId) -> Self {
-        Self { server, flags: 0 }
-    }
-
-    /// TODO: Add docs
-    #[cfg(feature = "leases")]
-    pub fn with_flags(server: TaskId, flags: u16) -> Self {
-        Self {
-            server,
-            flags: flags & SUPPORTED_FLAGS,
-        }
+        Self { server }
     }
 }
 
@@ -60,9 +48,18 @@ impl Io for IpcClientIo {
         outgoing: &[u8],
         incoming: &'a mut [u8],
     ) -> Result<&'a [u8], Self::Error> {
-        let rqst_leased = LEASES && self.flags & FLAG_RQST_LEASED != 0;
-        let resp_leased = LEASES && self.flags & FLAG_RESP_LEASED != 0;
-        let op = operation(self.flags);
+        // TODO: Discuss why the request uses the frame length but the
+        // response uses the buffer capacity.
+        let rqst_leased = LEASES && outgoing.len() > LEASE_THRESHOLD;
+        let resp_leased = LEASES && incoming.len() > LEASE_THRESHOLD;
+        let mut flags = 0;
+        if rqst_leased {
+            flags |= FLAG_RQST_LEASED;
+        }
+        if resp_leased {
+            flags |= FLAG_RESP_LEASED;
+        }
+        let op = operation(flags);
         let mut resp_len = [0u8; RESP_LEN_SIZE];
 
         let (code, len) = match (rqst_leased, resp_leased) {
@@ -115,27 +112,17 @@ impl Io for IpcClientIo {
 }
 
 /// TODO: Add docs
-pub struct IpcClient<S> {
+pub struct IpcClient<S: 'static> {
     io: IpcClientIo,
-    storage: S,
+    storage: &'static mut S,
     seqno: u16,
 }
 
 impl<S: Storage> IpcClient<S> {
     /// TODO: Add docs
-    pub fn new(server: TaskId, storage: S) -> Self {
+    pub fn new(server: TaskId, storage: &'static mut S) -> Self {
         Self {
             io: IpcClientIo::new(server),
-            storage,
-            seqno: 0,
-        }
-    }
-
-    /// TODO: Add docs
-    #[cfg(feature = "leases")]
-    pub fn with_flags(server: TaskId, storage: S, flags: u16) -> Self {
-        Self {
-            io: IpcClientIo::with_flags(server, flags),
             storage,
             seqno: 0,
         }
@@ -155,6 +142,6 @@ impl<S: Storage> Backend for IpcClient<S> {
     #[inline]
     fn parts(&mut self) -> (&mut Self::Storage, &mut Self::Io) {
         let Self { io, storage, .. } = self;
-        (storage, io)
+        (&mut **storage, io)
     }
 }

@@ -36,6 +36,9 @@ pub const SUPPORTED_FLAGS: u16 = if LEASES {
 };
 
 /// TODO: Add docs
+pub const LEASE_THRESHOLD: usize = 256;
+
+/// TODO: Add docs
 pub const RESP_LEN_SIZE: usize = core::mem::size_of::<u32>();
 
 /// TODO: Add docs

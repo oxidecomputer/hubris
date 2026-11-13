@@ -8,17 +8,18 @@
 #![cfg_attr(target_os = "none", no_main)]
 
 use postcard_schema_ng::key::Key;
+use static_cell::ClaimOnceCell;
 use task_temperance_demo_api::{
-    AddError, AddRequest, MaxLenByteSlice,
+    AddError, AddRequest, FillRequest, MaxLenByteSlice,
     demo::{self, Client},
+    demo_bulk::{self, Client as _},
+    demo_upload::{self, Client as _},
 };
 use temperance::{
     ClientError, ClientIoError, autobuffer, interface::Method,
     io::client::Backend, wire::WireError,
 };
 use temperance_ipc::IpcClient;
-#[cfg(feature = "leases")]
-use temperance_ipc::{FLAG_RESP_LEASED, FLAG_RQST_LEASED};
 use userlib::{hl::sleep_for, task_slot};
 
 task_slot!(SERVER, server);
@@ -34,6 +35,16 @@ macro_rules! log {
 }
 
 autobuffer!(DemoBufs, demo);
+autobuffer!(UploadBufs, demo_upload);
+autobuffer!(BulkBufs, demo_bulk);
+
+static DEMO_BUFS: ClaimOnceCell<DemoBufs> = ClaimOnceCell::new(DemoBufs::new());
+static UPLOAD_BUFS: ClaimOnceCell<UploadBufs> =
+    ClaimOnceCell::new(UploadBufs::new());
+static BULK_BUFS: ClaimOnceCell<BulkBufs> = ClaimOnceCell::new(BulkBufs::new());
+
+const SMALL_LEN: usize = 16;
+const LARGE_LEN: usize = 400;
 
 const PERIOD: u64 = 100;
 const LOG_EVERY: u32 = 10;
@@ -44,9 +55,69 @@ fn checksum(bytes: &[u8]) -> u32 {
         .fold(0u32, |acc, &b| acc.rotate_left(5) ^ u32::from(b))
 }
 
-type DemoClient = IpcClient<DemoBufs>;
+static LARGE: ClaimOnceCell<[u8; LARGE_LEN]> =
+    ClaimOnceCell::new([0; LARGE_LEN]);
 
-fn run_checks(client: &mut DemoClient, round: u32, expected_total: &mut u64) {
+fn fill_pattern(buf: &mut [u8], round: u32) {
+    for (i, b) in buf.iter_mut().enumerate() {
+        *b = (i as u32).wrapping_add(round) as u8;
+    }
+}
+
+fn pattern<const N: usize>(round: u32) -> [u8; N] {
+    let mut buf = [0; N];
+    fill_pattern(&mut buf, round);
+    buf
+}
+
+fn byte_sum(bytes: &[u8]) -> u32 {
+    bytes
+        .iter()
+        .fold(0u32, |acc, &b| acc.wrapping_add(u32::from(b)))
+}
+
+fn upload_checks(
+    client: &mut IpcClient<UploadBufs>,
+    large: &mut [u8; LARGE_LEN],
+    round: u32,
+) {
+    let small: [u8; SMALL_LEN] = pattern(round);
+    let rqst = MaxLenByteSlice::try_from(&small).unwrap();
+    assert_eq!(client.sum(&rqst).unwrap().body, byte_sum(&small));
+
+    fill_pattern(large, round);
+    let rqst = MaxLenByteSlice::try_from(&*large).unwrap();
+    assert_eq!(client.sum(&rqst).unwrap().body, byte_sum(&large[..]));
+}
+
+fn bulk_checks(
+    client: &mut IpcClient<BulkBufs>,
+    large: &mut [u8; LARGE_LEN],
+    round: u32,
+) {
+    let byte = round as u8;
+    let fill = FillRequest {
+        byte,
+        len: LARGE_LEN as u16,
+    };
+    let resp = client.fill(&fill).unwrap().body;
+    assert_eq!(resp.len(), LARGE_LEN);
+    assert!(resp.iter().all(|&b| b == byte));
+
+    let small: [u8; SMALL_LEN] = pattern(round);
+    let rqst = MaxLenByteSlice::try_from(&small).unwrap();
+    assert_eq!(&*client.echo(&rqst).unwrap().body, &small[..]);
+
+    fill_pattern(large, round);
+    let rqst = MaxLenByteSlice::try_from(&*large).unwrap();
+    assert_eq!(&*client.echo(&rqst).unwrap().body, &large[..]);
+}
+
+fn demo_checks(
+    client: &mut IpcClient<DemoBufs>,
+    round: u32,
+    expected_total: &mut u64,
+) {
     let sum = client.add(&AddRequest { a: 2, b: round }).unwrap().body;
     assert_eq!(sum, Ok(2 + round));
 
@@ -88,39 +159,19 @@ fn run_checks(client: &mut DemoClient, round: u32, expected_total: &mut u64) {
 #[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
 fn main() -> ! {
     let server = SERVER.get_task_id();
-    let mut clients = [
-        ("inline", IpcClient::new(server, DemoBufs::new())),
-        #[cfg(feature = "leases")]
-        (
-            "rqst-leased",
-            IpcClient::with_flags(server, DemoBufs::new(), FLAG_RQST_LEASED),
-        ),
-        #[cfg(feature = "leases")]
-        (
-            "resp-leased",
-            IpcClient::with_flags(server, DemoBufs::new(), FLAG_RESP_LEASED),
-        ),
-        #[cfg(feature = "leases")]
-        (
-            "both-leased",
-            IpcClient::with_flags(
-                server,
-                DemoBufs::new(),
-                FLAG_RQST_LEASED | FLAG_RESP_LEASED,
-            ),
-        ),
-    ];
+    let mut small = IpcClient::new(server, DEMO_BUFS.claim());
+    let mut upload = IpcClient::new(server, UPLOAD_BUFS.claim());
+    let mut bulk = IpcClient::new(server, BULK_BUFS.claim());
+    let large = LARGE.claim();
     let mut expected_total = 0u64;
     let mut round = 0u32;
 
-    for (name, _) in &clients {
-        log!("mode: {name}");
-    }
+    log!("started");
     loop {
         round = round.wrapping_add(1);
-        for (_, client) in &mut clients {
-            run_checks(client, round, &mut expected_total);
-        }
+        demo_checks(&mut small, round, &mut expected_total);
+        upload_checks(&mut upload, large, round);
+        bulk_checks(&mut bulk, large, round);
         if round % LOG_EVERY == 1 {
             log!("round {round} ok, total {expected_total}");
         }

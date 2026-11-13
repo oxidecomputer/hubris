@@ -8,7 +8,7 @@ use ringbuf::{counted_ringbuf, ringbuf_entry};
 use temperance::{
     Served, ServerError, ServerIoError,
     io::{
-        Storage,
+        Storage, StorageView,
         server::{Backend, Io, RawIoFrame},
     },
 };
@@ -19,8 +19,8 @@ use userlib::{
 };
 
 use crate::{
-    FLAG_RESP_LEASED, FLAG_RQST_LEASED, LEASES, REPLY_OK, REPLY_SERVER_FAILED,
-    RESP_LEN_SIZE, decode_operation,
+    FLAG_RESP_LEASED, FLAG_RQST_LEASED, LEASE_THRESHOLD, LEASES, REPLY_OK,
+    REPLY_SERVER_FAILED, RESP_LEN_SIZE, decode_operation,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, counters::Count)]
@@ -314,6 +314,15 @@ pub struct IpcBackend<S: 'static> {
 impl<S: Storage> IpcBackend<S> {
     /// TODO: Add docs
     pub fn new(io: IpcServer, storage: &'static mut S) -> Self {
+        // TODO: Discuss why large servers need the `leases` feature.
+        if !LEASES {
+            let StorageView { rqst_buf, resp_buf } = storage.buffers();
+            assert!(
+                rqst_buf.len() <= LEASE_THRESHOLD
+                    && resp_buf.len() <= LEASE_THRESHOLD,
+                "temperance-ipc: buffers over LEASE_THRESHOLD need `leases`",
+            );
+        }
         Self { io, storage }
     }
 

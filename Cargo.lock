@@ -6974,6 +6974,7 @@ name = "task-temperance-demo-client"
 version = "0.1.0"
 dependencies = [
  "postcard-schema-ng",
+ "static-cell",
  "task-temperance-demo-api",
  "temperance",
  "temperance-ipc",

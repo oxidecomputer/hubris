@@ -30,6 +30,18 @@ pub enum AddError {
 /// TODO: Add docs
 pub const CHECKSUM_MAX_LEN: usize = 32;
 
+/// TODO: Add docs
+pub const BULK_MAX_LEN: usize = 512;
+
+/// TODO: Add docs
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Schema)]
+pub struct FillRequest {
+    /// TODO: Add docs
+    pub byte: u8,
+    /// TODO: Add docs
+    pub len: u16,
+}
+
 interface! {
     /// TODO: Add docs
     mod demo {
@@ -39,5 +51,24 @@ interface! {
         fn bump(u32) -> u64;
         /// TODO: Add docs
         fn checksum(MaxLenByteSlice<'rqst, CHECKSUM_MAX_LEN>) -> u32;
+    }
+}
+
+interface! {
+    /// TODO: Add docs
+    mod demo_upload {
+        /// TODO: Add docs
+        fn sum(MaxLenByteSlice<'rqst, BULK_MAX_LEN>) -> u32;
+    }
+}
+
+interface! {
+    /// TODO: Add docs
+    mod demo_bulk {
+        /// TODO: Add docs
+        fn fill(FillRequest) -> MaxLenByteSlice<'resp, BULK_MAX_LEN>;
+        /// TODO: Add docs
+        fn echo(MaxLenByteSlice<'rqst, BULK_MAX_LEN>)
+            -> MaxLenByteSlice<'resp, BULK_MAX_LEN>;
     }
 }
