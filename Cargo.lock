@@ -3202,6 +3202,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "fake-packrat"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "gateway-ereport-messages",
+ "host-test-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "task-packrat-api",
+ "userlib",
+ "zerocopy 0.8.63",
+ "zerocopy-derive 0.8.63",
+]
+
+[[package]]
 name = "fake-sys"
 version = "0.1.0"
 dependencies = [
