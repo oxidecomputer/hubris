@@ -7,7 +7,6 @@ edition = "2024"
 leases = ["temperance-ipc/leases"]
 
 [dependencies]
-postcard-schema-ng = { version = "0.4.0", default-features = false }
 static-cell = { path = "../../lib/static-cell" }
 task-temperance-demo-api = { path = "../temperance-demo-api" }
 temperance.workspace = true

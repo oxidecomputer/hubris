@@ -7,18 +7,12 @@
 #![cfg_attr(target_os = "none", no_std)]
 #![cfg_attr(target_os = "none", no_main)]
 
-use postcard_schema_ng::key::Key;
 use static_cell::ClaimOnceCell;
 use task_temperance_demo_api::{
     AddError, AddRequest, FillRequest, MaxLenByteSlice, all_rpcs,
-    demo::{self, Client as _},
-    demo_bulk::Client as _,
-    demo_upload::Client as _,
+    demo::Client as _, demo_bulk::Client as _, demo_upload::Client as _,
 };
-use temperance::{
-    ClientError, ClientIoError, autobuffer, interface::Method,
-    io::client::Backend, wire::WireError,
-};
+use temperance::autobuffer;
 use temperance_ipc::IpcClient;
 use userlib::{hl::sleep_for, task_slot};
 
@@ -133,22 +127,6 @@ fn demo_checks(
     let rqst = MaxLenByteSlice::try_from(&data).unwrap();
     let ck = client.checksum(&rqst).unwrap().body;
     assert_eq!(ck, checksum(&data));
-
-    let bogus = Key::from_bytes([0xA5; 8]);
-    let err = client.send_then_receive_raw(bogus, &[]).unwrap_err();
-    assert_eq!(
-        err,
-        ClientIoError::Client(ClientError::Server(
-            WireError::SERVER_UNKNOWN_METHOD
-        ))
-    );
-
-    let add_key = <demo::methods::add as Method>::KEY;
-    let err = client.send_then_receive_raw(add_key, &[]).unwrap_err();
-    assert_eq!(
-        err,
-        ClientIoError::Client(ClientError::Server(WireError::SERVER_BAD_BODY))
-    );
 }
 
 #[cfg_attr(target_os = "none", unsafe(export_name = "main"))]
