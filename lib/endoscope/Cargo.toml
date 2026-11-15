@@ -9,7 +9,6 @@ resolver = "2"
 # enable the appropriate time and space efficient options.
 
 [dependencies]
-cortex-m = { workspace = true, default-features = false }
 cortex-m-rt = { workspace = true, default-features = false, features = ["device"] }
 panic-halt = { workspace = true, default-features = false }
 sha3 = { workspace = true, default-features = false }

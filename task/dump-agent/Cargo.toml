@@ -7,7 +7,6 @@ edition = "2024"
 target = "thumbv7em-none-eabihf"
 
 [dependencies]
-cortex-m.workspace = true
 hubpack.workspace = true
 humpty.workspace = true
 idol-runtime.workspace = true

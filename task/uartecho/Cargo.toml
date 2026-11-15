@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-cortex-m = { workspace = true }
 heapless = { workspace = true }
 
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", optional = true }
