@@ -542,9 +542,15 @@ impl FlashDriver {
             // Initiate an abort
             self.hash.control.modify(|m| m.set_abort(true));
 
-            // Wait AT MOST the hash timeout time
+            // Wait AT MOST the hash timeout time again for the abort to be
+            // acknowledged.
             let start = sys_get_timer().now;
-            while sys_get_timer().now.saturating_sub(start) < HASH_TIMEOUT_MS {
+            loop {
+                let now = sys_get_timer().now;
+                if now.saturating_sub(start) >= HASH_TIMEOUT_MS {
+                    break;
+                }
+
                 let status = self.hash.status.view();
                 // If we get anything that looks like "done" from the FPGA, then
                 // stop waiting.
@@ -552,6 +558,11 @@ impl FlashDriver {
                     ringbuf_entry!(Trace::FpgaHashAborted);
                     break;
                 }
+
+                // Since this could take on the order of ~seconds, be nice and
+                // yield control. It's okay if this is sometimes less than a
+                // full ms tick.
+                sleep_until(now.saturating_add(1));
             }
 
             // ACK'd or not, the initial measurement timed out.
