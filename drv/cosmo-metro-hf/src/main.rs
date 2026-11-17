@@ -546,16 +546,16 @@ impl FlashDriver {
             // acknowledged.
             let start = sys_get_timer().now;
             loop {
-                let now = sys_get_timer().now;
-                if now.saturating_sub(start) >= HASH_TIMEOUT_MS {
+                // If we get anything that looks like "done" from the FPGA, then
+                // stop waiting.
+                let status = self.hash.status.view();
+                if status.cfg_err || status.aborted || status.done {
+                    ringbuf_entry!(Trace::FpgaHashAborted);
                     break;
                 }
 
-                let status = self.hash.status.view();
-                // If we get anything that looks like "done" from the FPGA, then
-                // stop waiting.
-                if status.cfg_err || status.aborted || status.done {
-                    ringbuf_entry!(Trace::FpgaHashAborted);
+                let now = sys_get_timer().now;
+                if now.saturating_sub(start) >= HASH_TIMEOUT_MS {
                     break;
                 }
 
