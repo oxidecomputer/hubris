@@ -524,6 +524,20 @@ impl ServerImpl {
                     h.set_amd_rstn_fedge(false);
                 });
 
+                // Take our measurement for attestation purposes. We don't
+                // want to block sequencing if there is a measurement error
+                // so we ignore it for now (maybe we will make a different
+                // choice in the future!)
+                //
+                // Measurement must happen before we transition to A0 to avoid
+                // racing with the PSP for host flash access, AND before we give
+                // control to the HostCPU
+                let start = sys_get_timer().now;
+                ringbuf_entry!(Trace::MeasureStart(start));
+                let _ = self.hf.measure();
+                let end = sys_get_timer().now;
+                ringbuf_entry!(Trace::MeasureTime(end.saturating_sub(start)));
+
                 // Tell the sequencer to go to A0
                 self.seq.power_ctrl.modify(|m| m.set_a0_en(true));
 
@@ -632,18 +646,6 @@ impl ServerImpl {
 
                 // Turn on the voltage regulator undervolt alerts.
                 self.enable_sequencer_interrupts();
-
-                // Take our measurement for attestation purposes. We don't
-                // want to block sequencing if there is a measurement error
-                // so we ignore it for now (maybe we will make a different
-                // choice in the future!)
-                //
-                // Measurement must happen before we give control to the HostCPU
-                let start = sys_get_timer().now;
-                ringbuf_entry!(Trace::MeasureStart(start));
-                let _ = self.hf.measure();
-                let end = sys_get_timer().now;
-                ringbuf_entry!(Trace::MeasureTime(end.saturating_sub(start)));
 
                 // Flip the host flash mux so the CPU can read from it
                 // (this is secretly infallible on Cosmo, so we can unwrap it)
