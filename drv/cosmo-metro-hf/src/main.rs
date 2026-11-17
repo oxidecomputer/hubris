@@ -503,10 +503,11 @@ impl FlashDriver {
         });
 
         // Max amount of time we will spend waiting for the hash to complete.
-        // TODO: link to quartz issue for this.
+        // See: https://github.com/oxidecomputer/quartz/issues/547
+        //
         // TODO: 10s may be *way* too much, I measured 1.029s on a cosmo, may
         // be different across images or for metro.
-        const HASH_TIMEOUT: u64 = 10_000;
+        const HASH_TIMEOUT_MS: u64 = 10_000;
 
         let start = sys_get_timer().now;
         loop {
@@ -526,7 +527,7 @@ impl FlashDriver {
             // Has it taken an unreasonable amount of time to calculate the
             // hash?
             let now = sys_get_timer().now;
-            if now.saturating_sub(start) >= HASH_TIMEOUT {
+            if now.saturating_sub(start) >= HASH_TIMEOUT_MS {
                 // TODO: trigger abort sequence?
                 ringbuf_entry!(Trace::FpgaHashTimeout);
                 return Err(drv_hf_api::HfError::QspiTimeout);
