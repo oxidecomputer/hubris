@@ -5,7 +5,6 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2024"
 
 [dependencies]
-cortex-m = { workspace = true }
 enum-map = { workspace = true }
 heapless = { workspace = true }
 hubpack = { workspace = true }

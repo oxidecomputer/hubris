@@ -12,7 +12,6 @@ g0b1 = ["stm32g0/stm32g0b1"]
 dump = ["kern/dump"]
 
 [dependencies]
-cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 stm32g0 = { workspace = true, features = ["rt"] }
 

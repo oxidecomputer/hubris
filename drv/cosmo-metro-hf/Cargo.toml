@@ -13,7 +13,6 @@ static-cell = { path = "../../lib/static-cell" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 apob = { workspace = true }
-cortex-m = { workspace = true }
 crc = { workspace = true }
 hubpack = { workspace = true }
 idol-runtime = { workspace = true }
