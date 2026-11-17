@@ -14,7 +14,11 @@
 #![no_main]
 
 use ringbuf::{counted_ringbuf, ringbuf_entry};
-use userlib::{UnwrapLite, hl::sleep_for, task_slot};
+use userlib::{
+    UnwrapLite,
+    hl::{sleep_for, sleep_until},
+    sys_get_timer, task_slot,
+};
 use zerocopy::IntoBytes;
 
 mod apob; // Details for APOB structs
@@ -44,6 +48,7 @@ enum Trace {
     AsyncTime(u64),
     FpgaHashCfgErr,
     FpgaHashAborted,
+    FpgaHashTimeout,
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);
@@ -496,6 +501,14 @@ impl FlashDriver {
         self.hash.control.modify(|m| {
             m.set_start(true);
         });
+
+        // Max amount of time we will spend waiting for the hash to complete.
+        // TODO: link to quartz issue for this.
+        // TODO: 10s may be *way* too much, I measured 1.029s on a cosmo, may
+        // be different across images or for metro.
+        const HASH_TIMEOUT: u64 = 10_000;
+
+        let start = sys_get_timer().now;
         loop {
             let status = self.hash.status.view();
             if status.cfg_err {
@@ -509,6 +522,19 @@ impl FlashDriver {
             if status.done {
                 break;
             }
+
+            // Has it taken an unreasonable amount of time to calculate the
+            // hash?
+            let now = sys_get_timer().now;
+            if now.saturating_sub(start) >= HASH_TIMEOUT {
+                // TODO: trigger abort sequence?
+                ringbuf_entry!(Trace::FpgaHashTimeout);
+                return Err(drv_hf_api::HfError::QspiTimeout);
+            }
+
+            // Since this takes on the order of ~seconds, be nice and yield
+            // control. It's okay if this is sometimes less than a full ms tick.
+            sleep_until(now.saturating_add(1));
         }
 
         let result = [

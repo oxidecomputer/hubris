@@ -119,6 +119,8 @@ enum Trace {
     },
     UnexpectedInterrupt,
     CPUNotPresent,
+    MeasureStart(u64),
+    MeasureTime(u64),
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -637,7 +639,12 @@ impl ServerImpl {
                 // choice in the future!)
                 //
                 // Measurement must happen before we give control to the HostCPU
+                let start = sys_get_timer().now;
+                ringbuf_entry!(Trace::MeasureStart(start));
                 let _ = self.hf.measure();
+                let end = sys_get_timer().now;
+                ringbuf_entry!(Trace::MeasureTime(end.saturating_sub(start)));
+
                 // Flip the host flash mux so the CPU can read from it
                 // (this is secretly infallible on Cosmo, so we can unwrap it)
                 self.hf.set_mux(drv_hf_api::HfMuxState::HostCPU).unwrap();
