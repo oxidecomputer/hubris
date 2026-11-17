@@ -503,14 +503,14 @@ impl FlashDriver {
         });
 
         // Max amount of time we will spend waiting for the hash to complete.
-        // See: https://github.com/oxidecomputer/quartz/issues/547
+        // See: https://github.com/oxidecomputer/hubris/issues/2785
         //
-        // TODO: 10s may be *way* too much, I measured 1.029s on a cosmo, may
-        // be different across images or for metro.
+        // 10s may be *way* too much, I measured 1.029s on a cosmo, may also be
+        // different across images or for metro.
         const HASH_TIMEOUT_MS: u64 = 10_000;
 
         let start = sys_get_timer().now;
-        loop {
+        let timed_out = loop {
             let status = self.hash.status.view();
             if status.cfg_err {
                 ringbuf_entry!(Trace::FpgaHashCfgErr);
@@ -521,37 +521,58 @@ impl FlashDriver {
                 return Err(drv_hf_api::HfError::HashError);
             }
             if status.done {
-                break;
+                break false;
             }
 
             // Has it taken an unreasonable amount of time to calculate the
             // hash?
             let now = sys_get_timer().now;
             if now.saturating_sub(start) >= HASH_TIMEOUT_MS {
-                // TODO: trigger abort sequence?
                 ringbuf_entry!(Trace::FpgaHashTimeout);
-                return Err(drv_hf_api::HfError::QspiTimeout);
+                break true;
             }
 
             // Since this takes on the order of ~seconds, be nice and yield
             // control. It's okay if this is sometimes less than a full ms tick.
             sleep_until(now.saturating_add(1));
+        };
+
+        // If we timed out, attempt to initiate an abort of the hashing process.
+        if timed_out {
+            // Initiate an abort
+            self.hash.control.modify(|m| m.set_abort(true));
+
+            // Wait AT MOST the hash timeout time
+            let start = sys_get_timer().now;
+            while sys_get_timer().now.saturating_sub(start) < HASH_TIMEOUT_MS {
+                let status = self.hash.status.view();
+                // If we get anything that looks like "done" from the FPGA, then
+                // stop waiting.
+                if status.cfg_err || status.aborted || status.done {
+                    ringbuf_entry!(Trace::FpgaHashAborted);
+                    break;
+                }
+            }
+
+            // ACK'd or not, the initial measurement timed out.
+            Err(drv_hf_api::HfError::QspiTimeout)
+        } else {
+            // No timeout, grab the result
+            let result = [
+                u32::from_le(self.hash.digest0.view().data),
+                u32::from_le(self.hash.digest1.view().data),
+                u32::from_le(self.hash.digest2.view().data),
+                u32::from_le(self.hash.digest3.view().data),
+                u32::from_le(self.hash.digest4.view().data),
+                u32::from_le(self.hash.digest5.view().data),
+                u32::from_le(self.hash.digest6.view().data),
+                u32::from_le(self.hash.digest7.view().data),
+            ];
+
+            // `IntoBytes` supplies the as_bytes
+            sha256_sum.copy_from_slice(result.as_bytes());
+            Ok(sha256_sum)
         }
-
-        let result = [
-            u32::from_le(self.hash.digest0.view().data),
-            u32::from_le(self.hash.digest1.view().data),
-            u32::from_le(self.hash.digest2.view().data),
-            u32::from_le(self.hash.digest3.view().data),
-            u32::from_le(self.hash.digest4.view().data),
-            u32::from_le(self.hash.digest5.view().data),
-            u32::from_le(self.hash.digest6.view().data),
-            u32::from_le(self.hash.digest7.view().data),
-        ];
-
-        // `IntoBytes` supplies the as_bytes
-        sha256_sum.copy_from_slice(result.as_bytes());
-        Ok(sha256_sum)
     }
 }
 
