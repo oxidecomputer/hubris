@@ -21,10 +21,6 @@ task-jefe-api = { path = "../jefe-api" }
 userlib = { path = "../../sys/userlib" }
 static-cell = { path = "../../lib/static-cell" }
 
-# We only need cortex-m on non-host targets
-[target.'cfg(target_os = "none")'.dependencies]
-cortex-m = { workspace = true }
-
 [build-dependencies]
 anyhow = { workspace = true }
 idol = { workspace = true }

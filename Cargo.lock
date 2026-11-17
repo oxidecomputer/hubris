@@ -159,7 +159,6 @@ name = "app-donglet"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "cortex-m-rt",
  "kern",
  "stm32g0",
@@ -1077,7 +1076,6 @@ checksum = "ffe7ed1d93f4553003e20b629abe9085e1e81b1429520f897f8f8860bc6dfc21"
 name = "demo-stm32f4-discovery"
 version = "0.1.0"
 dependencies = [
- "cortex-m",
  "cortex-m-rt",
  "kern",
  "stm32f3",
@@ -1089,7 +1087,6 @@ name = "demo-stm32g0-nucleo"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "cortex-m-rt",
  "kern",
  "stm32g0",
@@ -1305,7 +1302,6 @@ dependencies = [
  "apob",
  "build-fpga-regmap",
  "build-util",
- "cortex-m",
  "counters",
  "crc",
  "drv-hash-api",
@@ -1555,7 +1551,6 @@ dependencies = [
  "build-i2c",
  "build-stm32xx-sys",
  "build-util",
- "cortex-m",
  "counters",
  "drv-cpu-power-state",
  "drv-cpu-seq-api",
@@ -1939,7 +1934,6 @@ dependencies = [
 name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
- "cortex-m",
  "drv-lpc55-syscon-api",
  "idol",
  "idol-runtime",
@@ -2064,7 +2058,6 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
- "cortex-m",
  "drv-fpga-api",
  "drv-fpga-user-api",
  "drv-front-io-api",
@@ -2381,7 +2374,6 @@ dependencies = [
  "build-i2c",
  "build-util",
  "byteorder",
- "cortex-m",
  "counters",
  "drv-fpga-api",
  "drv-fpga-user-api",
@@ -2548,7 +2540,6 @@ name = "drv-stm32g0-usart"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "drv-stm32xx-sys-api",
  "idol",
  "num-traits",
@@ -2569,7 +2560,6 @@ dependencies = [
 name = "drv-stm32h7-eth"
 version = "0.1.0"
 dependencies = [
- "cortex-m",
  "stm32h7",
  "userlib",
 ]
@@ -2579,7 +2569,6 @@ name = "drv-stm32h7-fmc-demo-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "counters",
  "hubpack",
  "idol",
@@ -2670,7 +2659,6 @@ dependencies = [
  "build-spi",
  "build-util",
  "call_rustfmt",
- "cortex-m",
  "counters",
  "drv-spi-api",
  "drv-stm32h7-spi",
@@ -2791,7 +2779,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cortex-m",
  "drv-i2c-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
@@ -3080,7 +3067,6 @@ checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 name = "endoscope"
 version = "0.1.0"
 dependencies = [
- "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "endoscope-abi",
@@ -3317,7 +3303,6 @@ name = "gemini-bu"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
@@ -3385,7 +3370,6 @@ name = "gimletlet"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
@@ -6344,7 +6328,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
- "cortex-m",
  "drv-sprot-api",
  "dump-agent-api",
  "dumper-api",
@@ -6436,7 +6419,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cortex-m",
  "drv-cpu-seq-api",
  "drv-i2c-api",
  "drv-stm32xx-i2c",
@@ -6459,7 +6441,6 @@ dependencies = [
  "build-i2c",
  "build-util",
  "byteorder",
- "cortex-m",
  "drv-hash-api",
  "drv-hf-api",
  "drv-i2c-api",
@@ -6491,7 +6472,6 @@ dependencies = [
  "build-i2c",
  "build-util",
  "corncobs",
- "cortex-m",
  "counters",
  "drv-auxflash-api",
  "drv-cpu-seq-api",
@@ -6563,7 +6543,6 @@ dependencies = [
  "anyhow",
  "armv6m-atomic-hack",
  "build-util",
- "cortex-m",
  "hubpack",
  "hubris-num-tasks",
  "humpty",
@@ -6637,7 +6616,6 @@ dependencies = [
  "anyhow",
  "build-net",
  "build-util",
- "cortex-m",
  "counters",
  "drv-cpu-seq-api",
  "drv-medusa-seq-api",
@@ -6774,7 +6752,6 @@ name = "task-ping"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "drv-user-leds-api",
  "idol",
  "userlib",
@@ -6785,7 +6762,6 @@ name = "task-pong"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "drv-user-leds-api",
  "idol",
  "userlib",
@@ -6798,7 +6774,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cortex-m",
  "drv-cpu-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -6872,7 +6847,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
- "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
  "hubpack",
@@ -6919,7 +6893,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
  "idol",
@@ -6968,7 +6941,6 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
- "cortex-m",
  "counters",
  "drv-cpu-seq-api",
  "drv-spartan7-loader-api",
@@ -7006,7 +6978,6 @@ dependencies = [
  "bitflags 2.9.4",
  "build-i2c",
  "build-util",
- "cortex-m",
  "counters",
  "drv-cpu-seq-api",
  "drv-i2c-api",
@@ -7056,7 +7027,6 @@ name = "task-uartecho"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "drv-stm32h7-usart",
  "heapless 0.7.17",
  "idol",
@@ -7112,7 +7082,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
  "hubpack",
@@ -7157,7 +7126,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
  "idol",
@@ -7223,7 +7191,6 @@ name = "test-assist"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cortex-m",
  "hubris-num-tasks",
  "num-traits",
  "test-api",
@@ -7270,7 +7237,6 @@ version = "0.1.0"
 dependencies = [
  "armv6m-atomic-hack",
  "build-util",
- "cortex-m",
  "hubris-num-tasks",
  "num-traits",
  "ringbuf",
@@ -7287,7 +7253,6 @@ dependencies = [
  "abi",
  "build-i2c",
  "build-util",
- "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
  "hubris-num-tasks",
