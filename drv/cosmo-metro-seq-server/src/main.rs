@@ -119,6 +119,8 @@ enum Trace {
     },
     UnexpectedInterrupt,
     CPUNotPresent,
+    MeasureStart(u64),
+    MeasureTime(u64),
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -522,6 +524,26 @@ impl ServerImpl {
                     h.set_amd_rstn_fedge(false);
                 });
 
+                // Take our measurement for attestation purposes. We don't
+                // want to block sequencing if there is a measurement error
+                // so we ignore it for now (maybe we will make a different
+                // choice in the future!)
+                //
+                // Measurement must happen before we transition to A0 to avoid
+                // racing with the PSP for host flash access, AND before we give
+                // control to the HostCPU
+                let start = sys_get_timer().now;
+                ringbuf_entry!(Trace::MeasureStart(start));
+                let _ = self.hf.measure();
+                let end = sys_get_timer().now;
+                ringbuf_entry!(Trace::MeasureTime(end.saturating_sub(start)));
+
+                // Now that measurement is complete, give the mux over to the
+                // host, as the host will start accessing the flash as soon as
+                // it starts to boot. This is secretly infallible on Cosmo, so
+                // we can unwrap it.
+                self.hf.set_mux(drv_hf_api::HfMuxState::HostCPU).unwrap();
+
                 // Tell the sequencer to go to A0
                 self.seq.power_ctrl.modify(|m| m.set_a0_en(true));
 
@@ -577,6 +599,9 @@ impl ServerImpl {
                     self.log_pg_registers();
                     self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
 
+                    // Take back the mux as we are moving back to A2.
+                    self.hf.set_mux(drv_hf_api::HfMuxState::SP).unwrap();
+
                     return Err(err);
                 }
 
@@ -625,22 +650,15 @@ impl ServerImpl {
                         },
                     };
                     let _ = self.ereporter.deliver_ereport(&ereport);
+
+                    // Take back the mux as we are moving back to A2.
+                    self.hf.set_mux(drv_hf_api::HfMuxState::SP).unwrap();
+
                     return Err(CpuSeqError::UnrecognizedCPU);
                 }
 
                 // Turn on the voltage regulator undervolt alerts.
                 self.enable_sequencer_interrupts();
-
-                // Take our measurement for attestation purposes. We don't
-                // want to block sequencing if there is a measurement error
-                // so we ignore it for now (maybe we will make a different
-                // choice in the future!)
-                //
-                // Measurement must happen before we give control to the HostCPU
-                let _ = self.hf.measure();
-                // Flip the host flash mux so the CPU can read from it
-                // (this is secretly infallible on Cosmo, so we can unwrap it)
-                self.hf.set_mux(drv_hf_api::HfMuxState::HostCPU).unwrap();
             }
             (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
