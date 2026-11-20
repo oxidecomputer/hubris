@@ -138,9 +138,10 @@ counted_ringbuf!(Trace, 16, Trace::None);
 
 /// A record of a "temperature glitch" event where two subsequent samples
 /// disagreed by more than `MAX_RESAMPLE_VARIANCE_CELSIUS`.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, counters::Count)]
 struct TempGlitch {
     /// The port this was observed on
+    #[count(children)]
     port: LogicalPort,
     /// The first temperature reading
     first: Celsius,
@@ -165,22 +166,6 @@ impl TempGlitch {
         second: Celsius(0.0),
         timestamp_ms: 0,
     };
-}
-
-/// Keep counters for how often each port has experienced temperature glitches.
-///
-/// This *does not* reset when ports are disabled or qsfp xcvrs are removed or
-/// re-added. We just pass-through to the existing LogicalPort impl of Count.
-impl Count for TempGlitch {
-    type Counters = <LogicalPort as Count>::Counters;
-
-    #[allow(clippy::declare_interior_mutable_const)]
-    const NEW_COUNTERS: Self::Counters = <LogicalPort as Count>::NEW_COUNTERS;
-
-    #[inline]
-    fn count(&self, counters: &Self::Counters) {
-        self.port.count(counters);
-    }
 }
 
 // Keep a record of the last 32 times the delta between two samples exceeded
