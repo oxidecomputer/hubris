@@ -387,20 +387,22 @@ enum I2cTrace {
 // de-duplicated. Thus, disable it.
 counted_ringbuf!(__I2C_TRACE, I2cTrace, 32, I2cTrace::None, no_dedup);
 
-/// PSU numbers represented as an enum. This is intended for use with
-/// `counted_ringbuf!`, instead of representing PSU numbers as raw u8s, which
-/// cannot derive `counters::Count` (and would have to generate a counter table
-/// with 256 entries rather than just 6).
+/// PSU numbers, represented as a newtype around a `u8` that is always in
+/// `0..=5` at runtime.
+///
+/// This is intended for use with `counted_ringbuf!`, instead of representing
+/// PSU numbers as raw `u8`s, which cannot derive `counters::Count` (and would
+/// have to generate a counter table with 256 entries rather than just 6). The
+/// `#[count(max = 5)]` bound (which must be kept in sync with `PSU_COUNT`)
+/// limits the counter table to 6 entries.
+///
+/// Note that, unlike the `#[repr(u8)]` enum this replaced, the `0..=5`
+/// invariant is *not* enforced by the type: `Slot`s should only ever be
+/// produced by indexing [`PSU_SLOTS`], and out-of-range values are counted
+/// in the generated `_other` bucket.
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
-#[repr(u8)]
-enum Slot {
-    Psu0 = 0,
-    Psu1 = 1,
-    Psu2 = 2,
-    Psu3 = 3,
-    Psu4 = 4,
-    Psu5 = 5,
-}
+#[count(max = 5)]
+struct Slot(u8);
 
 // The per-PSU signal definitions in the bsp modules all refer to this constant
 // for the number of PSUs. It's not intended to be easily configurable, since
@@ -416,14 +418,8 @@ pub const PSU_COUNT: usize = 6;
 #[cfg_attr(target_board = "observer-a", path = "bsp/observer_a.rs")]
 mod bsp;
 
-const PSU_SLOTS: [Slot; PSU_COUNT] = [
-    Slot::Psu0,
-    Slot::Psu1,
-    Slot::Psu2,
-    Slot::Psu3,
-    Slot::Psu4,
-    Slot::Psu5,
-];
+const PSU_SLOTS: [Slot; PSU_COUNT] =
+    [Slot(0), Slot(1), Slot(2), Slot(3), Slot(4), Slot(5)];
 
 /// How long to wait after task startup before we start trying to inspect
 /// things.
@@ -1082,20 +1078,13 @@ impl Psu {
             #[cfg(target_board = "observer-a")]
             let mut rail_name = *b"V50_PSUx";
 
-            rail_name[rail_name.len() - 1] = match self.slot {
-                Slot::Psu0 => b'0',
-                Slot::Psu1 => b'1',
-                Slot::Psu2 => b'2',
-                Slot::Psu3 => b'3',
-                Slot::Psu4 => b'4',
-                Slot::Psu5 => b'5',
-            };
+            rail_name[rail_name.len() - 1] = b'0' + self.slot.0;
             FixedString::try_from_utf8(&rail_name[..]).unwrap_lite()
         };
         EreportFields {
             refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
             rail,
-            slot: self.slot as u8,
+            slot: self.slot.0,
             fruid: self.fruid,
         }
     }
