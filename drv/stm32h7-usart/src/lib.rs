@@ -68,12 +68,12 @@ impl Usart {
             usart.cr3.modify(|_, w| w.rtse().enabled().ctse().enabled());
         }
 
-        // Enable the UART in FIFO mode.
-        usart.cr1.write(|w| w.fifoen().set_bit().ue().enabled());
-
-        // set the baud rate
+        // set the baud rate (BRR may only be written while UE=0; see RM0433)
         let cycles_per_bit = (clock_hz + (baud_rate / 2)) / baud_rate;
         usart.brr.write(|w| w.brr().bits(cycles_per_bit as u16));
+
+        // Enable the UART in FIFO mode.
+        usart.cr1.write(|w| w.fifoen().set_bit().ue().enabled());
 
         // Enable the transmitter and receiver.
         usart.cr1.modify(|_, w| w.te().enabled().re().enabled());
